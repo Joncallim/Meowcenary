@@ -31,6 +31,8 @@ export interface ActorPose {
 export interface ActorView {
   update(pose: ActorPose): void;
   writeWorldBounds(output: Phaser.Geom.Rectangle): void;
+  /** Complete composition for viewport framing, including its ground shadow. */
+  writeCompleteWorldBounds(output: Phaser.Geom.Rectangle): void;
   playOneShot(clip: 'hurt' | 'defeat'): void;
   destroy(): void;
 }
@@ -129,6 +131,10 @@ export class PlaceholderView implements ActorView {
 
   playOneShot(): void {}
 
+  writeCompleteWorldBounds(output: Phaser.Geom.Rectangle): void {
+    this.writeWorldBounds(output);
+  }
+
   destroy(): void {
     for (const layer of this.layers) layer.node.destroy();
     this.shadow.node.destroy();
@@ -187,6 +193,22 @@ export class SpriteView implements ActorView {
 
   writeWorldBounds(output: Phaser.Geom.Rectangle): void {
     this.sprite.getBounds(output);
+  }
+
+  writeCompleteWorldBounds(output: Phaser.Geom.Rectangle): void {
+    this.writeWorldBounds(output);
+    if (!this.shadow.node.visible) return;
+    const left = output.x;
+    const top = output.y;
+    const right = output.x + output.width;
+    const bottom = output.y + output.height;
+    this.shadow.node.getBounds(output);
+    const unionRight = Math.max(right, output.x + output.width);
+    const unionBottom = Math.max(bottom, output.y + output.height);
+    output.x = Math.min(left, output.x);
+    output.y = Math.min(top, output.y);
+    output.width = unionRight - output.x;
+    output.height = unionBottom - output.y;
   }
 
   playOneShot(clip: 'hurt' | 'defeat'): void {

@@ -13,7 +13,7 @@ type ArenaFramingDiagnostics = {
     roundPixels: boolean;
   };
   arena: { width: number; height: number };
-  player: { x: number; y: number; bodyRadius: number };
+  player: { x: number; y: number; bodyRadius: number; screenBounds: { x: number; y: number; width: number; height: number }; completePresentationBounds: { x: number; y: number; width: number; height: number } };
   hudLayers: Array<{ type: string; depth: number; alpha: number; fillAlpha?: number }>;
 };
 
@@ -26,8 +26,12 @@ type ArenaFramingSeam = {
 };
 
 function expectedArenaPresentationBounds(diagnostic: ArenaFramingDiagnostics) {
-  const width = Math.max(diagnostic.arena.width, diagnostic.scale.width / diagnostic.camera.zoom);
-  const height = Math.max(diagnostic.arena.height, diagnostic.scale.height / diagnostic.camera.zoom);
+  const actor = diagnostic.player.completePresentationBounds;
+  const player = diagnostic.player;
+  const paddingX = Math.max(0, player.x - actor.x - player.bodyRadius, actor.x + actor.width - player.x - player.bodyRadius);
+  const paddingY = Math.max(0, player.y - actor.y - player.bodyRadius, actor.y + actor.height - player.y - player.bodyRadius);
+  const width = Math.max(diagnostic.arena.width + 2 * paddingX, diagnostic.scale.width / diagnostic.camera.zoom);
+  const height = Math.max(diagnostic.arena.height + 2 * paddingY, diagnostic.scale.height / diagnostic.camera.zoom);
   return {
     x: (diagnostic.arena.width - width) / 2,
     y: (diagnostic.arena.height - height) / 2,
@@ -113,7 +117,7 @@ test('authored arena top is camera-visible and not hidden by an opaque HUD plate
           x: Math.round(diagnostic.camera.worldView.x),
           y: Math.round(diagnostic.camera.worldView.y),
         } : undefined;
-      }).toEqual({ x: Math.round(expectedWorldX), y: 0 });
+      }).toEqual({ x: Math.round(expectedWorldX), y: Math.round(reference.camera.bounds.y) });
       const corner = await page.evaluate(() => (globalThis as typeof globalThis & {
         __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
       }).__MEOWCENARY_VISUAL_TEST__?.arenaFramingDiagnostics());
@@ -138,12 +142,12 @@ test('authored arena top is camera-visible and not hidden by an opaque HUD plate
   await expect.poll(async () => (await page.evaluate(() => (globalThis as typeof globalThis & {
     __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
   }).__MEOWCENARY_VISUAL_TEST__?.arenaFramingDiagnostics()))?.camera.worldView.y)
-    .toBeCloseTo(0, 0);
+    .toBeCloseTo(initial!.camera.bounds.y, 0);
   const atTop = await page.evaluate(() => (globalThis as typeof globalThis & {
     __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
   }).__MEOWCENARY_VISUAL_TEST__?.arenaFramingDiagnostics());
   expect(atTop).toBeDefined();
-  expect(atTop!.camera.worldView.y).toBeCloseTo(0, 0);
+  expect(atTop!.camera.worldView.y).toBeCloseTo(initial!.camera.bounds.y, 0);
   expect(atTop!.camera.bounds.y).toBeLessThanOrEqual(0);
   // A fully opaque screen-fixed layer proves the observed crop is HUD-owned:
   // camera, world view and DOM canvas all expose y=0, but the layer erases it.
@@ -597,6 +601,33 @@ test('the production pause control makes the responsive root fullscreen', async 
     () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
     { intervals: [150, 250, 400], timeout: 8_000 },
   ).toBe(true);
+  // Keep the actor at the failing physical boundary while production pause
+  // controls drive fullscreen; diagnose both presentation and physics.
+  const readFraming = () => page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
+  const initial = (await readFraming())!;
+  expect(await page.evaluate(({ x, y }) => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__!.placePlayerForArenaFraming(x, y), {
+    x: initial.arena.width / 2, y: initial.player.bodyRadius,
+  })).toBe(true);
+  const assertEdgeFraming = async () => {
+    await expect.poll(async () => {
+      const state = (await readFraming())!;
+      const actor = state.player.screenBounds;
+      return actor.x >= -0.5 && actor.y >= -0.5
+        && actor.x + actor.width <= state.canvas.rect.width + 0.5
+        && actor.y + actor.height <= state.canvas.rect.height + 0.5;
+    }).toBe(true);
+    const state = (await readFraming())!;
+    expect(state.camera.bounds).toEqual(expectedArenaPresentationBounds(state));
+    expect(state.camera.roundPixels).toBe(false);
+    expect(state.player.y).toBe(initial.player.bodyRadius);
+    expect(state.canvas.rect).toEqual(state.rootRect);
+    return state;
+  };
+  const beforeFullscreen = await assertEdgeFraming();
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1_000);
   // The launch pointer is intentionally quarantined until a neutral sample.
@@ -620,6 +651,11 @@ test('the production pause control makes the responsive root fullscreen', async 
   }
   await page.keyboard.press('Enter');
   await expect.poll(() => page.evaluate(() => document.fullscreenElement?.id)).toBe('game-root');
+  const fullscreen = await assertEdgeFraming();
   await page.keyboard.press('Enter');
   await expect.poll(() => page.evaluate(() => document.fullscreenElement)).toBeNull();
+  const restored = await assertEdgeFraming();
+  await testInfo.attach('fullscreen-edge-framing', {
+    body: JSON.stringify({ beforeFullscreen, fullscreen, restored }, null, 2), contentType: 'application/json',
+  });
 });

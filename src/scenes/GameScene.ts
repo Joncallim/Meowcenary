@@ -10,7 +10,12 @@ import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { spawnPoint } from '../gameplay/spawnRegion';
 import { prepareRun } from '../gameplay/runStart';
-import { responsiveArenaPresentationBounds } from '../gameplay/responsiveArenaPresentation';
+import {
+  resolveActorPresentationPadding,
+  resolveArenaCameraFraming,
+  type ArenaCameraFraming,
+  type ActorPresentationPadding,
+} from '../gameplay/responsiveArenaPresentation';
 import { assembleComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan, type ResolvedRunPlan } from '../gameplay/stage/stageContracts';
 import { createStageRuntime, type StageRuntime } from '../gameplay/stage/stageRuntime';
@@ -194,6 +199,8 @@ export class GameScene extends Phaser.Scene {
    *  input for a brief window after a state-changing action. */
   private _inputBlockedUntil = 0;
   private arenaDimensions?: { readonly width: number; readonly height: number };
+  private arenaPresentationPadding?: ActorPresentationPadding;
+  private arenaCameraFraming?: ArenaCameraFraming;
 
 
   constructor() {
@@ -327,19 +334,6 @@ export class GameScene extends Phaser.Scene {
     this.dropGroup = this.physics.add.group();
 
     this.physics.world.setBounds(0, 0, arena.size.width, arena.size.height);
-    const presentationBounds = responsiveArenaPresentationBounds(
-      arena.size.width,
-      arena.size.height,
-      this.scale.width,
-      this.scale.height,
-      GAMEPLAY_ZOOM,
-    );
-    this.cameras.main.setBounds(
-      presentationBounds.x,
-      presentationBounds.y,
-      presentationBounds.width,
-      presentationBounds.height,
-    );
     this.arenaDimensions = Object.freeze({ width: arena.size.width, height: arena.size.height });
 
     const viewport = responsiveGameUiViewport(this.scale.width, this.scale.height);
@@ -352,19 +346,15 @@ export class GameScene extends Phaser.Scene {
     }, visualArt.bindingById(`character:${request.characterId}`));
     this.abilityPresentationSystem = new AbilityPresentationSystem(this, ctx.bus, this.player);
 
-    const visibleSize = zoomedVisibleSize(this.scale.width, this.scale.height);
-    // Fractional zoom must retain subpixel camera motion; Phaser's integer
-    // scroll rounding produces a visible sawtooth in the follow trace.
-    this.cameras.main.roundPixels = false;
-    // U6: intermediate arenas (larger than the 312×675.2 visible area but
-    // smaller than the full canvas) MUST follow the player within bounds.
-    if (arenaFollowEnabled(arena.size.width, arena.size.height, visibleSize.width, visibleSize.height)) {
-      this.cameras.main.startFollow(this.player.sprite, false, 0.1, 0.1);
-    }
-    this.cameras.main.setZoom(GAMEPLAY_ZOOM);
+    this.playerPresentationBounds = new Phaser.Geom.Rectangle();
+    this.player.writeCompletePresentationBounds(this.playerPresentationBounds);
+    // Freeze this run's actual visual overhang; no HUD geometry participates.
+    this.arenaPresentationPadding = resolveActorPresentationPadding(
+      this.playerPresentationBounds, this.player, this.player.bodyRadius,
+    );
+    this.applyArenaCameraFraming();
     this.scale.on?.(Phaser.Scale.Events.RESIZE, this.handleResponsiveCamera, this);
 
-    this.playerPresentationBounds = new Phaser.Geom.Rectangle();
     this.hudController = new HudController(
       ctx.bus,
       createHudSource({
@@ -430,7 +420,7 @@ export class GameScene extends Phaser.Scene {
       onExitConfirmed: () => this.exitRunEarly(),
     });
 
-    this.arenaScenery = buildArenaScenery(this, arena, visualArt);
+    this.arenaScenery = buildArenaScenery(this, arena, visualArt, this.arenaCameraFraming!.bounds);
     if (this.arenaScenery.obstacleGroup.children?.size > 0) {
       this.physics.add.collider(this.player.sprite, this.arenaScenery.obstacleGroup);
       this.physics.add.collider(this.enemyGroup, this.arenaScenery.obstacleGroup);
@@ -984,35 +974,45 @@ export class GameScene extends Phaser.Scene {
   }
 
   private readonly handleResponsiveCamera = (): void => {
+    this.applyArenaCameraFraming();
+    this.feedbackRenderer?.resize(responsiveGameUiViewport(this.scale.width, this.scale.height));
+  };
+
+  /** Initial create and resize share one zoom/bounds/follow application owner. */
+  private applyArenaCameraFraming(): void {
     const arena = this.arenaDimensions;
     const player = this.player;
-    if (!arena || !player) return;
-    const visible = zoomedVisibleSize(this.scale.width, this.scale.height, GAMEPLAY_ZOOM);
-    this.feedbackRenderer?.resize(responsiveGameUiViewport(this.scale.width, this.scale.height));
-    const presentationBounds = responsiveArenaPresentationBounds(
-      arena.width,
-      arena.height,
-      this.scale.width,
-      this.scale.height,
+    const padding = this.arenaPresentationPadding;
+    if (!arena || !player || !padding) return;
+    const framing = resolveArenaCameraFraming(
+      arena,
+      { width: this.scale.width, height: this.scale.height },
       GAMEPLAY_ZOOM,
+      padding,
     );
+    this.arenaCameraFraming = framing;
+    const presentationBounds = framing.bounds;
     const camera = this.cameras.main as Phaser.Cameras.Scene2D.Camera & {
       stopFollow?: () => Phaser.Cameras.Scene2D.Camera;
       centerOn?: (x: number, y: number) => Phaser.Cameras.Scene2D.Camera;
     };
+    // Phaser clamps follow using the current zoom: establish it first.
+    camera.setZoom(GAMEPLAY_ZOOM);
+    camera.roundPixels = false;
     camera.setBounds(
       presentationBounds.x,
       presentationBounds.y,
       presentationBounds.width,
       presentationBounds.height,
     );
-    if (arenaFollowEnabled(arena.width, arena.height, visible.width, visible.height)) {
+    this.arenaScenery?.applyPresentationBounds(presentationBounds);
+    if (framing.follow) {
       camera.startFollow(player.sprite, false, 0.1, 0.1);
       return;
     }
     camera.stopFollow?.();
     camera.centerOn?.(arena.width / 2, arena.height / 2);
-  };
+  }
 
   private handleShutdown(): void {
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
@@ -1073,6 +1073,8 @@ export class GameScene extends Phaser.Scene {
     this.performanceFixture = undefined;
     this.spawnCurve = undefined;
     this.arenaDimensions = undefined;
+    this.arenaPresentationPadding = undefined;
+    this.arenaCameraFraming = undefined;
     this.arenaScenery?.destroy();
     this.arenaScenery = undefined;
     this.runState = undefined;

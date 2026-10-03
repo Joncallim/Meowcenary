@@ -3,7 +3,7 @@ import type { ArenaDefinition, EdgeSpawnLane, VisualArtBinding } from './types';
 import type { VisualArtLookup } from './visualArt';
 import { VisualDepth } from './visualDepths';
 import { GAMEPLAY_ZOOM } from '../ui/layout';
-import { responsiveArenaPresentationBounds } from '../gameplay/responsiveArenaPresentation';
+import { responsiveArenaPresentationBounds, type ArenaPresentationBounds } from '../gameplay/responsiveArenaPresentation';
 
 const TILE_SIZE = 32;
 
@@ -29,6 +29,7 @@ export function floorArtIdForCell(
 
 export interface ArenaScenery {
   readonly obstacleGroup: Phaser.Physics.Arcade.StaticGroup;
+  applyPresentationBounds(bounds: ArenaPresentationBounds): void;
   destroy(): void;
 }
 
@@ -52,6 +53,8 @@ export interface ArenaPresentationInspection {
   readonly boundaryNodeCount: number;
   readonly decorationNodeCount: number;
   readonly obstacleSkinNodeCount: number;
+  readonly overscanBounds?: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+  readonly overscanResource?: { readonly width: number; readonly height: number; readonly canvasWidth: number; readonly canvasHeight: number };
 }
 
 /** Data-authored world presentation. Collision rectangles remain the sole
@@ -66,6 +69,7 @@ export class ArenaWorldView implements ArenaScenery {
     private readonly scene: Phaser.Scene,
     private readonly arena: Readonly<ArenaDefinition>,
     private readonly visualArt?: VisualArtLookup,
+    private readonly initialPresentationBounds?: ArenaPresentationBounds,
   ) {
     this.obstacleGroup = scene.physics.add.staticGroup();
     // GameScene always provides the validated visual registry. Do this before
@@ -83,7 +87,6 @@ export class ArenaWorldView implements ArenaScenery {
   }
 
   destroy(): void {
-    this.scene.scale?.off?.(Phaser.Scale.Events.RESIZE, this.resizeOverscanFloor, this);
     for (const node of this.nodes) node.destroy();
     this.nodes.length = 0;
     this.presentationNodes.length = 0;
@@ -96,7 +99,7 @@ export class ArenaWorldView implements ArenaScenery {
       tileSprite?: (x: number, y: number, width: number, height: number, texture: string, frame?: string | number) => Phaser.GameObjects.TileSprite;
     };
     if (!binding || !add.tileSprite) return;
-    const bounds = responsiveArenaPresentationBounds(
+    const bounds = this.initialPresentationBounds ?? responsiveArenaPresentationBounds(
       this.arena.size.width,
       this.arena.size.height,
       this.scene.scale.width,
@@ -111,22 +114,20 @@ export class ArenaWorldView implements ArenaScenery {
       binding.textureKey,
       binding.frameKey,
     ).setDepth(VisualDepth.floor - 1);
+    // The backing canvas uses integer sizes. Round outward to cover the
+    // camera without repeatedly resizing a fractional-sized bitmap on render.
+    this.applyPresentationBounds(bounds);
     this.nodes.push(this.overscanFloor);
-    this.scene.scale.on?.(Phaser.Scale.Events.RESIZE, this.resizeOverscanFloor, this);
   }
 
-  private readonly resizeOverscanFloor = (): void => {
+  /** Scene framing owns resize. Consume the exact camera rectangle rather
+   * than independently deriving a second presentation extent. */
+  applyPresentationBounds(bounds: ArenaPresentationBounds): void {
     if (!this.overscanFloor) return;
-    const bounds = responsiveArenaPresentationBounds(
-      this.arena.size.width,
-      this.arena.size.height,
-      this.scene.scale.width,
-      this.scene.scale.height,
-      GAMEPLAY_ZOOM,
-    );
     this.overscanFloor.setPosition(bounds.centerX, bounds.centerY);
-    this.overscanFloor.setSize(bounds.width, bounds.height);
-  };
+    this.overscanFloor.setSize(Math.ceil(bounds.width), Math.ceil(bounds.height));
+    this.overscanFloor.setOrigin(0.5);
+  }
 
   /** Narrow diagnostic surface: proves that the actual images made by this
    * production world builder are live, rather than merely that their files
@@ -139,7 +140,25 @@ export class ArenaWorldView implements ArenaScenery {
       boundaryNodeCount: nodes.filter((node) => node.role === 'boundary').length,
       decorationNodeCount: nodes.filter((node) => node.role === 'decoration').length,
       obstacleSkinNodeCount: nodes.filter((node) => node.role === 'obstacle-skin').length,
+      ...this.overscanInspection(),
     });
+  }
+
+  /** Bounded camera diagnostics must not clone every authored world node. */
+  overscanInspection(): Pick<ArenaPresentationInspection, 'overscanBounds' | 'overscanResource'> {
+    const floor = this.overscanFloor;
+    const canvas = floor?.canvas;
+    return floor && canvas ? { overscanBounds: {
+        x: floor.x - floor.width / 2,
+        y: floor.y - floor.height / 2,
+        width: floor.width,
+        height: floor.height,
+      }, overscanResource: {
+        width: floor.width,
+        height: floor.height,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+      } } : {};
   }
 
   private binding(artId: string): Readonly<VisualArtBinding> | undefined {
@@ -327,6 +346,7 @@ export function buildArenaScenery(
   scene: Phaser.Scene,
   arena: Readonly<ArenaDefinition>,
   visualArt?: VisualArtLookup,
+  presentationBounds?: ArenaPresentationBounds,
 ): ArenaScenery {
-  return new ArenaWorldView(scene, arena, visualArt);
+  return new ArenaWorldView(scene, arena, visualArt, presentationBounds);
 }
