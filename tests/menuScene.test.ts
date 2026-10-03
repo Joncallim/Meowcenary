@@ -1568,6 +1568,44 @@ describe('MenuScene', () => {
     expect(harness.context.saveData.gunsmith.parts).toEqual({});
   });
 
+  it('keeps the focused Gunsmith part row fully inside the scroll viewport after a compact resize', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith(() => ({
+      parts: {
+        heavy: { partId: 'part:receiver-heavy', tier: 2, infusedTraits: [] },
+        compact: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+      }, fabricationSerials: {},
+      builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { receiver: 'heavy' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      focusedButtonKey?: string;
+      navigator: { index: number };
+      scrollItemBounds: Map<number, { top: number; bottom: number }>;
+      scrollViewportTop: number;
+      scrollViewportBottom: number;
+      scrollRegion: { scrollOffset: number };
+      handleResize(): void;
+    };
+    for (let step = 0; step < 80 && scene.focusedButtonKey !== 'gunsmith-part:compact'; step += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    }
+    expect(scene.focusedButtonKey).toBe('gunsmith-part:compact');
+
+    Object.assign(harness.menuScene.scale, { width: 360, height: 640, displaySize: { width: 360, height: 640 } });
+    scene.handleResize();
+
+    expect(scene.focusedButtonKey).toBe('gunsmith-part:compact');
+    const rowBounds = scene.scrollItemBounds.get(scene.navigator.index)!;
+    const visibleTop = rowBounds.top - scene.scrollRegion.scrollOffset;
+    const visibleBottom = rowBounds.bottom - scene.scrollRegion.scrollOffset;
+    expect(visibleTop).toBeGreaterThanOrEqual(scene.scrollViewportTop);
+    expect(visibleBottom).toBeLessThanOrEqual(scene.scrollViewportBottom);
+  });
+
   it('uses the shared scroll region for a large Gunsmith inventory without paging controls', () => {
     const harness = createHarness();
     harness.context.updateGunsmith((state) => ({

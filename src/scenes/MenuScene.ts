@@ -505,6 +505,9 @@ export class MenuScene extends Phaser.Scene {
         const nextBounds = this.scrollItemBounds.get(this.navigator.index);
         if (nextBounds && rebuiltRegion && (alignFocusedStart || (!panelChanged && retainedFocusY !== undefined))) {
           rebuiltRegion.setScrollOffset(nextBounds.top - (alignFocusedStart ? this.scrollViewportTop : retainedFocusY!));
+          // Reflow can make the retained screen position clip this action.
+          // Keep the anchor only while the focused item's full bounds fit.
+          this.syncScrollFocus(this.navigator.index);
           this.applyScrollViewport();
         }
       }
@@ -781,6 +784,7 @@ export class MenuScene extends Phaser.Scene {
       const bounds = this.scrollItemBounds.get(this.navigator.index);
       if (bounds && focusKey && this.focusKeyByButton.get(this.focusables[this.navigator.index]!) === focusKey) {
         this.scrollRegion!.setScrollOffset(bounds.top - (alignTop ? this.scrollViewportTop : retainedY === undefined ? bounds.top - offset : retainedY - offset));
+        this.syncScrollFocus(this.navigator.index);
       }
       this.refreshScrollRail(surface.root!);
       this.applyScrollViewport();
