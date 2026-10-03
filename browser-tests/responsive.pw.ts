@@ -25,9 +25,14 @@ type ArenaFramingSeam = {
   arenaFramingDiagnostics(): ArenaFramingDiagnostics | undefined;
 };
 
-function expectedArenaPresentationBounds(diagnostic: ArenaFramingDiagnostics) {
-  const actor = diagnostic.player.completePresentationBounds;
-  const player = diagnostic.player;
+function expectedArenaPresentationBounds(
+  diagnostic: ArenaFramingDiagnostics,
+  runStart: ArenaFramingDiagnostics = diagnostic,
+) {
+  // Production freezes overhang at run creation. Deriving it again from a
+  // translated live pose changes floating-point subtraction at the edge.
+  const actor = runStart.player.completePresentationBounds;
+  const player = runStart.player;
   const left = Math.max(0, player.x - actor.x - player.bodyRadius);
   const right = Math.max(0, actor.x + actor.width - player.x - player.bodyRadius);
   const top = Math.max(0, player.y - actor.y - player.bodyRadius);
@@ -35,8 +40,8 @@ function expectedArenaPresentationBounds(diagnostic: ArenaFramingDiagnostics) {
   const width = Math.max(diagnostic.arena.width + left + right, diagnostic.scale.width / diagnostic.camera.zoom);
   const height = Math.max(diagnostic.arena.height + top + bottom, diagnostic.scale.height / diagnostic.camera.zoom);
   return {
-    x: (diagnostic.arena.width + right - left - width) / 2,
-    y: (diagnostic.arena.height + bottom - top - height) / 2,
+    x: (diagnostic.arena.width + right - left) / 2 - width / 2,
+    y: (diagnostic.arena.height + bottom - top) / 2 - height / 2,
     width,
     height,
   };
@@ -171,7 +176,7 @@ test('authored arena top is camera-visible and not hidden by an opaque HUD plate
   }).__MEOWCENARY_VISUAL_TEST__?.arenaFramingDiagnostics());
   expect(resized?.rootRect).toEqual({ x: 0, y: 0, ...resizedViewport });
   expect(resized?.canvas.rect).toEqual(resized?.rootRect);
-  expect(resized?.camera.bounds).toEqual(expectedArenaPresentationBounds(resized!));
+  expect(resized?.camera.bounds).toEqual(expectedArenaPresentationBounds(resized!, initial!));
   expect(resized?.hudLayers
     .filter((layer) => layer.type === 'Rectangle' || layer.type === 'NineSlice')
     .every((layer) => (layer.fillAlpha ?? layer.alpha) < 1)).toBe(true);
@@ -623,7 +628,7 @@ test('the production pause control makes the responsive root fullscreen', async 
         && actor.y + actor.height <= state.canvas.rect.height + 0.5;
     }).toBe(true);
     const state = (await readFraming())!;
-    expect(state.camera.bounds).toEqual(expectedArenaPresentationBounds(state));
+    expect(state.camera.bounds).toEqual(expectedArenaPresentationBounds(state, initial));
     expect(state.camera.roundPixels).toBe(false);
     expect(state.player.y).toBe(initial.player.bodyRadius);
     expect(state.canvas.rect).toEqual(state.rootRect);

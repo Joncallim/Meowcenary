@@ -137,3 +137,32 @@ retains its previous input behavior. The full visual file passes 11 cases with
 checks also rejected changing fallback Pause-bar depth; its original depth
 is preserved while the atlas overlap foreground alone uses the higher layer.
 The 69 HUD/Controls unit cases pass without altering their assertions.
+
+
+## Final runtime framing checkpoint
+
+Runtime source/build `1e5e9051fc8c8291e2fca206abbd25c9abae3ac8` passes all
+36 perimeter/readability/lifecycle cases across the six established profiles,
+plus six supplemental 412×915 DPR3, 844×390 and foldable DPR3 cases. Every real
+Sprite and Arc is contained at all eight physical perimeter positions. Floor
+coverage, integer backing size, unchanged Arcade geometry, orientation return
+and live-scene art-normalization rejection are asserted. Raw JSON and logs are
+stored with their runtime SHA.
+
+A strict fullscreen oracle initially failed by about 1e-13 world units: it
+re-derived frozen run overhang from a translated live pose and grouped the
+floating-point midpoint calculation differently. The test now derives its
+expected padding from the initial actor snapshot, matching the run's frozen
+ownership, and preserves exact equality and all containment assertions. The
+corrected top/resize and production Pause→Fullscreen→exit pair passes. This
+browser-only correction does not alter the measured runtime implementation.
+
+Independent CSS-scale visual inspection confirms the full actor and readable
+HUD signals. The top-corner actor intersects HUD copy and Pause foreground;
+#195 permits world overlay, and physics/camera must not gain a HUD exclusion
+boundary. HP, level, objective and Pause bars remain legible. Corner crowding
+is an explicit #175 human readability limitation, not claimed visual approval.
+The unchanged contrast threshold is 0.6; both phones measure 0.861 top-centre,
+0.696 top-left and 0.739 top-right. Independent exact-source review found no
+remaining concrete blocker. Full release gates and exact-head hosted CI remain
+required before merge.
