@@ -2197,6 +2197,165 @@ describe('MenuScene', () => {
     expect(rendered).toHaveBeenCalledOnce();
   });
 
+  it('hydrates a drained same-panel closure once using the latest snapshot', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>();
+    const loaded = new Set<string>();
+    let finish!: () => void;
+    let selected = 'before';
+    const rendered = vi.fn();
+    const snapshot = vi.fn(() => ({ panel: 'home', selected }));
+    const scene = new MenuScene() as unknown as {
+      ensurePanelPresentation(panel: 'home', ids: readonly string[]): Promise<void>;
+    };
+    const start = vi.fn(() => {
+      finish = () => {
+        loaded.add('art-enemy-dust-mite');
+        complete.get('filecomplete-spritesheet-art-enemy-dust-mite')?.();
+      };
+    });
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'home', controller: { snapshot },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: { on: () => undefined, off: () => undefined, once: (event: string, listener: () => void) => { complete.set(event, listener); }, spritesheet: () => undefined, start },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+    const pending = scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    await scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    selected = 'after-selection-and-resize';
+    await Promise.resolve();
+    finish();
+    await pending;
+    expect(start).toHaveBeenCalledOnce();
+    expect(rendered).toHaveBeenCalledOnce();
+    expect(snapshot).toHaveBeenCalledOnce();
+    expect(rendered).toHaveBeenCalledWith({ panel: 'home', selected }, 'lazy-art-hydration');
+    await scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    expect(rendered).toHaveBeenCalledOnce();
+    expect(start).toHaveBeenCalledOnce();
+  });
+
+  it.each([false, true])('publishes one latest-state hydration after distinct queued batches (middle failure: %s)', async (failMiddle) => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const ids = ['enemy:dust-mite', 'enemy:scrap-sniper', 'enemy:trash-brute'] as const;
+    const keys = ids.map(id => {
+      const binding = art.bindingById(id);
+      expect(binding, `live art binding for ${id}`).toBeDefined();
+      return binding!.textureKey;
+    });
+    const complete = new Map<string, () => void>();
+    const loaded = new Set<string>();
+    const queued: string[] = [];
+    const batches: Array<(success?: boolean) => void> = [];
+    let error!: (file: { key: string }) => void;
+    let selected = 'initial';
+    const rendered = vi.fn();
+    const snapshot = vi.fn(() => ({ panel: 'home', selected }));
+    const scene = new MenuScene() as unknown as {
+      panelArtLoading: boolean;
+      ensurePanelPresentation(panel: 'home', ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'home', controller: { snapshot },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: (event: string, listener: typeof error) => { if (event === 'loaderror') error = listener; },
+        off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        spritesheet: (key: string) => { queued.push(key); },
+        start: () => {
+          const keys = queued.splice(0);
+          batches.push((success = true) => keys.forEach(key => {
+            if (!success) error({ key });
+            else {
+              loaded.add(key);
+              complete.get(`filecomplete-spritesheet-${key}`)?.();
+            }
+          }));
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+    const waitForBatch = async (count: number) => {
+      for (let step = 0; batches.length < count && step < 20; step++) await Promise.resolve();
+      expect(batches).toHaveLength(count);
+    };
+    const pending = scene.ensurePanelPresentation('home', [ids[0]]);
+    await scene.ensurePanelPresentation('home', [ids[1]]);
+    await waitForBatch(1);
+    batches[0]!();
+    await waitForBatch(2);
+    expect(rendered).not.toHaveBeenCalled();
+    expect(scene.panelArtLoading).toBe(true);
+    await scene.ensurePanelPresentation('home', [ids[2]]);
+    selected = 'during-second-load';
+    batches[1]!(!failMiddle);
+    await waitForBatch(3);
+    expect(rendered).not.toHaveBeenCalled();
+    selected = 'after-selection-and-resize';
+    batches[2]!();
+    await pending;
+    expect(loaded.has(keys[0]!)).toBe(true);
+    expect(loaded.has(keys[1]!)).toBe(!failMiddle);
+    expect(loaded.has(keys[2]!)).toBe(true);
+    expect(scene.panelArtLoading).toBe(false);
+    expect(rendered).toHaveBeenCalledOnce();
+    expect(snapshot).toHaveBeenCalledOnce();
+    expect(rendered).toHaveBeenCalledWith({ panel: 'home', selected }, 'lazy-art-hydration');
+  });
+
+  it('revokes the outer hydration after scene restart during its queued second load', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>();
+    const loaded = new Set<string>();
+    const queued: string[] = [];
+    const batches: Array<() => void> = [];
+    const rendered = vi.fn();
+    const snapshot = vi.fn(() => ({ panel: 'home', activation: 'new' }));
+    const scene = new MenuScene() as unknown as {
+      panelArtGeneration: number; panelArtLoading: boolean; pendingPanelArtIds: Set<string>;
+      resetMenuTextureLoadQueue(): void;
+      ensurePanelPresentation(panel: 'home', ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'home', controller: { snapshot },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: () => undefined, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        spritesheet: (key: string) => { queued.push(key); },
+        start: () => {
+          const keys = queued.splice(0);
+          batches.push(() => keys.forEach(key => {
+            loaded.add(key);
+            complete.get(`filecomplete-spritesheet-${key}`)?.();
+          }));
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+    const pending = scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    await scene.ensurePanelPresentation('home', ['enemy:scrap-sniper']);
+    await Promise.resolve();
+    batches[0]!();
+    // Let the second real serialized loader begin, not a guessed wall-clock delay.
+    for (let step = 0; batches.length < 2 && step < 20; step++) await Promise.resolve();
+    expect(batches).toHaveLength(2);
+    scene.resetMenuTextureLoadQueue();
+    scene.panelArtGeneration += 1;
+    scene.panelArtLoading = true; // Fresh activation owns this flag and request.
+    scene.pendingPanelArtIds = new Set(['new-activation-request']);
+    batches[1]!();
+    await pending;
+    expect(rendered).not.toHaveBeenCalled();
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(scene.panelArtLoading).toBe(true);
+    expect([...scene.pendingPanelArtIds]).toEqual(['new-activation-request']);
+  });
+
   it('serializes rapid Home and Mercenary art closures through the one scene loader', async () => {
     const harness = createHarness({ create: false });
     const art = new DataVisualArtRegistry(harness.context.data);
