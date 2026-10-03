@@ -165,9 +165,12 @@ export class MenuScene extends Phaser.Scene {
   get renderRevisionCount(): number { return this.renderRevision; }
 
   /** Read-only browser acceptance seam: observes production focus, geometry
-   * and presentation state without invoking commands or resolving rules. */
+   * and presentation state without invoking commands. Derived read models
+   * are resolved at most once per observation and remain lazy off-panel. */
   loadoutUiDiagnostics() {
     const snapshot = this.controller?.snapshot();
+    const equipment = snapshot && (snapshot.panel === 'equipment' || snapshot.panel === 'loadout')
+      ? snapshot.equipment : undefined;
     const collectCopy = (object: Phaser.GameObjects.GameObject): string[] => {
       const display = object as Phaser.GameObjects.GameObject & {
         text?: unknown; list?: readonly Phaser.GameObjects.GameObject[];
@@ -188,11 +191,11 @@ export class MenuScene extends Phaser.Scene {
       }),
       scroll: this.scrollRegion ? { top: this.scrollViewportTop, bottom: this.scrollViewportBottom,
         offset: this.scrollRegion.scrollOffset, contentHeight: this.scrollRegion.contentHeight } : undefined,
-      equipment: snapshot && (snapshot.panel === 'equipment' || snapshot.panel === 'loadout') ? {
-        selectedSlot: snapshot.equipment.selectedSlot,
-        selectedInstanceId: snapshot.equipment.selectedInstanceId,
-        selectedBlueprintId: snapshot.equipment.selectedBlueprintId,
-        equipped: snapshot.equipment.equipped,
+      equipment: equipment ? {
+        selectedSlot: equipment.selectedSlot,
+        selectedInstanceId: equipment.selectedInstanceId,
+        selectedBlueprintId: equipment.selectedBlueprintId,
+        equipped: equipment.equipped,
       } : undefined,
     };
   }
@@ -2331,7 +2334,9 @@ export class MenuScene extends Phaser.Scene {
 
   private applyFocus(): void {
     this.focusables.forEach((text, index) => {
-      text.setStyle({ color: this.sectionButtons.has(text) ? '#f78003' : '#f7f1d5' });
+      const color = this.sectionButtons.has(text) ? '#f78003' : '#f7f1d5';
+      // Phaser rerasterizes Text even when setStyle repeats the same colour.
+      if (text.style?.color !== color) text.setStyle({ color });
       const visible = this.inputController?.getInputMode() !== 'pointer'
         ? index === this.navigator.index
         : index === this.hoveredIndex;

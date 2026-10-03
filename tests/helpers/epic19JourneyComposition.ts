@@ -316,6 +316,7 @@ function fakeObject(
   const api = {
     get parentContainer() { return parentContainer; },
     set parentContainer(value: { remove(child: unknown): unknown } | undefined) { parentContainer = value; },
+    get style() { return { ...state.style }; },
     get state() {
       return { ...state, handlers: { ...state.handlers }, style: { ...state.style } };
     },

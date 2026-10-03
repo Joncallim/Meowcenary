@@ -76,6 +76,7 @@ function fakeObject(
   const api = {
     get parentContainer() { return parentContainer; },
     set parentContainer(value: { remove(child: unknown): unknown } | undefined) { parentContainer = value; },
+    get style() { return { ...state.style }; },
     get state() {
       return { ...state, handlers: { ...state.handlers }, padding: { ...state.padding }, style: { ...state.style } };
     },
@@ -435,6 +436,36 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
 }
 
 describe('MenuScene', () => {
+  it('resolves the lazy Equipment read model once per diagnostic and leaves other panels lazy', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando' } }));
+    const scene = harness.menuScene as unknown as {
+      controller: { open(panel: 'equipment' | 'home'): import('../src/ui/menus').MainMenuSnapshot;
+        selectEquipmentCandidate(id: string): import('../src/ui/menus').MainMenuSnapshot;
+        equipmentController: { snapshot(): import('../src/ui/equipmentController').EquipmentSnapshot } };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+    };
+    scene.render(scene.controller.open('equipment'));
+    scene.controller.selectEquipmentCandidate('recon');
+    const snapshot = vi.spyOn(scene.controller.equipmentController, 'snapshot');
+    const saved = harness.context.saveData;
+    const state = harness.menuScene.loadoutUiDiagnostics();
+    expect(snapshot).toHaveBeenCalledOnce();
+    const resolved = snapshot.mock.results[0]!.value;
+    expect(state.equipment).toEqual({ selectedSlot: resolved.selectedSlot,
+      selectedInstanceId: resolved.selectedInstanceId, selectedBlueprintId: resolved.selectedBlueprintId,
+      equipped: resolved.equipped });
+    expect(state.equipment?.selectedInstanceId).toBe('recon');
+    expect(harness.context.saveData).toBe(saved);
+    scene.render(scene.controller.open('home'));
+    snapshot.mockClear();
+    expect(harness.menuScene.loadoutUiDiagnostics().equipment).toBeUndefined();
+    expect(snapshot).not.toHaveBeenCalled();
+  });
+
   it('revokes old surface commands before controller mutation or UI events and retains panel-local browse state across visits', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
@@ -2722,6 +2753,30 @@ describe('MenuScene', () => {
     expect(down).not.toHaveBeenCalled();
     expect(move).not.toHaveBeenCalled();
     expect(up).not.toHaveBeenCalled();
+  });
+
+  it('moves focus rings without rerasterizing unchanged labels and restores a changed palette', () => {
+    const harness = createHarness();
+    const labels = harness.objects.filter(object => object.state.kind === 'text'
+      && object.state.handlers.pointerup && !object.state.destroyed);
+    const writes = labels.map(label => vi.spyOn(label, 'setStyle'));
+    const press = () => {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    };
+    const ring = () => harness.objects.filter(object => object.state.kind === 'rect'
+      && !object.state.destroyed && object.state.strokeColor === FocusStroke.color
+      && object.state.strokeAlpha === FocusStroke.alpha);
+    press();
+    const first = ring(); expect(first).toHaveLength(1);
+    press(); expect(ring()).toHaveLength(1); expect(ring()[0]).not.toBe(first[0]);
+    writes.forEach(write => expect(write).not.toHaveBeenCalled());
+    labels[0]!.setStyle({ color: '#000000' }); writes.forEach(write => write.mockClear());
+    press();
+    expect(labels[0]!.state.style.color).toBe('#f7f1d5');
+    expect(writes[0]).toHaveBeenCalledOnce();
+    writes.slice(1).forEach(write => expect(write).not.toHaveBeenCalled());
+    expect(ring()).toHaveLength(1);
   });
 
   it('shows exactly one FocusStroke ring with exact width/color/alpha on the focused menu button; label color is never the focus signal (F4)', () => {
