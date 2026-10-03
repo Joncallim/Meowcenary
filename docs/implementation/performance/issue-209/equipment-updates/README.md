@@ -66,7 +66,8 @@ open. #209 is not complete from this scoped optimization alone.
 
 The immediate baseline is `251d77d9a87d2062e6cd9e7b13c66fad95a94363`; the
 measured implementation is `bc4b8e771c0b8bea734f214fe4796f0444432bb2`.
-The following evidence commit changes documentation only. Both runs used the
+Subsequent closeout commits change evidence and test harnesses only; runtime
+source and measurement-runner code remain identical to the measured pin. Both runs used the
 candidate runner, with its older-baseline presentation-revision fallback.
 There were nine fresh cohorts per runtime, three repeats each for desktop
 1280×720, phone 390×844/DPR3 and foldable 1114×720/DPR2: 18 cohorts, 468
@@ -136,3 +137,16 @@ controls and Recon comparison state were inspected across all profiles. The
 large-desktop Technician row highlight is pointer hover, separate from the
 active Recon detail and semantic selection. Supplemental detail stays inside
 the scroll viewport; the footer remains fixed. These are parity evidence only.
+
+## Full-suite harness reconciliation
+
+The first full suite exposed the controller journey fake Container's missing
+Phaser `list` property. The owning production path correctly requires that
+list to track selected-detail children. The shared journey fake now models
+list, child removal/reparenting and nested deep destruction; the MenuScene
+fake also removes nested containers by their wrapper identity. The new
+conformance test fails on the old harness (`container-harness-red.log.gz`),
+then checks that individually destroyed children leave the owner and all
+nested children are destroyed during disposal. Existing controller journey
+assertions remain intact. This is test fidelity, not a production fallback or
+behavior change; complete validation is rerun on the reconciled head.

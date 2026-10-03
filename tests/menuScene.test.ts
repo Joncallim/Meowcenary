@@ -308,6 +308,7 @@ function createFakeScene(
             if (deep) {
               [...container.children].forEach((child) => child.destroy());
             }
+            container.parentContainer?.remove(container);
             base.destroy();
           },
         };

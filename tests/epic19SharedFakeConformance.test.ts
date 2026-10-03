@@ -28,6 +28,28 @@ describe('Epic 19 Slice 5 shared fake lifecycle conformance', () => {
     expect(pointerUps).toBe(0);
   });
 
+  it('tracks container ownership and removes destroyed children during deep disposal', () => {
+    const { scene } = createSharedFakeSceneForConformance();
+    const root = scene.add.container(0, 0);
+    const nested = scene.add.container(0, 0);
+    const first = scene.add.rectangle(0, 0, 44, 44);
+    const second = scene.add.rectangle(0, 0, 44, 44);
+    root.add(nested);
+    nested.add([first, second]);
+    expect(root.list).toEqual([nested]);
+    expect(nested.list).toEqual([first, second]);
+    first.destroy();
+    expect(nested.list).toEqual([second]);
+    expect(first.parentContainer).toBeUndefined();
+    root.destroy(true);
+    expect(root.list).toEqual([]);
+    expect(nested.list).toEqual([]);
+    expect(nested.state.destroyed).toBe(true);
+    expect(second.state.destroyed).toBe(true);
+    expect(nested.parentContainer).toBeUndefined();
+    expect(second.parentContainer).toBeUndefined();
+  });
+
   it('records setScale and per-object setScrollFactor and rejects them after destroy (M-02/M-08)', () => {
     const scaled = createSharedFakeObjectForConformance('arc', '', 10, 10);
     const child = createSharedFakeObjectForConformance('rect', '', 44, 44);
