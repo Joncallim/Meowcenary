@@ -21,8 +21,10 @@ production-build screenshot or visual golden. The test is reproducible with
 ## Correction
 
 The run freezes complete sprite+shadow overhang from actual actor display
-bounds and body radius. A symmetric presentation envelope uses the maximum
-extent per axis (current X=7.7, Y=29.4); no HUD dimensions participate.
+bounds and body radius. The final presentation envelope uses each measured edge independently
+(left/right/top=7.7, bottom=29.4); no HUD dimensions participate. Static
+centering uses that envelope midpoint so an asymmetric shadow cannot clip
+in an otherwise fitting small arena.
 One pure framing resolver and one scene application path establish zoom before
 bounds/follow at initial create and resize. Small arenas remain centred.
 Physics, arena content, movement limits and art assets retain their semantics.
@@ -35,7 +37,7 @@ that fractional TileSprite sizes would resize Phaser's backing canvas every
 frame; the candidate was repaired before landing and a genuine RED unit test
 preserves the integer bound. No generic performance framework was introduced.
 
-## Evidence and limitations
+## Historical focused evidence and limitations
 
 The precommit GREEN matrix passed 12/12 cases over six established viewports:
 eight perimeter poses and live 844×390 resize/restore per profile. Raw facts
@@ -59,7 +61,7 @@ combat/reward, physical-device, fun, or owner visual-art acceptance. #191,
 #167 and #175 remain separate human gates. #194 must consume the final merged
 and verified framing prerequisite, not these intermediate captures.
 
-## Pinned runtime acceptance
+## Historical pinned runtime evidence — superseded
 
 Runtime implementation `d5a72d5053b6f67ff1de43d99c4b4e6493a6b63c` was
 rebuilt with matching build metadata. Six supplemental cases passed at
@@ -84,3 +86,40 @@ Reproduce with an isolated visual-build preview and MEOW_REPO, MEOW_BASE_URL,
 MEOW_EXPECTED_SHA, MEOW_BROWSER_HANDOFF=1 and MEOW_OUTPUT set explicitly.
 The script refuses mismatched source/build commits. No positioning or
 invulnerability fixture is used for continuous input.
+
+## Integrated failure reconciliation and final correction
+
+The historical symmetric candidate `6075b5d7ecfb25d9831891bcca17a362e17f37a5`
+passed focused geometry, but full local and hosted CI failed **8 / 107 passed /
+59 existing skips**. Do not treat earlier narrow GREEN evidence as acceptance.
+`integrated-symmetric-red.txt.gz` preserves the full result. A separate clean
+baseline main bec2922 build passed the phone art-reference and HUD comparisons;
+`baseline-comparison-green.txt.gz` rejects the stale-baseline hypothesis.
+
+Two failures were real runtime integration problems: symmetric shadow padding
+added 27.125 unnecessary CSS pixels above the actor, lowering it into HUD text.
+Separate measured edge padding repairs the camera envelope; static centering
+uses its actual midpoint. The full Pause atlas icon also contains opaque paint
+outside its foreground bars. With the complete actor now visible at top-right,
+that combined paint retains only 0.388 actor contrast. ControlsView registers
+the icon with the existing overlap owner, then displays the already established
+two-bar foreground at the icon's size while overlapping. Normal icon artwork,
+44px input target, callback ownership and the other foreground HUD signals
+remain. RED unit and real browser evidence precede the fix: unchanged 0.6
+contrast bound now measures 0.739 top-right, 0.696 top-left and 0.861 top-centre
+on both phone profiles. Resize/disposal and pointer callback are covered.
+
+Six failures concerned dedicated posed art references: padding altered their
+right-edge camera clamp by 9.625 CSS pixels and the overscan bitmap composition.
+The fixed references already pause/pose actors and override follow. An explicit
+visual-build-only `useAuthoredArenaArtReference()` preserves the original
+camera/floor rectangle for those paused art comparisons. Their labels now state
+that limited contract. All six art comparisons pass with **every original
+golden and pixel threshold unchanged**. This is not runtime-camera approval:
+actor-framing, responsive, fullscreen, continuous-input and world-readability
+checks never call this seam and continue exercising production geometry.
+No art asset or authority state is changed or promoted.
+
+The final source and new pinned runtime evidence require full closeout and
+exact-head hosted CI before merging. Historical source/build SHA d5a72d5
+captures above remain inspectable provenance, not acceptance of this correction.

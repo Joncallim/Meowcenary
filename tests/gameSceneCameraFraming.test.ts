@@ -28,7 +28,7 @@ function framingScene(arena = { width: 768, height: 1344 }, canvas = { width: 39
   scene.events = new EventEmitter();
   scene.input = { off: vi.fn(), keyboard: { off: vi.fn() } };
   scene.arenaDimensions = arena;
-  scene.arenaPresentationPadding = Object.freeze({ x: 7.7, y: 29.4 });
+  scene.arenaPresentationPadding = Object.freeze({ left: 7.7, right: 7.7, top: 7.7, bottom: 29.4 });
   scene.arenaScenery = scenery;
   scene.player = player;
   return { scene, camera, scenery, physicsSetBounds, player, calls };
@@ -41,7 +41,7 @@ describe('GameScene arena camera framing', () => {
 
     const expected = resolveArenaCameraFraming(
       { width: 768, height: 1344 }, { width: 390, height: 844 }, GAMEPLAY_ZOOM,
-      { x: 7.7, y: 29.4 },
+      { left: 7.7, right: 7.7, top: 7.7, bottom: 29.4 },
     );
     expect(calls).toEqual(['zoom', 'bounds', 'floor', 'follow']);
     expect(camera.setZoom).toHaveBeenCalledWith(GAMEPLAY_ZOOM);
@@ -74,7 +74,7 @@ describe('GameScene arena camera framing', () => {
     scene.applyArenaCameraFraming();
     expect(scene.arenaCameraFraming.follow).toBe(false);
     expect(calls).toEqual(['zoom', 'bounds', 'floor', 'stop', 'center']);
-    expect(camera.centerOn).toHaveBeenCalledWith(100, 150);
+    expect(camera.centerOn).toHaveBeenCalledWith(100, 160.85);
 
     scene.scale.width = 180;
     scene.scale.height = 200;
@@ -91,7 +91,7 @@ describe('GameScene arena camera framing', () => {
     expect(scene.arenaCameraFraming.follow).toBe(false);
     expect(calls).toEqual(['zoom', 'bounds', 'floor', 'stop', 'center']);
     expect(camera.stopFollow).toHaveBeenCalledTimes(2);
-    expect(camera.centerOn).toHaveBeenLastCalledWith(100, 150);
+    expect(camera.centerOn).toHaveBeenLastCalledWith(100, 160.85);
     expect(physicsSetBounds).not.toHaveBeenCalled();
   });
 
@@ -111,7 +111,7 @@ describe('GameScene arena camera framing', () => {
     expect(camera.setBounds).toHaveBeenCalledTimes(1);
 
     scene.arenaDimensions = { width: 200, height: 300 };
-    scene.arenaPresentationPadding = { x: 0, y: 0 };
+    scene.arenaPresentationPadding = { left: 0, right: 0, top: 0, bottom: 0 };
     scene.player = { sprite: {}, destroy: vi.fn() };
     scene.applyArenaCameraFraming();
     expect(scene.arenaCameraFraming.bounds.centerX).toBe(100);

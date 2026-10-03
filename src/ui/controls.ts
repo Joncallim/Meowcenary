@@ -74,6 +74,8 @@ export class ControlsView {
   private abilityStateText?: Phaser.GameObjects.Text;
   private pauseGlyphBars: Phaser.GameObjects.Rectangle[] = [];
   private pauseArt?: Phaser.GameObjects.Image;
+  private pauseArtAlpha = 1;
+  private pauseGlyphVisible = true;
   private abilityFrame?: Phaser.GameObjects.GameObject;
   private readonly uiVisuals?: UiVisualChrome;
   private hintElapsedMs = 0;
@@ -192,13 +194,18 @@ export class ControlsView {
     if (this.ability) {
       this.buildAbilityCard(scene, viewport, rightMargin, bottomMargin, abilityInset, abilityWidth, abilityHeight);
     }
-    const glyphWidth = physicalToLogical(8, viewport);
-    const glyphHeight = physicalToLogical(22, viewport);
-    const glyphOffset = physicalToLogical(8, viewport);
     this.pauseArt = this.uiVisuals?.addIcon(scene, this.pauseButton.x, this.pauseButton.y, 'action-icon:pause', {
       size: physicalToLogical(28, viewport), depth: ThemeDepth.hud + 1,
     });
-    this.pauseGlyphBars = this.pauseArt ? [] : [-1, 1].map((direction) => {
+    this.pauseArtAlpha = this.pauseArt?.alpha ?? 1;
+    this.pauseGlyphVisible = !this.pauseArt;
+    // The atlas icon combines backing and bars. When actor overlap fades
+    // that paint, retain the existing two-bar foreground at the icon's size.
+    const glyphScale = this.pauseArt ? 28 / 44 : 1;
+    const glyphWidth = physicalToLogical(8 * glyphScale, viewport);
+    const glyphHeight = physicalToLogical(22 * glyphScale, viewport);
+    const glyphOffset = physicalToLogical(8 * glyphScale, viewport);
+    this.pauseGlyphBars = [-1, 1].map((direction) => {
       const bar = scene.add.rectangle(
         this.pauseButton.x + direction * glyphOffset,
         this.pauseButton.y,
@@ -207,8 +214,9 @@ export class ControlsView {
         ThemeColor.cream,
         0.9,
       );
-      bar.setDepth(ThemeDepth.hud);
+      bar.setDepth(ThemeDepth.hud + 1);
       bar.setScrollFactor(0);
+      bar.setVisible(this.pauseGlyphVisible);
       return bar;
     });
     // Every interactive/control child owns scrollFactor=0; containers do not
@@ -406,6 +414,7 @@ export class ControlsView {
 
   private registerCombatReadability(): void {
     this.readability.register(this.pauseButton);
+    this.readability.register(this.pauseArt);
     this.readability.register(this.abilityButton);
     this.readability.register(this.abilityFrame as WorldUiPaint | undefined);
   }
@@ -413,6 +422,13 @@ export class ControlsView {
   updateWorldReadability(bounds: WorldUiBounds | undefined, camera: WorldUiCamera): void {
     if (this.disposed) return;
     this.readability.update(bounds, camera);
+    const glyphVisible = !this.pauseArt || this.pauseArt.alpha < this.pauseArtAlpha;
+    if (glyphVisible !== this.pauseGlyphVisible) {
+      this.pauseGlyphVisible = glyphVisible;
+      for (let index = 0; index < this.pauseGlyphBars.length; index += 1) {
+        this.pauseGlyphBars[index].setVisible(glyphVisible);
+      }
+    }
     this.stickReadability.update(bounds, camera);
   }
 

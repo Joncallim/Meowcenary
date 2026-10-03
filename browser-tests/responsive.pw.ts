@@ -28,13 +28,15 @@ type ArenaFramingSeam = {
 function expectedArenaPresentationBounds(diagnostic: ArenaFramingDiagnostics) {
   const actor = diagnostic.player.completePresentationBounds;
   const player = diagnostic.player;
-  const paddingX = Math.max(0, player.x - actor.x - player.bodyRadius, actor.x + actor.width - player.x - player.bodyRadius);
-  const paddingY = Math.max(0, player.y - actor.y - player.bodyRadius, actor.y + actor.height - player.y - player.bodyRadius);
-  const width = Math.max(diagnostic.arena.width + 2 * paddingX, diagnostic.scale.width / diagnostic.camera.zoom);
-  const height = Math.max(diagnostic.arena.height + 2 * paddingY, diagnostic.scale.height / diagnostic.camera.zoom);
+  const left = Math.max(0, player.x - actor.x - player.bodyRadius);
+  const right = Math.max(0, actor.x + actor.width - player.x - player.bodyRadius);
+  const top = Math.max(0, player.y - actor.y - player.bodyRadius);
+  const bottom = Math.max(0, actor.y + actor.height - player.y - player.bodyRadius);
+  const width = Math.max(diagnostic.arena.width + left + right, diagnostic.scale.width / diagnostic.camera.zoom);
+  const height = Math.max(diagnostic.arena.height + top + bottom, diagnostic.scale.height / diagnostic.camera.zoom);
   return {
-    x: (diagnostic.arena.width - width) / 2,
-    y: (diagnostic.arena.height - height) / 2,
+    x: (diagnostic.arena.width + right - left - width) / 2,
+    y: (diagnostic.arena.height + bottom - top - height) / 2,
     width,
     height,
   };

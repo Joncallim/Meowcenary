@@ -14,7 +14,7 @@ describe('arena overscan bitmap ownership', () => {
     const view = Object.create(ArenaWorldView.prototype) as ArenaWorldView;
     Object.assign(view, { overscanFloor: floor });
     for (const canvas of [{ width: 390, height: 844 }, { width: 1114, height: 720 }, { width: 1920, height: 1080 }]) {
-      const { bounds } = resolveArenaCameraFraming({ width: 768, height: 1344 }, canvas, 1.25, { x: 7.7, y: 29.4 });
+      const { bounds } = resolveArenaCameraFraming({ width: 768, height: 1344 }, canvas, 1.25, { left: 7.7, right: 7.7, top: 7.7, bottom: 29.4 });
       view.applyPresentationBounds(bounds);
       // DOM canvas dimensions are integers. A fractional TileSprite size
       // fails its bitmap equality check on every render and reallocates.

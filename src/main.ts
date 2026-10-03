@@ -13,6 +13,7 @@ import { performanceProbe } from './platform/performanceProbe';
 import { collectDisplayObjects, type DisplayNode } from './platform/performanceDisplay';
 import type { GameContext } from './engine/context';
 import type { ComposedRunRequest } from './gameplay/runRequest';
+import { responsiveArenaPresentationBounds } from './gameplay/responsiveArenaPresentation';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -251,6 +252,34 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
     configurable: true,
     value: Object.freeze({
       freeze: freezeVisualFrame,
+      useAuthoredArenaArtReference: async (): Promise<boolean> => {
+        // Dedicated art references already pose/pause actors. Keep their
+        // original authored camera/floor composition stable as production
+        // framing evolves; runtime edge/input/readability tests never call it.
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          scale?: { width: number; height: number };
+          cameras?: { main?: Phaser.Cameras.Scene2D.Camera };
+          arenaDimensions?: { width: number; height: number };
+          arenaScenery?: { applyPresentationBounds(bounds: ReturnType<typeof responsiveArenaPresentationBounds>): void };
+          player?: { x: number; y: number };
+        };
+        if (!game.scene.isActive('GameScene') && !game.scene.isPaused('GameScene')) return false;
+        if (game.scene.isActive('GameScene')) {
+          game.scene.pause('GameScene');
+          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        }
+        const camera = scene.cameras?.main;
+        const arena = scene.arenaDimensions;
+        if (!game.scene.isPaused('GameScene') || !camera || !arena || !scene.scale || !scene.player) return false;
+        const bounds = responsiveArenaPresentationBounds(arena.width, arena.height,
+          scene.scale.width, scene.scale.height, camera.zoom);
+        camera.setBounds(bounds.x, bounds.y, bounds.width, bounds.height);
+        scene.arenaScenery?.applyPresentationBounds(bounds);
+        const point = focusedActorWorldPoint ?? scene.player;
+        camera.stopFollow();
+        camera.centerOn(point.x, point.y);
+        return true;
+      },
       resume: () => {
         game.anims.resumeAll();
         game.loop.wake();

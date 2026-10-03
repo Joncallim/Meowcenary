@@ -8,8 +8,10 @@ export interface ArenaPresentationBounds {
 }
 
 export interface ActorPresentationPadding {
-  readonly x: number;
-  readonly y: number;
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
 }
 
 export interface ArenaCameraFraming {
@@ -17,19 +19,18 @@ export interface ArenaCameraFraming {
   readonly follow: boolean;
 }
 
-/** Account for the part of a visible actor that extends beyond its world-bound
- * body. A single symmetric inset per axis covers both sides as the body moves
- * to either authored edge, including asymmetric art and fallback geometry. */
+/** Account for each side of the visible actor outside its world-bound body.
+ * Offset art and shadows may need different room at opposite arena edges. */
 export function resolveActorPresentationPadding(
   visualBounds: Readonly<{ x: number; y: number; width: number; height: number }>,
   bodyCenter: Readonly<{ x: number; y: number }>,
   bodyRadius: number,
 ): ActorPresentationPadding {
   return Object.freeze({
-    x: Math.max(0, bodyCenter.x - visualBounds.x - bodyRadius,
-      visualBounds.x + visualBounds.width - bodyCenter.x - bodyRadius),
-    y: Math.max(0, bodyCenter.y - visualBounds.y - bodyRadius,
-      visualBounds.y + visualBounds.height - bodyCenter.y - bodyRadius),
+    left: Math.max(0, bodyCenter.x - visualBounds.x - bodyRadius),
+    right: Math.max(0, visualBounds.x + visualBounds.width - bodyCenter.x - bodyRadius),
+    top: Math.max(0, bodyCenter.y - visualBounds.y - bodyRadius),
+    bottom: Math.max(0, visualBounds.y + visualBounds.height - bodyCenter.y - bodyRadius),
   });
 }
 
@@ -46,20 +47,26 @@ export function responsiveArenaPresentationBounds(
   canvasWidth: number,
   canvasHeight: number,
   cameraZoom: number,
-  actorPadding: Readonly<ActorPresentationPadding> = { x: 0, y: 0 },
+  actorPadding: Readonly<ActorPresentationPadding> = { left: 0, right: 0, top: 0, bottom: 0 },
 ): ArenaPresentationBounds {
   const zoom = Number.isFinite(cameraZoom) && cameraZoom > 0 ? cameraZoom : 1;
   const visibleWidth = Math.max(1, canvasWidth) / zoom;
   const visibleHeight = Math.max(1, canvasHeight) / zoom;
-  const width = Math.max(arenaWidth + 2 * nonnegativeFinite(actorPadding.x), visibleWidth);
-  const height = Math.max(arenaHeight + 2 * nonnegativeFinite(actorPadding.y), visibleHeight);
+  const left = nonnegativeFinite(actorPadding.left);
+  const right = nonnegativeFinite(actorPadding.right);
+  const top = nonnegativeFinite(actorPadding.top);
+  const bottom = nonnegativeFinite(actorPadding.bottom);
+  const centerX = (arenaWidth + right - left) / 2;
+  const centerY = (arenaHeight + bottom - top) / 2;
+  const width = Math.max(arenaWidth + left + right, visibleWidth);
+  const height = Math.max(arenaHeight + top + bottom, visibleHeight);
   return Object.freeze({
-    x: (arenaWidth - width) / 2,
-    y: (arenaHeight - height) / 2,
+    x: centerX - width / 2,
+    y: centerY - height / 2,
     width,
     height,
-    centerX: arenaWidth / 2,
-    centerY: arenaHeight / 2,
+    centerX,
+    centerY,
   });
 }
 
@@ -70,13 +77,13 @@ export function resolveArenaCameraFraming(
   arena: Readonly<{ width: number; height: number }>,
   canvas: Readonly<{ width: number; height: number }>,
   cameraZoom: number,
-  actorPadding: Readonly<ActorPresentationPadding> = { x: 0, y: 0 },
+  actorPadding: Readonly<ActorPresentationPadding> = { left: 0, right: 0, top: 0, bottom: 0 },
 ): ArenaCameraFraming {
   const zoom = Number.isFinite(cameraZoom) && cameraZoom > 0 ? cameraZoom : 1;
   const visibleWidth = Math.max(1, canvas.width) / zoom;
   const visibleHeight = Math.max(1, canvas.height) / zoom;
-  const paddedWidth = arena.width + 2 * nonnegativeFinite(actorPadding.x);
-  const paddedHeight = arena.height + 2 * nonnegativeFinite(actorPadding.y);
+  const paddedWidth = arena.width + nonnegativeFinite(actorPadding.left) + nonnegativeFinite(actorPadding.right);
+  const paddedHeight = arena.height + nonnegativeFinite(actorPadding.top) + nonnegativeFinite(actorPadding.bottom);
   return Object.freeze({
     bounds: responsiveArenaPresentationBounds(
       arena.width, arena.height, canvas.width, canvas.height, cameraZoom, actorPadding,

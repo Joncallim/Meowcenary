@@ -16,6 +16,7 @@ const illustratedScreenshot = {
 
 type VisualTestSeam = {
   freeze(): Promise<void>;
+  useAuthoredArenaArtReference(): Promise<boolean>;
   resume(): void;
   isSceneActive(key: string): boolean;
   isMenuPresentationSettled(): boolean;
@@ -45,6 +46,14 @@ async function press(page: import('@playwright/test').Page, key: string): Promis
 
 async function freezeAtStableFrame(page: import('@playwright/test').Page): Promise<void> {
   await page.waitForTimeout(250);
+  // Art references retain their fixed authored composition. Real camera
+  // framing is independently asserted in actor-framing/responsive/world-ui.
+  await page.evaluate(async () => {
+    const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam }).__MEOWCENARY_VISUAL_TEST__;
+    if (!seam) throw new Error('visual-test seam was not installed');
+    if (!seam.isSceneActive('MenuScene') && !await seam.useAuthoredArenaArtReference())
+      throw new Error('art reference requires a paused, prepared game');
+  });
   await page.evaluate(() => {
     const seam = (globalThis as typeof globalThis & {
       __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
@@ -111,7 +120,7 @@ async function expectCenteredActor(page: import('@playwright/test').Page, name: 
   });
 }
 
-test('approved reachable surfaces retain the Meowcenary visual system', async ({ page }, testInfo) => {
+test('fixed art reference compositions retain the Meowcenary visual system', async ({ page }, testInfo) => {
   // This journey reloads seven independently lazy-loaded production surfaces
   // before entering gameplay. A single-core CI runner has measured just over
   // 90 seconds while every bounded readiness assertion remained healthy; the
@@ -287,7 +296,7 @@ test('pause and Weapon Rack use the shared authored modal system', async ({ page
   await expect(page).toHaveScreenshot('weapon-rack.png', illustratedScreenshot);
 });
 
-test('transient gameplay decisions use the shared authored visual system', async ({ page }, testInfo) => {
+test('transient decision art references use the shared authored visual system', async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   test.skip(!new Set(['phone-390x844', 'desktop-1280x720']).has(testInfo.project.name));
 
@@ -327,7 +336,7 @@ test('transient gameplay decisions use the shared authored visual system', async
   }
 });
 
-test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ page }, testInfo) => {
+test('boss art reference keeps the approved boss-scale visual hierarchy', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-1280x720');
   await page.addInitScript(() => {
     const completed = Object.fromEntries(
@@ -364,7 +373,7 @@ test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ pa
   await expectCenteredActor(page, 'boss-gameplay-actor.png');
 });
 
-test('Forge Warden keeps its approved furnace-gantry silhouette in live gameplay', async ({ page }, testInfo) => {
+test('Forge Warden art reference keeps its approved furnace-gantry silhouette', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-1280x720');
   await page.addInitScript(() => {
     const completed = Object.fromEntries(

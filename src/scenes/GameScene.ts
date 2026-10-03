@@ -1011,7 +1011,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     camera.stopFollow?.();
-    camera.centerOn?.(arena.width / 2, arena.height / 2);
+    camera.centerOn?.(presentationBounds.centerX, presentationBounds.centerY);
   }
 
   private handleShutdown(): void {

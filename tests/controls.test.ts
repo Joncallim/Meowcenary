@@ -9,6 +9,8 @@ import { ControlsView, type AbilityControlDefinition } from '../src/ui/controls'
 import type { TouchStickConfig } from '../src/engine/config';
 import { logicalCanvasViewport, responsiveGameUiViewport, GAMEPLAY_ZOOM } from '../src/ui/layout';
 import { ThemeColor, ThemeDepth } from '../src/ui/theme';
+import * as visualChrome from '../src/ui/visualChrome';
+import type { VisualArtLookup } from '../src/systems/visualArt';
 
 function createFakeScene() {
   let resize: { callback: () => void; context?: unknown } | undefined;
@@ -205,7 +207,7 @@ function createFakeScene() {
 
 const scrapBurst: AbilityControlDefinition = Object.freeze({ name: 'Scrap Burst', description: 'Knock nearby enemies away.' });
 
-function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: boolean; touchStick?: TouchStickConfig; zoomed?: boolean; ability?: AbilityControlDefinition | null } = {}) {
+function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: boolean; touchStick?: TouchStickConfig; zoomed?: boolean; ability?: AbilityControlDefinition | null; visualArt?: VisualArtLookup } = {}) {
   const { readReducedMotion = () => false, gamepad = false, touchStick, zoomed = false, ability = scrapBurst } = options;
   const scene = createFakeScene();
   const input = new MockInputPlugin({ keyboard: true, gamepad });
@@ -221,6 +223,7 @@ function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: b
     onAbilityRequested,
     touchStick,
     ability,
+    visualArt: options.visualArt,
   });
   // GameScene runs InputController.update before the view update each frame.
   const tick = (dtMs = 16) => {
@@ -495,6 +498,40 @@ describe('ControlsView hints', () => {
 });
 
 describe('ControlsView pause button', () => {
+  it('fades combined Pause icon paint on actor overlap while preserving foreground bars and the live target', () => {
+    let icon: ReturnType<ReturnType<typeof createFakeScene>['add']['rectangle']> | undefined;
+    const chrome = vi.spyOn(visualChrome, 'createUiVisualChrome').mockReturnValue({
+      addIcon(scene: ReturnType<typeof createFakeScene>, x: number, y: number) {
+        icon = scene.add.rectangle(x, y, 28, 28);
+        return icon;
+      },
+      addFrame: () => undefined,
+    } as never);
+    try {
+      const { scene, view, onPauseRequested } = createHarness({ ability: null, visualArt: {} as VisualArtLookup });
+      const pause = scene.objects.find((object) => object.state.interactive)!;
+      expect(icon).toBeDefined();
+      const bars = scene.objects.filter((object) => object.state.fillColor === ThemeColor.cream
+        && object.state.width !== object.state.height);
+      expect(bars).toHaveLength(2);
+      expect(bars.every((bar) => !bar.visible)).toBe(true);
+      view.updateWorldReadability({ x: icon!.x - 10, y: icon!.y - 10, width: 20, height: 20 }, { scrollX: 0, scrollY: 0 });
+      expect(icon!.alpha).toBe(0.1);
+      expect(bars.every((bar) => bar.visible && bar.alpha === 1 && !bar.state.interactive)).toBe(true);
+      expect(pause.state.width).toBe(44);
+      expect(pause.listenerCount('pointerdown')).toBe(1);
+      pause.emit('pointerdown');
+      expect(onPauseRequested).toHaveBeenCalledTimes(1);
+      view.updateWorldReadability({ x: 10, y: 300, width: 20, height: 20 }, { scrollX: 0, scrollY: 0 });
+      expect(icon!.alpha).toBe(1);
+      expect(bars.every((bar) => !bar.visible)).toBe(true);
+      scene.resize(412, 915);
+      expect(bars.every((bar) => bar.state.destroyed)).toBe(true);
+      view.destroy();
+      expect(scene.objects.filter((object) => object.state.fillColor === ThemeColor.cream).every((bar) => bar.state.destroyed)).toBe(true);
+    } finally { chrome.mockRestore(); }
+  });
+
   it('invokes the pause callback on pointer down', () => {
     const { scene, onPauseRequested } = createHarness();
     const pauseButton = scene.objects.find((object) => object.state.interactive)!;
