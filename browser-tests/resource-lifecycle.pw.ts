@@ -43,6 +43,20 @@ function audioPaths(events: EventFact[]): string[] {
   return events.filter(event => event.owner === 'resource.audio').map(event => String(event.facts.requested));
 }
 
+test('cold Home publishes one hydration after its overlapping lazy-art closure drains', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('requestfailed', request => errors.push(`${request.url()}: ${request.failure()?.errorText}`));
+  await page.goto('/?visual-test=1&perf-test=1');
+  await waitForHome(page);
+  const events = await page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_PERFORMANCE__!.snapshot().events);
+  const homeRenders = events.filter(event => event.owner === 'menu.render' && event.facts.panel === 'home');
+  expect(homeRenders.filter(event => event.facts.reason === 'initial-mount')).toHaveLength(1);
+  expect(homeRenders.filter(event => event.facts.reason === 'lazy-art-hydration')).toHaveLength(1);
+  expect(homeRenders.every(event => event.facts.committed === true)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('Home loads only menu audio; real Play Contract waits for run audio without rerendering Menu', async ({ page }, testInfo) => {
   let releaseMusic!: () => void;
   let signalMusic!: () => void;

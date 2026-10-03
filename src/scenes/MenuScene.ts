@@ -1711,47 +1711,66 @@ export class MenuScene extends Phaser.Scene {
   ): Promise<void> {
     const generation = this.panelArtGeneration;
     const art = this.requireVisualArt();
-    if (panel === 'loadout' || panel === 'equipment') artIds = [...artIds, 'ui-chrome:figma-card', 'ui-chrome:figma-selected', 'ui-chrome:figma-primary', 'ui-chrome:figma-arrow'];
     const resources = new DataVisualResourceRegistry(this.getContext().data);
-    const missing = new Map<string, import('../systems/types').VisualTextureResource>();
-    for (const artId of artIds) {
-      const binding = art.bindingById(artId);
-      if (!binding?.resourceId || this.textures.exists(binding.textureKey)) continue;
-      const resource = resources.resourceById(binding.resourceId);
-      if (resource) missing.set(resource.id, resource);
-    }
-    if (missing.size === 0) {
-      if (repaintWhenCached && generation === this.panelArtGeneration && this.isLive && this.committedPanel === panel && this.controller) {
-        this.render(this.controller.snapshot(), 'lazy-art-hydration');
-      }
-      return;
-    }
+    const repaintPanels = new Set<MainMenuSnapshot['panel']>();
+    let batchPanel = panel;
+    let batchArtIds = artIds;
+    let repaintCachedBatch = repaintWhenCached;
     this.panelArtLoading = true;
-    let loadedAny = false;
     try {
-      loadedAny = (await this.serializeTextureLoad(
-        () => loadTextureResources(this, [...missing.values()]),
-        EMPTY_RESOURCE_LOAD_RESULT,
-      )).loaded.length > 0;
+      while (generation === this.panelArtGeneration && this.isLive) {
+        const ids = batchPanel === 'loadout' || batchPanel === 'equipment'
+          ? [...batchArtIds, 'ui-chrome:figma-card', 'ui-chrome:figma-selected', 'ui-chrome:figma-primary', 'ui-chrome:figma-arrow']
+          : batchArtIds;
+        const missing = new Map<string, import('../systems/types').VisualTextureResource>();
+        let cachedAny = false;
+        for (const artId of ids) {
+          const binding = art.bindingById(artId);
+          if (!binding?.resourceId) continue;
+          if (this.textures.exists(binding.textureKey)) {
+            cachedAny = true;
+            continue;
+          }
+          const resource = resources.resourceById(binding.resourceId);
+          if (resource) missing.set(resource.id, resource);
+        }
+        // Earlier batches may have fulfilled part of a queued panel's closure.
+        // Those cached bindings can hydrate even if its remaining files fail.
+        if (repaintCachedBatch && cachedAny) repaintPanels.add(batchPanel);
+        if (missing.size > 0) {
+          const result = await this.serializeTextureLoad(
+            () => loadTextureResources(this, [...missing.values()]),
+            EMPTY_RESOURCE_LOAD_RESULT,
+          );
+          // A restarted Menu owns new pending requests and loading state.
+          // Obsolete completions may populate cache, but cannot drain or paint it.
+          if (generation !== this.panelArtGeneration || !this.isLive) return;
+          if (result.loaded.length > 0) {
+            repaintPanels.add(batchPanel);
+            const animationScene = this as unknown as { readonly anims?: Phaser.Animations.AnimationManager };
+            if (animationScene.anims) ensureVisualAnimations(this, art);
+          }
+        } else if (repaintCachedBatch) repaintPanels.add(batchPanel);
+        // Keep the pipeline owned until every overlapping request has drained.
+        // A queued closure already in cache can still hydrate its current panel.
+        if (this.pendingPanelArtIds.size === 0) {
+          this.pendingPanelArtRepaints.clear();
+          break;
+        }
+        batchArtIds = [...this.pendingPanelArtIds];
+        batchPanel = this.committedPanel ?? batchPanel;
+        repaintCachedBatch = this.pendingPanelArtRepaints.has(batchPanel);
+        this.pendingPanelArtIds.clear();
+        this.pendingPanelArtRepaints.clear();
+      }
     } finally {
       if (generation === this.panelArtGeneration) this.panelArtLoading = false;
     }
-    if (generation !== this.panelArtGeneration || !this.isLive) return;
-    const animationScene = this as unknown as { readonly anims?: Phaser.Animations.AnimationManager };
-    if (loadedAny && animationScene.anims) ensureVisualAnimations(this, art);
-    // Drain every resource requested by the current render before repainting.
-    // Repainting first can start a second loader in the small gap between the
-    // first request completing and its queued backdrop/icon closure draining,
-    // leaving a visually settled menu on its primitive fallback.
-    if (this.pendingPanelArtIds.size > 0) {
-      const pending = [...this.pendingPanelArtIds];
-      const repaintPanels = new Set(this.pendingPanelArtRepaints);
-      this.pendingPanelArtIds.clear();
-      this.pendingPanelArtRepaints.clear();
-      const targetPanel = this.committedPanel ?? panel;
-      await this.loadPanelPresentation(targetPanel, pending, repaintPanels.has(targetPanel));
+    // Publish once, using current state after the complete closure has settled.
+    if (generation === this.panelArtGeneration && this.isLive && this.committedPanel
+      && repaintPanels.has(this.committedPanel) && this.controller) {
+      this.render(this.controller.snapshot(), 'lazy-art-hydration');
     }
-    if (loadedAny && this.committedPanel === panel && this.controller) this.render(this.controller.snapshot(), 'lazy-art-hydration');
   }
 
   /** Career shares terminal Achievement badge identity while retaining its
