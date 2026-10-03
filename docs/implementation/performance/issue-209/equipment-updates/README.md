@@ -61,3 +61,78 @@ probes, content, complete art/source/export validation, ordinary production
 build/seam checks, diff checks, full existing viewport/browser matrix and
 exact-head hosted CI. Human Figma, art, physical-device and product gates stay
 open. #209 is not complete from this scoped optimization alone.
+
+## Repeated findings
+
+The immediate baseline is `251d77d9a87d2062e6cd9e7b13c66fad95a94363`; the
+measured implementation is `bc4b8e771c0b8bea734f214fe4796f0444432bb2`.
+The following evidence commit changes documentation only. Both runs used the
+candidate runner, with its older-baseline presentation-revision fallback.
+There were nine fresh cohorts per runtime, three repeats each for desktop
+1280×720, phone 390×844/DPR3 and foldable 1114×720/DPR2: 18 cohorts, 468
+checkpoints, zero browser errors. Runs were sequential, never concurrent.
+
+All nine candidate selections changed their owner from full `menu.render` to
+local `menu.update`. Created objects fell from 118 to 41 (65% fewer), destroyed
+objects from 96 to 19. Stable objects stayed at 118 and textures at 57. Median
+selection latency to POST_RENDER fell from 230.0 to 187.4ms on desktop, 303.9
+to 182.3ms on phone, and 477.0 to 301.7ms on foldable. The three-repeat ranges
+for this action do not overlap. Its unnecessary shell/prefix reconstruction
+was a demonstrated cost; retaining them removes that work.
+
+Other actions have mixed results, including slower Equipment entry/equip and
+warm Equipment entry in this run. Baseline-first ordering and host load were
+not controlled, so this evidence cannot attribute those changes to the code
+or demonstrate unchanged whole-game timing. No boot, Gunsmith or combat
+improvement is claimed. Blueprint selection sometimes changes the Set hero
+and legitimately uses the full path. This slice addresses candidate selection;
+#209's broader responsiveness acceptance remains open.
+
+[comparison.md](comparison.md) retains action ranges, raw frame sample counts,
+p50/p95/p99, worst frames, over-budget counts/ratios and limitations. The
+three-second headless combat windows are comparable bounded evidence, not a
+physical-device or long-soak performance verdict. The GPU backend is unverified.
+
+Raw inputs are `baseline-raw.json.gz` and `candidate-raw.json.gz`. Reproduce:
+
+```bash
+python3 docs/implementation/performance/issue-209/equipment-updates/summarize.py \
+  --baseline docs/implementation/performance/issue-209/equipment-updates/baseline-raw.json.gz \
+  --candidate docs/implementation/performance/issue-209/equipment-updates/candidate-raw.json.gz \
+  --out /tmp/meow-equipment-comparison.md
+```
+
+For fresh captures, build each pinned worktree with `VITE_VISUAL_TEST=1`, serve
+its production directory on a separate local preview port, then run the
+candidate `scripts/performance-baseline.mjs` from that worktree with `--url`,
+`--out`, `--repeats 3`, `--window-ms 3000` and `--expected-sha` set to its pin.
+Do not run builds, tests or another capture alongside a timing capture.
+Ordinary resource inventories are separate gzip archives; their compression
+is a reproducible build estimate, not measured CDN transfer.
+
+## Remaining ownership
+
+Gunsmith local updates, other measured panel costs, justified remaining surface
+extraction, native integration documentation and final baseline-to-final/device
+acceptance remain under #209. A separate measured pass should investigate
+unchanged-label text rasterization in the shared focus owner: the installed
+Phaser TextStyle.setStyle defaults to remeasuring text and updating its canvas,
+even when supplied the existing colour. This is a concrete candidate cost,
+but no attribution or improvement for it is claimed here and it is not changed
+by this tranche. Product issues and visual approval remain with their owners.
+
+## Ordinary build inventory
+
+| Item | Baseline raw / gzip9 / Brotli11 bytes | Candidate raw / gzip9 / Brotli11 bytes |
+|---|---:|---:|
+| Application JS | 809244 / 182723 / 149087 | 814021 / 183786 / 149796 |
+| Phaser chunk | 1208050 / 330419 / 264694 | 1208050 / 330419 / 264694 |
+
+This scoped retention logic increases application bytes; it is not a bundle
+size optimization. Both inventories have 619 logical art bindings, 96 physical
+visual resources, 112 distinct visual URLs and 226 dist files. No asset/audio
+manifest changes are included. Six selected-detail captures are in `captures/`;
+controls and Recon comparison state were inspected across all profiles. The
+large-desktop Technician row highlight is pointer hover, separate from the
+active Recon detail and semantic selection. Supplemental detail stays inside
+the scroll viewport; the footer remains fixed. These are parity evidence only.
