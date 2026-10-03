@@ -349,3 +349,10 @@ The [implementation inventory and Android/iOS integration decisions](../../../ar
 pin current browser boundaries and deferred durability, lifecycle, audio,
 presentation and offline-package evidence. No native tooling is installed, and
 this artifact does not close #209 or its product/device acceptance gates.
+
+## Follow-up hydration ownership
+
+[One terminal panel-art hydration](hydration-drain/README.md) records the
+fresh-main duplicate-repaint reproduction, guarded drain correction and
+repeated comparison. This scoped loader correction retains the existing
+resource closures and leaves further surface-local hydration with #209.
