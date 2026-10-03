@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BootScene, BOOT_RESOURCE_BUNDLE_ID } from '../src/scenes/BootScene';
 import { DataAssetBundleRegistry } from '../src/systems/assetBundles';
 import { loadGameData } from '../src/systems/validation';
-import audioAssets from '../src/data/audio-assets.json';
+import { resolveAudioResources } from '../src/systems/audioResources';
 
 vi.mock('phaser', () => ({ default: { Scene: class { constructor(public key: string) {} }, Textures: { FilterMode: { NEAREST: 1 } } } }));
 const probe = vi.hoisted(() => ({ now: vi.fn(() => 100), record: vi.fn() }));
@@ -44,7 +44,7 @@ function createBoot() {
 const data = loadGameData();
 const registry = new DataAssetBundleRegistry(data);
 const bootResources = registry.resourcesForBundle(BOOT_RESOURCE_BUNDLE_ID)!;
-const audioKeys = [...audioAssets.sfx, ...audioAssets.music].map(asset => asset.key);
+const audioKeys = resolveAudioResources(data.audio.assets, 'menu-common').map(asset => asset.key);
 function finishVisual(load: ReturnType<typeof createBoot>['load'], resources = bootResources, except?: string) {
   for (const resource of resources) {
     if (resource.textureKey === except) continue;

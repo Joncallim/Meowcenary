@@ -87,6 +87,17 @@ describe('GameScene opt-in timing', () => {
     expect(owners.find((owner: any) => owner.name === 'spawning').sampleCount).toBe(0);
   });
 
+  it('reports the reason and XP state of a paused benchmark without changing run truth', () => {
+    const scene = harness();
+    scene.runState.status = 'paused';
+    scene.runState.pauseReason = 'levelUp';
+    const before = { ...scene.runState };
+    expect(scene.performanceDiagnostics()).toMatchObject({ status: 'paused', pauseReason: 'levelUp',
+      level: 1, xp: 0, xpToNext: 5 });
+    expect(scene.runState).toEqual(before);
+    expect(probe.now).not.toHaveBeenCalled();
+  });
+
   it('does not read any browser clock when profiling is disabled', () => {
     const scene = harness();
     probe.enabled = false;

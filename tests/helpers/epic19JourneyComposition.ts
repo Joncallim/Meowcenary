@@ -633,33 +633,50 @@ function createFakeScene(
   // run. Model the small loader surface it uses so this remains a real
   // MenuScene journey rather than bypassing the resource gate.
   const loadedTextureKeys = new Set<string>();
+  const loadedAudioKeys = new Set<string>();
   const queuedTextureTypes = new Map<string, string>();
-  const loaderListeners = new Map<string, Array<() => void>>();
+  const queuedAudioKeys = new Set<string>();
+  const loaderListeners = new Map<string, Array<{ listener: (...args: unknown[]) => void; once: boolean }>>();
+  const emitLoader = (event: string, ...args: unknown[]): void => {
+    const listeners = loaderListeners.get(event) ?? [];
+    loaderListeners.set(event, listeners.filter((entry) => !entry.once));
+    for (const entry of [...listeners]) entry.listener(...args);
+  };
   const loader = {
-    once(event: string, listener: () => void): void {
+    on(event: string, listener: (...args: unknown[]) => void): void {
       const listeners = loaderListeners.get(event) ?? [];
-      listeners.push(listener);
+      listeners.push({ listener, once: false });
       loaderListeners.set(event, listeners);
     },
-    off(event: string, listener?: () => void): void {
+    once(event: string, listener: (...args: unknown[]) => void): void {
+      const listeners = loaderListeners.get(event) ?? [];
+      listeners.push({ listener, once: true });
+      loaderListeners.set(event, listeners);
+    },
+    off(event: string, listener?: (...args: unknown[]) => void): void {
       if (listener === undefined) {
         loaderListeners.delete(event);
         return;
       }
-      loaderListeners.set(event, (loaderListeners.get(event) ?? []).filter((candidate) => candidate !== listener));
+      loaderListeners.set(event, (loaderListeners.get(event) ?? []).filter((entry) => entry.listener !== listener));
     },
     image(key: string): void { queuedTextureTypes.set(key, 'image'); },
     spritesheet(key: string): void { queuedTextureTypes.set(key, 'spritesheet'); },
     atlas(key: string): void { queuedTextureTypes.set(key, 'atlasjson'); },
+    audio: vi.fn((key: string): void => { queuedAudioKeys.add(key); }),
     start(): void {
       for (const [key, type] of queuedTextureTypes) {
         loadedTextureKeys.add(key);
-        const event = `filecomplete-${type}-${key}`;
-        const listeners = loaderListeners.get(event) ?? [];
-        loaderListeners.delete(event);
-        listeners.forEach((listener) => listener());
+        emitLoader(`filecomplete-${type}-${key}`);
       }
       queuedTextureTypes.clear();
+      for (const key of queuedAudioKeys) {
+        loadedAudioKeys.add(key);
+        emitLoader(`filecomplete-audio-${key}`);
+      }
+      queuedAudioKeys.clear();
+      // Phaser emits this even for an empty queue (notably NoAudio mode).
+      emitLoader('complete');
     },
   };
   const audioFake = { playMusic: vi.fn(), update: vi.fn(), unlock: vi.fn(), destroy: vi.fn() };
@@ -708,6 +725,7 @@ function createFakeScene(
       exists: vi.fn((key: string) => loadedTextureKeys.has(key)),
       get: vi.fn(() => ({ has: () => true, setFilter: vi.fn() })),
     },
+    cache: { audio: { exists: (key: string) => loadedAudioKeys.has(key) } },
     registry: {
       get: (key: string) => {
         if (key === GAME_CONTEXT_REGISTRY_KEY) return context;

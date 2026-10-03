@@ -1,27 +1,27 @@
 {
   "sfx": [
-    { "key": "sfx-weapon-fired", "url": "assets/audio/sfx-weapon-fired.wav" },
-    { "key": "sfx-weapon-fired-pistol", "url": "assets/audio/sfx-weapon-fired-pistol.wav" },
-    { "key": "sfx-weapon-fired-smg", "url": "assets/audio/sfx-weapon-fired-smg.wav" },
-    { "key": "sfx-weapon-fired-shotgun", "url": "assets/audio/sfx-weapon-fired-shotgun.wav" },
-    { "key": "sfx-projectile-hit", "url": "assets/audio/sfx-projectile-hit.wav" },
-    { "key": "sfx-projectile-hit-pistol", "url": "assets/audio/sfx-projectile-hit-pistol.wav" },
-    { "key": "sfx-projectile-hit-smg", "url": "assets/audio/sfx-projectile-hit-smg.wav" },
-    { "key": "sfx-projectile-hit-shotgun", "url": "assets/audio/sfx-projectile-hit-shotgun.wav" },
-    { "key": "sfx-enemy-killed", "url": "assets/audio/sfx-enemy-killed.wav" },
-    { "key": "sfx-player-damaged", "url": "assets/audio/sfx-player-damaged.wav" },
-    { "key": "sfx-drop-collected", "url": "assets/audio/sfx-drop-collected.wav" },
-    { "key": "sfx-level-up", "url": "assets/audio/sfx-level-up.wav" },
-    { "key": "sfx-weapon-merged", "url": "assets/audio/sfx-weapon-merged.wav" },
-    { "key": "sfx-card-chosen", "url": "assets/audio/sfx-card-chosen.wav" },
-    { "key": "sfx-run-won", "url": "assets/audio/sfx-run-won.wav" },
-    { "key": "sfx-run-lost", "url": "assets/audio/sfx-run-lost.wav" },
-    { "key": "sfx-ui-navigate", "url": "assets/audio/sfx-ui-navigate.wav" },
-    { "key": "sfx-ui-confirm", "url": "assets/audio/sfx-ui-confirm.wav" },
-    { "key": "sfx-ui-back", "url": "assets/audio/sfx-ui-back.wav" }
+    {"key": "sfx-weapon-fired", "url": "assets/audio/sfx-weapon-fired.wav", "lifecycle": "run-common"},
+    {"key": "sfx-weapon-fired-pistol", "url": "assets/audio/sfx-weapon-fired-pistol.wav", "lifecycle": "run-common"},
+    {"key": "sfx-weapon-fired-smg", "url": "assets/audio/sfx-weapon-fired-smg.wav", "lifecycle": "run-common"},
+    {"key": "sfx-weapon-fired-shotgun", "url": "assets/audio/sfx-weapon-fired-shotgun.wav", "lifecycle": "run-common"},
+    {"key": "sfx-projectile-hit", "url": "assets/audio/sfx-projectile-hit.wav", "lifecycle": "run-common"},
+    {"key": "sfx-projectile-hit-pistol", "url": "assets/audio/sfx-projectile-hit-pistol.wav", "lifecycle": "run-common"},
+    {"key": "sfx-projectile-hit-smg", "url": "assets/audio/sfx-projectile-hit-smg.wav", "lifecycle": "run-common"},
+    {"key": "sfx-projectile-hit-shotgun", "url": "assets/audio/sfx-projectile-hit-shotgun.wav", "lifecycle": "run-common"},
+    {"key": "sfx-enemy-killed", "url": "assets/audio/sfx-enemy-killed.wav", "lifecycle": "run-common"},
+    {"key": "sfx-player-damaged", "url": "assets/audio/sfx-player-damaged.wav", "lifecycle": "run-common"},
+    {"key": "sfx-drop-collected", "url": "assets/audio/sfx-drop-collected.wav", "lifecycle": "run-common"},
+    {"key": "sfx-level-up", "url": "assets/audio/sfx-level-up.wav", "lifecycle": "run-common"},
+    {"key": "sfx-weapon-merged", "url": "assets/audio/sfx-weapon-merged.wav", "lifecycle": "run-common"},
+    {"key": "sfx-card-chosen", "url": "assets/audio/sfx-card-chosen.wav", "lifecycle": "run-common"},
+    {"key": "sfx-run-won", "url": "assets/audio/sfx-run-won.wav", "lifecycle": "run-common"},
+    {"key": "sfx-run-lost", "url": "assets/audio/sfx-run-lost.wav", "lifecycle": "run-common"},
+    {"key": "sfx-ui-navigate", "url": "assets/audio/sfx-ui-navigate.wav", "lifecycle": "menu-common"},
+    {"key": "sfx-ui-confirm", "url": "assets/audio/sfx-ui-confirm.wav", "lifecycle": "menu-common"},
+    {"key": "sfx-ui-back", "url": "assets/audio/sfx-ui-back.wav", "lifecycle": "menu-common"}
   ],
   "music": [
-    { "key": "music-menu", "url": "assets/audio/music-menu.wav" },
-    { "key": "music-run", "url": "assets/audio/music-run.wav" }
+    {"key": "music-menu", "url": "assets/audio/music-menu.wav", "lifecycle": "menu-common"},
+    {"key": "music-run", "url": "assets/audio/music-run.wav", "lifecycle": "run-common"}
   ]
 }

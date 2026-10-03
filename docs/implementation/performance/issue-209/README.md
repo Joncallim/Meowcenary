@@ -338,3 +338,7 @@ achievement-mirror integration, safe areas/status/navigation bars, orientation,
 fullscreen, optional haptics, offline packaging and store decisions. Capacitor
 is not installed. Product/device visual and responsiveness acceptance remains
 human work after measured improvements land.
+
+## Follow-up resource slice
+
+[Slice B: fresh-main comparison, audio lifecycle and run preparation](resource-lifecycle/README.md) records the subsequent measured improvement and remaining surface/native work. This historical Phase-A baseline remains unchanged.

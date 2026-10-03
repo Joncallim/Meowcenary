@@ -188,7 +188,7 @@ const allVisualFiles = sumFiles(allResourceFiles);
 const audioFiles = [...audioManifest.sfx, ...audioManifest.music].map((asset) => {
   const file = measureDistFile(asset.url);
   const diskPath = checkedDistPath(asset.url);
-  return { key: asset.key, type: audioManifest.sfx.includes(asset) ? 'sfx' : 'music', ...file, wav: parseWav(readFileSync(diskPath)) };
+  return { key: asset.key, lifecycle: asset.lifecycle, type: audioManifest.sfx.includes(asset) ? 'sfx' : 'music', ...file, wav: parseWav(readFileSync(diskPath)) };
 });
 const audioSummary = {
   sfxCount: audioManifest.sfx.length,
@@ -294,10 +294,10 @@ const report = {
   },
   boot: {
     source: 'src/scenes/BootScene.ts',
-    sourceBehavior: 'Queues every audio-manifest SFX/music entry at Boot and only bundle:boot-core visual resources.',
+    sourceBehavior: 'Queues menu-common audio at Boot and only bundle:boot-core visual resources; run-common audio is optional run preparation.',
     visualBundle: bootBundle,
-    audioCount: audioFiles.length,
-    audioRawBytes: audioSummary.bytes,
+    audioCount: audioFiles.filter(file => file.lifecycle === 'menu-common').length,
+    audioRawBytes: audioFiles.filter(file => file.lifecycle === 'menu-common').reduce((sum, file) => sum + file.bytes, 0),
     font: fontRecord ? {
       url: `/${fontUrl}`,
       ...fontRecord,

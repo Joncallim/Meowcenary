@@ -353,12 +353,16 @@ export interface LootTable {
   readonly entries: readonly LootEntry[];
 }
 
+export type AudioResourceLifecycle = 'menu-common' | 'run-common';
+
 export interface AudioSfxAsset {
+  readonly lifecycle: AudioResourceLifecycle;
   readonly key: string;
   readonly url: string;
 }
 
 export interface AudioMusicAsset {
+  readonly lifecycle: AudioResourceLifecycle;
   readonly key: string;
   readonly url: string;
 }
