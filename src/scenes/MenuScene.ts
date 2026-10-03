@@ -20,9 +20,11 @@ import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResourc
 import { DataVisualArtRegistry, DataVisualResourceRegistry, ensureVisualAnimations, resolveAchievementIconBinding, visualAnimationKey } from '../systems/visualArt';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
 import { createUiVisualChrome, type UiVisualChrome } from '../ui/visualChrome';
-import { presentLoadoutModifier, type LoadoutEffectPresentation } from '../ui/loadoutPresentation';
-import type { EquipmentComparison, EquipmentLoadoutPresentation, EquipmentSetProgressPresentation } from '../ui/equipmentPresentation';
-import type { GunsmithAssembledPreview } from '../ui/gunsmithController';
+import { LoadoutSurface } from '../ui/menuSurfaces/loadoutSurface';
+import { EquipmentSurface } from '../ui/menuSurfaces/equipmentSurface';
+import { GunsmithSurface } from '../ui/menuSurfaces/gunsmithSurface';
+import { loadoutFooterPadding } from '../ui/menuSurfaces/layout';
+import type { LoadoutMenuPanel, MenuPanelSurface, MenuSurfaceEnvironment } from '../ui/menuSurfaces/surface';
 import { performanceProbe } from '../platform/performanceProbe';
 import { collectDisplayObjects, displayObjectChange, type DisplayNode } from '../platform/performanceDisplay';
 
@@ -48,7 +50,8 @@ export class MenuScene extends Phaser.Scene {
   private nextFocusAlignTop = false;
   private equipmentSlotColumns = 2;
   private loadoutSurface = false;
-  private equipmentSetBrowserOpen = false;
+  private panelSurfaces: Partial<Record<LoadoutMenuPanel, MenuPanelSurface>> = {};
+  private activeSurface?: MenuPanelSurface;
   /** Buttons which remain readable/focusable for their lock explanation but
    * must never regain pointer or logical activation when scrolling changes
    * viewport visibility. */
@@ -117,6 +120,7 @@ export class MenuScene extends Phaser.Scene {
   private achievementArtLoading = false;
   private mercenaryArtLoading = false;
   private equipmentArtLoading = false;
+  private readonly pendingEquipmentArtIds = new Set<string>();
   private gunsmithArtLoading = false;
   private readonly pendingGunsmithArtIds = new Set<string>();
   private gunsmithArtGeneration = 0;
@@ -203,6 +207,7 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtLoading = false;
     this.mercenaryArtLoading = false;
     this.equipmentArtLoading = false;
+    this.pendingEquipmentArtIds.clear();
     this.achievementArtLoading = false;
     this.pendingGunsmithArtIds.clear();
     this.panelArtGeneration += 1;
@@ -211,7 +216,8 @@ export class MenuScene extends Phaser.Scene {
     this.pendingPanelArtIds.clear();
     this.pendingPanelArtRepaints.clear();
     this.isLive = true;
-    this.equipmentSetBrowserOpen = false;
+    this.destroyScrollMask();
+    this.disposePanelSurfaces();
     const ctx = this.getContext();
     this.visualArt = new DataVisualArtRegistry(ctx.data);
     this.uiVisuals = createUiVisualChrome(this.visualArt);
@@ -299,6 +305,7 @@ export class MenuScene extends Phaser.Scene {
     this.committedDisplay = false;
     this.destroyScrollMask();
     this.runLaunchProgressText = undefined;
+    this.unmountPanelSurface();
     this.root?.destroy(true);
     this.root = undefined;
     this.focusables = [];
@@ -430,7 +437,7 @@ export class MenuScene extends Phaser.Scene {
           this.renderStage(root, snapshot, width, contentTop, margin, hitTarget);
           break;
         case 'loadout':
-          this.renderLoadout(root, snapshot, width, contentTop, margin, hitTarget);
+          this.presentPanelSurface(root, snapshot, contentTop, margin, hitTarget);
           break;
         case 'career':
           this.renderCareer(root, snapshot, width, contentTop, margin, hitTarget);
@@ -448,10 +455,10 @@ export class MenuScene extends Phaser.Scene {
           this.renderTraining(root, snapshot, width, contentTop, margin, hitTarget);
           break;
         case 'gunsmith':
-          this.renderGunsmith(root, snapshot, width, contentTop, margin, hitTarget);
+          this.presentPanelSurface(root, snapshot, contentTop, margin, hitTarget);
           break;
         case 'equipment':
-          this.renderEquipment(root, snapshot, width, contentTop, margin, hitTarget);
+          this.presentPanelSurface(root, snapshot, contentTop, margin, hitTarget);
           break;
         // progression panel retired in V4
 
@@ -476,7 +483,7 @@ export class MenuScene extends Phaser.Scene {
         if (semanticIndex >= 0 || fallbackIndex >= 0) this.navigator.setIndex(semanticIndex >= 0 ? semanticIndex : fallbackIndex);
       }
       if (this.focusIndexAfterRender !== undefined) this.navigator.setIndex(this.focusIndexAfterRender);
-      this.finishScrollableRegion(root);
+      this.finishScrollableRegion(this.panelContentRoot ?? root);
       const rebuiltRegion = this.scrollRegion as ScrollableFocusRegion | undefined;
       if (preserveFocusKey && this.focusKeyByButton.get(this.focusables[this.navigator.index]!) === preserveFocusKey) {
         const nextBounds = this.scrollItemBounds.get(this.navigator.index);
@@ -499,6 +506,7 @@ export class MenuScene extends Phaser.Scene {
     } catch (error) {
       this.destroyScrollMask();
       this.runLaunchProgressText = undefined;
+      this.unmountPanelSurface();
       root.destroy(true);
       this.focusables = [];
       this.focusRings = [];
@@ -679,200 +687,66 @@ export class MenuScene extends Phaser.Scene {
     ].filter((id): id is string => id !== undefined));
   }
 
-  private loadoutEffectCopy(effects: readonly LoadoutEffectPresentation[]): string {
-    return effects.map((effect) => `${effect.kind === 'modifier' ? effect.text : effect.label} [${effect.target.label}]`).join(' • ');
-  }
-
-  private renderScopedLoadoutEffects(root: Phaser.GameObjects.Container, effects: readonly LoadoutEffectPresentation[], left: number, top: number, width: number): number {
-    let y = top;
-    for (const effect of effects) {
-      const copy = this.loadoutCopy(root, left + 30, y, this.loadoutEffectCopy([effect]), width - 30);
-      this.addPanelArt(root, left + 12, y + 12,
-        effect.target.kind === 'mercenary' ? 'nav-icon:mercenary' : 'nav-icon:gunsmith', 22);
-      y += Math.max(26, copy.height) + 6;
+  /** Panel instances retain UI-only state across visits. Mounts do not: every
+   * rebuild revokes old commands and owns a fresh content tree. */
+  private presentPanelSurface(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot,
+    top: number, margin: number, hitTarget: number): void {
+    const panel = snapshot.panel;
+    if (panel !== 'loadout' && panel !== 'equipment' && panel !== 'gunsmith') {
+      throw new Error(`No mounted surface for ${panel}`);
     }
-    return y;
-  }
-
-  private loadoutCopy(root: Phaser.GameObjects.Container, x: number, y: number, text: string, width: number, color = '#d6f7ff'): Phaser.GameObjects.Text {
-    const copy = this.own(root, createUiText(this, x, y, text, {
-      color, fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, lineSpacing: 4,
-      wordWrap: { width },
-    }));
-    this.registerScrollObject(copy);
-    return copy;
-  }
-
-  private rememberLoadoutFocus(button: Phaser.GameObjects.Text, key: string): Phaser.GameObjects.Text {
-    this.focusKeyByButton.set(button, key);
-    return button;
-  }
-
-  private setProgressCopy(set: EquipmentSetProgressPresentation): string {
-    const pips = set.pips.map((equipped) => equipped ? '●' : '○').join('');
-    return `${set.name}  ${pips}  ${set.equippedCount}/4${set.nextThreshold ? ` • Next bonus at ${set.nextThreshold}` : ''}\n${set.thresholds.map((threshold) =>
-      `${threshold.count}-piece ${threshold.active ? 'ACTIVE' : 'INACTIVE'}: ${this.loadoutEffectCopy(threshold.effects)}`).join('\n')}`;
-  }
-
-  private loadoutMaterial(root: Phaser.GameObjects.Container, x: number, y: number, width: number, height: number, selected = false): void {
-    const panel = this.uiVisuals?.addPanel(this, x + width / 2, y + height / 2, width, height, selected ? 'figma-selected' : 'figma-card');
-    if (panel) { this.own(root, panel); this.registerScrollObject(panel); }
-  }
-
-  private loadoutHeader(root: Phaser.GameObjects.Container, left: number, title: string, subtitle: string): void {
-    const top = edgeMargin(this.currentViewport!, 'top') - 12;
-    this.own(root, this.add.rectangle(left, top + 28, 4, 24, 0xf78003));
-    this.own(root, createUiText(this, left + 12, top + 12, title, {
-      color: '#e5d8c5', fontFamily: ThemeFont.family, fontSize: '12px', fontStyle: '700',
-    })).setScrollFactor(0);
-    this.own(root, createUiText(this, left + 12, top + 36, subtitle, {
-      color: '#82949d', fontFamily: ThemeFont.family, fontSize: '8px',
-    })).setScrollFactor(0);
-  }
-
-  private loadoutSection(root: Phaser.GameObjects.Container, left: number, y: number, label: string): void {
-    const text = this.own(root, createUiText(this, left + 4, y, label, {
-      color: '#f78003', fontFamily: ThemeFont.family, fontSize: '10px', fontStyle: '700',
-    })).setScrollFactor(0);
-    this.registerScrollObject(text);
-  }
-
-  private loadoutRouter(root: Phaser.GameObjects.Container, left: number, y: number, width: number, hitTarget: number, label: string, action: () => void, accent: number): Phaser.GameObjects.Text {
-    const button = this.addButton(root, left, y, label, hitTarget, action, 'ui:confirm', width, undefined, 52, 12, false, 'left');
-    button.setStyle({ fontSize: '10px' });
-    const index = this.focusables.indexOf(button);
-    const bounds = button.getBounds();
-    const stroke = this.own(root, this.add.rectangle(bounds.centerX, bounds.centerY, bounds.width, bounds.height, accent, 0)).setStrokeStyle(1, accent);
-    const mark = this.own(root, this.add.rectangle(left + 4, y + hitTarget / 2, 4, 24, accent));
-    const arrow = this.own(root, this.add.rectangle(left + width - 22, y + hitTarget / 2, 40, hitTarget - 4, accent));
-    for (const object of [stroke, mark, arrow]) this.registerScrollObject(object, index);
-    this.addCatalogIcon(root, left + width - 22, y + hitTarget / 2, 'ui-chrome:figma-arrow', 18, index);
-    return button;
-  }
-
-  private loadoutFooterPadding(): number { return this.scale.height >= 760 ? 26 : 8; }
-
-  /** Footer controls never enter the masked content container. */
-  private loadoutFooter(root: Phaser.GameObjects.Container, left: number, width: number, hitTarget: number, label: string, action: () => void): Phaser.GameObjects.Text {
-    const y = this.scale.height - edgeMargin(this.currentViewport!, 'bottom', 16) - hitTarget - this.loadoutFooterPadding();
-    this.own(root, this.add.rectangle(left + width / 2, y + hitTarget / 2, width, hitTarget + 16, 0x101b22)).setScrollFactor(0);
-    const button = this.addButton(root, left, y, label, hitTarget, action, 'ui:confirm', width, undefined, 52, 12, false, 'left');
-    button.setStyle({ fontSize: '10px' });
-    const bounds = button.getBounds();
-    const chrome = this.uiVisuals?.addPanel(this, bounds.centerX, bounds.centerY, bounds.width, bounds.height, 'figma-card');
-    this.own(root, this.add.rectangle(bounds.centerX, bounds.centerY, bounds.width, bounds.height, 0x2ec4b6, 0)).setStrokeStyle(1, 0x2ec4b6);
-    this.own(root, this.add.rectangle(left + 4, y + hitTarget / 2, 4, 24, 0x2ec4b6));
-    this.own(root, this.add.rectangle(left + width - 22, y + hitTarget / 2, 40, hitTarget - 4, 0x2ec4b6));
-    this.addCatalogIcon(root, left + width - 22, y + hitTarget / 2, 'ui-chrome:figma-arrow', 18);
-    if (chrome) { this.own(root, chrome); root.moveTo(chrome, Math.max(0, root.list.indexOf(button))); }
-    return button;
-  }
-
-  private renderLoadout(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
-    const contentWidth = Math.min(840, width - margin - this.safeRightMargin);
-    const left = this.safeCenterX - contentWidth / 2;
-    this.loadoutHeader(root, left, 'LOADOUT', 'PRE-RUN ENGINEERING');
-    let y = top + 26;
-    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
-    const equipment = snapshot.equipment;
-    const gunsmith = snapshot.gunsmith;
-    const selected = gunsmith.selectedBuild;
-    const family = gunsmith.families.find((row) => row.id === selected?.familyId);
-    const selectedCharacter = snapshot.character.characters.find((row) => row.selected);
-    this.loadoutSection(root, left, y, 'MERCENARY');
-    y += 20;
-    this.loadoutMaterial(root, left, y, contentWidth, 114, true);
-    this.loadoutCopy(root, left + 112, y + 20, `${selectedCharacter?.name ?? 'Mercenary'}\n${this.getContext().saveData.progression.scrap} Scrap`, contentWidth - 128);
-    if (selectedCharacter) this.addPanelArt(root, left + 54, y + 57, selectedCharacter.portraitArtId, 88);
-    y += 150;
-    this.loadoutSection(root, left, y, 'STOCK WEAPON');
-    y += 16;
-    this.loadoutMaterial(root, left, y, contentWidth, 90);
-    this.loadoutCopy(root, left + 94, y + 28, selectedCharacter?.startingWeaponSummary ?? 'No starting weapon selected', contentWidth - 108);
-    if (selectedCharacter?.startingWeaponIconArtId) this.addPanelArt(root, left + 46, y + 45, selectedCharacter.startingWeaponIconArtId, 70);
-    y += 122;
-    this.loadoutSection(root, left, y, 'EQUIPMENT • WHOLE LOADOUT');
-    y += 22;
-    y = this.renderEquipmentSlots(root, snapshot, left, y, contentWidth, hitTarget, true);
-    y += 18;
-    const actionWidth = (contentWidth - 10) / 2;
-    this.rememberLoadoutFocus(this.loadoutRouter(root, left, y, actionWidth, hitTarget, 'Equipment', () => this.render(this.requireController().open('equipment')), 0x2ec4b6), 'loadout:equipment');
-    this.rememberLoadoutFocus(this.loadoutRouter(root, left + actionWidth + 10, y, actionWidth, hitTarget, 'Gunsmith', () => this.render(this.requireController().open('gunsmith')), 0xf78003), 'loadout:gunsmith');
-    y += hitTarget + 32;
-    this.loadoutMaterial(root, left, y, contentWidth, 114);
-    this.loadoutCopy(root, left + 16, y + 16, 'RUN READINESS', contentWidth - 32, '#82949d');
-    this.loadoutCopy(root, left + 16, y + 44, `${equipment.presentation.slots.filter((slot) => slot.equipped).length}/4 Equipment slots equipped\n${selected ? `${family?.name ?? selected.familyId} Build configured\n${selected.activation}` : 'Gunsmith: Unconfigured'}`, contentWidth - 32);
-    y += 130;
-    const equippedEffects = equipment.presentation.slots.flatMap((slot) => slot.equipped?.effects ?? []);
-    if (equippedEffects.length) {
-      const effectHeading = this.loadoutCopy(root, left, y, 'EQUIPPED EFFECTS', contentWidth);
-      y += effectHeading.height + 6;
-      y = this.renderScopedLoadoutEffects(root, equippedEffects, left, y, contentWidth);
+    let surface = this.panelSurfaces[panel];
+    if (!surface) {
+      const controller = this.requireController();
+      const environment: MenuSurfaceEnvironment = {
+        scene: this,
+        visuals: this.uiVisuals,
+        onSnapshot: next => this.render(next),
+        resources: {
+          panel: (owner, ids) => { void this.ensurePanelPresentation(owner, ids); },
+          equipment: ids => { void this.ensureEquipmentPresentation(ids); },
+          gunsmith: ids => { void this.ensureGunsmithPresentation(ids); },
+        },
+        controls: {
+          addButton: (...args) => this.addButton(...args),
+          disableButton: button => this.disableButton(button),
+          addHeading: (...args) => this.addHeading(...args),
+          addCatalogIcon: (...args) => this.addCatalogIcon(...args),
+          addPanelArt: (...args) => this.addPanelArt(...args),
+          beginScrollableRegion: (start, bottom) => this.beginScrollableRegion(start, bottom),
+          endScrollableRegion: () => this.endScrollableRegion(),
+          registerScrollObject: (object, owner) => this.registerScrollObject(object, owner),
+          buttonIndex: button => this.focusables.indexOf(button),
+          rememberFocus: (button, key) => { this.focusKeyByButton.set(button, key); return button; },
+          focusNext: (key, alignTop = false) => { this.nextFocusKey = key; this.nextFocusAlignTop = alignTop; },
+          focusAfterRender: button => { this.focusIndexAfterRender = this.focusables.indexOf(button); },
+          equipmentSlotColumns: columns => { this.equipmentSlotColumns = columns; },
+        },
+      };
+      surface = panel === 'loadout' ? new LoadoutSurface(environment, controller)
+        : panel === 'equipment' ? new EquipmentSurface(environment, controller)
+        : new GunsmithSurface(environment, controller);
+      this.panelSurfaces[panel] = surface;
     }
-    const sets = equipment.presentation.sets.filter((set) => set.equippedCount > 0);
-    const setHeading = this.loadoutCopy(root, left, y, 'ACTIVE SETS', contentWidth);
-    y += setHeading.height + 6;
-    if (sets.length === 0) y += this.loadoutCopy(root, left, y, 'No Set pieces equipped', contentWidth).height + 8;
-    for (const set of sets) {
-      const copy = this.loadoutCopy(root, left + 38, y, this.setProgressCopy(set), contentWidth - 38);
-      this.addCatalogIcon(root, left + 17, y + 20, set.emblemArtId, 30);
-      y += copy.height + 10;
-    }
-    const gunsmithHeading = this.loadoutCopy(root, left, y, 'GUNSMITH • ENGINEERED WEAPON FAMILY', contentWidth);
-    y += gunsmithHeading.height + 10;
-    if (selected) {
-      const previewHeight = 100;
-      if (selected.preview) {
-        this.renderAssembledWeapon(root, selected.preview, this.safeCenterX, y + 40, 88);
-        selected.preview.traitEmblems.forEach((trait, index) => this.addCatalogIcon(root, left + 22 + index * 40, y + 40, trait.iconArtId, 34));
-      }
-      y += previewHeight;
-      const familyCopy = this.loadoutCopy(root, left, y, `${family?.name ?? selected.familyId} • ACTIVE\n${selected.activation.toUpperCase()}\n${selected.summary}`, contentWidth);
-      y += familyCopy.height + 8;
-      const scoped = equipment.presentation.runTruth.modifiers.filter((modifier) => modifier.scope?.kind === 'weapon-family' && modifier.scope.family === selected.familyId);
-      if (scoped.length) y = this.renderScopedLoadoutEffects(root, scoped.map((modifier) => presentLoadoutModifier(modifier)), left, y, contentWidth);
-      const truth = equipment.presentation.runTruth.families.find((entry) => entry.familyId === selected.familyId);
-      for (const trait of truth?.traits ?? []) {
-        y += this.loadoutCopy(root, left, y, `${trait.trait} [${family?.name ?? selected.familyId}]${trait.deduplicated ? ' • Does not stack' : ''}\nSources: ${trait.sourceLabels.join(' • ')}`, contentWidth).height + 6;
-      }
-    } else y += this.loadoutCopy(root, left, y, 'Choose a weapon family to engineer', contentWidth).height + 8;
-    this.endScrollableRegion();
-    this.loadoutFooter(root, left, contentWidth, hitTarget, 'Return to Contract', () => this.render(this.requireController().open('stage')));
-    void this.ensurePanelPresentation('loadout', selectedCharacter ? [selectedCharacter.portraitArtId, selectedCharacter.startingWeaponIconArtId, 'nav-icon:equipment', 'nav-icon:gunsmith'] : ['nav-icon:equipment', 'nav-icon:gunsmith']);
-    void this.ensureEquipmentPresentation([
-      ...equipment.presentation.slots.flatMap((slot) => slot.equipped ? [slot.equipped.iconArtId] : []),
-      ...equipment.presentation.sets.filter((set) => set.equippedCount > 0).map((set) => set.emblemArtId),
-    ]);
-    void this.ensureGunsmithPresentation(this.collectGunsmithArtIds(snapshot));
+    this.activeSurface = surface;
+    surface.present(root, snapshot, {
+      width: this.scale.width, height: this.scale.height, top, margin, hitTarget,
+      centerX: this.safeCenterX, rightMargin: this.safeRightMargin,
+      viewport: this.currentViewport!, scrollBottom: this.scrollViewportBottomFor(hitTarget),
+    }, this.getContext().saveData.progression.scrap);
   }
 
-  private renderEquipmentSlots(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, left: number, top: number, contentWidth: number, hitTarget: number, overview = false): number {
-    const columns = overview ? 4 : 1;
-    this.equipmentSlotColumns = columns;
-    const gap = overview || this.scale.height < 760 ? 8 : 12;
-    const slotWidth = (contentWidth - gap * (columns - 1)) / columns;
-    let y = top;
-    for (let row = 0; row < 4 / columns; row += 1) {
-      let rowHeight = Math.max(hitTarget, overview ? 98 : this.scale.height >= 760 ? 64 : 56);
-      snapshot.equipment.presentation.slots.slice(row * columns, (row + 1) * columns).forEach((slot, column) => {
-        const x = left + column * (slotWidth + gap);
-        const item = slot.equipped;
-        const label = `${slot.label.toUpperCase()}\n${item ? overview ? `T${item.tier} • Fitted` : `${item.name}\nT${item.tier} • EQUIPPED` : 'Empty'}`;
-        const button = this.addButton(root, x, y, label, rowHeight, () => {
-          const next = this.requireController().selectEquipmentSlot(slot.slot);
-          this.nextFocusKey = `equipment-slot:${slot.slot}`;
-          this.render(overview ? this.requireController().open('equipment') : next);
-        }, 'ui:confirm', slotWidth, undefined, 0, !overview ? 50 : 0, true, overview ? 'center' : 'left');
-        if (overview) button.setPadding(4, item ? 66 : 34, 4, 8).setFixedSize(slotWidth, rowHeight);
-        this.rememberLoadoutFocus(button, `equipment-slot:${slot.slot}`);
-        const index = this.focusables.indexOf(button);
-        if (item) this.addCatalogIcon(root, overview ? x + slotWidth / 2 : x + 26, y + (overview ? 32 : Math.min(button.height / 2, 50)), item.iconArtId, overview ? Math.min(48, slotWidth - 12) : 44, index);
-        else if (!overview) this.addPanelArt(root, x + 26, y + Math.min(button.height / 2, 50), slot.placeholderArtId, 44, true, false, index);
-        rowHeight = Math.max(rowHeight, button.height);
-      });
-      y += rowHeight + gap;
-    }
-    return y + 6;
+  private get panelContentRoot(): Phaser.GameObjects.Container | undefined { return this.activeSurface?.root; }
+
+  private unmountPanelSurface(): void {
+    this.activeSurface?.unmount();
+    this.activeSurface = undefined;
+  }
+
+  private disposePanelSurfaces(): void {
+    for (const surface of Object.values(this.panelSurfaces)) surface?.dispose();
+    this.panelSurfaces = {};
+    this.activeSurface = undefined;
   }
 
   private async startContractWithResources(): Promise<void> {
@@ -1341,398 +1215,6 @@ export class MenuScene extends Phaser.Scene {
     void this.ensureAchievementPresentation(snapshot.achievements.achievements.map((achievement) => achievement.iconArtId));
   }
 
-  private renderGunsmith(
-    root: Phaser.GameObjects.Container,
-    snapshot: MainMenuSnapshot,
-    width: number,
-    top: number,
-    margin: number,
-    hitTarget: number,
-  ): void {
-    const heading = this.addHeading(root, this.safeCenterX, top, 'Gunsmith');
-    let y = top + heading.height + 14;
-    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
-    const chassis = this.own(root, createUiText(this, margin, y, 'Weapon builds', {
-      color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-    }));
-    this.registerScrollObject(chassis);
-    y += hitTarget * 0.7;
-    snapshot.gunsmith.families.forEach((family) => {
-      const label = `${family.name} Build`;
-      const status = family.selected ? 'SELECTED' : family.existingBuildId ? 'CONFIGURED' : 'EMPTY — TAP TO CREATE';
-      const familyCard = this.addButton(root, margin, y, label, 100, () => this.render(family.existingBuildId
-        ? this.requireController().selectGunBuild(family.existingBuildId)
-        : this.requireController().createGunBuild(family.id)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, 8, 176, true);
-      const rowOwnerIndex = this.focusables.length - 1;
-      this.addCatalogIcon(root, margin + 78, y + 50, family.previewBaseArtId ?? family.iconArtId, 146, rowOwnerIndex);
-      const statusCopy = this.own(root, createUiText(this, margin + 176, y + 50, status, {
-        color: family.selected ? '#86efac' : '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, fontStyle: '700',
-      }));
-      statusCopy.setScrollFactor(0);
-      this.registerScrollObject(statusCopy, rowOwnerIndex);
-      y += familyCard.height + 10;
-    });
-    const selected = snapshot.gunsmith.selectedBuild;
-    if (!selected) {
-      const prompt = this.own(root, createUiText(this, margin, y, 'Choose a weapon build to inspect its engineering.', {
-        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-        wordWrap: { width: width - margin - this.safeRightMargin },
-      }));
-      this.registerScrollObject(prompt);
-    } else {
-      const buildHeader = this.own(root, createUiText(this, margin, y, `${selected.title.toUpperCase()}\n${selected.status} • ${selected.activation}`, {
-        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-        wordWrap: { width: width - margin - this.safeRightMargin },
-      }));
-      this.registerScrollObject(buildHeader);
-      y += buildHeader.height + 12;
-      if (selected.preview) {
-        const previewHeight = 142;
-        const previewWidth = width - margin - this.safeRightMargin;
-        const previewPanel = this.uiVisuals?.addPanel(this, this.safeCenterX, y + previewHeight / 2, previewWidth, previewHeight, 'card', { alpha: 0.82 });
-        if (previewPanel) {
-          this.own(root, previewPanel);
-          this.registerScrollObject(previewPanel);
-        }
-        const weaponX = this.safeCenterX;
-        const weaponY = y + 48;
-        this.renderAssembledWeapon(root, selected.preview, weaponX, weaponY);
-        selected.preview.traitCores.forEach((core, index) => {
-          this.addCatalogIcon(root, margin + 30 + index * 52, y + 30, core.iconArtId, 44);
-        });
-        selected.preview.traitEmblems.forEach((trait, index) => {
-          this.addCatalogIcon(root, width - this.safeRightMargin - 24 - index * 40, y + 30, trait.iconArtId, 34);
-        });
-        const summary = this.own(root, createUiText(this, this.safeCenterX, y + 100, selected.summary, {
-          color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-          align: 'center', wordWrap: { width: previewWidth - 24 },
-        })).setOrigin(0.5, 0);
-        this.registerScrollObject(summary);
-        y += Math.max(previewHeight, 104 + summary.height) + 12;
-      } else {
-        const summary = this.own(root, createUiText(this, margin, y, selected.summary, {
-          color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin - this.safeRightMargin },
-        }));
-        this.registerScrollObject(summary);
-        y += summary.height + 10;
-      }
-      snapshot.gunsmith.slots.forEach((slot) => {
-        const slotHeading = this.own(root, createUiText(this, margin + 42, y + 4, slot.slot === 'trait'
-          ? `${slot.label.toUpperCase()} ${slot.candidates.filter((part) => part.state === 'fitted-here').length} / 2`
-          : slot.label.toUpperCase(), {
-          color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-        }));
-        this.registerScrollObject(slotHeading);
-        this.addCatalogIcon(root, margin + 18, y + 16, slot.iconArtId, 32);
-        y += Math.max(slotHeading.height + 8, 36);
-        if (slot.unavailableFitted) {
-          const row = this.addButton(root, margin, y, `${slot.unavailableFitted.label}\nREMOVE UNAVAILABLE PART`, hitTarget,
-            () => this.render(this.requireController().removeUnavailableGunPart(slot.unavailableFitted!.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
-          y += row.height + 8;
-        }
-        if (slot.candidates.length === 0 && slot.fitted === undefined && slot.unavailableFitted === undefined) {
-          const empty = this.own(root, createUiText(this, margin, y, slot.slot === 'trait' ? 'No Trait Core fitted' : 'Empty', {
-            color: '#94a3b8', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-          }));
-          this.registerScrollObject(empty);
-          y += empty.height + 8;
-          return;
-        }
-        slot.candidates.forEach((part) => {
-          const action = part.actionLabel;
-          const consequence = part.displacedInstanceId === undefined ? ''
-            : `\n${part.displacementSummary}\n${part.comparisonSummary}`;
-          const label = `${part.name} T${part.tier} • ${part.state === 'fitted-here' ? 'FITTED' : part.state === 'fitted-elsewhere' ? `FITTED TO ${part.assignedBuildName?.toUpperCase() ?? 'ANOTHER BUILD'}` : part.state === 'owned-unfitted' ? 'OWNED' : 'UNAVAILABLE'}\n${[...part.effectLines, ...part.traitLines.map((trait) => `${trait} trait`)].join(' • ') || 'No stat change'}${consequence}\n${action}`;
-          const enabled = part.state !== 'incompatible';
-          const iconColumn = 68 + part.traitIcons.length * 38;
-          const partRowHeight = Math.max(hitTarget, 76);
-          const row = this.addButton(root, margin, y, label, partRowHeight, () => this.render(part.state === 'fitted-here'
-            ? this.requireController().unequipGunPart(part.instanceId)
-            : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin,
-          undefined, part.displacedInstanceId === undefined ? 0 : 12, iconColumn, part.displacedInstanceId !== undefined, 'center');
-          const rowOwnerIndex = this.focusables.length - 1;
-          if (!enabled) this.disableButton(row);
-          this.addCatalogIcon(root, margin + 30, y + row.height / 2, part.iconArtId, 52, rowOwnerIndex);
-          part.traitIcons.forEach((trait, index) => {
-            this.addCatalogIcon(root, width - this.safeRightMargin - 24 - index * 38, y + row.height / 2, trait.iconArtId, 32, rowOwnerIndex);
-          });
-          y += row.height + 8;
-        });
-      });
-      if (snapshot.gunsmith.workshop.length > 0) {
-        const workshop = this.own(root, createUiText(this, margin, y, 'WORKSHOP', {
-          color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-        }));
-        this.registerScrollObject(workshop);
-        y += workshop.height + 4;
-        snapshot.gunsmith.workshop.forEach((recipe) => {
-          const row = this.addButton(root, margin, y, recipe.label, Math.max(hitTarget, 62),
-            () => this.render(recipe.kind === 'merge'
-              ? this.requireController().beginGunMerge(recipe.groupId)
-              : this.requireController().requestGunWorkshop({ kind: 'infuse', targetInstanceId: recipe.targetInstanceId, traitInstanceId: recipe.traitInstanceId })), 'ui:confirm', width - margin - this.safeRightMargin, 'ui-chrome:merge');
-          y += row.height + 8;
-        });
-      }
-      if (snapshot.gunsmith.mergeSelection && !snapshot.gunsmith.confirmation) {
-        const selection = snapshot.gunsmith.mergeSelection;
-        const selectionHeading = this.own(root, createUiText(this, margin, y, selection.title.toUpperCase(), {
-          color: '#f7d774', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-        }));
-        this.registerScrollObject(selectionHeading);
-        y += selectionHeading.height + 4;
-        selection.choices.forEach((choice) => {
-          const row = this.addButton(root, margin, y, `${choice.recommended ? 'RECOMMENDED • ' : ''}${choice.label}`, hitTarget,
-            () => this.render(this.requireController().selectGunMergeInput(choice.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
-          y += row.height + 8;
-        });
-      }
-      if (snapshot.gunsmith.confirmation) {
-        const confirmation = snapshot.gunsmith.confirmation;
-        const detail = [
-          confirmation.title.toUpperCase(),
-          'INPUTS', ...confirmation.inputLines,
-          'OUTPUT', confirmation.outputLine,
-          ...confirmation.mechanicalDelta,
-        ].join('\n');
-        const panel = this.own(root, createUiText(this, margin, y, detail, {
-          color: '#f7d774', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin - this.safeRightMargin },
-        }));
-        this.registerScrollObject(panel);
-        y += panel.height + 6;
-        const actionWidth = Math.max(120, (width - margin - this.safeRightMargin - 8) / 2);
-        const confirm = this.addButton(root, margin, y, confirmation.confirmLabel, hitTarget,
-          () => this.render(this.requireController().confirmGunWorkshop()), 'ui:confirm', actionWidth);
-        this.focusIndexAfterRender = this.focusables.indexOf(confirm);
-        const cancel = this.addButton(root, margin + actionWidth + 8, y, 'Cancel', hitTarget,
-          () => this.render(this.requireController().cancelGunWorkshop()), 'ui:back', actionWidth);
-        y += Math.max(confirm.height, cancel.height) + 12;
-      }
-      const catalogHeading = this.own(root, createUiText(this, margin, y, 'PART CATALOG', {
-        color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-      }));
-      this.registerScrollObject(catalogHeading);
-      y += catalogHeading.height + 4;
-      snapshot.gunsmith.catalog.forEach((part) => {
-        const iconColumn = 68 + part.traitIcons.length * 38;
-        const detail = [part.lockReason, part.sourceLabel].filter((line) => line !== undefined).join(' ');
-        const label = `${part.name} • ${part.rarity.toUpperCase()}\n${part.stateLabel}\n${part.effectLines.join(' • ') || 'Trait engineering'}\n${part.comparisonSummary}\n${detail}${part.fabricationActionLabel === undefined ? '' : `\n${part.fabricationActionLabel}`}`;
-        const catalogRowHeight = Math.max(hitTarget, 92);
-        const row = this.addButton(root, margin, y, label, catalogRowHeight,
-          () => this.render(this.requireController().fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, 0, iconColumn);
-        const rowOwnerIndex = this.focusables.length - 1;
-        if (!part.canFabricate) this.disableButton(row);
-        this.addCatalogIcon(root, margin + 30, y + catalogRowHeight / 2, part.iconArtId, 52, rowOwnerIndex);
-        part.traitIcons.forEach((trait, index) => {
-          this.addCatalogIcon(root, width - this.safeRightMargin - 24 - index * 38, y + catalogRowHeight / 2, trait.iconArtId, 32, rowOwnerIndex);
-        });
-        y += row.height + 8;
-      });
-    }
-    this.endScrollableRegion();
-    void this.ensureGunsmithPresentation(this.collectGunsmithArtIds(snapshot));
-    this.addBackButton(root, width, margin, hitTarget);
-  }
-
-  private collectGunsmithArtIds(snapshot: MainMenuSnapshot): readonly string[] {
-    return [
-      ...snapshot.gunsmith.families.map((family) => family.iconArtId),
-      ...snapshot.gunsmith.families.flatMap((family) => family.previewBaseArtId ? [family.previewBaseArtId] : []),
-      ...(snapshot.gunsmith.selectedBuild?.preview ? [
-        snapshot.gunsmith.selectedBuild.preview.baseArtId,
-        ...snapshot.gunsmith.selectedBuild.preview.layers.map((layer) => layer.artId),
-        ...snapshot.gunsmith.selectedBuild.preview.traitCores.map((core) => core.iconArtId),
-        ...snapshot.gunsmith.selectedBuild.preview.traitEmblems.map((trait) => trait.iconArtId),
-      ] : []),
-      ...snapshot.gunsmith.slots.flatMap((slot) => [
-        slot.iconArtId,
-        ...slot.candidates.flatMap((part) => [part.iconArtId, ...part.traitIcons.map((trait) => trait.iconArtId)]),
-      ]),
-      ...snapshot.gunsmith.catalog.flatMap((part) => [part.iconArtId, ...part.traitIcons.map((trait) => trait.iconArtId)]),
-    ];
-  }
-
-  private renderEquipmentComparison(root: Phaser.GameObjects.Container, comparison: EquipmentComparison, left: number, top: number, contentWidth: number, familyNames: ReadonlyMap<string, string>): number {
-    let y = top;
-    const put = (text: string, color?: string) => { const copy = this.loadoutCopy(root, left, y, text, contentWidth, color); y += copy.height + 8; };
-    for (const change of comparison.setChanges) {
-      const set = comparison.after.sets.find((row) => row.setId === change.setId)!;
-      put(`${set.name} ${change.before}/4 → ${change.after}/4`);
-      for (const count of change.lost) put(`LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#fbbf24');
-      for (const count of change.gained) put(`GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#86efac');
-    }
-    const effectCopy = (model: EquipmentLoadoutPresentation) => this.loadoutEffectCopy(model.runTruth.modifiers.map((modifier) => presentLoadoutModifier(modifier))) || 'No persistent stat modifiers';
-    put(`CURRENT LOADOUT\n${effectCopy(comparison.before)}\nAFTER CHANGE\n${effectCopy(comparison.after)}`);
-    for (const after of comparison.after.runTruth.families) {
-      const before = comparison.before.runTruth.families.find((family) => family.familyId === after.familyId)!;
-      if (before.traits.length || after.traits.length) {
-        put(`${familyNames.get(after.familyId) ?? after.familyId} traits\n${before.traits.map((entry) => entry.trait).join(' • ') || 'None'} → ${after.traits.map((entry) => entry.trait).join(' • ') || 'None'}`);
-        for (const trait of after.traits) put(`${trait.trait} [${familyNames.get(after.familyId) ?? after.familyId}]${trait.deduplicated ? ' • Does not stack' : ''}\nSources: ${trait.sourceLabels.join(' • ')}`);
-      }
-    }
-    return y;
-  }
-
-  /** The existing atlas layers share one authored canvas/anchor. Both menu
-   * surfaces consume the same composition so family previews stay aligned. */
-  private renderAssembledWeapon(root: Phaser.GameObjects.Container, preview: GunsmithAssembledPreview, x: number, y: number, size = 176): void {
-    this.addCatalogIcon(root, x, y, preview.baseArtId, size);
-    preview.layers.forEach((layer) => this.addCatalogIcon(root, x, y, layer.artId, size));
-  }
-
-  private renderEquipment(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
-    const equipment = snapshot.equipment;
-    const contentWidth = Math.min(840, width - margin - this.safeRightMargin);
-    const left = this.safeCenterX - contentWidth / 2;
-    this.loadoutHeader(root, left, 'EQUIPMENT', 'SETS + PIECES');
-    let y = top + 26;
-    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
-    const selectedSetEmblem = equipment.blueprints.find((piece) => piece.equipmentId === equipment.selectedBlueprintId)?.setEmblemArtId;
-    const activeSet = equipment.presentation.sets.find((set) => set.emblemArtId === selectedSetEmblem)
-      ?? equipment.presentation.sets.find((set) => set.equippedCount > 0);
-    this.loadoutSection(root, left, y, activeSet ? activeSet.equippedCount > 0 ? 'ACTIVE SET' : 'SELECTED SET' : 'NO ACTIVE SET');
-    y += 20;
-    const heroHeight = this.scale.height >= 760 ? 142 : 64;
-    this.loadoutMaterial(root, left, y, contentWidth, heroHeight, true);
-    this.loadoutCopy(root, left + (activeSet ? 94 : 16), y + (heroHeight > 100 ? 36 : 12), activeSet ? `${activeSet.name} Set\n${activeSet.equippedCount}/4 equipped` : '0 pieces equipped', contentWidth - (activeSet ? 110 : 32));
-    if (activeSet) this.addCatalogIcon(root, left + 42, y + heroHeight / 2, activeSet.emblemArtId, Math.min(68, heroHeight - 12));
-    y += heroHeight + (this.scale.height >= 760 ? 38 : 4);
-    this.loadoutSection(root, left, y, 'EQUIPPED SLOTS');
-    y += 20;
-    y = this.renderEquipmentSlots(root, snapshot, left, y, contentWidth, hitTarget);
-    const browse = this.addButton(root, left, y, this.equipmentSetBrowserOpen ? 'CLOSE SETS' : 'BROWSE SETS', hitTarget, () => {
-      this.equipmentSetBrowserOpen = !this.equipmentSetBrowserOpen;
-      this.nextFocusKey = 'equipment:browse-sets';
-      this.render(this.requireController().snapshot());
-    }, 'ui:confirm', contentWidth, undefined, 0, 0, false, 'left', 'section');
-    this.rememberLoadoutFocus(browse, 'equipment:browse-sets');
-    y += browse.height + 12;
-    // The structured catalog supplies the visible Set row and its exact IDs.
-    // Browsing expands threshold detail without implying an equipped Set.
-    const setColumns = Math.min(4, equipment.presentation.sets.length);
-    const setWidth = contentWidth / Math.max(1, setColumns);
-    equipment.presentation.sets.forEach((set, index) => {
-      this.addCatalogIcon(root, left + (index % setColumns + 0.5) * setWidth,
-        y + Math.floor(index / setColumns) * 52 + 22, set.emblemArtId, 44, this.focusables.indexOf(browse));
-    });
-    y += Math.ceil(equipment.presentation.sets.length / Math.max(1, setColumns)) * 52;
-    if (this.equipmentSetBrowserOpen) {
-      for (const set of equipment.presentation.sets) {
-        const copy = this.loadoutCopy(root, left + 46, y, this.setProgressCopy(set), contentWidth - 46);
-        this.addCatalogIcon(root, left + 20, y + 22, set.emblemArtId, 36);
-        y += copy.height + 12;
-      }
-    }
-    const put = (text: string, color?: string) => { const copy = this.loadoutCopy(root, left, y, text, contentWidth, color); y += copy.height + 8; };
-    const selectedSlot = equipment.presentation.slots.find((slot) => slot.slot === equipment.selectedSlot)!;
-    put(`${selectedSlot.label.toUpperCase()} CANDIDATES • ${this.getContext().saveData.progression.scrap} Scrap`);
-    for (const item of selectedSlot.candidates) {
-      const row = this.addButton(root, left, y, `${item.name}\nT${item.tier} • ${item.state}`, Math.max(hitTarget, 76), () => {
-        this.nextFocusKey = `equipment-detail:${item.instanceId}`;
-        this.nextFocusAlignTop = true;
-        this.render(this.requireController().selectEquipmentCandidate(item.instanceId));
-      }, 'ui:confirm', contentWidth, undefined, 0, 76, true, 'left');
-      this.rememberLoadoutFocus(row, `equipment-candidate:${item.instanceId}`);
-      this.addCatalogIcon(root, left + 34, y + row.height / 2, item.iconArtId, 60, this.focusables.indexOf(row));
-      y += row.height + 8;
-    }
-    if (!selectedSlot.candidates.length) put(`No stored ${selectedSlot.label.toLowerCase()} pieces. Choose a blueprint to fabricate.`);
-    const blueprints = equipment.blueprints.filter((piece) => piece.slot === equipment.selectedSlot);
-    if (blueprints.length) put('AVAILABLE BLUEPRINTS');
-    for (const blueprint of blueprints) {
-      const row = this.addButton(root, left, y, `${blueprint.name}\nFABRICABLE • ${blueprint.fabricationCost} Scrap`, Math.max(hitTarget, 76), () => {
-        this.nextFocusKey = `equipment-blueprint-detail:${blueprint.equipmentId}`;
-        this.nextFocusAlignTop = true;
-        this.render(this.requireController().selectEquipmentBlueprint(blueprint.equipmentId));
-      }, 'ui:confirm', contentWidth, undefined, 0, 76, true, 'left');
-      this.rememberLoadoutFocus(row, `equipment-blueprint:${blueprint.equipmentId}`);
-      const index = this.focusables.indexOf(row);
-      this.addCatalogIcon(root, left + 34, y + row.height / 2, blueprint.iconArtId, 60, index);
-      this.addCatalogIcon(root, left + contentWidth - 24, y + row.height / 2, blueprint.setEmblemArtId, 34, index);
-      y += row.height + 8;
-    }
-    const selected = selectedSlot.candidates.find((item) => item.instanceId === equipment.selectedInstanceId);
-    const selectedBlueprint = blueprints.find((piece) => piece.equipmentId === equipment.selectedBlueprintId);
-    if (selected) {
-      const set = equipment.presentation.sets.find((row) => row.setId === selected.setId)!;
-      const detail = this.addButton(root, left, y, `${selected.name} • T${selected.tier}\n${selectedSlot.label} • ${set.name} Set • ${selected.state}`, Math.max(hitTarget, 100), () => undefined, 'ui:confirm', contentWidth, undefined, 0, 82, true, 'left');
-      this.rememberLoadoutFocus(detail, `equipment-detail:${selected.instanceId}`);
-      this.disableButton(detail);
-      this.addCatalogIcon(root, left + 38, y + 48, selected.iconArtId, 72, this.focusables.indexOf(detail));
-      y += detail.height + 10;
-      y = this.renderScopedLoadoutEffects(root, selected.effects, left, y, contentWidth);
-      const equipped = selected.state === 'EQUIPPED';
-      const comparison = equipped ? this.requireController().equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot }) : equipment.comparison;
-      put(equipped ? 'IF UNEQUIPPED' : comparison?.displaced ? `Replaces ${comparison.displaced.name}` : `Fills empty ${selectedSlot.label.toLowerCase()} slot`);
-      if (comparison) y = this.renderEquipmentComparison(root, comparison, left, y, contentWidth, new Map(snapshot.gunsmith.families.map((family) => [family.id, family.name])));
-      const equip = this.addButton(root, left, y, equipped ? `Unequip ${selected.name}` : `Equip ${selected.name}`, hitTarget, () => this.render(equipped
-        ? this.requireController().unequipEquipment(selectedSlot.slot)
-        : this.requireController().equipEquipment(selected.instanceId)), 'ui:confirm', contentWidth);
-      this.rememberLoadoutFocus(equip, `equipment-equip:${selected.instanceId}`);
-      y += equip.height + 10;
-      const upgrade = equipment.owned.find((item) => item.instanceId === selected.instanceId)!;
-      if (upgrade.upgradePreview) {
-        put(`UPGRADE • T${selected.tier} → T${selected.tier + 1} • ${upgrade.upgradePreview.cost} Scrap\n${equipped ? 'EQUIPPED: improved values apply immediately after upgrade.' : 'STORED: no active Loadout value changes until equipped.'}`);
-        const afterItem = upgrade.upgradePreview.after.slots.find((slot) => slot.slot === selected.slot)!.candidates.find((item) => item.instanceId === selected.instanceId)!;
-        this.addCatalogIcon(root, left + 40, y + 40, selected.iconArtId, 72);
-        this.addCatalogIcon(root, left + 136, y + 40, afterItem.iconArtId, 72);
-        y += 88;
-        put(`ITEM NOW\n${this.loadoutEffectCopy(selected.effects)}\nITEM AFTER UPGRADE\n${this.loadoutEffectCopy(afterItem.effects)}`);
-        if (upgrade.upgradeCost !== undefined) {
-          const action = this.addButton(root, left, y, `Upgrade for ${upgrade.upgradeCost} Scrap`, hitTarget, () => this.render(this.requireController().upgradeEquipment(selected.instanceId, selected.tier)), 'ui:confirm', contentWidth);
-          this.rememberLoadoutFocus(action, `equipment-upgrade:${selected.instanceId}`);
-          if (this.getContext().saveData.progression.scrap < upgrade.upgradeCost) this.disableButton(action);
-          y += action.height + 8;
-        }
-      }
-      if (upgrade.upgradeLockReason) put(`LOCKED • ${upgrade.upgradeLockReason}`, '#fbbf24');
-      else if (selected.tier >= 4) put('Maximum Equipment tier');
-    } else if (selectedBlueprint) {
-      const detail = this.addButton(root, left, y, `${selectedBlueprint.name}\n${selectedBlueprint.setName} Set • ${selectedSlot.label}\nFABRICABLE`, Math.max(hitTarget, 100), () => undefined, 'ui:confirm', contentWidth, undefined, 0, 82, true, 'left');
-      this.rememberLoadoutFocus(detail, `equipment-blueprint-detail:${selectedBlueprint.equipmentId}`);
-      this.disableButton(detail);
-      this.addCatalogIcon(root, left + 38, y + 48, selectedBlueprint.iconArtId, 72, this.focusables.indexOf(detail));
-      y += detail.height + 10;
-      y = this.renderScopedLoadoutEffects(root, selectedBlueprint.effects, left, y, contentWidth);
-      put('Creates a stored T1 item. Equip it separately to change your Loadout.');
-    }
-    put('ACTIVE SETS');
-    const activeSets = equipment.presentation.sets.filter((set) => set.equippedCount > 0);
-    if (!activeSets.length) put('No Set pieces equipped');
-    for (const set of activeSets) {
-      const copy = this.loadoutCopy(root, left + 38, y, this.setProgressCopy(set), contentWidth - 38);
-      this.addCatalogIcon(root, left + 17, y + 20, set.emblemArtId, 30);
-      y += copy.height + 10;
-    }
-    if (equipment.unavailable.length) put('A legacy Equipment item is unavailable in this version.', '#fbbf24');
-    this.endScrollableRegion();
-    const fabricate = this.loadoutFooter(root, left, contentWidth, hitTarget,
-      selectedBlueprint ? `Fabricate for ${selectedBlueprint.fabricationCost} Scrap` : 'Fabricate Selected', () => {
-        if (!selectedBlueprint) return;
-        const next = this.requireController().fabricateEquipment(selectedBlueprint.equipmentId);
-        this.nextFocusKey = next.equipment.selectedInstanceId ? `equipment-detail:${next.equipment.selectedInstanceId}` : `equipment-blueprint-detail:${selectedBlueprint.equipmentId}`;
-        this.nextFocusAlignTop = true;
-        this.render(next);
-      });
-    // Create the bounded fixed Back control last: slots remain the first four
-    // semantic focus entries for the shared vertical navigator.
-    this.addButton(root, left + contentWidth - 72, edgeMargin(this.currentViewport!, 'top') - 12 + 7, 'Back', hitTarget,
-      () => this.render(this.requireController().open('loadout')), 'ui:back', 72);
-    if (selectedBlueprint) this.rememberLoadoutFocus(fabricate, `equipment-fabricate:${selectedBlueprint.equipmentId}`);
-    if (!selectedBlueprint || this.getContext().saveData.progression.scrap < selectedBlueprint.fabricationCost) this.disableButton(fabricate);
-    void this.ensureEquipmentPresentation([
-      ...equipment.presentation.slots.map((slot) => slot.placeholderArtId),
-      ...equipment.presentation.slots.flatMap((slot) => slot.equipped ? [slot.equipped.iconArtId] : []),
-      ...selectedSlot.candidates.map((item) => item.iconArtId),
-      ...blueprints.flatMap((piece) => [piece.iconArtId, piece.setEmblemArtId]),
-      ...equipment.presentation.sets.map((set) => set.emblemArtId),
-      ...equipment.owned.flatMap((item) => item.instanceId === equipment.selectedInstanceId && item.upgradePreview
-        ? item.upgradePreview.after.slots.flatMap((slot) => slot.candidates.filter((candidate) => candidate.instanceId === item.instanceId).map((candidate) => candidate.iconArtId)) : []),
-    ]);
-    void this.ensurePanelPresentation('equipment', ['nav-icon:mercenary', 'nav-icon:gunsmith']);
-  }
-
   private renderSettings(
     root: Phaser.GameObjects.Container,
     snapshot: MainMenuSnapshot,
@@ -1900,6 +1382,7 @@ export class MenuScene extends Phaser.Scene {
     text.on(Phaser.Input.Events.POINTER_UP, (pointer?: Phaser.Input.Pointer) => {
       if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
       const focusIndex = this.focusables.indexOf(text);
+      if (!this.committedDisplay || focusIndex < 0) return;
       if (!callback || this.disabledFocusables.has(text)) return;
       if (this.scrollItemIndexes.has(focusIndex)
         && pointer
@@ -2226,7 +1709,11 @@ export class MenuScene extends Phaser.Scene {
   /** Equipment/sets use the same physical-resource resolver as Career badges,
    * but stay out of Boot because they are not needed to reach the Home panel. */
   private async ensureEquipmentPresentation(iconArtIds: readonly string[]): Promise<void> {
-    if (this.equipmentArtLoading || !this.textures?.exists) return;
+    if (!this.textures?.exists) return;
+    if (this.equipmentArtLoading) {
+      iconArtIds.forEach(id => this.pendingEquipmentArtIds.add(id));
+      return;
+    }
     const context = this.getContext();
     const art = this.requireVisualArt();
     const resources = new DataVisualResourceRegistry(context.data);
@@ -2240,16 +1727,26 @@ export class MenuScene extends Phaser.Scene {
     if (missing.size === 0) return;
     const generation = this.menuTextureLoadGeneration;
     this.equipmentArtLoading = true;
+    let loadedAny = false;
     try {
       const result = await this.serializeTextureLoad(
         () => loadTextureResources(this, [...missing.values()]),
         EMPTY_RESOURCE_LOAD_RESULT,
       );
-      if (generation === this.menuTextureLoadGeneration && result.loaded.length > 0 && (this.committedPanel === 'equipment' || this.committedPanel === 'loadout') && this.controller) {
-        this.render(this.controller.snapshot(), 'lazy-art-hydration');
-      }
+      loadedAny = result.loaded.length > 0;
     } finally {
       if (generation === this.menuTextureLoadGeneration) this.equipmentArtLoading = false;
+    }
+    if (generation !== this.menuTextureLoadGeneration) return;
+    // Clear the loading flag before fresh-model hydration. The repaint can
+    // require an atlas which was absent when the first closure was captured.
+    if (loadedAny && (this.committedPanel === 'equipment' || this.committedPanel === 'loadout') && this.controller) {
+      this.render(this.controller.snapshot(), 'lazy-art-hydration');
+    }
+    if (!this.equipmentArtLoading && this.pendingEquipmentArtIds.size > 0) {
+      const pending = [...this.pendingEquipmentArtIds];
+      this.pendingEquipmentArtIds.clear();
+      await this.ensureEquipmentPresentation(pending);
     }
   }
 
@@ -2477,7 +1974,7 @@ export class MenuScene extends Phaser.Scene {
 
   private scrollViewportBottomFor(hitTarget: number): number {
     return this.scale.height - edgeMargin(this.currentViewport!, 'bottom', this.loadoutSurface ? 16 : 12) - hitTarget
-      - (this.loadoutSurface ? this.loadoutFooterPadding() + 8 : 12);
+      - (this.loadoutSurface ? loadoutFooterPadding(this.scale.height) + 8 : 12);
   }
 
   private syncScrollFocus(focusedIndex: number): void {
@@ -2759,6 +2256,7 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtLoading = false;
     this.mercenaryArtLoading = false;
     this.equipmentArtLoading = false;
+    this.pendingEquipmentArtIds.clear();
     this.achievementArtLoading = false;
     this.pendingGunsmithArtIds.clear();
     this.panelArtGeneration += 1;
@@ -2778,6 +2276,7 @@ export class MenuScene extends Phaser.Scene {
     this.inputController?.destroy();
     this.inputController = undefined;
     this.destroyScrollMask();
+    this.disposePanelSurfaces();
     this.runLaunchProgressText = undefined;
     this.root?.destroy(true);
     this.root = undefined;
