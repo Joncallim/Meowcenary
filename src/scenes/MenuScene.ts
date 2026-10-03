@@ -505,6 +505,9 @@ export class MenuScene extends Phaser.Scene {
         const nextBounds = this.scrollItemBounds.get(this.navigator.index);
         if (nextBounds && rebuiltRegion && (alignFocusedStart || (!panelChanged && retainedFocusY !== undefined))) {
           rebuiltRegion.setScrollOffset(nextBounds.top - (alignFocusedStart ? this.scrollViewportTop : retainedFocusY!));
+          // Reflow can make the retained screen position clip this action.
+          // Keep the anchor only while the focused item's full bounds fit.
+          this.syncScrollFocus(this.navigator.index);
           this.applyScrollViewport();
         }
       }
@@ -703,15 +706,29 @@ export class MenuScene extends Phaser.Scene {
     ].filter((id): id is string => id !== undefined));
   }
 
-  /** The surface owns objects; the Scene remains the one focus/scroll owner.
-   * Only an explicit selection command can retain this committed prefix. */
-  private tryUpdateEquipmentSelection(snapshot: MainMenuSnapshot): boolean {
+  /** Surfaces own their object suffix; the Scene remains the one focus/scroll
+   * owner. Only explicit commands with unchanged mounted prefixes use this path. */
+  private tryUpdateSurfaceMutation(snapshot: MainMenuSnapshot,
+    change: 'equipment-selection' | 'gunsmith-body'): boolean {
     const surface = this.activeSurface;
     const scrap = this.getContext().saveData.progression.scrap;
-    if (!(surface instanceof EquipmentSurface) || this.committedPanel !== 'equipment'
-      || !this.committedDisplay || !this.root || !this.scrollMaskContainer || !this.scrollRegion
-      || this.runLaunchState !== 'idle' || !surface.canUpdateSelection(snapshot, scrap)) return false;
-    const removed = new Set(surface.selectionObjects);
+    if (this.committedPanel !== snapshot.panel || !this.committedDisplay || !this.root
+      || !this.scrollMaskContainer || !this.scrollRegion || this.runLaunchState !== 'idle') return false;
+    let objects: readonly Phaser.GameObjects.GameObject[];
+    let fallbackKey: string;
+    let update: () => void;
+    if (change === 'equipment-selection' && surface instanceof EquipmentSurface) {
+      if (!surface.canUpdateSelection(snapshot, scrap)) return false;
+      objects = surface.selectionObjects;
+      fallbackKey = `equipment-slot:${snapshot.equipment.selectedSlot}`;
+      update = () => surface.updateSelection(this.scrollMaskContainer!, snapshot, scrap);
+    } else if (change === 'gunsmith-body' && surface instanceof GunsmithSurface) {
+      if (!surface.canUpdateBody(snapshot, scrap)) return false;
+      objects = surface.bodyObjects;
+      fallbackKey = `gunsmith-family:${snapshot.gunsmith.selectedBuild?.familyId}`;
+      update = () => surface.updateBody(this.scrollMaskContainer!, snapshot, scrap);
+    } else return false;
+    const removed = new Set(objects);
     const start = this.focusables.findIndex(button => removed.has(button));
     // Prefix focus indexes are stable; all following controls belong to the
     // replaced detail/footer. Never shift a retained control's captured index.
@@ -755,11 +772,11 @@ export class MenuScene extends Phaser.Scene {
         const bottom = (object as unknown as { getBounds(): { bottom: number } }).getBounds().bottom;
         this.scrollRegion!.includeContentBottom(bottom);
       }
-      surface.updateSelection(this.scrollMaskContainer, snapshot, scrap);
+      update();
       this.navigator.setCount(this.focusables.length);
       if (focusKey) {
         const next = this.focusables.findIndex(button => this.focusKeyByButton.get(button) === focusKey);
-        const fallback = this.focusables.findIndex(button => this.focusKeyByButton.get(button) === `equipment-slot:${snapshot.equipment.selectedSlot}`);
+        const fallback = this.focusables.findIndex(button => this.focusKeyByButton.get(button) === fallbackKey);
         if (next >= 0 || fallback >= 0) this.navigator.setIndex(next >= 0 ? next : fallback);
       }
       this.scrollRegion!.setScrollOffset(offset);
@@ -767,6 +784,7 @@ export class MenuScene extends Phaser.Scene {
       const bounds = this.scrollItemBounds.get(this.navigator.index);
       if (bounds && focusKey && this.focusKeyByButton.get(this.focusables[this.navigator.index]!) === focusKey) {
         this.scrollRegion!.setScrollOffset(bounds.top - (alignTop ? this.scrollViewportTop : retainedY === undefined ? bounds.top - offset : retainedY - offset));
+        this.syncScrollFocus(this.navigator.index);
       }
       this.refreshScrollRail(surface.root!);
       this.applyScrollViewport();
@@ -782,7 +800,7 @@ export class MenuScene extends Phaser.Scene {
     } finally {
       if (started !== undefined && before) {
         performanceProbe!.record('menu.update', started, {
-          panel: snapshot.panel, reason: 'same-panel-state-mutation', section: 'equipment-selection',
+          panel: snapshot.panel, reason: 'same-panel-state-mutation', section: change,
           rebuildCount: this.rebuildCount, revision: this.renderRevision, committed: updated,
           ...displayObjectChange(before, collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[])),
           textures: this.textures.getTextureKeys().length,
@@ -807,7 +825,7 @@ export class MenuScene extends Phaser.Scene {
         scene: this,
         visuals: this.uiVisuals,
         onSnapshot: (next, change) => {
-          if (change !== 'equipment-selection' || !this.tryUpdateEquipmentSelection(next)) this.render(next);
+          if (!change || !this.tryUpdateSurfaceMutation(next, change)) this.render(next);
         },
         resources: {
           panel: (owner, ids) => { void this.ensurePanelPresentation(owner, ids); },
