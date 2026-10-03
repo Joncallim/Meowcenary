@@ -28,6 +28,22 @@ carry a generation and become inert before destruction; remount/dispose also
 revoke the mount. A local draw failure renders the already-produced snapshot
 once, without replaying the gameplay or save command.
 
+The full local and hosted matrix caught a candidate-only resize regression at
+`164e9146cecd9f6f3ff2270934d9ea16acc9df25`: semantic focus survived, but
+restoring its previous screen anchor undid the earlier visibility check and
+clipped the receiver replacement action. The shared full-render and local
+mutation paths now check visibility after anchoring and before painting.
+Anchors that already fit remain unchanged. A keyboard-driven unit is RED on
+that candidate (row bottom 776 > viewport bottom 572), GREEN after correction;
+the unchanged six-profile browser acceptance also passes. Full raw local/hosted
+RED logs and a labelled unit failure summary are archived alongside this report.
+This regression was caught before merging and never shipped. Representative
+[RED](resize-red-360x640.png) and [GREEN](resize-green-360x640.png) captures
+show the replacement action before/after scroll correction; they are runtime
+evidence, not approved visual goldens. Independent review inspected 18 GREEN
+resize captures across all six profiles. Compact phone/foldable landscape
+retains the existing orientation gate.
+
 ## Reproducible evidence
 
 The runner now uses an existing SMG build alongside the Pistol build. It
@@ -37,7 +53,7 @@ reselected the active Pistol; their Gunsmith action timings are not controls
 for this stronger journey. Both sides of this comparison use this same runner.
 
 Build each pinned runtime with `VITE_VISUAL_TEST=1`, serve its `dist` on a
-dedicated local preview port, and invoke the **candidate 83659d2 runner** by
+dedicated local preview port, and invoke the **candidate 0c2afcc runner** by
 absolute path from each runtime's working directory. Do not use f61's old
 checked-in runner: it lacks the strengthened SMG fixture. Pass `--expected-sha`, `--url`, `--out`,
 `--repeats 3` and `--window-ms 3000`. Run captures sequentially, without
@@ -73,15 +89,18 @@ and final device acceptance work.
 
 ## Repeated findings
 
-Measured implementation: `83659d2d208c1d845c2db2e13d16846202901f86`.
+Measured implementation: `0c2afcca0303e9b891dd2724c0d79a9e9f8d87f6`.
 There are 18 matched fresh cohorts / 486 checkpoints with zero browser errors.
+The candidate was remeasured after the resize correction; the unchanged f61
+control was captured earlier with the identical runner/fixture. Intervening
+validation and uncontrolled host load limit timing attribution.
 Every measured Gunsmith switch and replacement changes its presentation owner
 from `menu.render` to `menu.update`. Each action retains 25 objects: Pistol
 replacement creates/destroys 86 instead of 111 (22.5% fewer). Its stable count
 remains 111 objects / 55 textures; SMG remains 116 / 59 on both runtimes.
 
-Median replacement latency to the presented frame falls from 199.4 → 124.7ms
-on desktop, 277.4 → 221.8ms on phone, and 416.0 → 322.5ms on foldable. The
+Median replacement latency to the presented frame falls from 199.4 → 143.3ms
+on desktop, 277.4 → 215.1ms on phone, and 416.0 → 317.6ms on foldable. The
 three-repeat replacement ranges do not overlap. Both actual family switches
 also improve their medians. Unnecessary common-prefix reconstruction was a
 demonstrated contributor to these interaction costs; coupled body rendering
@@ -98,7 +117,7 @@ CPU bottleneck.
 
 | Ordinary build item | Baseline raw / gzip9 / Brotli11 bytes | Measured candidate |
 |---|---:|---:|
-| Application JS | 814154 / 183838 / 149925 | 817241 / 184479 / 150474 |
+| Application JS | 814154 / 183838 / 149925 | 817329 / 184492 / 150377 |
 | Phaser chunk | 1208050 / 330419 / 264694 | 1208050 / 330419 / 264694 |
 
 Boot remains six physical visual resources (ten files) plus four menu audio
@@ -111,7 +130,7 @@ this report. Reproduce the table with:
 python3 docs/implementation/performance/issue-209/gunsmith-updates/summarize.py \
   --baseline docs/implementation/performance/issue-209/gunsmith-updates/baseline-raw.json.gz \
   --candidate docs/implementation/performance/issue-209/gunsmith-updates/candidate-raw.json.gz \
-  --candidate-sha 83659d2d208c1d845c2db2e13d16846202901f86 \
+  --candidate-sha 0c2afcca0303e9b891dd2724c0d79a9e9f8d87f6 \
   --out /tmp/meow-gunsmith-comparison.md
 ```
 
