@@ -186,7 +186,12 @@ try {
       await page.evaluate(() => globalThis.__MEOWCENARY_PERFORMANCE__.resetMeasurement());
       const heavyBefore = await client.send('Performance.getMetrics');
       await page.waitForTimeout(windowMs);
-      const heavy = await snapshot(page); assert.equal(heavy.run.status, 'active', 'heavy window stays combat-active');
+      const heavy = await snapshot(page);
+      if (heavy.run.status !== 'active') {
+        await writeFile(`${output}/${profile.name}-${repeat}-failed-heavy.json`, JSON.stringify(heavy, null, 2));
+        await page.screenshot({ path: `${output}/${profile.name}-${repeat}-failed-heavy.png`, scale: 'css' });
+      }
+      assert.equal(heavy.run.status, 'active', 'heavy window stays combat-active');
       assert.equal(heavy.run.fixture.spawned, 48);
       cohort.actions.push({ name: 'heavy-combat', durationMs: windowMs, state: compact(heavy), metricsBefore: heavyBefore, metricsAfter: await client.send('Performance.getMetrics') });
       await page.screenshot({ path: `${output}/${profile.name}-${repeat}-heavy-combat.png`, scale: 'css' });

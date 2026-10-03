@@ -931,6 +931,10 @@ export class GameScene extends Phaser.Scene {
   performanceDiagnostics() {
     return {
       status: this.runState?.status ?? 'uninitialized',
+      pauseReason: this.runState?.pauseReason,
+      level: this.runState?.level,
+      xp: this.runState?.xp,
+      xpToNext: this.runState?.xpToNext,
       seed: this.runState?.seed,
       timeMs: this.runState?.timeMs ?? 0,
       training: this.isTraining,

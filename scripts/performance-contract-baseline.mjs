@@ -8,9 +8,10 @@ const base = option('--url', 'http://127.0.0.1:4261');
 const out = option('--out', '/tmp/meow209-contracts');
 const primary = JSON.parse(await readFile(option('--baseline', '/tmp/meow209-baseline-ef8d90c/results.json')));
 assert.equal(primary.exit, 0);
-assert.equal((await (await fetch(`${base}/build-meta.json`)).json()).commit, primary.measurementSHA);
+const measurementSHA = option('--expected-sha', primary.measurementSHA);
+assert.equal((await (await fetch(`${base}/build-meta.json`)).json()).commit, measurementSHA);
 await mkdir(out, { recursive: true });
-const result = { measurementSHA: primary.measurementSHA,
+const result = { measurementSHA, fixtureSourceSHA: primary.measurementSHA,
  method: 'Fresh context, same baseline save, real Home Play Contract touch/pointer; end at POST_RENDER active prepared GameScene. Normal menu RNG seed is recorded, not overridden. No intervening panel warmup, combat fixture or progression settlement.', cohorts: [] };
 const browser = await chromium.launch();
 try {
