@@ -342,3 +342,10 @@ human work after measured improvements land.
 ## Follow-up resource slice
 
 [Slice B: fresh-main comparison, audio lifecycle and run preparation](resource-lifecycle/README.md) records the subsequent measured improvement and remaining surface/native work. This historical Phase-A baseline remains unchanged.
+
+## Future native integration
+
+The [implementation inventory and Android/iOS integration decisions](../../../architecture/issue-209-future-mobile-integration.md)
+pin current browser boundaries and deferred durability, lifecycle, audio,
+presentation and offline-package evidence. No native tooling is installed, and
+this artifact does not close #209 or its product/device acceptance gates.
