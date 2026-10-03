@@ -3,7 +3,7 @@ import equipmentCatalog from '../src/data/equipment.json' with { type: 'json' };
 
 type Button = { key?: string; text: string; focused: boolean; visible: boolean; interactive: boolean;
   bounds: { x: number; y: number; width: number; height: number } };
-type Diagnostic = { panel: string; focusedKey?: string; buttons: Button[];
+type Diagnostic = { panel: string; focusedKey?: string; buttons: Button[]; copy: string[];
   equipment?: { selectedSlot: string; selectedInstanceId?: string; equipped: Record<string, string> } };
 type Event = { owner: string; facts: Record<string, string | number | boolean | readonly string[]> };
 type Snapshot = { events: Event[]; presentedMenu?: { panel: string; rebuildCount: number; revision: number; atMs: number } };
@@ -101,12 +101,18 @@ async function focus(page: Page, key: string): Promise<void> {
 
 test('Equipment candidate updates preserve committed menu state and selection through resize', async ({ page }, testInfo) => {
   probes.set(page, { started: Date.now(), keys: {} });
+  // Local-update ownership needs both stored and fabricable rows. Keep the
+  // whole helmet catalog while the separate full-owned journey retains its
+  // long candidate traversal, comparison, resize and durable equip coverage.
+  const ownedPieces = new Set(['equipment:commando-helmet', 'equipment:commando-armour',
+    'equipment:recon-helmet', 'equipment:recon-gloves']);
+  const helmets = equipmentCatalog.filter(piece => piece.slot === 'helmet');
   const seed = {
     version: 4, settings: { muted: true, musicVolume: 0, sfxVolume: 0, reducedMotion: true },
     progression: { scrap: 640, unlocks: ['capability:equipment-tier-2'] },
     stages: {}, achievements: {}, achievementMetrics: {}, characters: {},
     gunsmith: { builds: [], parts: {}, fabricationSerials: {} },
-    equipment: Object.fromEntries(equipmentCatalog.map(piece => [id(piece.id), { equipmentId: piece.id, tier: 1 }])),
+    equipment: Object.fromEntries(equipmentCatalog.filter(piece => ownedPieces.has(piece.id)).map(piece => [id(piece.id), { equipmentId: piece.id, tier: 1 }])),
     equipmentLoadout: { helmet: id('equipment:commando-helmet'), armour: id('equipment:commando-armour'), gloves: id('equipment:recon-gloves') },
     items: {}, bosses: {}, compendium: {}, pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
   };
@@ -115,7 +121,18 @@ test('Equipment candidate updates preserve committed menu state and selection th
   await settle(page);
   await expect.poll(() => page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.showMenu('equipment'))).toBe(true);
   await settle(page);
-  expect((await diagnostic(page)).panel).toBe('equipment');
+  const mounted = await diagnostic(page);
+  expect(mounted.panel).toBe('equipment');
+  const stored = mounted.buttons.filter(button => button.key?.startsWith('equipment-candidate:'));
+  const fabricable = mounted.buttons.filter(button => button.key?.startsWith('equipment-blueprint:'));
+  expect(stored.map(button => button.key).sort()).toEqual(helmets.filter(piece => ownedPieces.has(piece.id))
+    .map(piece => `equipment-candidate:${id(piece.id)}`).sort());
+  expect(fabricable.map(button => button.key).sort()).toEqual(helmets.filter(piece => !ownedPieces.has(piece.id))
+    .map(piece => `equipment-blueprint:${piece.id}`).sort());
+  expect(stored).toHaveLength(2);
+  expect(fabricable).toHaveLength(helmets.length - 2);
+  expect(stored.length + fabricable.length).toBe(helmets.length);
+  expect(fabricable.every(button => button.text.includes('FABRICABLE'))).toBe(true);
   phase(page, 'Equipment ready');
 
   // Enter through the real keyboard navigator, then use the profile's actual
@@ -139,8 +156,11 @@ test('Equipment candidate updates preserve committed menu state and selection th
   if (testInfo.project.use.hasTouch) await page.touchscreen.tap(x + width / 2, y + height / 2);
   else await page.mouse.click(x + width / 2, y + height / 2);
 
-  await expect.poll(async () => (await measurement(page)).events.some(event => event.owner === 'menu.update'
-    && event.facts.committed === true)).toBe(true);
+  await expect.poll(async () => {
+    const state = await measurement(page);
+    const update = state.events.find(event => event.owner === 'menu.update' && event.facts.committed === true);
+    return { committed: Boolean(update), presented: Boolean(update && state.presentedMenu?.revision === update.facts.revision) };
+  }).toEqual({ committed: true, presented: true });
   phase(page, 'selection committed');
   const selected = await checkpoint(page);
   const afterSelection = selected.diagnostic;
@@ -148,6 +168,11 @@ test('Equipment candidate updates preserve committed menu state and selection th
     equipped: { helmet: id('equipment:commando-helmet') } });
   expect(afterSelection.focusedKey).toBe(`equipment-detail:${candidate}`);
   expect(selected.saved).toBe(originalSave);
+  const comparison = afterSelection.copy.join('\n');
+  expect(comparison).toContain('Replaces Commando Helmet');
+  expect(comparison).toContain('LOSE 2-piece');
+  expect(comparison).toContain('GAIN 2-piece');
+  expect(comparison).toContain('[All Weapons]');
   const updateEvents = selected.measurement.events;
   expect(updateEvents.filter(event => event.owner === 'menu.render')).toHaveLength(0);
   expect(updateEvents.filter(event => event.owner === 'menu.update')).toHaveLength(1);
@@ -156,18 +181,21 @@ test('Equipment candidate updates preserve committed menu state and selection th
   });
   const selectionRevision = updateEvents.find(event => event.owner === 'menu.update')!.facts.revision;
   expect(typeof selectionRevision).toBe('number');
-  await expect.poll(async () => (await measurement(page)).presentedMenu?.revision).toBe(selectionRevision);
+  expect(selected.measurement.presentedMenu?.revision).toBe(selectionRevision);
   await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.freeze());
   try { await page.screenshot({ path: testInfo.outputPath('equipment-candidate-selected.png') }); }
   finally { await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.resume()); }
 
   const originalViewport = page.viewportSize()!;
   await page.setViewportSize({ width: originalViewport.width + 20, height: originalViewport.height });
-  await expect.poll(async () => (await measurement(page)).events.some(event => event.owner === 'menu.render'
-    && event.facts.reason === 'viewport-resize')).toBe(true);
-  await expect.poll(async () => (await diagnostic(page)).focusedKey).toBe(`equipment-detail:${candidate}`);
+  await expect.poll(() => page.evaluate(() => ({
+    resized: (globalThis as Seams).__MEOWCENARY_PERFORMANCE__!.snapshot().events.some(event =>
+      event.owner === 'menu.render' && event.facts.reason === 'viewport-resize'),
+    focusedKey: (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuFocusedKey(),
+  }))).toEqual({ resized: true, focusedKey: `equipment-detail:${candidate}` });
   const resized = await checkpoint(page);
   expect(resized.diagnostic.equipment?.selectedInstanceId).toBe(candidate);
+  expect(resized.diagnostic.focusedKey).toBe(`equipment-detail:${candidate}`);
   const resize = resized.measurement.events.find(event => event.owner === 'menu.render' && event.facts.reason === 'viewport-resize');
   expect(resize?.facts.rebuildCount).toBe((rebuildCount as number) + 1);
 
@@ -182,5 +210,6 @@ test('Equipment candidate updates preserve committed menu state and selection th
   expect(equipped.diagnostic.equipment?.equipped.helmet).toBe(candidate);
   const saved = JSON.parse(equipped.saved!);
   expect(saved.equipmentLoadout.helmet).toBe(candidate);
+  expect(saved.equipment).toEqual(seed.equipment);
   phase(page, 'equip durable');
 });

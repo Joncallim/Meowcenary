@@ -73,19 +73,26 @@ async function reset(page: Page): Promise<void> {
   await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_PERFORMANCE__.resetMeasurement());
 }
 async function assertLocalCommit(page: Page, rebuildCount: unknown) {
-  await expect.poll(async () => (await measurement(page)).events.some(event =>
-    event.owner === 'menu.update' && event.facts.committed === true)).toBe(true);
-  const state = await measurement(page);
+  // Observe the owning commit and its presented revision together. Repeated
+  // protocol reads add scheduling cost without making the assertion stronger.
+  await expect.poll(async () => {
+    const state = await measurement(page);
+    const update = state.events.find(event => event.owner === 'menu.update' && event.facts.committed === true);
+    return { committed: Boolean(update), presented: Boolean(update && state.presentedMenu?.revision === update.facts.revision) };
+  }).toEqual({ committed: true, presented: true });
+  const result = await checkpoint(page);
+  const state = result.measurement;
   expect(state.events.filter(event => event.owner === 'menu.render')).toHaveLength(0);
   const updates = state.events.filter(event => event.owner === 'menu.update');
   expect(updates).toHaveLength(1);
   expect(updates[0]!.facts).toMatchObject({ section: 'gunsmith-body', rebuildCount,
     reason: 'same-panel-state-mutation', committed: true });
-  await expect.poll(async () => (await measurement(page)).presentedMenu?.revision).toBe(updates[0]!.facts.revision);
-  return checkpoint(page);
+  expect(typeof updates[0]!.facts.revision).toBe('number');
+  expect(state.presentedMenu?.revision).toBe(updates[0]!.facts.revision);
+  return result;
 }
 
-test('Gunsmith build switching and replacement retain menu ownership and semantic focus through resize', async ({ page }, testInfo) => {
+async function openGunsmith(page: Page) {
   probes.set(page, { started: Date.now(), keys: {} });
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(String(error)));
@@ -106,24 +113,20 @@ test('Gunsmith build switching and replacement retain menu ownership and semanti
   expect(await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.showMenu('gunsmith'))).toBe(true);
   expect(await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
   phase(page, 'Gunsmith ready');
-  const mounted = (await measurement(page)).events.filter(event => event.owner === 'menu.render').at(-1)!;
+  const initial = await checkpoint(page);
+  const mounted = initial.measurement.events.filter(event => event.owner === 'menu.render').at(-1)!;
   const rebuildCount = mounted.facts.rebuildCount;
-  for (const family of ['smg', 'pistol']) {
-    await focus(page, `gunsmith-family:${family}`, family === 'pistol' ? 'ArrowUp' : 'ArrowDown');
-    await reset(page);
-    await press(page, 'Enter');
-    const switched = await assertLocalCommit(page, rebuildCount);
-    expect(switched.saved.gunsmith.selectedBuildId).toBe(`build:${family}`);
-    expect(switched.diagnostic.focusedKey).toBe(`gunsmith-family:${family}`);
-    phase(page, `${family} selected and presented`);
-  }
+  return { rebuildCount, errors, gunsmith: initial.saved.gunsmith };
+}
+
+async function replaceCompact(page: Page, rebuildCount: unknown, hasTouch: boolean | undefined) {
   await focus(page, 'gunsmith-part:compact');
   const target = (await diagnostic(page)).buttons.find(row => row.key === 'gunsmith-part:compact')!;
   expect(target.text).toContain('REPLACE HEAVY RECEIVER T2');
   expect(target.visible && target.interactive).toBe(true);
   await reset(page);
   const { x, y, width, height } = target.bounds;
-  if (testInfo.project.use.hasTouch) await page.touchscreen.tap(x + width / 2, y + height / 2);
+  if (hasTouch) await page.touchscreen.tap(x + width / 2, y + height / 2);
   else await page.mouse.click(x + width / 2, y + height / 2);
   const replacement = await assertLocalCommit(page, rebuildCount);
   const saved = replacement.saved;
@@ -132,16 +135,49 @@ test('Gunsmith build switching and replacement retain menu ownership and semanti
   expect(replacement.diagnostic.focusedKey).toBe('gunsmith-part:compact');
   expect(replacement.diagnostic.buttons.find(row => row.key === 'gunsmith-part:compact')!.text).toContain('FITTED');
   phase(page, 'replacement committed and presented');
+  return replacement;
+}
+
+test('Gunsmith family switching preserves builds and parts before replacement in the returned family', async ({ page }, testInfo) => {
+  const { rebuildCount, errors, gunsmith } = await openGunsmith(page);
+  for (const family of ['smg', 'pistol']) {
+    await focus(page, `gunsmith-family:${family}`, family === 'pistol' ? 'ArrowUp' : 'ArrowDown');
+    await reset(page);
+    await press(page, 'Enter');
+    const switched = await assertLocalCommit(page, rebuildCount);
+    expect(switched.saved.gunsmith.selectedBuildId).toBe(`build:${family}`);
+    expect(switched.diagnostic.focusedKey).toBe(`gunsmith-family:${family}`);
+    // Selection changes the body's fitting commands, not the stored builds or
+    // part assignments. Returning to Pistol must restore its replacement row.
+    expect(switched.saved.gunsmith).toEqual({ ...gunsmith, selectedBuildId: `build:${family}` });
+    const heavy = switched.diagnostic.buttons.find(row => row.key === 'gunsmith-part:heavy')!;
+    const compact = switched.diagnostic.buttons.find(row => row.key === 'gunsmith-part:compact')!;
+    expect(heavy.text).toContain(family === 'smg' ? 'FITTED TO PISTOL BUILD' : 'FITTED\n');
+    expect(compact.text).toContain('OWNED');
+    expect(compact.text.split('\n').at(-1)).toBe(family === 'smg' ? 'FIT' : 'REPLACE HEAVY RECEIVER T2');
+    phase(page, `${family} selected and presented`);
+  }
+  await replaceCompact(page, rebuildCount, testInfo.project.use.hasTouch);
+  expect(errors).toEqual([]);
+});
+
+test('Gunsmith replacement retains menu ownership and semantic focus through resize and removal', async ({ page }, testInfo) => {
+  const { rebuildCount, errors } = await openGunsmith(page);
+  const replacement = await replaceCompact(page, rebuildCount, testInfo.project.use.hasTouch);
+  const saved = replacement.saved;
   await page.screenshot({ path: testInfo.outputPath('gunsmith-replacement-committed.png'), scale: 'css' });
 
   const viewport = page.viewportSize()!;
   await page.setViewportSize({ width: viewport.width + 20, height: viewport.height });
-  await expect.poll(async () => (await measurement(page)).events.some(event =>
-    event.owner === 'menu.render' && event.facts.reason === 'viewport-resize')).toBe(true);
-  await expect.poll(async () => (await diagnostic(page)).focusedKey).toBe('gunsmith-part:compact');
+  await expect.poll(() => page.evaluate(() => ({
+    resized: (globalThis as Seams).__MEOWCENARY_PERFORMANCE__.snapshot().events.some(event =>
+      event.owner === 'menu.render' && event.facts.reason === 'viewport-resize'),
+    focusedKey: (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.menuFocusedKey(),
+  }))).toEqual({ resized: true, focusedKey: 'gunsmith-part:compact' });
   phase(page, 'resize focus restored');
   const resize = await checkpoint(page);
   expect(resize.saved.gunsmith).toEqual(saved.gunsmith);
+  expect(resize.diagnostic.focusedKey).toBe('gunsmith-part:compact');
   const resized = resize.measurement.events.filter(event => event.owner === 'menu.render').at(-1)!;
   await reset(page);
   await press(page, 'Enter');

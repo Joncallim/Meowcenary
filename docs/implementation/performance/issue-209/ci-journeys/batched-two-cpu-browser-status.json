@@ -1,0 +1,22 @@
+{
+  "base": "1e6528f3e2769c6046bf10352ac1b1a386bbfe9b",
+  "method": "Node, Vite preview and Chromium inherit two CPU affinity; no timeout changes",
+  "cpus": [
+    0,
+    1
+  ],
+  "commands": [
+    "taskset",
+    "--cpu-list",
+    "0,1",
+    "npx",
+    "playwright",
+    "test",
+    "browser-tests/equipment-updates.pw.ts",
+    "browser-tests/gunsmith-updates.pw.ts",
+    "--project=desktop-1920x1080",
+    "--repeat-each=3"
+  ],
+  "exit": 1,
+  "elapsedSeconds": 320.6704406738281
+}
