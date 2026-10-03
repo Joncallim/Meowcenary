@@ -1,7 +1,7 @@
 # Repeated comparison
 
 Immediate baseline runtime: `251d77d9a87d2062e6cd9e7b13c66fad95a94363`.
-Measured candidate runtime: `bc4b8e771c0b8bea734f214fe4796f0444432bb2`.
+Measured candidate runtime: `e0c0a3f805fdac2e8eaacd01e1c0618e7ba80aa1`.
 
 All times are milliseconds. Cells show median [minimum–maximum] of three repeats.
 These are descriptive results, not performance acceptance thresholds.
@@ -10,53 +10,53 @@ These are descriptive results, not performance acceptance thresholds.
 
 | Profile | Action | Baseline | Candidate |
 |---|---|---:|---:|
-| desktop-1280x720 | cold-usable-home | 1021.6 [1013.1–1044.0] | 1027.1 [979.9–1052.7] |
-| desktop-1280x720 | equipment-entry | 45.1 [44.6–50.1] | 48.8 [46.6–49.2] |
-| desktop-1280x720 | equipment-select | 230.0 [213.6–246.7] | 187.4 [182.0–189.4] |
-| desktop-1280x720 | equipment-equip | 209.8 [201.3–214.3] | 220.7 [213.9–234.3] |
-| desktop-1280x720 | equipment-blueprint-select | 228.3 [203.7–238.4] | 203.2 [201.7–209.6] |
-| desktop-1280x720 | equipment-fabricate | 216.3 [214.5–248.1] | 245.2 [218.0–245.3] |
-| desktop-1280x720 | gunsmith-entry | 98.7 [86.9–103.9] | 97.2 [92.5–99.3] |
-| desktop-1280x720 | gunsmith-build-select | 226.7 [225.3–266.8] | 216.7 [214.1–229.7] |
-| desktop-1280x720 | gunsmith-part-replace | 244.2 [217.6–246.8] | 222.4 [219.9–235.6] |
-| desktop-1280x720 | menu-prepared-game | 840.3 [801.9–854.7] | 866.6 [806.6–869.0] |
-| desktop-1280x720 | warm-equipment-entry | 64.7 [64.5–68.6] | 69.8 [66.8–92.2] |
-| desktop-1280x720 | warm-gunsmith-entry | 84.3 [83.7–89.8] | 86.2 [82.1–93.8] |
-| phone-390x844-dpr3 | cold-usable-home | 1681.1 [1623.4–1690.8] | 1705.9 [1682.3–1708.4] |
-| phone-390x844-dpr3 | equipment-entry | 133.0 [132.3–134.3] | 142.9 [133.5–151.9] |
-| phone-390x844-dpr3 | equipment-select | 303.9 [289.7–330.3] | 182.3 [181.1–190.8] |
-| phone-390x844-dpr3 | equipment-equip | 269.4 [265.6–281.3] | 279.2 [274.8–284.3] |
-| phone-390x844-dpr3 | equipment-blueprint-select | 223.2 [217.3–248.7] | 237.2 [228.9–255.3] |
-| phone-390x844-dpr3 | equipment-fabricate | 287.1 [276.6–296.1] | 289.1 [279.0–292.1] |
-| phone-390x844-dpr3 | gunsmith-entry | 250.0 [242.9–262.1] | 255.3 [254.8–267.2] |
-| phone-390x844-dpr3 | gunsmith-build-select | 305.7 [304.4–305.8] | 309.1 [308.6–313.8] |
-| phone-390x844-dpr3 | gunsmith-part-replace | 306.3 [305.3–316.7] | 303.0 [300.2–306.6] |
-| phone-390x844-dpr3 | menu-prepared-game | 961.3 [959.7–978.1] | 899.3 [890.2–946.2] |
-| phone-390x844-dpr3 | warm-equipment-entry | 175.5 [173.8–217.1] | 196.9 [195.6–203.0] |
-| phone-390x844-dpr3 | warm-gunsmith-entry | 226.0 [225.1–265.4] | 231.5 [230.8–265.9] |
-| foldable-1114x720-dpr2 | cold-usable-home | 2046.7 [2003.3–2116.1] | 2010.1 [2007.0–2038.5] |
-| foldable-1114x720-dpr2 | equipment-entry | 217.3 [213.5–235.8] | 228.8 [199.1–271.8] |
-| foldable-1114x720-dpr2 | equipment-select | 477.0 [453.9–480.0] | 301.7 [291.9–305.4] |
-| foldable-1114x720-dpr2 | equipment-equip | 408.9 [404.8–417.6] | 459.7 [443.4–487.6] |
-| foldable-1114x720-dpr2 | equipment-blueprint-select | 371.8 [368.8–442.2] | 404.1 [361.6–422.2] |
-| foldable-1114x720-dpr2 | equipment-fabricate | 457.9 [413.2–520.9] | 487.8 [445.8–520.5] |
-| foldable-1114x720-dpr2 | gunsmith-entry | 413.1 [361.1–462.6] | 413.1 [380.4–424.2] |
-| foldable-1114x720-dpr2 | gunsmith-build-select | 508.8 [498.7–538.1] | 520.8 [510.6–548.2] |
-| foldable-1114x720-dpr2 | gunsmith-part-replace | 502.4 [497.5–516.9] | 530.2 [502.5–578.2] |
-| foldable-1114x720-dpr2 | menu-prepared-game | 1230.0 [1220.0–1299.4] | 1242.7 [1237.0–1308.8] |
-| foldable-1114x720-dpr2 | warm-equipment-entry | 261.2 [252.6–292.3] | 296.6 [270.5–326.8] |
-| foldable-1114x720-dpr2 | warm-gunsmith-entry | 395.4 [354.2–404.6] | 376.2 [339.1–383.1] |
+| desktop-1280x720 | cold-usable-home | 1013.0 [948.9–1050.7] | 1039.0 [969.5–1070.5] |
+| desktop-1280x720 | equipment-entry | 46.2 [45.2–48.5] | 42.7 [41.9–59.1] |
+| desktop-1280x720 | equipment-select | 226.8 [226.0–229.7] | 182.7 [178.5–194.9] |
+| desktop-1280x720 | equipment-equip | 206.5 [196.8–231.1] | 217.9 [216.2–220.3] |
+| desktop-1280x720 | equipment-blueprint-select | 203.5 [188.4–212.8] | 206.9 [196.9–210.2] |
+| desktop-1280x720 | equipment-fabricate | 217.4 [203.3–235.8] | 213.0 [211.3–215.3] |
+| desktop-1280x720 | gunsmith-entry | 93.9 [88.5–98.5] | 73.5 [69.5–78.3] |
+| desktop-1280x720 | gunsmith-build-select | 217.2 [205.1–218.3] | 202.4 [197.6–239.5] |
+| desktop-1280x720 | gunsmith-part-replace | 215.4 [208.5–218.8] | 202.6 [196.7–216.8] |
+| desktop-1280x720 | menu-prepared-game | 809.5 [800.3–816.1] | 862.8 [816.8–881.9] |
+| desktop-1280x720 | warm-equipment-entry | 61.0 [57.3–63.2] | 55.5 [52.6–57.3] |
+| desktop-1280x720 | warm-gunsmith-entry | 82.0 [77.6–82.6] | 68.7 [68.1–71.0] |
+| phone-390x844-dpr3 | cold-usable-home | 1658.2 [1616.0–1672.9] | 1615.7 [1594.8–1647.7] |
+| phone-390x844-dpr3 | equipment-entry | 136.4 [128.9–150.5] | 127.4 [122.2–127.4] |
+| phone-390x844-dpr3 | equipment-select | 324.3 [318.3–335.0] | 178.6 [174.1–183.1] |
+| phone-390x844-dpr3 | equipment-equip | 241.1 [240.0–253.9] | 270.3 [264.4–315.5] |
+| phone-390x844-dpr3 | equipment-blueprint-select | 210.2 [209.2–211.7] | 210.1 [205.0–233.7] |
+| phone-390x844-dpr3 | equipment-fabricate | 270.4 [268.6–300.2] | 312.4 [290.6–324.2] |
+| phone-390x844-dpr3 | gunsmith-entry | 246.5 [244.4–258.6] | 245.1 [223.6–262.6] |
+| phone-390x844-dpr3 | gunsmith-build-select | 301.2 [296.2–306.4] | 325.5 [277.9–330.2] |
+| phone-390x844-dpr3 | gunsmith-part-replace | 331.4 [295.7–336.6] | 322.0 [288.6–346.4] |
+| phone-390x844-dpr3 | menu-prepared-game | 957.2 [948.6–974.6] | 956.5 [952.5–964.9] |
+| phone-390x844-dpr3 | warm-equipment-entry | 183.1 [177.0–183.2] | 207.2 [188.8–218.0] |
+| phone-390x844-dpr3 | warm-gunsmith-entry | 219.8 [216.3–228.7] | 208.7 [207.5–209.9] |
+| foldable-1114x720-dpr2 | cold-usable-home | 1968.0 [1966.6–2002.6] | 2039.3 [2002.8–2393.3] |
+| foldable-1114x720-dpr2 | equipment-entry | 206.2 [194.0–212.4] | 198.7 [196.7–206.0] |
+| foldable-1114x720-dpr2 | equipment-select | 455.8 [439.6–460.3] | 282.9 [253.3–298.3] |
+| foldable-1114x720-dpr2 | equipment-equip | 416.5 [406.0–484.9] | 388.2 [380.3–424.5] |
+| foldable-1114x720-dpr2 | equipment-blueprint-select | 367.3 [363.3–429.5] | 332.6 [320.8–417.2] |
+| foldable-1114x720-dpr2 | equipment-fabricate | 436.4 [418.0–466.2] | 417.9 [411.5–442.1] |
+| foldable-1114x720-dpr2 | gunsmith-entry | 397.4 [365.7–414.7] | 335.2 [319.1–357.0] |
+| foldable-1114x720-dpr2 | gunsmith-build-select | 499.5 [497.5–524.8] | 468.8 [450.5–470.8] |
+| foldable-1114x720-dpr2 | gunsmith-part-replace | 495.6 [490.5–535.0] | 446.7 [438.1–449.9] |
+| foldable-1114x720-dpr2 | menu-prepared-game | 1293.8 [1247.8–1305.1] | 1475.4 [1372.4–1501.1] |
+| foldable-1114x720-dpr2 | warm-equipment-entry | 268.0 [246.7–291.5] | 258.6 [253.0–283.0] |
+| foldable-1114x720-dpr2 | warm-gunsmith-entry | 373.2 [347.2–382.0] | 300.9 [295.3–310.8] |
 
 ## Equipment selection ownership
 
 | Profile | Runtime | Presentation owner | Created | Destroyed | Stable objects | Textures | Owner span |
 |---|---|---|---|---|---|---|---:|
-| desktop-1280x720 | baseline | menu.render | 118/118/118 | 96/96/96 | 118/118/118 | 57/57/57 | 74.7 [68.8–77.4] |
-| desktop-1280x720 | candidate | menu.update | 41/41/41 | 19/19/19 | 118/118/118 | 57/57/57 | 34.1 [34.0–37.0] |
-| phone-390x844-dpr3 | baseline | menu.render | 118/118/118 | 96/96/96 | 118/118/118 | 57/57/57 | 226.8 [210.6–249.3] |
-| phone-390x844-dpr3 | candidate | menu.update | 41/41/41 | 19/19/19 | 118/118/118 | 57/57/57 | 98.5 [96.9–103.1] |
-| foldable-1114x720-dpr2 | baseline | menu.render | 118/118/118 | 96/96/96 | 118/118/118 | 57/57/57 | 312.1 [291.8–326.7] |
-| foldable-1114x720-dpr2 | candidate | menu.update | 41/41/41 | 19/19/19 | 118/118/118 | 57/57/57 | 136.1 [128.6–137.8] |
+| desktop-1280x720 | baseline | menu.render | 118/118/118 | 96/96/96 | 118/118/118 | 57/57/57 | 73.9 [69.2–78.7] |
+| desktop-1280x720 | candidate | menu.update | 41/41/41 | 19/19/19 | 118/118/118 | 57/57/57 | 26.8 [25.2–32.2] |
+| phone-390x844-dpr3 | baseline | menu.render | 118/118/118 | 96/96/96 | 118/118/118 | 57/57/57 | 245.7 [243.9–258.5] |
+| phone-390x844-dpr3 | candidate | menu.update | 41/41/41 | 19/19/19 | 118/118/118 | 57/57/57 | 87.0 [83.3–89.3] |
+| foldable-1114x720-dpr2 | baseline | menu.render | 118/118/118 | 96/96/96 | 118/118/118 | 57/57/57 | 293.7 [277.3–300.7] |
+| foldable-1114x720-dpr2 | candidate | menu.update | 41/41/41 | 19/19/19 | 118/118/118 | 57/57/57 | 100.5 [98.4–106.2] |
 
 ## Cadence
 
@@ -65,24 +65,24 @@ Count, worst-frame and over-budget ratio retain all three repeats. The budget is
 
 | Profile | Window | Runtime | Samples | p50 | p95 | p99 | Worst per repeat | Over budget per repeat |
 |---|---|---|---|---:|---:|---:|---|---|
-| desktop-1280x720 | warm-home | baseline | 31/32/31 | 50.0 | 50.1 | 66.6 | 66.6/66.6/66.6 | 31/31 (100.0%)/32/32 (100.0%)/31/31 (100.0%) |
-| desktop-1280x720 | warm-home | candidate | 32/32/32 | 50.0 | 50.1 | 66.6 | 66.7/50.1/66.6 | 32/32 (100.0%)/32/32 (100.0%)/32/32 (100.0%) |
-| desktop-1280x720 | light-combat | baseline | 50/51/49 | 66.6 | 66.7 | 66.8 | 66.7/66.8/66.8 | 50/50 (100.0%)/51/51 (100.0%)/49/49 (100.0%) |
-| desktop-1280x720 | light-combat | candidate | 48/49/48 | 66.7 | 66.8 | 83.3 | 83.4/83.3/83.3 | 48/48 (100.0%)/49/49 (100.0%)/48/48 (100.0%) |
-| desktop-1280x720 | heavy-combat | baseline | 48/46/47 | 66.7 | 66.8 | 83.4 | 83.4/83.4/83.3 | 48/48 (100.0%)/46/46 (100.0%)/47/47 (100.0%) |
-| desktop-1280x720 | heavy-combat | candidate | 46/45/45 | 66.7 | 83.3 | 83.4 | 83.3/83.4/83.4 | 46/46 (100.0%)/45/45 (100.0%)/45/45 (100.0%) |
-| phone-390x844-dpr3 | warm-home | baseline | 63/64/63 | 16.7 | 33.4 | 33.5 | 33.4/33.5/33.5 | 53/63 (84.1%)/50/64 (78.1%)/49/63 (77.8%) |
-| phone-390x844-dpr3 | warm-home | candidate | 64/64/64 | 16.7 | 33.4 | 33.4 | 33.4/33.5/33.4 | 52/64 (81.2%)/47/64 (73.4%)/48/64 (75.0%) |
-| phone-390x844-dpr3 | light-combat | baseline | 96/95/93 | 33.3 | 33.4 | 50.1 | 50.1/50.1/50.0 | 91/96 (94.8%)/89/95 (93.7%)/89/93 (95.7%) |
-| phone-390x844-dpr3 | light-combat | candidate | 93/89/94 | 33.3 | 50.0 | 50.1 | 50.0/66.7/50.1 | 89/93 (95.7%)/84/89 (94.4%)/92/94 (97.9%) |
-| phone-390x844-dpr3 | heavy-combat | baseline | 85/91/86 | 33.3 | 50.0 | 66.7 | 100.0/66.7/66.6 | 84/85 (98.8%)/90/91 (98.9%)/85/86 (98.8%) |
-| phone-390x844-dpr3 | heavy-combat | candidate | 82/88/84 | 33.3 | 50.0 | 66.6 | 66.6/66.6/83.4 | 82/82 (100.0%)/88/88 (100.0%)/84/84 (100.0%) |
-| foldable-1114x720-dpr2 | warm-home | baseline | 31/31/32 | 50.0 | 50.1 | 50.1 | 50.1/50.1/50.1 | 31/31 (100.0%)/31/31 (100.0%)/32/32 (100.0%) |
-| foldable-1114x720-dpr2 | warm-home | candidate | 30/30/31 | 50.0 | 66.6 | 66.7 | 66.7/66.8/66.7 | 30/30 (100.0%)/30/30 (100.0%)/31/31 (100.0%) |
-| foldable-1114x720-dpr2 | light-combat | baseline | 46/46/46 | 66.7 | 83.3 | 100.0 | 100.0/83.4/100.0 | 46/46 (100.0%)/46/46 (100.0%)/46/46 (100.0%) |
-| foldable-1114x720-dpr2 | light-combat | candidate | 46/45/45 | 66.7 | 83.3 | 83.4 | 83.4/83.4/83.4 | 46/46 (100.0%)/45/45 (100.0%)/45/45 (100.0%) |
-| foldable-1114x720-dpr2 | heavy-combat | baseline | 43/43/42 | 66.7 | 83.4 | 100.1 | 116.7/99.9/100.1 | 43/43 (100.0%)/43/43 (100.0%)/42/42 (100.0%) |
-| foldable-1114x720-dpr2 | heavy-combat | candidate | 41/43/42 | 66.7 | 83.4 | 100.0 | 116.7/100.0/100.0 | 41/41 (100.0%)/43/43 (100.0%)/42/42 (100.0%) |
+| desktop-1280x720 | warm-home | baseline | 34/32/32 | 50.0 | 50.1 | 50.1 | 50.1/66.7/50.1 | 34/34 (100.0%)/32/32 (100.0%)/32/32 (100.0%) |
+| desktop-1280x720 | warm-home | candidate | 33/33/31 | 50.0 | 50.1 | 50.1 | 50.1/50.1/66.7 | 33/33 (100.0%)/33/33 (100.0%)/31/31 (100.0%) |
+| desktop-1280x720 | light-combat | baseline | 48/50/50 | 66.6 | 66.8 | 83.4 | 83.4/83.4/66.8 | 48/48 (100.0%)/50/50 (100.0%)/50/50 (100.0%) |
+| desktop-1280x720 | light-combat | candidate | 48/48/48 | 66.6 | 66.7 | 83.3 | 83.4/83.3/83.2 | 48/48 (100.0%)/48/48 (100.0%)/48/48 (100.0%) |
+| desktop-1280x720 | heavy-combat | baseline | 48/47/47 | 66.7 | 83.3 | 83.4 | 83.4/83.4/83.4 | 48/48 (100.0%)/47/47 (100.0%)/47/47 (100.0%) |
+| desktop-1280x720 | heavy-combat | candidate | 46/44/45 | 66.7 | 83.3 | 83.4 | 83.4/83.4/83.4 | 46/46 (100.0%)/44/44 (100.0%)/45/45 (100.0%) |
+| phone-390x844-dpr3 | warm-home | baseline | 65/65/65 | 16.7 | 33.4 | 33.4 | 33.4/33.4/33.4 | 50/65 (76.9%)/55/65 (84.6%)/52/65 (80.0%) |
+| phone-390x844-dpr3 | warm-home | candidate | 61/63/63 | 16.7 | 33.4 | 33.4 | 33.5/33.4/33.4 | 46/61 (75.4%)/56/63 (88.9%)/49/63 (77.8%) |
+| phone-390x844-dpr3 | light-combat | baseline | 97/98/99 | 33.3 | 33.4 | 50.1 | 50.0/50.1/50.1 | 88/97 (90.7%)/91/98 (92.9%)/94/99 (94.9%) |
+| phone-390x844-dpr3 | light-combat | candidate | 94/97/95 | 33.3 | 33.4 | 50.0 | 50.1/50.0/50.0 | 90/94 (95.7%)/91/97 (93.8%)/93/95 (97.9%) |
+| phone-390x844-dpr3 | heavy-combat | baseline | 91/91/89 | 33.3 | 50.0 | 66.7 | 66.7/83.3/66.6 | 89/91 (97.8%)/87/91 (95.6%)/89/89 (100.0%) |
+| phone-390x844-dpr3 | heavy-combat | candidate | 88/88/87 | 33.3 | 50.0 | 66.7 | 66.7/66.7/66.6 | 86/88 (97.7%)/87/88 (98.9%)/85/87 (97.7%) |
+| foldable-1114x720-dpr2 | warm-home | baseline | 32/32/32 | 50.0 | 50.1 | 66.7 | 66.7/66.7/66.8 | 32/32 (100.0%)/32/32 (100.0%)/32/32 (100.0%) |
+| foldable-1114x720-dpr2 | warm-home | candidate | 31/27/31 | 50.0 | 66.7 | 66.7 | 66.7/66.8/66.7 | 31/31 (100.0%)/27/27 (100.0%)/31/31 (100.0%) |
+| foldable-1114x720-dpr2 | light-combat | baseline | 47/47/41 | 66.7 | 83.3 | 83.4 | 83.4/83.4/100.0 | 47/47 (100.0%)/47/47 (100.0%)/41/41 (100.0%) |
+| foldable-1114x720-dpr2 | light-combat | candidate | 45/44/45 | 66.7 | 83.4 | 83.4 | 116.6/83.4/83.4 | 45/45 (100.0%)/44/44 (100.0%)/45/45 (100.0%) |
+| foldable-1114x720-dpr2 | heavy-combat | baseline | 43/43/40 | 66.7 | 83.4 | 116.6 | 100.0/116.7/116.6 | 43/43 (100.0%)/43/43 (100.0%)/40/40 (100.0%) |
+| foldable-1114x720-dpr2 | heavy-combat | candidate | 39/43/42 | 66.7 | 83.4 | 133.3 | 133.3/133.4/116.7 | 39/39 (100.0%)/43/43 (100.0%)/42/42 (100.0%) |
 
 ## Environment and limitations
 
@@ -103,6 +103,7 @@ Count, worst-frame and over-budget ratio retain all three repeats. The budget is
 - Local Vite preview and unthrottled transfer; CPU4x is emulation, not a calibrated physical phone.
 - Three-second combat windows are bounded comparisons, not long-run playtests. Sparse foldable samples limit percentile precision.
 - Background host load and baseline-first ordering are uncontrolled; timing differences outside the changed action are not attributed to this implementation.
+- Final-candidate diagnostics derive Equipment once rather than four times. Keyboard focus setup precedes timed actions; observer-work differences may still perturb scheduling.
 - Probe object walks/polling can perturb scheduling. Local owner timing excludes its eligibility guard; whole-action latency includes it.
 - Raw frame cadence includes rendering/compositor scheduling. It is distinct from smoothed gameplay delta and does not by itself establish a simulation CPU bottleneck.
 - The raw historical baselineSHA field names Phase A; the immediate control is the measurementSHA pinned above.

@@ -10,6 +10,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--baseline', type=Path, required=True)
 parser.add_argument('--candidate', type=Path, required=True)
 parser.add_argument('--out', type=Path, required=True)
+parser.add_argument('--candidate-sha', choices=['bc4b8e771c0b8bea734f214fe4796f0444432bb2', 'e0c0a3f805fdac2e8eaacd01e1c0618e7ba80aa1'], default='e0c0a3f805fdac2e8eaacd01e1c0618e7ba80aa1')
 args = parser.parse_args()
 def load(path):
     raw = path.read_bytes()
@@ -17,7 +18,7 @@ def load(path):
 baseline, candidate = load(args.baseline), load(args.candidate)
 assert baseline['exit'] == candidate['exit'] == 0
 assert baseline['measurementSHA'] == '251d77d9a87d2062e6cd9e7b13c66fad95a94363'
-assert candidate['measurementSHA'] == 'bc4b8e771c0b8bea734f214fe4796f0444432bb2'
+assert candidate['measurementSHA'] == args.candidate_sha
 assert baseline['sourceHEAD'] == baseline['measurementSHA']
 assert candidate['sourceHEAD'] == candidate['measurementSHA']
 assert baseline['method']['repeats'] == 3 and baseline['method']['windowMs'] == 3000
@@ -91,6 +92,7 @@ lines += ['', '## Environment and limitations', '',
     '- Local Vite preview and unthrottled transfer; CPU4x is emulation, not a calibrated physical phone.',
     '- Three-second combat windows are bounded comparisons, not long-run playtests. Sparse foldable samples limit percentile precision.',
     '- Background host load and baseline-first ordering are uncontrolled; timing differences outside the changed action are not attributed to this implementation.',
+    '- Final-candidate diagnostics derive Equipment once rather than four times. Keyboard focus setup precedes timed actions; observer-work differences may still perturb scheduling.',
     '- Probe object walks/polling can perturb scheduling. Local owner timing excludes its eligibility guard; whole-action latency includes it.',
     '- Raw frame cadence includes rendering/compositor scheduling. It is distinct from smoothed gameplay delta and does not by itself establish a simulation CPU bottleneck.',
     '- The raw historical baselineSHA field names Phase A; the immediate control is the measurementSHA pinned above.',

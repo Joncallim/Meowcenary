@@ -65,9 +65,9 @@ open. #209 is not complete from this scoped optimization alone.
 ## Repeated findings
 
 The immediate baseline is `251d77d9a87d2062e6cd9e7b13c66fad95a94363`; the
-measured implementation is `bc4b8e771c0b8bea734f214fe4796f0444432bb2`.
-Subsequent closeout commits change evidence and test harnesses only; runtime
-source and measurement-runner code remain identical to the measured pin. Both runs used the
+measured implementation is `e0c0a3f805fdac2e8eaacd01e1c0618e7ba80aa1`.
+The initial bc4b8e7 measurement is retained separately. The final runtime also
+contains the hosted-load corrections below. Both final runs used the
 candidate runner, with its older-baseline presentation-revision fallback.
 There were nine fresh cohorts per runtime, three repeats each for desktop
 1280×720, phone 390×844/DPR3 and foldable 1114×720/DPR2: 18 cohorts, 468
@@ -76,13 +76,13 @@ checkpoints, zero browser errors. Runs were sequential, never concurrent.
 All nine candidate selections changed their owner from full `menu.render` to
 local `menu.update`. Created objects fell from 118 to 41 (65% fewer), destroyed
 objects from 96 to 19. Stable objects stayed at 118 and textures at 57. Median
-selection latency to POST_RENDER fell from 230.0 to 187.4ms on desktop, 303.9
-to 182.3ms on phone, and 477.0 to 301.7ms on foldable. The three-repeat ranges
+selection latency to POST_RENDER fell from 226.8 to 182.7ms on desktop, 324.3
+to 178.6ms on phone, and 455.8 to 282.9ms on foldable. The three-repeat ranges
 for this action do not overlap. Its unnecessary shell/prefix reconstruction
 was a demonstrated cost; retaining them removes that work.
 
-Other actions have mixed results, including slower Equipment entry/equip and
-warm Equipment entry in this run. Baseline-first ordering and host load were
+Other actions have mixed results, including slower phone equip/fabricate and
+warm Equipment entry, and slower desktop/foldable run preparation in this run. Baseline-first ordering and host load were
 not controlled, so this evidence cannot attribute those changes to the code
 or demonstrate unchanged whole-game timing. No boot, Gunsmith or combat
 improvement is claimed. Blueprint selection sometimes changes the Set hero
@@ -115,21 +115,21 @@ is a reproducible build estimate, not measured CDN transfer.
 
 Gunsmith local updates, other measured panel costs, justified remaining surface
 extraction, native integration documentation and final baseline-to-final/device
-acceptance remain under #209. A separate measured pass should investigate
-unchanged-label text rasterization in the shared focus owner: the installed
-Phaser TextStyle.setStyle defaults to remeasuring text and updating its canvas,
-even when supplied the existing colour. This is a concrete candidate cost,
-but no attribution or improvement for it is claimed here and it is not changed
-by this tranche. Product issues and visual approval remain with their owners.
+acceptance remain under #209. The shared focus colour guard and diagnostic
+read correction remove reproduced redundant work; their individual timing
+contributions are not isolated. Product issues and visual approval remain
+with their owners.
 
 ## Ordinary build inventory
 
 | Item | Baseline raw / gzip9 / Brotli11 bytes | Candidate raw / gzip9 / Brotli11 bytes |
 |---|---:|---:|
-| Application JS | 809244 / 182723 / 149087 | 814021 / 183786 / 149796 |
+| Application JS | 809244 / 182723 / 149087 | 814034 / 183813 / 149956 |
 | Phaser chunk | 1208050 / 330419 / 264694 | 1208050 / 330419 / 264694 |
 
-This scoped retention logic increases application bytes; it is not a bundle
+The candidate inventory records uncommitted evidence files only; runtime and
+manifest source hashes match the pinned build. This scoped retention logic
+increases application bytes; it is not a bundle
 size optimization. Both inventories have 619 logical art bindings, 96 physical
 visual resources, 112 distinct visual URLs and 226 dist files. No asset/audio
 manifest changes are included. Six selected-detail captures are in `captures/`;
@@ -158,3 +158,28 @@ with additional assertions that it has zero samples/events on Home. The exact
 registry assertion is retained, as are save, bounds and opt-in assertions;
 `telemetry-registry-red.log.gz` preserves the full RED run. No timing, image,
 skip or timeout policy changes accompany this contract update.
+
+## Hosted-load reconciliation
+
+Hosted runs on a077c10 and 4616c08 hit the unchanged 30-second budget in the new
+1920×1080 journey while traversing the catalog's real keyboard focus. The latter
+full hosted RED is preserved in `hosted-keyboard-budget-red.log.gz`. The former
+failure screenshot was inspected: it showed Recon focused in the catalog, not
+an accepted new visual baseline. No fixture, input coverage, assertion, timeout,
+image policy or skip is reduced to pass the journey.
+
+Two concrete owning-boundary costs were reproduced. The diagnostic resolved
+the lazy Equipment model four times per call (`diagnostic-read-red.log.gz`). It
+now resolves once and stays lazy outside Loadout/Equipment. Shared focus called
+Text.setStyle on every label on every navigation even when its colour was
+unchanged. Installed Phaser 3.90 TextStyle.setStyle defaults to remeasuring text
+and updating its canvas on each call. `focus-colour-red.log.gz` shows redundant
+writes; the guard compares the current colour before writing. The regression
+also requires a moved single ring and restoration when a label's palette really
+changes. Fakes expose the real Text style property. These costs both contribute;
+the hosted timeout cannot be assigned solely to one, and host load also matters.
+
+Initial repeated bc4 results remain in `initial-comparison.md` and the two
+`initial-*-raw.json.gz` files. The final comparison and raw archives use fresh pinned runs after both
+corrections; diagnostic workload itself can perturb timing. Reproduce the
+initial report using its raw archives and `--candidate-sha bc4b8e771c0b8bea734f214fe4796f0444432bb2`.
