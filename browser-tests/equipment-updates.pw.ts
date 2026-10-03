@@ -24,6 +24,13 @@ const id = (piece: string) => `owned:${piece}`;
 async function diagnostic(page: Page): Promise<Diagnostic> {
   return page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuLoadoutDiagnostics());
 }
+async function checkpoint(page: Page) {
+  return page.evaluate(() => ({
+    diagnostic: (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuLoadoutDiagnostics(),
+    measurement: (globalThis as Seams).__MEOWCENARY_PERFORMANCE__!.snapshot(),
+    saved: localStorage.getItem('meowcenary.save.v2'),
+  }));
+}
 async function measurement(page: Page): Promise<Snapshot> {
   return page.evaluate(() => (globalThis as Seams).__MEOWCENARY_PERFORMANCE__!.snapshot());
 }
@@ -43,11 +50,22 @@ async function press(page: Page, key: string): Promise<void> {
     { intervals: [16, 32, 50] }).toBe(true);
 }
 async function focus(page: Page, key: string): Promise<void> {
-  for (let step = 0; step < 80; step += 1) {
-    // Observe the existing focus owner without deriving the complete Equipment
-    // model and walking every display object for each real key press.
-    if (await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuFocusedKey()) === key) return;
-    await press(page, 'ArrowDown');
+  if (await page.evaluate(() =>
+    (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuFocusedKey()) === key) return;
+  const observed = await diagnostic(page);
+  const targetIndex = observed.buttons.findIndex(button => button.key === key);
+  expect(targetIndex, `Missing semantic focus ${key}`).toBeGreaterThanOrEqual(0);
+  for (let step = 0; step < observed.buttons.length + 4; step += 1) {
+    const focusedKey = await page.evaluate(() =>
+      (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuFocusedKey());
+    if (focusedKey === key) return;
+    const currentIndex = observed.buttons.findIndex(button => button.key === focusedKey);
+    expect(currentIndex, `Unknown semantic focus ${focusedKey}`).toBeGreaterThanOrEqual(0);
+    // Slots use spatial vertical navigation. The body is linear in both axes;
+    // horizontal keys avoid the vertical endpoint's scroll-only first press.
+    await press(page, currentIndex < 4
+      ? currentIndex < targetIndex ? 'ArrowDown' : 'ArrowUp'
+      : currentIndex < targetIndex ? 'ArrowRight' : 'ArrowLeft');
   }
   throw new Error(`Focus did not reach ${key}: ${JSON.stringify(await diagnostic(page))}`);
 }
@@ -78,11 +96,12 @@ test('Equipment candidate updates preserve committed menu state and selection th
   const candidate = id('equipment:recon-helmet');
   await focus(page, `equipment-candidate:${candidate}`);
   phase('candidate focused by keyboard');
-  const target = (await diagnostic(page)).buttons.find(button => button.key === `equipment-candidate:${candidate}`)!;
+  const beforeSelection = await checkpoint(page);
+  const target = beforeSelection.diagnostic.buttons.find(button => button.key === `equipment-candidate:${candidate}`)!;
   expect(target.visible).toBe(true);
   expect(target.interactive).toBe(true);
-  const originalSave = await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'));
-  const before = await measurement(page);
+  const originalSave = beforeSelection.saved;
+  const before = beforeSelection.measurement;
   const beforeRender = before.events.filter(event => event.owner === 'menu.render').at(-1);
   expect(beforeRender).toBeDefined();
   const rebuildCount = beforeRender!.facts.rebuildCount;
@@ -95,12 +114,13 @@ test('Equipment candidate updates preserve committed menu state and selection th
   await expect.poll(async () => (await measurement(page)).events.some(event => event.owner === 'menu.update'
     && event.facts.committed === true)).toBe(true);
   phase('selection committed');
-  const afterSelection = await diagnostic(page);
+  const selected = await checkpoint(page);
+  const afterSelection = selected.diagnostic;
   expect(afterSelection.equipment).toMatchObject({ selectedSlot: 'helmet', selectedInstanceId: candidate,
     equipped: { helmet: id('equipment:commando-helmet') } });
   expect(afterSelection.focusedKey).toBe(`equipment-detail:${candidate}`);
-  expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(originalSave);
-  const updateEvents = (await measurement(page)).events;
+  expect(selected.saved).toBe(originalSave);
+  const updateEvents = selected.measurement.events;
   expect(updateEvents.filter(event => event.owner === 'menu.render')).toHaveLength(0);
   expect(updateEvents.filter(event => event.owner === 'menu.update')).toHaveLength(1);
   expect(updateEvents.find(event => event.owner === 'menu.update')?.facts).toMatchObject({
@@ -118,8 +138,9 @@ test('Equipment candidate updates preserve committed menu state and selection th
   await expect.poll(async () => (await measurement(page)).events.some(event => event.owner === 'menu.render'
     && event.facts.reason === 'viewport-resize')).toBe(true);
   await expect.poll(async () => (await diagnostic(page)).focusedKey).toBe(`equipment-detail:${candidate}`);
-  expect((await diagnostic(page)).equipment?.selectedInstanceId).toBe(candidate);
-  const resize = (await measurement(page)).events.find(event => event.owner === 'menu.render' && event.facts.reason === 'viewport-resize');
+  const resized = await checkpoint(page);
+  expect(resized.diagnostic.equipment?.selectedInstanceId).toBe(candidate);
+  const resize = resized.measurement.events.find(event => event.owner === 'menu.render' && event.facts.reason === 'viewport-resize');
   expect(resize?.facts.rebuildCount).toBe((rebuildCount as number) + 1);
 
   phase('resize committed');
@@ -129,8 +150,9 @@ test('Equipment candidate updates preserve committed menu state and selection th
   await focus(page, `equipment-equip:${candidate}`);
   await press(page, 'Enter');
   await settle(page);
-  expect((await diagnostic(page)).equipment?.equipped.helmet).toBe(candidate);
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')!));
+  const equipped = await checkpoint(page);
+  expect(equipped.diagnostic.equipment?.equipped.helmet).toBe(candidate);
+  const saved = JSON.parse(equipped.saved!);
   expect(saved.equipmentLoadout.helmet).toBe(candidate);
   phase('equip durable');
 });

@@ -70,6 +70,39 @@ CDN transfer measurements. Timing evidence is descriptive, never a brittle
 single-run CI threshold. Probe/polling work and uncontrolled background host
 load remain limitations.
 
+## Acceptance harness under load
+
+Hosted run `37128832951` at `36bf650f3764969864a0fd424131ce9346ec5aa0`
+passed the corrected resize test on all six profiles, but five newer journey
+rows exhausted their existing 30-second budgets. Its browser matrix took
+29.9 minutes versus 13.7 locally. Failures occurred at different journey
+phases; the Equipment 1920 row logged its keyboard target at 31.9 seconds and
+successful selection at 34.6 seconds. The raw hosted failure log is archived.
+
+Gunsmith's old helper returned from SMG to adjacent Pistol by pressing Down
+through the entire catalogue. It now uses real Up, and the same neutral-input
+assertions poll at the existing Equipment cadence (16/32/50ms). Checkpoints
+batch diagnostics, performance state and durable state after authoritative
+commit. Gunsmith's returned checkpoint is captured after its existing
+presented-revision wait; it does not substitute an earlier snapshot for
+post-presentation focus/save assertions. Equipment observes semantic ordering
+and uses real directional keys through the same full inventory.
+
+No fixture, assertion, timeout, image threshold, golden or scoped skip was
+removed or relaxed; journeys were not split to expand their budgets. A local
+same-runtime desktop 1920 experiment at CDP CPU6x reproduced the original
+Gunsmith timeout during resize; the optimized pair passed. Equipment did not
+fail in that experiment and its small timing change is not evidence of a
+material improvement. Temporary throttling hooks are excluded from committed
+acceptance tests. Reproduce the load experiment by serving the pinned visual
+build, copying each original/current spec into an isolated test directory, and
+adding a test-only `beforeEach` that opens `page.context().newCDPSession(page)`
+and sends `Emulation.setCPUThrottlingRate` with `{ rate: 6 }`. Use the existing
+configuration and desktop-1920x1080 project, one worker, unchanged fixtures
+and 30-second test budget. Original and post-presentation-corrected logs are
+archived alongside the report. These harness changes are separate from game responsiveness;
+the benchmark runner and measured runtime source remain unchanged.
+
 ## Validation and remaining acceptance
 
 Two new regressions run against f61 first fail because build switching and
@@ -134,6 +167,7 @@ python3 docs/implementation/performance/issue-209/gunsmith-updates/summarize.py 
   --out /tmp/meow-gunsmith-comparison.md
 ```
 
-The following evidence commit changes documentation/archives only. Final
-exact-head gates and ordinary inventory remain separate release requirements;
-no final-head timing claim is made from an unmeasured runtime change.
+Later evidence and browser-harness commits preserve the measured runtime
+source, benchmark runner, art and catalog bytes. Final exact-head gates and
+ordinary inventory remain separate release requirements; no final-head timing
+claim is made from an unmeasured runtime change.
