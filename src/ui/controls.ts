@@ -197,28 +197,7 @@ export class ControlsView {
     this.pauseArt = this.uiVisuals?.addIcon(scene, this.pauseButton.x, this.pauseButton.y, 'action-icon:pause', {
       size: physicalToLogical(28, viewport), depth: ThemeDepth.hud + 1,
     });
-    this.pauseArtAlpha = this.pauseArt?.alpha ?? 1;
-    this.pauseGlyphVisible = !this.pauseArt;
-    // The atlas icon combines backing and bars. When actor overlap fades
-    // that paint, retain the existing two-bar foreground at the icon's size.
-    const glyphScale = this.pauseArt ? 28 / 44 : 1;
-    const glyphWidth = physicalToLogical(8 * glyphScale, viewport);
-    const glyphHeight = physicalToLogical(22 * glyphScale, viewport);
-    const glyphOffset = physicalToLogical(8 * glyphScale, viewport);
-    this.pauseGlyphBars = [-1, 1].map((direction) => {
-      const bar = scene.add.rectangle(
-        this.pauseButton.x + direction * glyphOffset,
-        this.pauseButton.y,
-        glyphWidth,
-        glyphHeight,
-        ThemeColor.cream,
-        0.9,
-      );
-      bar.setDepth(ThemeDepth.hud + 1);
-      bar.setScrollFactor(0);
-      bar.setVisible(this.pauseGlyphVisible);
-      return bar;
-    });
+    this.buildPauseForeground(scene, viewport);
     // Every interactive/control child owns scrollFactor=0; containers do not
     // propagate it in Phaser, and hit tests read the child value.
     this.root?.add([
@@ -334,22 +313,7 @@ export class ControlsView {
     this.pauseArt = this.uiVisuals?.addIcon(scene, this.pauseButton.x, this.pauseButton.y, 'action-icon:pause', {
       size: physicalToLogical(28, viewport), depth: ThemeDepth.hud + 1,
     });
-    this.pauseGlyphBars = this.pauseArt ? [] : [-1, 1].map((direction) => {
-      const glyphOffset = physicalToLogical(8, viewport);
-      const glyphWidth = physicalToLogical(8, viewport);
-      const glyphHeight = physicalToLogical(22, viewport);
-      const bar = scene.add.rectangle(
-        this.pauseButton.x + direction * glyphOffset,
-        this.pauseButton.y,
-        glyphWidth,
-        glyphHeight,
-        ThemeColor.cream,
-        0.9,
-      );
-      bar.setDepth(ThemeDepth.hud);
-      bar.setScrollFactor(0);
-      return bar;
-    });
+    this.buildPauseForeground(scene, viewport);
 
     // EXTRACT button — large, centred near bottom, above safe area
     const extractX = viewport.canvasWidth / 2;
@@ -410,6 +374,31 @@ export class ControlsView {
 
     this.root?.add([this.extractPanel, this.hintText, this.pauseButton, this.extractButton, this.extractLabel, ...this.pauseGlyphBars, ...(this.pauseArt ? [this.pauseArt] : [])]);
     this.registerCombatReadability();
+  }
+
+  private buildPauseForeground(scene: Phaser.Scene, viewport: UiViewport): void {
+    this.pauseArtAlpha = this.pauseArt?.alpha ?? 1;
+    this.pauseGlyphVisible = !this.pauseArt;
+    // The atlas icon combines backing and bars. When actor overlap fades
+    // that paint, retain the existing two-bar foreground at the icon's size.
+    const glyphScale = this.pauseArt ? 28 / 44 : 1;
+    const glyphWidth = physicalToLogical(8 * glyphScale, viewport);
+    const glyphHeight = physicalToLogical(22 * glyphScale, viewport);
+    const glyphOffset = physicalToLogical(8 * glyphScale, viewport);
+    this.pauseGlyphBars = [-1, 1].map((direction) => {
+      const bar = scene.add.rectangle(
+        this.pauseButton.x + direction * glyphOffset,
+        this.pauseButton.y,
+        glyphWidth,
+        glyphHeight,
+        ThemeColor.cream,
+        0.9,
+      );
+      bar.setDepth(this.pauseArt ? ThemeDepth.hud + 1 : ThemeDepth.hud);
+      bar.setScrollFactor(0);
+      bar.setVisible(this.pauseGlyphVisible);
+      return bar;
+    });
   }
 
   private registerCombatReadability(): void {

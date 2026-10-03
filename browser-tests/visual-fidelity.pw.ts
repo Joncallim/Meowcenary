@@ -16,7 +16,8 @@ const illustratedScreenshot = {
 
 type VisualTestSeam = {
   freeze(): Promise<void>;
-  useAuthoredArenaArtReference(): Promise<boolean>;
+  useAuthoredArenaArtReference(): boolean;
+  focusArtBackdrop(): boolean;
   resume(): void;
   isSceneActive(key: string): boolean;
   isMenuPresentationSettled(): boolean;
@@ -44,16 +45,20 @@ async function press(page: import('@playwright/test').Page, key: string): Promis
   await page.waitForTimeout(120);
 }
 
-async function freezeAtStableFrame(page: import('@playwright/test').Page): Promise<void> {
+async function freezeAtStableFrame(page: import('@playwright/test').Page, artReference?: 'actor' | 'backdrop'): Promise<void> {
+  if (artReference === 'backdrop') {
+    expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
+    }).__MEOWCENARY_VISUAL_TEST__?.focusArtBackdrop())).toBe(true);
+  }
   await page.waitForTimeout(250);
-  // Art references retain their fixed authored composition. Real camera
-  // framing is independently asserted in actor-framing/responsive/world-ui.
-  await page.evaluate(async () => {
-    const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam }).__MEOWCENARY_VISUAL_TEST__;
-    if (!seam) throw new Error('visual-test seam was not installed');
-    if (!seam.isSceneActive('MenuScene') && !await seam.useAuthoredArenaArtReference())
-      throw new Error('art reference requires a paused, prepared game');
-  });
+  if (artReference) {
+    // Fixed asset/overlay references explicitly own a paused fixture. Real
+    // camera, UI overlap and production input tests never normalize framing.
+    expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
+    }).__MEOWCENARY_VISUAL_TEST__?.useAuthoredArenaArtReference())).toBe(true);
+  }
   await page.evaluate(() => {
     const seam = (globalThis as typeof globalThis & {
       __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
@@ -193,8 +198,8 @@ test('fixed art reference compositions retain the Meowcenary visual system', asy
       .__MEOWCENARY_VISUAL_TEST__;
     return seam?.focusFirstEnemy(false) ?? false;
   }), { timeout: visualReadyTimeoutMs }).toBe(true);
-  await freezeAtStableFrame(page);
-  // Full composition allows incidental player/held-weapon contact timing;
+  await freezeAtStableFrame(page, 'actor');
+  // Fixed art-reference composition allows incidental player/held-weapon contact timing;
   // the production enemy view itself is locked exactly in the crop below.
   await expect(page).toHaveScreenshot('gameplay.png', { animations: 'disabled', maxDiffPixels: 1_500 });
   await expectCenteredActor(page, 'ordinary-gameplay-actor.png');
@@ -314,7 +319,7 @@ test('transient decision art references use the shared authored visual system', 
       }).__MEOWCENARY_VISUAL_TEST__;
       return seam?.[key]() ?? false;
     }, method), { timeout: visualReadyTimeoutMs }).toBe(true);
-    await freezeAtStableFrame(page);
+    await freezeAtStableFrame(page, 'backdrop');
     await expect(page).toHaveScreenshot(name, illustratedScreenshot);
   };
 
@@ -331,7 +336,7 @@ test('transient decision art references use the shared authored visual system', 
       }).__MEOWCENARY_VISUAL_TEST__;
       return seam?.showRunSummary(value) ?? false;
     }, outcome), { timeout: visualReadyTimeoutMs }).toBe(true);
-    await freezeAtStableFrame(page);
+    await freezeAtStableFrame(page, 'backdrop');
     await expect(page).toHaveScreenshot(`run-summary-${outcome}.png`, illustratedScreenshot);
   }
 });
@@ -368,7 +373,7 @@ test('boss art reference keeps the approved boss-scale visual hierarchy', async 
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.focusFirstEnemy(true) ?? false;
   }), { timeout: visualReadyTimeoutMs }).toBe(true);
-  await freezeAtStableFrame(page);
+  await freezeAtStableFrame(page, 'actor');
   await expect(page).toHaveScreenshot('boss-gameplay.png', { animations: 'disabled', maxDiffPixels: 512 });
   await expectCenteredActor(page, 'boss-gameplay-actor.png');
 });
@@ -408,7 +413,7 @@ test('Forge Warden art reference keeps its approved furnace-gantry silhouette', 
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.focusFirstEnemy(true) ?? false;
   }), { timeout: visualReadyTimeoutMs }).toBe(true);
-  await freezeAtStableFrame(page);
+  await freezeAtStableFrame(page, 'actor');
   await expect(page).toHaveScreenshot('forge-gameplay.png', { animations: 'disabled', maxDiffPixels: 512 });
   await expectCenteredActor(page, 'forge-warden-gameplay-actor.png');
 });
@@ -446,7 +451,7 @@ test('every Mercenary actor retains its approved runtime silhouette', async ({ p
       }).__MEOWCENARY_VISUAL_TEST__;
       return seam?.focusPlayer() ?? false;
     }), { timeout: visualReadyTimeoutMs }).toBe(true);
-    await freezeAtStableFrame(page);
+    await freezeAtStableFrame(page, 'actor');
     await expectCenteredActor(page, `mercenary-gameplay-${characterId}.png`);
   }
 });

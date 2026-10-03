@@ -123,3 +123,17 @@ No art asset or authority state is changed or promoted.
 The final source and new pinned runtime evidence require full closeout and
 exact-head hosted CI before merging. Historical source/build SHA d5a72d5
 captures above remain inspectable provenance, not acceptance of this correction.
+
+
+Independent review also caught two candidate lifecycle gaps before merge:
+extraction rebuilt the original Pause path without the overlap foreground,
+and an initially broad art-reference freeze paused a live scene without its
+matching resume. Combat/extraction now share one foreground builder; the RED
+extraction transition test covers resize, return to combat and disposal.
+Art normalization is synchronous, rejects a live scene and requires an
+explicit already-paused actor/backdrop reference. Generic screenshot freezing
+retains its previous input behavior. The full visual file passes 11 cases with
+5 pre-existing skips, including production Pause→Weapon Rack. Hosted unit
+checks also rejected changing fallback Pause-bar depth; its original depth
+is preserved while the atlas overlap foreground alone uses the higher layer.
+The 69 HUD/Controls unit cases pass without altering their assertions.

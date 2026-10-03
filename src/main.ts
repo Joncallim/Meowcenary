@@ -252,32 +252,34 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
     configurable: true,
     value: Object.freeze({
       freeze: freezeVisualFrame,
-      useAuthoredArenaArtReference: async (): Promise<boolean> => {
-        // Dedicated art references already pose/pause actors. Keep their
-        // original authored camera/floor composition stable as production
-        // framing evolves; runtime edge/input/readability tests never call it.
+      focusArtBackdrop: (): boolean => {
+        // Explicit synthetic transient-art fixture, never a runtime command.
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          player?: { x: number; y: number }; scene?: { pause(): void };
+        };
+        if ((!game.scene.isActive('GameScene') && !game.scene.isPaused('GameScene')) || !scene.player) return false;
+        focusedActorWorldPoint = { x: scene.player.x, y: scene.player.y };
+        if (game.scene.isActive('GameScene')) scene.scene?.pause();
+        return true;
+      },
+      useAuthoredArenaArtReference: (): boolean => {
+        // Dedicated art references explicitly pose/pause actors or backdrops.
+        // Never pause a live scene or change production input/lifecycle here.
         const scene = game.scene.getScene('GameScene') as unknown as {
           scale?: { width: number; height: number };
           cameras?: { main?: Phaser.Cameras.Scene2D.Camera };
           arenaDimensions?: { width: number; height: number };
           arenaScenery?: { applyPresentationBounds(bounds: ReturnType<typeof responsiveArenaPresentationBounds>): void };
-          player?: { x: number; y: number };
         };
-        if (!game.scene.isActive('GameScene') && !game.scene.isPaused('GameScene')) return false;
-        if (game.scene.isActive('GameScene')) {
-          game.scene.pause('GameScene');
-          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-        }
         const camera = scene.cameras?.main;
         const arena = scene.arenaDimensions;
-        if (!game.scene.isPaused('GameScene') || !camera || !arena || !scene.scale || !scene.player) return false;
+        if (!game.scene.isPaused('GameScene') || !focusedActorWorldPoint || !camera || !arena || !scene.scale) return false;
         const bounds = responsiveArenaPresentationBounds(arena.width, arena.height,
           scene.scale.width, scene.scale.height, camera.zoom);
         camera.setBounds(bounds.x, bounds.y, bounds.width, bounds.height);
         scene.arenaScenery?.applyPresentationBounds(bounds);
-        const point = focusedActorWorldPoint ?? scene.player;
         camera.stopFollow();
-        camera.centerOn(point.x, point.y);
+        camera.centerOn(focusedActorWorldPoint.x, focusedActorWorldPoint.y);
         return true;
       },
       resume: () => {

@@ -16,6 +16,7 @@ type Diagnostic = {
     layers: Array<{ type: string; worldBounds: Rect; screenBounds: Rect }> };
 };
 type VisualSeam = {
+  useAuthoredArenaArtReference(): boolean;
   waitForMenuPresentation(): Promise<boolean>;
   waitForPreparedGame(): Promise<boolean>;
   placePlayerForArenaFraming(x: number, y: number): boolean;
@@ -134,6 +135,14 @@ test('the complete actor presentation bounds fit at every arena perimeter positi
     __MEOWCENARY_VISUAL_TEST__?: VisualSeam;
   }).__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
   expect(initial).toBeDefined();
+  // Fixed art-reference normalization must reject a live gameplay scene and
+  // preserve its actual runtime camera; these edge tests never pose art.
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: VisualSeam;
+  }).__MEOWCENARY_VISUAL_TEST__!.useAuthoredArenaArtReference())).toBe(false);
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: VisualSeam;
+  }).__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics()?.camera.bounds)).toEqual(initial!.camera.bounds);
   const { width, height } = initial!.arena;
   const edge = initial!.player.bodyRadius;
   const positions = [

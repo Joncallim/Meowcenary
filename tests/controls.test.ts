@@ -525,8 +525,21 @@ describe('ControlsView pause button', () => {
       view.updateWorldReadability({ x: 10, y: 300, width: 20, height: 20 }, { scrollX: 0, scrollY: 0 });
       expect(icon!.alpha).toBe(1);
       expect(bars.every((bar) => !bar.visible)).toBe(true);
-      scene.resize(412, 915);
+      view.setExtractionState(true);
       expect(bars.every((bar) => bar.state.destroyed)).toBe(true);
+      const extractionBars = scene.objects.filter((object) => !object.state.destroyed
+        && object.state.fillColor === ThemeColor.cream && object.state.width !== object.state.height);
+      expect(extractionBars).toHaveLength(2);
+      view.updateWorldReadability({ x: icon!.x - 10, y: icon!.y - 10, width: 20, height: 20 }, { scrollX: 0, scrollY: 0 });
+      expect(icon!.alpha).toBe(0.1);
+      expect(extractionBars.every((bar) => bar.visible)).toBe(true);
+      scene.resize(412, 915);
+      expect(extractionBars.every((bar) => bar.state.destroyed)).toBe(true);
+      view.setExtractionState(false);
+      const restoredBars = scene.objects.filter((object) => !object.state.destroyed
+        && object.state.fillColor === ThemeColor.cream && object.state.width !== object.state.height);
+      expect(restoredBars).toHaveLength(2);
+      expect(restoredBars.every((bar) => !bar.visible)).toBe(true);
       view.destroy();
       expect(scene.objects.filter((object) => object.state.fillColor === ThemeColor.cream).every((bar) => bar.state.destroyed)).toBe(true);
     } finally { chrome.mockRestore(); }
