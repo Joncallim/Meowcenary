@@ -166,3 +166,16 @@ The unchanged contrast threshold is 0.6; both phones measure 0.861 top-centre,
 0.696 top-left and 0.739 top-right. Independent exact-source review found no
 remaining concrete blocker. Full release gates and exact-head hosted CI remain
 required before merge.
+
+
+Final continuous runtime source/build `0134cca40ed976473d2fe02c7d8cbbe1c351c8d3`
+completed four fresh DPR3 contexts: phone390×844 and desktop1280×720, each
+with keyboard or actual CDP touch joystick input. Eight initial/Retry walks
+reach physical Y=14 with the complete Sprite+Arc contained. Production
+Pause/Resume freezes then restores movement; Abandon confirmation creates a
+real terminal summary, and Retry starts at Y=672 before the next walk. All
+36 captures and raw facts are recorded, with zero page errors. Four original
+CSS-scale top PNGs are committed in `final-continuous/`. This is emulated
+browser evidence and manual Abandon, not hardware, combat-earned rewards,
+fun or product-owner visual approval. Independent capture inspection is
+recorded on the PR alongside final gates.
