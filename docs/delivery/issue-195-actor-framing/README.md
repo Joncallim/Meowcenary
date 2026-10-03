@@ -58,3 +58,29 @@ places the player and grants temporary protection; it does not establish natural
 combat/reward, physical-device, fun, or owner visual-art acceptance. #191,
 #167 and #175 remain separate human gates. #194 must consume the final merged
 and verified framing prerequisite, not these intermediate captures.
+
+## Pinned runtime acceptance
+
+Runtime implementation `d5a72d5053b6f67ff1de43d99c4b4e6493a6b63c` was
+rebuilt with matching build metadata. Six supplemental cases passed at
+412×915 DPR3, initial desktop844×390 and foldable1114×720 DPR3, each including
+all perimeter positions and orientation/resize restoration. The existing
+production Pause→Fullscreen→exit test passes while the body remains at the
+physical top, checking full actor containment and resolved framing after each.
+
+The reproducible `continuous-input.mjs` uses four fresh DPR3 phone390×844 and
+desktop1280×720 contexts, continuously held keyboard or actual CDP joystick
+input, diagnostic reads only, and production Pause/Abandon/Retry commands.
+Eight initial/Retry centre-to-top walks reached radius=14; every complete
+sprite+shadow union and each real layer remained inside the camera at the top.
+Physics remained the authored rectangle; pause blocked movement and resume
+restored it. Four top PNGs and 36 capture facts are preserved in
+`continuous-input.json.gz`; zero page errors. This evidence is emulated, uses
+manual Abandon rather than combat-earned defeat/reward, and does not replace
+visual-owner, hardware or fun acceptance. The run/build SHA remains d5a72d5,
+not the later evidence-only commit.
+
+Reproduce with an isolated visual-build preview and MEOW_REPO, MEOW_BASE_URL,
+MEOW_EXPECTED_SHA, MEOW_BROWSER_HANDOFF=1 and MEOW_OUTPUT set explicitly.
+The script refuses mismatched source/build commits. No positioning or
+invulnerability fixture is used for continuous input.
