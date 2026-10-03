@@ -389,6 +389,7 @@ function createFakeScene(
       return objects.find(
         (object) =>
           object.state.kind === 'text' &&
+          !object.state.destroyed &&
           object.state.text === label &&
           object.state.handlers['pointerup'],
       );
@@ -432,6 +433,100 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
 }
 
 describe('MenuScene', () => {
+  it('revokes old surface commands before controller mutation or UI events and retains panel-local browse state across visits', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { open(panel: 'home' | 'equipment' | 'gunsmith'): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+    };
+    scene.render(scene.controller.open('equipment'));
+    harness.buttonByLabel('BROWSE SETS')!.state.handlers.pointerup!();
+    expect(harness.buttonByLabel('CLOSE SETS')).toBeDefined();
+    scene.render(scene.controller.open('gunsmith'));
+    const oldCreate = harness.buttonByLabel('Pistol Build')!.state.handlers.pointerup!;
+    scene.render(scene.controller.open('home'));
+    const before = harness.context.saveData;
+    const events = vi.fn(); harness.bus.on('ui:confirm', events);
+    oldCreate();
+    expect(harness.context.saveData).toBe(before);
+    expect(events).not.toHaveBeenCalled();
+    expect(harness.menuScene.loadoutUiDiagnostics().panel).toBe('home');
+    scene.render(scene.controller.open('equipment'));
+    expect(harness.buttonByLabel('CLOSE SETS')).toBeDefined();
+    harness.lifecycle.emit('shutdown');
+    harness.menuScene.create({ initialPanel: 'equipment' });
+    expect(harness.buttonByLabel('BROWSE SETS')).toBeDefined();
+    expect(harness.buttonByLabel('CLOSE SETS')).toBeUndefined();
+  });
+
+  it('cleans a partially built mounted panel and recovers without retaining a live old surface', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { open(panel: 'gunsmith'): import('../src/ui/menus').MainMenuSnapshot; snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      committedDisplay: boolean;
+      panelContentRoot?: FakeObject;
+      addHeading: (...args: unknown[]) => FakeObject;
+    };
+    const addHeading = scene.addHeading.bind(scene);
+    const fail = vi.spyOn(scene, 'addHeading').mockImplementationOnce((...args) => {
+      addHeading(...args);
+      throw new Error('partial mounted panel');
+    });
+    expect(() => scene.render(scene.controller.open('gunsmith'))).toThrow('partial mounted panel');
+    expect(scene.committedDisplay).toBe(false);
+    expect(scene.panelContentRoot).toBeUndefined();
+    expect(harness.objects.filter(object => object.state.kind === 'container' && !object.state.destroyed)).toHaveLength(1);
+    expect(harness.textContents()).toEqual(['Something went wrong — press Esc to retry']);
+    fail.mockRestore();
+    scene.render(scene.controller.snapshot());
+    expect(scene.committedDisplay).toBe(true);
+    expect(harness.buttonByLabel('Pistol Build')).toBeDefined();
+    expect(harness.objects.filter(object => object.state.kind === 'container' && !object.state.destroyed)).toHaveLength(3);
+  });
+
+  it('hydrates only the current Equipment mount after leaving, changing selection, returning and resizing during art load', async () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: {} }));
+    const complete = new Map<string, () => void>(); const loaded = new Set<string>();
+    const queued: string[] = [];
+    const scene = harness.menuScene as unknown as {
+      controller: { open(panel: 'home' | 'equipment'): import('../src/ui/menus').MainMenuSnapshot;
+        selectEquipmentCandidate(id: string): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void; handleResize(): void;
+      panelContentRoot?: FakeObject;
+    };
+    Object.assign(scene, {
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: { on: () => undefined, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        atlas: (key: string) => { queued.push(key); }, start: () => undefined },
+      ensurePanelPresentation: () => Promise.resolve(), ensureGunsmithPresentation: () => Promise.resolve(),
+      addCatalogIcon: () => undefined, addPanelArt: () => undefined,
+    });
+    scene.render(scene.controller.open('equipment'));
+    const oldRoot = scene.panelContentRoot!;
+    await vi.waitFor(() => expect(queued).toEqual(['art-equipment-sets', 'art-equipment-commando']));
+    scene.render(scene.controller.open('home'));
+    scene.controller.selectEquipmentCandidate('recon');
+    scene.render(scene.controller.open('equipment'));
+    scene.handleResize();
+    const before = harness.menuScene.renderRebuildCount;
+    for (const key of queued) { loaded.add(key); complete.get(`filecomplete-atlasjson-${key}`)!(); }
+    await vi.waitFor(() => expect(harness.menuScene.renderRebuildCount).toBe(before + 1));
+    const current = harness.menuScene.loadoutUiDiagnostics();
+    expect(current.panel).toBe('equipment');
+    expect(current.equipment?.selectedInstanceId).toBe('recon');
+    expect(current.copy.join('\n')).toContain('Recon Helmet • T1');
+    expect(oldRoot.state.destroyed).toBe(true);
+    expect(scene.panelContentRoot).not.toBe(oldRoot);
+    expect(scene.panelContentRoot?.state.destroyed).toBe(false);
+    expect(queued).toHaveLength(2);
+  });
+
   it('opens Equipment with four selectable slots and selects an item before any equip mutation', () => {
     const harness = createHarness();
     harness.context.updateEquipment(() => ({
@@ -462,15 +557,15 @@ describe('MenuScene', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
       root: unknown; safeCenterX: number; safeRightMargin: number;
-      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
-      renderLoadout(root: unknown, snapshot: import('../src/ui/menus').MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void;
+      controller: { open(panel: 'loadout'): import('../src/ui/menus').MainMenuSnapshot };
+      presentPanelSurface(root: unknown, snapshot: import('../src/ui/menus').MainMenuSnapshot, top: number, margin: number, hitTarget: number): void;
       focusables: FakeObject[];
     };
     // A wide safe viewport and a separately capped panel lane are independent
     // geometry inputs; the fixed footer must use the owning panel's left edge.
     Object.assign(harness.menuScene.scale, { width: 1920, height: 1080 });
     scene.safeCenterX = 960; scene.safeRightMargin = 12;
-    scene.renderLoadout(scene.root, scene.controller.snapshot(), 1920, 58, 12, 44);
+    scene.presentPanelSurface(scene.root, scene.controller.open('loadout'), 58, 12, 44);
     const gear = scene.focusables.find((button) => button.state.text === 'HELMET\nEmpty')!;
     const footer = harness.buttonByLabel('Return to Contract')!;
     expect(footer.state.x).toBe(gear.state.x);
@@ -2959,6 +3054,50 @@ describe('MenuScene', () => {
     expect(images).toEqual([{ key: 'art-equipment-commando', frame: 'equipment-icon:commando-helmet' }]);
     await scene.ensureEquipmentPresentation(['equipment-icon:commando-helmet']);
     expect(queued).toHaveLength(1);
+  });
+
+  it('retains newly requested Equipment art while another closure is loading and hydrates the latest snapshot', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>();
+    const loaded = new Set<string>(); const queued: string[] = [];
+    const latest = { panel: 'equipment', selectedInstanceId: 'new-selection' };
+    const rendered = vi.fn();
+    const scene = new MenuScene() as unknown as {
+      committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; atlas(key: string): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensureEquipmentPresentation(ids: readonly string[]): Promise<void>;
+      equipmentArtLoading: boolean;
+    };
+    Object.assign(scene, {
+      committedPanel: 'equipment', controller: { snapshot: () => latest },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: { on: () => undefined, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        atlas: (key: string) => { queued.push(key); },
+        start: () => {
+          if (queued.at(-1) === 'art-equipment-sets') {
+            loaded.add('art-equipment-sets');
+            complete.get('filecomplete-atlasjson-art-equipment-sets')?.();
+          }
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+    const first = scene.ensureEquipmentPresentation(['equipment-icon:commando-helmet']);
+    await vi.waitFor(() => expect(queued).toEqual(['art-equipment-commando']));
+    await scene.ensureEquipmentPresentation(['equipment-icon:recon-helmet']);
+    loaded.add('art-equipment-commando');
+    complete.get('filecomplete-atlasjson-art-equipment-commando')!();
+    await first;
+    expect(queued).toEqual(['art-equipment-commando', 'art-equipment-sets']);
+    expect(rendered).toHaveBeenCalledTimes(2);
+    expect(rendered.mock.calls.every(([snapshot]) => snapshot === latest)).toBe(true);
+    expect(scene.equipmentArtLoading).toBe(false);
+    await scene.ensureEquipmentPresentation(['equipment-icon:recon-helmet']);
+    expect(queued).toHaveLength(2);
   });
 
   it('rerenders successfully loaded Equipment art when another requested icon fails', async () => {
