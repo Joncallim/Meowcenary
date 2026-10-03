@@ -131,6 +131,12 @@ export class Player {
     this.view.writeWorldBounds(output);
   }
 
+  /** Viewport framing includes every player layer; HUD readability continues
+   * to use the base actor footprint above, not a shadow-only overlap. */
+  writeCompletePresentationBounds(output: Phaser.Geom.Rectangle): void {
+    this.view.writeCompleteWorldBounds(output);
+  }
+
   get active(): boolean {
     return this.sprite.active;
   }

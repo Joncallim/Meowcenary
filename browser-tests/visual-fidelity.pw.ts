@@ -16,6 +16,8 @@ const illustratedScreenshot = {
 
 type VisualTestSeam = {
   freeze(): Promise<void>;
+  useAuthoredArenaArtReference(): boolean;
+  focusArtBackdrop(): boolean;
   resume(): void;
   isSceneActive(key: string): boolean;
   isMenuPresentationSettled(): boolean;
@@ -43,8 +45,20 @@ async function press(page: import('@playwright/test').Page, key: string): Promis
   await page.waitForTimeout(120);
 }
 
-async function freezeAtStableFrame(page: import('@playwright/test').Page): Promise<void> {
+async function freezeAtStableFrame(page: import('@playwright/test').Page, artReference?: 'actor' | 'backdrop'): Promise<void> {
+  if (artReference === 'backdrop') {
+    expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
+    }).__MEOWCENARY_VISUAL_TEST__?.focusArtBackdrop())).toBe(true);
+  }
   await page.waitForTimeout(250);
+  if (artReference) {
+    // Fixed asset/overlay references explicitly own a paused fixture. Real
+    // camera, UI overlap and production input tests never normalize framing.
+    expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
+    }).__MEOWCENARY_VISUAL_TEST__?.useAuthoredArenaArtReference())).toBe(true);
+  }
   await page.evaluate(() => {
     const seam = (globalThis as typeof globalThis & {
       __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
@@ -111,7 +125,7 @@ async function expectCenteredActor(page: import('@playwright/test').Page, name: 
   });
 }
 
-test('approved reachable surfaces retain the Meowcenary visual system', async ({ page }, testInfo) => {
+test('fixed art reference compositions retain the Meowcenary visual system', async ({ page }, testInfo) => {
   // This journey reloads seven independently lazy-loaded production surfaces
   // before entering gameplay. A single-core CI runner has measured just over
   // 90 seconds while every bounded readiness assertion remained healthy; the
@@ -184,8 +198,8 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
       .__MEOWCENARY_VISUAL_TEST__;
     return seam?.focusFirstEnemy(false) ?? false;
   }), { timeout: visualReadyTimeoutMs }).toBe(true);
-  await freezeAtStableFrame(page);
-  // Full composition allows incidental player/held-weapon contact timing;
+  await freezeAtStableFrame(page, 'actor');
+  // Fixed art-reference composition allows incidental player/held-weapon contact timing;
   // the production enemy view itself is locked exactly in the crop below.
   await expect(page).toHaveScreenshot('gameplay.png', { animations: 'disabled', maxDiffPixels: 1_500 });
   await expectCenteredActor(page, 'ordinary-gameplay-actor.png');
@@ -287,7 +301,7 @@ test('pause and Weapon Rack use the shared authored modal system', async ({ page
   await expect(page).toHaveScreenshot('weapon-rack.png', illustratedScreenshot);
 });
 
-test('transient gameplay decisions use the shared authored visual system', async ({ page }, testInfo) => {
+test('transient decision art references use the shared authored visual system', async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   test.skip(!new Set(['phone-390x844', 'desktop-1280x720']).has(testInfo.project.name));
 
@@ -305,7 +319,7 @@ test('transient gameplay decisions use the shared authored visual system', async
       }).__MEOWCENARY_VISUAL_TEST__;
       return seam?.[key]() ?? false;
     }, method), { timeout: visualReadyTimeoutMs }).toBe(true);
-    await freezeAtStableFrame(page);
+    await freezeAtStableFrame(page, 'backdrop');
     await expect(page).toHaveScreenshot(name, illustratedScreenshot);
   };
 
@@ -322,12 +336,12 @@ test('transient gameplay decisions use the shared authored visual system', async
       }).__MEOWCENARY_VISUAL_TEST__;
       return seam?.showRunSummary(value) ?? false;
     }, outcome), { timeout: visualReadyTimeoutMs }).toBe(true);
-    await freezeAtStableFrame(page);
+    await freezeAtStableFrame(page, 'backdrop');
     await expect(page).toHaveScreenshot(`run-summary-${outcome}.png`, illustratedScreenshot);
   }
 });
 
-test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ page }, testInfo) => {
+test('boss art reference keeps the approved boss-scale visual hierarchy', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-1280x720');
   await page.addInitScript(() => {
     const completed = Object.fromEntries(
@@ -359,12 +373,12 @@ test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ pa
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.focusFirstEnemy(true) ?? false;
   }), { timeout: visualReadyTimeoutMs }).toBe(true);
-  await freezeAtStableFrame(page);
+  await freezeAtStableFrame(page, 'actor');
   await expect(page).toHaveScreenshot('boss-gameplay.png', { animations: 'disabled', maxDiffPixels: 512 });
   await expectCenteredActor(page, 'boss-gameplay-actor.png');
 });
 
-test('Forge Warden keeps its approved furnace-gantry silhouette in live gameplay', async ({ page }, testInfo) => {
+test('Forge Warden art reference keeps its approved furnace-gantry silhouette', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-1280x720');
   await page.addInitScript(() => {
     const completed = Object.fromEntries(
@@ -399,7 +413,7 @@ test('Forge Warden keeps its approved furnace-gantry silhouette in live gameplay
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.focusFirstEnemy(true) ?? false;
   }), { timeout: visualReadyTimeoutMs }).toBe(true);
-  await freezeAtStableFrame(page);
+  await freezeAtStableFrame(page, 'actor');
   await expect(page).toHaveScreenshot('forge-gameplay.png', { animations: 'disabled', maxDiffPixels: 512 });
   await expectCenteredActor(page, 'forge-warden-gameplay-actor.png');
 });
@@ -437,7 +451,7 @@ test('every Mercenary actor retains its approved runtime silhouette', async ({ p
       }).__MEOWCENARY_VISUAL_TEST__;
       return seam?.focusPlayer() ?? false;
     }), { timeout: visualReadyTimeoutMs }).toBe(true);
-    await freezeAtStableFrame(page);
+    await freezeAtStableFrame(page, 'actor');
     await expectCenteredActor(page, `mercenary-gameplay-${characterId}.png`);
   }
 });

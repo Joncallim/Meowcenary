@@ -13,6 +13,7 @@ import { performanceProbe } from './platform/performanceProbe';
 import { collectDisplayObjects, type DisplayNode } from './platform/performanceDisplay';
 import type { GameContext } from './engine/context';
 import type { ComposedRunRequest } from './gameplay/runRequest';
+import { responsiveArenaPresentationBounds } from './gameplay/responsiveArenaPresentation';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -251,6 +252,36 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
     configurable: true,
     value: Object.freeze({
       freeze: freezeVisualFrame,
+      focusArtBackdrop: (): boolean => {
+        // Explicit synthetic transient-art fixture, never a runtime command.
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          player?: { x: number; y: number }; scene?: { pause(): void };
+        };
+        if ((!game.scene.isActive('GameScene') && !game.scene.isPaused('GameScene')) || !scene.player) return false;
+        focusedActorWorldPoint = { x: scene.player.x, y: scene.player.y };
+        if (game.scene.isActive('GameScene')) scene.scene?.pause();
+        return true;
+      },
+      useAuthoredArenaArtReference: (): boolean => {
+        // Dedicated art references explicitly pose/pause actors or backdrops.
+        // Never pause a live scene or change production input/lifecycle here.
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          scale?: { width: number; height: number };
+          cameras?: { main?: Phaser.Cameras.Scene2D.Camera };
+          arenaDimensions?: { width: number; height: number };
+          arenaScenery?: { applyPresentationBounds(bounds: ReturnType<typeof responsiveArenaPresentationBounds>): void };
+        };
+        const camera = scene.cameras?.main;
+        const arena = scene.arenaDimensions;
+        if (!game.scene.isPaused('GameScene') || !focusedActorWorldPoint || !camera || !arena || !scene.scale) return false;
+        const bounds = responsiveArenaPresentationBounds(arena.width, arena.height,
+          scene.scale.width, scene.scale.height, camera.zoom);
+        camera.setBounds(bounds.x, bounds.y, bounds.width, bounds.height);
+        scene.arenaScenery?.applyPresentationBounds(bounds);
+        camera.stopFollow();
+        camera.centerOn(focusedActorWorldPoint.x, focusedActorWorldPoint.y);
+        return true;
+      },
       resume: () => {
         game.anims.resumeAll();
         game.loop.wake();
@@ -343,7 +374,17 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         const scene = game.scene.getScene('GameScene') as unknown as {
           scale?: { width: number; height: number };
           cameras?: { main?: Phaser.Cameras.Scene2D.Camera };
-          player?: { sprite: Phaser.GameObjects.GameObject & { x: number; y: number; body?: Phaser.Physics.Arcade.Body } };
+          player?: {
+            sprite: Phaser.GameObjects.GameObject & { x: number; y: number; body?: Phaser.Physics.Arcade.Body };
+            writePresentationBounds(output: Phaser.Geom.Rectangle): void;
+            writeCompletePresentationBounds(output: Phaser.Geom.Rectangle): void;
+            view?: { sprite?: Phaser.GameObjects.Sprite; shadow?: { node: Phaser.GameObjects.Arc } };
+          };
+          physics?: { world: { bounds: Phaser.Geom.Rectangle } };
+          arenaScenery?: { overscanInspection?(): {
+            overscanBounds?: { x: number; y: number; width: number; height: number };
+            overscanResource?: { width: number; height: number; canvasWidth: number; canvasHeight: number };
+          } };
           arenaDimensions?: { width: number; height: number };
           children?: { list: Phaser.GameObjects.GameObject[] };
         };
@@ -357,6 +398,21 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         const root = document.getElementById('game-root');
         const canvas = root?.querySelector('canvas');
         const styles = getComputedStyle(document.documentElement);
+        const actorBounds = new Phaser.Geom.Rectangle();
+        player.writePresentationBounds(actorBounds);
+        const completeBounds = new Phaser.Geom.Rectangle();
+        player.writeCompletePresentationBounds(completeBounds);
+        // Observe the real camera transform, not rounded worldView metadata.
+        const cameraMatrix = Phaser.GameObjects.GetCalcMatrix(player.sprite, camera).camera;
+        const screenRect = (bounds: Phaser.Geom.Rectangle) => {
+          const topLeft = cameraMatrix.transformPoint(bounds.x - camera.scrollX, bounds.y - camera.scrollY);
+          const bottomRight = cameraMatrix.transformPoint(bounds.right - camera.scrollX, bounds.bottom - camera.scrollY);
+          return { x: topLeft.x, y: topLeft.y, width: bottomRight.x - topLeft.x, height: bottomRight.y - topLeft.y };
+        };
+        // Inspect real nodes independently of the composition's union method.
+        const layers = [player.view?.sprite, player.view?.shadow?.node].filter((node) => node?.visible)
+          .map((node) => { const bounds = node!.getBounds(); return { type: node!.type, worldBounds: plainRect(bounds), screenBounds: screenRect(bounds) }; });
+        const scenery = scene.arenaScenery?.overscanInspection?.();
         const hudLayers = ((scene.children?.list ?? []) as Array<Phaser.GameObjects.GameObject & {
           depth: number; visible: boolean; alpha: number; fillAlpha?: number;
         }>)
@@ -368,6 +424,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
             ...(node.fillAlpha === undefined ? {} : { fillAlpha: node.fillAlpha }),
           }));
         return Object.freeze({
+          loop: { frame: game.loop.frame, actualFps: game.loop.actualFps },
           window: { innerWidth, innerHeight, devicePixelRatio },
           visualViewport: globalThis.visualViewport ? {
             width: globalThis.visualViewport.width,
@@ -391,10 +448,17 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
             roundPixels: camera.roundPixels,
           },
           arena,
+          physicsBounds: scene.physics ? plainRect(scene.physics.world.bounds) : undefined,
+          overscanBounds: scenery?.overscanBounds,
+          overscanResource: scenery?.overscanResource,
           player: {
             x: player.sprite.x,
             y: player.sprite.y,
             bodyRadius: Math.max(player.sprite.body?.halfWidth ?? 0, player.sprite.body?.halfHeight ?? 0),
+            presentationBounds: plainRect(actorBounds),
+            completePresentationBounds: plainRect(completeBounds),
+            screenBounds: screenRect(completeBounds),
+            layers,
           },
           hudLayers,
           safeArea: {

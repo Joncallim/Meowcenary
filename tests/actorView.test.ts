@@ -326,3 +326,25 @@ it('unions visible fallback art pieces while excluding its hidden physics proxy'
   view.writeWorldBounds(output as never);
   expect(output).toEqual({ x: 80, y: 68, width: 40, height: 61 });
 });
+
+it('frames the sprite and its offset shadow without changing the HUD actor footprint', async () => {
+  const { SpriteView } = await import('../src/entities/actorView');
+  const sprite = new Node().setDisplaySize(43.4, 43.4);
+  const shadow = new Node().setDisplaySize(40.3, 40.3);
+  const view = new SpriteView(new Node() as never, { node: shadow as never, dy: 23.25 }, sprite as never,
+    { idle: 'idle', run: 'run' });
+  const output = { x: 0, y: 0, width: 0, height: 0 };
+  view.update({ x: 100, y: 80, facing: 1, moving: false, alpha: 1 });
+  view.writeWorldBounds(output as never);
+  const hudBounds = { ...output };
+  view.writeCompleteWorldBounds(output as never);
+  expect(output.x).toBeCloseTo(78.3);
+  expect(output.y).toBeCloseTo(58.3);
+  expect(output.width).toBeCloseTo(43.4);
+  expect(output.height).toBeCloseTo(65.1);
+  view.writeWorldBounds(output as never);
+  expect(output).toEqual(hudBounds);
+  shadow.setVisible(false);
+  view.writeCompleteWorldBounds(output as never);
+  expect(output).toEqual(hudBounds);
+});
