@@ -150,3 +150,11 @@ then checks that individually destroyed children leave the owner and all
 nested children are destroyed during disposal. Existing controller journey
 assertions remain intact. This is test fidelity, not a production fallback or
 behavior change; complete validation is rerun on the reconciled head.
+
+The next full browser run passed all selection journeys but failed the six
+telemetry registry checks: the intentionally added `menu.update` owner was
+absent from their exact expected list. That list now includes the new owner,
+with additional assertions that it has zero samples/events on Home. The exact
+registry assertion is retained, as are save, bounds and opt-in assertions;
+`telemetry-registry-red.log.gz` preserves the full RED run. No timing, image,
+skip or timeout policy changes accompany this contract update.

@@ -92,10 +92,12 @@ test('performance telemetry requires explicit opt-in and its reads/reset preserv
   const snapshot = await measurement(page);
   expectBounded(snapshot);
   expect(snapshot.owners.map(owner => owner.name)).toEqual([
-    'menu.snapshot', 'menu.render', 'resource.load', 'resource.audio', 'boot.fonts', 'boot.font-weight', 'boot.preload',
+    'menu.snapshot', 'menu.render', 'menu.update', 'resource.load', 'resource.audio', 'boot.fonts', 'boot.font-weight', 'boot.preload',
     'boot.load', 'boot.audio', 'boot.visual', 'boot.create', 'run.prepare', 'game.create', 'frame.cpu', 'frame.render',
   ]);
   const events = (owner: string) => snapshot.events.filter(event => event.owner === owner);
+  expect(snapshot.owners.find(owner => owner.name === 'menu.update')?.sampleCount).toBe(0);
+  expect(events('menu.update')).toEqual([]);
   expect(events('boot.font-weight').map(event => event.facts.weight).sort()).toEqual([400, 600, 700, 800]);
   expect(events('boot.fonts')).toHaveLength(1);
   expect(events('boot.fonts')[0].facts).toMatchObject({ weights: 4 });
