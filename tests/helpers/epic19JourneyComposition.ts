@@ -312,7 +312,11 @@ function fakeObject(
   if (kind === 'text' && initialStyle.padding && typeof initialStyle.padding === 'object') {
     applyPadding(initialStyle.padding as Record<string, number>);
   }
+  let parentContainer: { remove(child: unknown): unknown } | undefined;
   const api = {
+    get parentContainer() { return parentContainer; },
+    set parentContainer(value: { remove(child: unknown): unknown } | undefined) { parentContainer = value; },
+    get style() { return { ...state.style }; },
     get state() {
       return { ...state, handlers: { ...state.handlers }, style: { ...state.style } };
     },
@@ -496,6 +500,7 @@ function fakeObject(
     destroy() {
       if (state.destroyed) return;
       state.destroyed = true;
+      parentContainer?.remove(api);
       state.interactive = false;
       state.handlers = {};
     },
@@ -741,21 +746,40 @@ function createFakeScene(
           get state() {
             return { ...base.state };
           },
+          get parentContainer() { return base.parentContainer; },
+          set parentContainer(value: { remove(child: unknown): unknown } | undefined) { base.parentContainer = value; },
           children: [] as FakeObject[],
+          get list(): FakeObject[] { return container.children; },
+          moveTo(child: unknown, index: number) {
+            const current = container.children.indexOf(child as FakeObject);
+            if (current < 0) throw new Error('Cannot move an unowned child');
+            container.children.splice(current, 1);
+            container.children.splice(index, 0, child as FakeObject);
+            return container;
+          },
+          remove(child: unknown) {
+            const index = container.children.indexOf(child as FakeObject);
+            if (index >= 0) container.children.splice(index, 1);
+            (child as FakeObject).parentContainer = undefined;
+            return container;
+          },
           add(children: unknown) {
             const list = Array.isArray(children) ? children : [children];
             list.forEach((child) => {
               const object = register(child as FakeObject);
               if (!container.children.includes(object)) {
+                object.parentContainer?.remove(object);
+                object.parentContainer = container;
                 container.children.push(object);
               }
             });
             return container;
           },
-          destroy(deep = false) {
+          destroy(deep = true) {
             if (deep) {
-              container.children.forEach((child) => child.destroy());
+              [...container.children].forEach((child) => child.destroy());
             }
+            container.parentContainer?.remove(container);
             base.destroy();
           },
         };

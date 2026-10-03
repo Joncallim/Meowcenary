@@ -87,9 +87,9 @@ async function inputAction(page, name, key = 'Enter') {
   const started = await page.evaluate(() => { globalThis.__MEOWCENARY_PERFORMANCE__.resetMeasurement(); return performance.now(); });
   await press(page, key); await settle(page);
   const state = await snapshot(page);
-  const renders = state.events.filter(event => event.owner === 'menu.render');
-  assert.equal(renders.length, 1, 'input edge must cause exactly one current action rebuild');
-  assert.equal(state.presentedMenu.rebuildCount, renders[0].facts.rebuildCount, 'measured frame must present that action revision');
+  const renders = state.events.filter(event => event.owner === 'menu.render' || event.owner === 'menu.update');
+  assert.equal(renders.length, 1, 'input edge must cause exactly one current action presentation');
+  assert.equal(state.presentedMenu.revision ?? state.presentedMenu.rebuildCount, renders[0].facts.revision ?? renders[0].facts.rebuildCount, 'measured frame must present that action revision');
   return { name, durationMs: state.presentedMenu.atMs - started, observedDurationMs: await page.evaluate(start => performance.now() - start, started), state: compact(state) };
 }
 async function launch(page, name, seed) {

@@ -61,7 +61,7 @@ if (performanceProbe) {
   // smoothed simulation delta. Reads are explicit, outside the update loop.
   let stepStarted = 0;
   let renderStarted = 0;
-  let presentedMenu: { panel: string; rebuildCount: number; atMs: number } | undefined;
+  let presentedMenu: { panel: string; rebuildCount: number; revision: number; atMs: number } | undefined;
   let presentedRun: { seed: number; status: string; atMs: number } | undefined;
   const startStep = (): void => { stepStarted = probe.now(); };
   const startRender = (): void => { renderStarted = probe.now(); };
@@ -73,7 +73,7 @@ if (performanceProbe) {
     probe.recordFrameOwner('frame.render', ended - renderStarted);
     if (game.scene.isActive('MenuScene')) {
       const menu = game.scene.getScene('MenuScene') as unknown as {
-        committedPanel?: string; committedDisplay?: boolean; renderRebuildCount: number;
+        committedPanel?: string; committedDisplay?: boolean; renderRebuildCount: number; renderRevisionCount: number;
         panelArtLoading?: boolean; panelArtInFlight?: Promise<void>;
         mercenaryArtLoading?: boolean; achievementArtLoading?: boolean;
         equipmentArtLoading?: boolean; gunsmithArtLoading?: boolean; menuTextureLoadPending?: number;
@@ -82,8 +82,8 @@ if (performanceProbe) {
       if (menu.committedPanel && menu.committedDisplay && !menu.panelArtLoading && !menu.panelArtInFlight
         && !menu.mercenaryArtLoading && !menu.achievementArtLoading && !menu.equipmentArtLoading && !menu.gunsmithArtLoading
         && !menu.menuTextureLoadPending && !menu.pendingPanelArtIds?.size && !menu.pendingPanelArtRepaints?.size && !menu.pendingGunsmithArtIds?.size
-        && presentedMenu?.rebuildCount !== menu.renderRebuildCount) {
-        presentedMenu = Object.freeze({ panel: menu.committedPanel, rebuildCount: menu.renderRebuildCount, atMs: ended });
+        && presentedMenu?.revision !== menu.renderRevisionCount) {
+        presentedMenu = Object.freeze({ panel: menu.committedPanel, rebuildCount: menu.renderRebuildCount, revision: menu.renderRevisionCount, atMs: ended });
       }
     }
     if (game.scene.isActive('GameScene')) {
@@ -102,7 +102,7 @@ if (performanceProbe) {
     resetMeasurement: () => { probe.resetMeasurement(); presentedMenu = undefined; presentedRun = undefined; },
     snapshot: () => {
       const menu = game.scene.getScenes(true).find(scene => scene.scene.key === 'MenuScene') as unknown as {
-        committedPanel?: string; committedDisplay?: boolean; renderRebuildCount?: number;
+        committedPanel?: string; committedDisplay?: boolean; renderRebuildCount?: number; renderRevisionCount?: number;
         panelArtLoading?: boolean; panelArtInFlight?: Promise<void>;
         mercenaryArtLoading?: boolean; achievementArtLoading?: boolean;
         equipmentArtLoading?: boolean; gunsmithArtLoading?: boolean;
@@ -117,7 +117,7 @@ if (performanceProbe) {
         activeScenes: active.map(scene => scene.scene.key),
         presentedMenu, presentedRun,
         menu: menu ? { panel: menu.committedPanel, committed: menu.committedDisplay === true,
-          rebuildCount: menu.renderRebuildCount,
+          rebuildCount: menu.renderRebuildCount, revision: menu.renderRevisionCount,
           settled: menu.committedDisplay === true && !menu.panelArtLoading && !menu.panelArtInFlight
             && !menu.mercenaryArtLoading && !menu.achievementArtLoading && !menu.equipmentArtLoading && !menu.gunsmithArtLoading
             && !menu.menuTextureLoadPending && !menu.pendingPanelArtIds?.size && !menu.pendingPanelArtRepaints?.size && !menu.pendingGunsmithArtIds?.size } : undefined,
@@ -566,6 +566,10 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           camera.setScroll(scrollX, scrollY);
           restoreLoop();
         }
+      },
+      menuFocusedKey: (): string | undefined => {
+        const scene = game.scene.getScene('MenuScene') as unknown as { readonly focusedButtonKey?: string };
+        return scene?.focusedButtonKey;
       },
       menuLoadoutDiagnostics: (): Record<string, unknown> | undefined => {
         const scene = game.scene.getScene('MenuScene') as unknown as {

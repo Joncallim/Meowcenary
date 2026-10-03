@@ -60,7 +60,7 @@ export interface MenuSurfaceEnvironment {
   readonly visuals?: UiVisualChrome;
   readonly controls: MenuSurfaceControls;
   readonly resources: MenuSurfaceResources;
-  readonly onSnapshot: (snapshot: MainMenuSnapshot) => void;
+  readonly onSnapshot: (snapshot: MainMenuSnapshot, change?: 'equipment-selection') => void;
 }
 
 /** No per-panel listeners or async ownership: Scene routes input and resource

@@ -94,6 +94,7 @@ export class MenuScene extends Phaser.Scene {
   private scrollMaskGraphics?: Phaser.GameObjects.Graphics;
   private scrollMask?: Phaser.Display.Masks.GeometryMask;
   private scrollMaskContainer?: Phaser.GameObjects.Container;
+  private scrollTrack?: Phaser.GameObjects.GameObject;
   private scrollThumb?: Phaser.GameObjects.GameObject & { setPosition?(x: number, y: number): unknown };
   private scrollThumbHeight = 0;
   private hoveredIndex = -1;
@@ -111,6 +112,7 @@ export class MenuScene extends Phaser.Scene {
   private inputController?: InputController;
   private audioUnlockUnsub?: () => void;
   private rebuildCount = 0;
+  private renderRevision = 0;
   private safeCenterX = 0;
   private safeRightMargin = 16;
   private currentViewport?: UiViewport;
@@ -159,10 +161,22 @@ export class MenuScene extends Phaser.Scene {
     return this.rebuildCount;
   }
 
+  /** Presentation revisions include local updates; rebuilds remain separate. */
+  get renderRevisionCount(): number { return this.renderRevision; }
+
+  /** Cheap observation of the committed shared focus owner; no read-model derivation. */
+  get focusedButtonKey(): string | undefined {
+    if (!this.committedDisplay) return undefined;
+    return this.focusKeyByButton.get(this.focusables[this.navigator.index]!);
+  }
+
   /** Read-only browser acceptance seam: observes production focus, geometry
-   * and presentation state without invoking commands or resolving rules. */
+   * and presentation state without invoking commands. Derived read models
+   * are resolved at most once per observation and remain lazy off-panel. */
   loadoutUiDiagnostics() {
     const snapshot = this.controller?.snapshot();
+    const equipment = snapshot && (snapshot.panel === 'equipment' || snapshot.panel === 'loadout')
+      ? snapshot.equipment : undefined;
     const collectCopy = (object: Phaser.GameObjects.GameObject): string[] => {
       const display = object as Phaser.GameObjects.GameObject & {
         text?: unknown; list?: readonly Phaser.GameObjects.GameObject[];
@@ -183,11 +197,11 @@ export class MenuScene extends Phaser.Scene {
       }),
       scroll: this.scrollRegion ? { top: this.scrollViewportTop, bottom: this.scrollViewportBottom,
         offset: this.scrollRegion.scrollOffset, contentHeight: this.scrollRegion.contentHeight } : undefined,
-      equipment: snapshot && (snapshot.panel === 'equipment' || snapshot.panel === 'loadout') ? {
-        selectedSlot: snapshot.equipment.selectedSlot,
-        selectedInstanceId: snapshot.equipment.selectedInstanceId,
-        selectedBlueprintId: snapshot.equipment.selectedBlueprintId,
-        equipped: snapshot.equipment.equipped,
+      equipment: equipment ? {
+        selectedSlot: equipment.selectedSlot,
+        selectedInstanceId: equipment.selectedInstanceId,
+        selectedBlueprintId: equipment.selectedBlueprintId,
+        equipped: equipment.equipped,
       } : undefined,
     };
   }
@@ -276,6 +290,7 @@ export class MenuScene extends Phaser.Scene {
       : this.committedPanel === snapshot.panel ? 'same-panel-state-mutation' : 'panel-transition');
     try {
     this.rebuildCount += 1;
+    this.renderRevision += 1;
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
     const achievementGridColumns = snapshot.panel === 'achievements'
       ? (this.scale.width >= 760 ? 3 : 1)
@@ -319,6 +334,7 @@ export class MenuScene extends Phaser.Scene {
     this.scrollLocalIndexByFocusIndex.clear();
     this.scrollObjects = [];
     this.scrollItemBounds.clear();
+    this.scrollTrack = undefined;
     this.scrollThumb = undefined;
     this.scrollThumbHeight = 0;
     this.hoveredIndex = -1;
@@ -525,7 +541,7 @@ export class MenuScene extends Phaser.Scene {
         const ended = performanceProbe!.now();
         const after = collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[]);
         performanceProbe!.record('menu.render', started, {
-          panel: snapshot.panel, fromPanel: previousPanel ?? '(none)', reason: renderReason, rebuildCount: this.rebuildCount,
+          panel: snapshot.panel, fromPanel: previousPanel ?? '(none)', reason: renderReason, rebuildCount: this.rebuildCount, revision: this.renderRevision,
           ...displayObjectChange(before, after), textures: this.textures.getTextureKeys().length,
           committed: this.committedDisplay,
         }, ended);
@@ -687,6 +703,95 @@ export class MenuScene extends Phaser.Scene {
     ].filter((id): id is string => id !== undefined));
   }
 
+  /** The surface owns objects; the Scene remains the one focus/scroll owner.
+   * Only an explicit selection command can retain this committed prefix. */
+  private tryUpdateEquipmentSelection(snapshot: MainMenuSnapshot): boolean {
+    const surface = this.activeSurface;
+    const scrap = this.getContext().saveData.progression.scrap;
+    if (!(surface instanceof EquipmentSurface) || this.committedPanel !== 'equipment'
+      || !this.committedDisplay || !this.root || !this.scrollMaskContainer || !this.scrollRegion
+      || this.runLaunchState !== 'idle' || !surface.canUpdateSelection(snapshot, scrap)) return false;
+    const removed = new Set(surface.selectionObjects);
+    const start = this.focusables.findIndex(button => removed.has(button));
+    // Prefix focus indexes are stable; all following controls belong to the
+    // replaced detail/footer. Never shift a retained control's captured index.
+    if (start < 0 || this.focusables.slice(start).some(button => !removed.has(button))) return false;
+    const before = performanceProbe ? collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[]) : undefined;
+    const started = performanceProbe?.now();
+    const focusKey = this.nextFocusKey ?? this.focusKeyByButton.get(this.focusables[this.navigator.index]!);
+    const retainedY = this.scrollItemBounds.get(this.navigator.index)?.top;
+    const offset = this.scrollRegion.scrollOffset;
+    const alignTop = this.nextFocusAlignTop;
+    this.nextFocusKey = undefined;
+    this.nextFocusAlignTop = false;
+    this.committedDisplay = false;
+    this.renderRevision += 1;
+    let updated = false;
+    try {
+      for (const button of this.focusables.slice(start)) {
+        this.focusKeyByButton.delete(button);
+        this.disabledFocusables.delete(button);
+        this.sectionButtons.delete(button);
+      }
+      this.focusables.length = start;
+      this.focusRings.length = start;
+      this.buttonChrome.length = start;
+      this.scrollObjects = this.scrollObjects.filter(entry => !removed.has(entry.object));
+      for (const index of this.scrollItemIndexes) if (index >= start) this.scrollItemIndexes.delete(index);
+      for (const index of this.scrollItemBounds.keys()) if (index >= start) this.scrollItemBounds.delete(index);
+      this.scrollLocalIndexByFocusIndex.clear();
+      this.hoveredIndex = -1;
+      this.focusIndexAfterRender = undefined;
+      // Restore base geometry synchronously, before remeasuring the surviving
+      // prefix. Using its scrolled bounds would accumulate offset drift.
+      for (const entry of this.scrollObjects) {
+        (entry.object as unknown as { setPosition(x: number, y: number): void }).setPosition(entry.x, entry.y);
+      }
+      // Replace, rather than grow, the one region's extent: a shorter detail
+      // must also shrink the scroll range and its supplemental content tail.
+      this.beginScrollableRegion(this.scrollViewportTop, this.scrollViewportBottom);
+      this.rebuildScrollItems();
+      for (const { object } of this.scrollObjects) {
+        const bottom = (object as unknown as { getBounds(): { bottom: number } }).getBounds().bottom;
+        this.scrollRegion!.includeContentBottom(bottom);
+      }
+      surface.updateSelection(this.scrollMaskContainer, snapshot, scrap);
+      this.navigator.setCount(this.focusables.length);
+      if (focusKey) {
+        const next = this.focusables.findIndex(button => this.focusKeyByButton.get(button) === focusKey);
+        const fallback = this.focusables.findIndex(button => this.focusKeyByButton.get(button) === `equipment-slot:${snapshot.equipment.selectedSlot}`);
+        if (next >= 0 || fallback >= 0) this.navigator.setIndex(next >= 0 ? next : fallback);
+      }
+      this.scrollRegion!.setScrollOffset(offset);
+      this.syncScrollFocus(this.navigator.index);
+      const bounds = this.scrollItemBounds.get(this.navigator.index);
+      if (bounds && focusKey && this.focusKeyByButton.get(this.focusables[this.navigator.index]!) === focusKey) {
+        this.scrollRegion!.setScrollOffset(bounds.top - (alignTop ? this.scrollViewportTop : retainedY === undefined ? bounds.top - offset : retainedY - offset));
+      }
+      this.refreshScrollRail(surface.root!);
+      this.applyScrollViewport();
+      this.applyFocus();
+      this.committedDisplay = true;
+      updated = true;
+    } catch {
+      // The command has already returned its authoritative snapshot. Recover
+      // by rendering it once, never by replaying the gameplay/persistence action.
+      this.nextFocusKey = focusKey;
+      this.nextFocusAlignTop = alignTop;
+      this.render(snapshot);
+    } finally {
+      if (started !== undefined && before) {
+        performanceProbe!.record('menu.update', started, {
+          panel: snapshot.panel, reason: 'same-panel-state-mutation', section: 'equipment-selection',
+          rebuildCount: this.rebuildCount, revision: this.renderRevision, committed: updated,
+          ...displayObjectChange(before, collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[])),
+          textures: this.textures.getTextureKeys().length,
+        });
+      }
+    }
+    return true;
+  }
+
   /** Panel instances retain UI-only state across visits. Mounts do not: every
    * rebuild revokes old commands and owns a fresh content tree. */
   private presentPanelSurface(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot,
@@ -701,7 +806,9 @@ export class MenuScene extends Phaser.Scene {
       const environment: MenuSurfaceEnvironment = {
         scene: this,
         visuals: this.uiVisuals,
-        onSnapshot: next => this.render(next),
+        onSnapshot: (next, change) => {
+          if (change !== 'equipment-selection' || !this.tryUpdateEquipmentSelection(next)) this.render(next);
+        },
         resources: {
           panel: (owner, ids) => { void this.ensurePanelPresentation(owner, ids); },
           equipment: ids => { void this.ensureEquipmentPresentation(ids); },
@@ -1905,12 +2012,24 @@ export class MenuScene extends Phaser.Scene {
     } else {
       this.scrollRegion.handleResize();
     }
+    this.refreshScrollRail(root);
+    this.createScrollMask(root);
+    this.applyScrollViewport();
+  }
+
+  private refreshScrollRail(root: Phaser.GameObjects.Container): void {
+    this.scrollTrack?.destroy();
+    this.scrollThumb?.destroy();
+    this.scrollTrack = undefined;
+    this.scrollThumb = undefined;
+    this.scrollThumbHeight = 0;
+    if (!this.scrollRegion) return;
     const maxScroll = Math.max(0, this.scrollRegion.contentHeight - this.scrollRegion.viewportHeight);
     if (maxScroll > 0 && this.uiVisuals) {
       const x = this.scale.width - Math.max(7, this.safeRightMargin / 2);
       const centerY = (this.scrollViewportTop + this.scrollViewportBottom) / 2;
       const track = this.uiVisuals.addPanel(this, x, centerY, 8, this.scrollRegion.viewportHeight, 'scroll-track', { alpha: 0.92 });
-      if (track) this.own(root, track);
+      if (track) this.scrollTrack = this.own(root, track);
       this.scrollThumbHeight = Math.max(32, this.scrollRegion.viewportHeight
         * (this.scrollRegion.viewportHeight / this.scrollRegion.contentHeight));
       const thumb = this.uiVisuals.addPanel(
@@ -1926,8 +2045,6 @@ export class MenuScene extends Phaser.Scene {
         this.scrollThumb = this.own(root, thumb) as Phaser.GameObjects.GameObject & { setPosition?(x: number, y: number): unknown };
       }
     }
-    this.createScrollMask(root);
-    this.applyScrollViewport();
   }
 
   private createScrollMask(root: Phaser.GameObjects.Container): void {
@@ -2223,7 +2340,9 @@ export class MenuScene extends Phaser.Scene {
 
   private applyFocus(): void {
     this.focusables.forEach((text, index) => {
-      text.setStyle({ color: this.sectionButtons.has(text) ? '#f78003' : '#f7f1d5' });
+      const color = this.sectionButtons.has(text) ? '#f78003' : '#f7f1d5';
+      // Phaser rerasterizes Text even when setStyle repeats the same colour.
+      if (text.style?.color !== color) text.setStyle({ color });
       const visible = this.inputController?.getInputMode() !== 'pointer'
         ? index === this.navigator.index
         : index === this.hoveredIndex;
@@ -2292,6 +2411,9 @@ export class MenuScene extends Phaser.Scene {
     this.focusRings = [];
     this.scrollRegion?.destroy();
     this.scrollRegion = undefined;
+    this.scrollTrack = undefined;
+    this.scrollThumb = undefined;
+    this.scrollThumbHeight = 0;
     this.collectingScrollItems = false;
     this.scrollItemIndexes.clear();
     this.scrollLocalIndexByFocusIndex.clear();
