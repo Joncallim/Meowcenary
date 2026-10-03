@@ -2306,6 +2306,71 @@ describe('MenuScene', () => {
     expect(rendered).toHaveBeenCalledWith({ panel: 'home', selected }, 'lazy-art-hydration');
   });
 
+  it.each(['empty', 'cached-and-failed'] as const)('settles a queued Compendium closure (%s)', async (kind) => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>();
+    const loaded = new Set<string>();
+    const queued: string[] = [];
+    const batches: Array<(success?: boolean) => void> = [];
+    let error!: (file: { key: string }) => void;
+    const rendered = vi.fn();
+    const snapshot = vi.fn(() => ({ panel: 'compendium' }));
+    const scene = new MenuScene() as unknown as {
+      committedPanel: string; panelArtLoading: boolean;
+      pendingPanelArtIds: Set<string>; pendingPanelArtRepaints: Set<string>;
+      ensurePanelPresentation(panel: 'home' | 'compendium', ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'home', controller: { snapshot },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: (event: string, listener: typeof error) => { if (event === 'loaderror') error = listener; },
+        off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        spritesheet: (key: string) => { queued.push(key); },
+        start: () => {
+          const keys = queued.splice(0);
+          batches.push((success = true) => keys.forEach(key => {
+            if (!success) error({ key });
+            else {
+              loaded.add(key);
+              complete.get(`filecomplete-spritesheet-${key}`)?.();
+            }
+          }));
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+    const waitForBatch = async (count: number) => {
+      for (let step = 0; batches.length < count && step < 20; step++) await Promise.resolve();
+      expect(batches).toHaveLength(count);
+    };
+    const pending = scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    await waitForBatch(1);
+    scene.committedPanel = 'compendium';
+    await scene.ensurePanelPresentation('compendium', kind === 'empty' ? [] : ['enemy:dust-mite', 'enemy:scrap-sniper']);
+    batches[0]!();
+    if (kind === 'cached-and-failed') {
+      await waitForBatch(2);
+      batches[1]!(false);
+    }
+    await pending;
+    expect(scene.pendingPanelArtIds.size).toBe(0);
+    expect(scene.pendingPanelArtRepaints.size).toBe(0);
+    expect(scene.panelArtLoading).toBe(false);
+    expect(loaded.has('art-enemy-dust-mite')).toBe(true);
+    expect(loaded.has('art-enemy-scrap-sniper')).toBe(false);
+    if (kind === 'empty') {
+      expect(batches).toHaveLength(1);
+      expect(rendered).not.toHaveBeenCalled();
+      expect(snapshot).not.toHaveBeenCalled();
+    } else {
+      expect(rendered).toHaveBeenCalledOnce();
+      expect(rendered).toHaveBeenCalledWith({ panel: 'compendium' }, 'lazy-art-hydration');
+    }
+  });
+
   it('revokes the outer hydration after scene restart during its queued second load', async () => {
     const harness = createHarness({ create: false });
     const art = new DataVisualArtRegistry(harness.context.data);

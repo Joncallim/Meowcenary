@@ -1723,12 +1723,20 @@ export class MenuScene extends Phaser.Scene {
           ? [...batchArtIds, 'ui-chrome:figma-card', 'ui-chrome:figma-selected', 'ui-chrome:figma-primary', 'ui-chrome:figma-arrow']
           : batchArtIds;
         const missing = new Map<string, import('../systems/types').VisualTextureResource>();
+        let cachedAny = false;
         for (const artId of ids) {
           const binding = art.bindingById(artId);
-          if (!binding?.resourceId || this.textures.exists(binding.textureKey)) continue;
+          if (!binding?.resourceId) continue;
+          if (this.textures.exists(binding.textureKey)) {
+            cachedAny = true;
+            continue;
+          }
           const resource = resources.resourceById(binding.resourceId);
           if (resource) missing.set(resource.id, resource);
         }
+        // Earlier batches may have fulfilled part of a queued panel's closure.
+        // Those cached bindings can hydrate even if its remaining files fail.
+        if (repaintCachedBatch && cachedAny) repaintPanels.add(batchPanel);
         if (missing.size > 0) {
           const result = await this.serializeTextureLoad(
             () => loadTextureResources(this, [...missing.values()]),
@@ -1745,7 +1753,10 @@ export class MenuScene extends Phaser.Scene {
         } else if (repaintCachedBatch) repaintPanels.add(batchPanel);
         // Keep the pipeline owned until every overlapping request has drained.
         // A queued closure already in cache can still hydrate its current panel.
-        if (this.pendingPanelArtIds.size === 0) break;
+        if (this.pendingPanelArtIds.size === 0) {
+          this.pendingPanelArtRepaints.clear();
+          break;
+        }
         batchArtIds = [...this.pendingPanelArtIds];
         batchPanel = this.committedPanel ?? batchPanel;
         repaintCachedBatch = this.pendingPanelArtRepaints.has(batchPanel);
