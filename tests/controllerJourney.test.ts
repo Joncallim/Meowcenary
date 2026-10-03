@@ -13,6 +13,7 @@ import { createFixtureSequence } from './helpers/epic19SoakHarness';
 import { endRun } from '../src/gameplay/runState';
 import { SceneKey } from '../src/engine/sceneKeys';
 import { FocusStroke } from '../src/ui/theme';
+import { resolveAudioResources } from '../src/systems/audioResources';
 
 // The shared Epic 19 soak harness imports this test module with a Vitest query
 // that exposes the real composition factories without registering the journey
@@ -115,6 +116,12 @@ if (!import.meta.url.includes('?as-harness')) {
       runRequest: expect.any(Object),
       runStartPresentation,
     }));
+    const runAudio = resolveAudioResources(menu.context.data.audio.assets, 'run-common');
+    expect(runAudio).toHaveLength(17);
+    expect(menu.scene.load.audio).toHaveBeenCalledTimes(runAudio.length);
+    for (const resource of runAudio) {
+      expect(menu.scene.cache.audio.exists(resource.key)).toBe(true);
+    }
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 5');
 
