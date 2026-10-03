@@ -436,6 +436,58 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
 }
 
 describe('MenuScene', () => {
+  it('exposes the committed semantic focus key without running diagnostic or persistence work', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando' } }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      focusedButtonKey?: string;
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot;
+        equipmentController: { snapshot(): import('../src/ui/equipmentController').EquipmentSnapshot } };
+      focusables: FakeObject[];
+      focusKeyByButton: Map<FakeObject, string>;
+      navigator: { index: number };
+      loadoutUiDiagnostics(): unknown;
+    };
+    const focusKey = () => scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!);
+    const readKey = () => scene.focusedButtonKey;
+    const snapshot = vi.spyOn(scene.controller, 'snapshot');
+    const equipmentSnapshot = vi.spyOn(scene.controller.equipmentController, 'snapshot');
+    const diagnostic = vi.spyOn(scene, 'loadoutUiDiagnostics');
+    const saveMutation = vi.spyOn(harness.context, 'updateEquipment');
+    const bounds = harness.objects.map(object => vi.spyOn(object, 'getBounds'));
+    const saved = harness.context.saveData;
+    const expectObservationOnly = (expected: string | undefined) => {
+      expect(readKey()).toBe(expected);
+      expect(snapshot).not.toHaveBeenCalled();
+      expect(equipmentSnapshot).not.toHaveBeenCalled();
+      expect(diagnostic).not.toHaveBeenCalled();
+      expect(saveMutation).not.toHaveBeenCalled();
+      expect(bounds.every(spy => spy.mock.calls.length === 0)).toBe(true);
+      expect(harness.context.saveData).toBe(saved);
+    };
+
+    const initialKey = focusKey();
+    expect(initialKey).toBe('equipment-slot:helmet');
+    expectObservationOnly(initialKey);
+    for (let move = 0; move < 2; move += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+      const nextKey = focusKey();
+      expect(nextKey).toBeDefined();
+      bounds.forEach(spy => spy.mockClear());
+      snapshot.mockClear(); equipmentSnapshot.mockClear(); diagnostic.mockClear(); saveMutation.mockClear();
+      expectObservationOnly(nextKey);
+    }
+
+    harness.lifecycle.emit('shutdown');
+    expectObservationOnly(undefined);
+  });
+
   it('resolves the lazy Equipment read model once per diagnostic and leaves other panels lazy', () => {
     const harness = createHarness();
     harness.context.updateEquipment(() => ({ equipment: {

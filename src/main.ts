@@ -567,6 +567,10 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           restoreLoop();
         }
       },
+      menuFocusedKey: (): string | undefined => {
+        const scene = game.scene.getScene('MenuScene') as unknown as { readonly focusedButtonKey?: string };
+        return scene?.focusedButtonKey;
+      },
       menuLoadoutDiagnostics: (): Record<string, unknown> | undefined => {
         const scene = game.scene.getScene('MenuScene') as unknown as {
           loadoutUiDiagnostics?(): Record<string, unknown>;

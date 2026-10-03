@@ -13,6 +13,7 @@ type Seams = typeof globalThis & {
     waitForMenuPresentation(): Promise<boolean>;
     isMenuInputNeutral(): boolean;
     menuLoadoutDiagnostics(): Diagnostic;
+    menuFocusedKey(): string | undefined;
     freeze(): Promise<void>;
     resume(): void;
   };
@@ -43,13 +44,17 @@ async function press(page: Page, key: string): Promise<void> {
 }
 async function focus(page: Page, key: string): Promise<void> {
   for (let step = 0; step < 80; step += 1) {
-    if ((await diagnostic(page)).focusedKey === key) return;
+    // Observe the existing focus owner without deriving the complete Equipment
+    // model and walking every display object for each real key press.
+    if (await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuFocusedKey()) === key) return;
     await press(page, 'ArrowDown');
   }
   throw new Error(`Focus did not reach ${key}: ${JSON.stringify(await diagnostic(page))}`);
 }
 
 test('Equipment candidate updates preserve committed menu state and selection through resize', async ({ page }, testInfo) => {
+  const started = Date.now();
+  const phase = (name: string) => console.info(`[equipment-update] ${name}: ${Date.now() - started}ms`);
   const seed = {
     version: 4, settings: { muted: true, musicVolume: 0, sfxVolume: 0, reducedMotion: true },
     progression: { scrap: 640, unlocks: ['capability:equipment-tier-2'] },
@@ -65,12 +70,14 @@ test('Equipment candidate updates preserve committed menu state and selection th
   await expect.poll(() => page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.showMenu('equipment'))).toBe(true);
   await settle(page);
   expect((await diagnostic(page)).panel).toBe('equipment');
+  phase('Equipment ready');
 
   // Enter through the real keyboard navigator, then use the profile's actual
   // pointer type to select the stored Recon helmet.
   await focus(page, 'equipment-slot:helmet');
   const candidate = id('equipment:recon-helmet');
   await focus(page, `equipment-candidate:${candidate}`);
+  phase('candidate focused by keyboard');
   const target = (await diagnostic(page)).buttons.find(button => button.key === `equipment-candidate:${candidate}`)!;
   expect(target.visible).toBe(true);
   expect(target.interactive).toBe(true);
@@ -85,7 +92,9 @@ test('Equipment candidate updates preserve committed menu state and selection th
   if (testInfo.project.use.hasTouch) await page.touchscreen.tap(x + width / 2, y + height / 2);
   else await page.mouse.click(x + width / 2, y + height / 2);
 
-  await expect.poll(async () => (await measurement(page)).events.length).toBeGreaterThan(0);
+  await expect.poll(async () => (await measurement(page)).events.some(event => event.owner === 'menu.update'
+    && event.facts.committed === true)).toBe(true);
+  phase('selection committed');
   const afterSelection = await diagnostic(page);
   expect(afterSelection.equipment).toMatchObject({ selectedSlot: 'helmet', selectedInstanceId: candidate,
     equipped: { helmet: id('equipment:commando-helmet') } });
@@ -113,6 +122,8 @@ test('Equipment candidate updates preserve committed menu state and selection th
   const resize = (await measurement(page)).events.find(event => event.owner === 'menu.render' && event.facts.reason === 'viewport-resize');
   expect(resize?.facts.rebuildCount).toBe((rebuildCount as number) + 1);
 
+  phase('resize committed');
+
   // Selection is presentation state only: commit through the focused real
   // Equip command and verify the durable authority changes exactly then.
   await focus(page, `equipment-equip:${candidate}`);
@@ -121,4 +132,5 @@ test('Equipment candidate updates preserve committed menu state and selection th
   expect((await diagnostic(page)).equipment?.equipped.helmet).toBe(candidate);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')!));
   expect(saved.equipmentLoadout.helmet).toBe(candidate);
+  phase('equip durable');
 });

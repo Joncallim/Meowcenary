@@ -183,3 +183,41 @@ Initial repeated bc4 results remain in `initial-comparison.md` and the two
 `initial-*-raw.json.gz` files. The final comparison and raw archives use fresh pinned runs after both
 corrections; diagnostic workload itself can perturb timing. Reproduce the
 initial report using its raw archives and `--candidate-sha bc4b8e771c0b8bea734f214fe4796f0444432bb2`.
+
+
+## Bounded focus observation
+
+The e0c hosted run still exceeded the unchanged 30-second large-desktop journey
+budget; its RED log is `hosted-observer-budget-red.log.gz`. The failure capture
+was inspected and retained outside the source tree: Recon was focused in the
+catalog. It is not visual authority and does not prove a selection deadlock.
+The same source passed the full local matrix (133 passed, 59 unchanged scoped
+skips), demonstrating that local completion alone did not establish hosted
+readiness.
+
+The navigation loop asked the complete diagnostic for only its focused key.
+Every such read derived the whole Equipment model and walked display copy and
+all control bounds. A temporary 1920×1080 CPU4 probe with phase/read timers
+(`cpu4-observer-probe.log.gz`) measured roughly 160–180ms per diagnostic, reached
+the candidate by keyboard at 14.3 seconds and completed at 22.6 seconds. This is
+one diagnostic probe, not a repeated timing improvement claim or a calibrated
+hosted/physical-device reproduction.
+
+A bounded `menuFocusedKey` visual-test observer now reads the existing committed
+Scene focus owner directly. The production focus/navigation logic is unchanged.
+The new regression fails on the prior owner (`focus-observer-red.log.gz`), then
+requires key changes from real navigation, no model/diagnostic/bounds/save work
+on reads and no stale key after shutdown. Full diagnostics still verify entry,
+target geometry, selected state, resize, equipped state and durable save truth.
+The real key presses, neutral-edge checks, pointer/touch action, full catalog,
+80-step focus bound and default 30-second budget remain. Phase logging identifies
+where any later failure occurs. The post-click poll is strengthened to require
+specifically committed `menu.update`, retaining the exact event-count assertions.
+
+The repeated runtime measurements and ordinary inventory above are pinned to
+e0c, before this additional observation seam. This addition changes the browser
+acceptance observer only: it does not change the benchmark runner, production
+selection/focus algorithm or diagnostic output. Those measurements are scoped
+implementation evidence, not an assertion that the final hosted gate passed.
+Final exact-head local/hosted results and deployed main SHA are recorded on PR
+#216 and issue #209 before/after release respectively.

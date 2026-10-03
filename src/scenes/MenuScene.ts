@@ -164,6 +164,12 @@ export class MenuScene extends Phaser.Scene {
   /** Presentation revisions include local updates; rebuilds remain separate. */
   get renderRevisionCount(): number { return this.renderRevision; }
 
+  /** Cheap observation of the committed shared focus owner; no read-model derivation. */
+  get focusedButtonKey(): string | undefined {
+    if (!this.committedDisplay) return undefined;
+    return this.focusKeyByButton.get(this.focusables[this.navigator.index]!);
+  }
+
   /** Read-only browser acceptance seam: observes production focus, geometry
    * and presentation state without invoking commands. Derived read models
    * are resolved at most once per observation and remain lazy off-panel. */
