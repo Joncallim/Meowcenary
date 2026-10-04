@@ -8,6 +8,7 @@ import { GAME_CONTEXT_REGISTRY_KEY, createGameContext } from '../src/engine/cont
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 import { MenuScene } from '../src/scenes/MenuScene';
+import { MainMenuController } from '../src/ui/menus';
 import { AUDIO_MANAGER_REGISTRY_KEY } from '../src/systems/audio';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
@@ -3996,14 +3997,17 @@ describe('MenuScene', () => {
   it.each([
     ['equipment', 'equipment-icon:commando-helmet', 'equipment-set-icon:commando', 'art-equipment-commando'],
     ['gunsmith', 'gun-slot-icon:barrel', 'trait-icon:fire', 'art-gunsmith-icons'],
+    ['panel', 'ui-chrome:figma-card', 'ui-chrome:figma-selected', 'art-figma-menu-chrome'],
   ] as const)('does not retry an already attempted physical %s resource while draining overlapping logical requests', async (owner, initialId, overlappingId, textureKey) => {
     const harness = createHarness({ create: false });
     const art = new DataVisualArtRegistry(harness.context.data);
     const queued: string[] = [];
     let loadError: ((file: { key?: string }) => void) | undefined;
     const scene = new MenuScene() as unknown as {
+      ensurePanelPresentation(panel: 'loadout' | 'equipment', ids: readonly string[]): Promise<void>;
       ensureEquipmentPresentation(ids: readonly string[]): Promise<void>;
       ensureGunsmithPresentation(ids: readonly string[]): Promise<void>;
+      equipmentArtLoading: boolean;
     };
     Object.assign(scene, {
       isLive: true, committedPanel: 'home',
@@ -4019,16 +4023,153 @@ describe('MenuScene', () => {
       getContext: () => harness.context, requireVisualArt: () => art,
     });
     const ensure = (ids: readonly string[]) => owner === 'equipment'
-      ? scene.ensureEquipmentPresentation(ids) : scene.ensureGunsmithPresentation(ids);
+      ? scene.ensureEquipmentPresentation(ids) : owner === 'gunsmith'
+        ? scene.ensureGunsmithPresentation(ids)
+        : scene.ensurePanelPresentation(ids[0] === initialId ? 'loadout' : 'equipment', ids);
     const first = ensure([initialId]);
     await ensure([overlappingId]);
     await vi.waitFor(() => expect(queued).toEqual([textureKey]));
     loadError!({ key: textureKey });
     await first;
     expect(queued, 'a queued logical alias retried the same failed physical closure').toEqual([textureKey]);
+    if (owner === 'panel') {
+      // A separate successful Equipment hydration can declare generic chrome
+      // after its own drain has ended, while the shared loader wave is active.
+      scene.equipmentArtLoading = true;
+      await ensure([overlappingId]);
+      expect(queued, 'another active presentation owner reopened the failed generic resource').toEqual([textureKey]);
+      scene.equipmentArtLoading = false;
+    }
     // Once the owner closes, a genuinely later navigation can retry it.
     await ensure([overlappingId]);
     expect(queued).toEqual([textureKey, textureKey]);
+  });
+
+  it('keeps failed panel resources owned through its own successful partial-art hydration', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const loaded = new Set<string>();
+    const queued: string[] = [];
+    const batch: string[] = [];
+    const complete = new Map<string, () => void>();
+    let error!: (file: { key: string }) => void;
+    const scene = new MenuScene() as unknown as {
+      ensurePanelPresentation(panel: 'loadout', ids: readonly string[]): Promise<void>;
+      panelArtLoading: boolean;
+    };
+    const snapshot = vi.fn(() => ({ panel: 'loadout' }));
+    const rendered = vi.fn(() => {
+      expect(scene.panelArtLoading, 'hydration must still belong to the same drain').toBe(true);
+      void scene.ensurePanelPresentation('loadout', ['ui-chrome:figma-selected', 'enemy:dust-mite']);
+    });
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'loadout', controller: { snapshot }, render: rendered,
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: (event: string, handler: typeof error) => { if (event === 'loaderror') error = handler; },
+        off: () => undefined,
+        once: (event: string, handler: () => void) => { complete.set(event, handler); },
+        atlas: (key: string) => { queued.push(key); batch.push(key); },
+        spritesheet: (key: string) => { queued.push(key); batch.push(key); },
+        start: () => {
+          for (const key of batch.splice(0)) {
+            if (key === 'art-figma-menu-chrome') error({ key });
+            else {
+              loaded.add(key);
+              complete.get(`filecomplete-spritesheet-${key}`)!();
+            }
+          }
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art,
+    });
+    await scene.ensurePanelPresentation('loadout', ['ui-chrome:figma-card', 'enemy:dust-mite']);
+    expect(queued).toEqual(['art-figma-menu-chrome', 'art-enemy-dust-mite']);
+    expect(rendered).toHaveBeenCalledOnce();
+    expect(snapshot).toHaveBeenCalledOnce();
+    expect(scene.panelArtLoading).toBe(false);
+    // The closed owner must not turn one failed request into a permanent cache.
+    await scene.ensurePanelPresentation('loadout', ['ui-chrome:figma-selected']);
+    expect(queued).toEqual(['art-figma-menu-chrome', 'art-enemy-dust-mite', 'art-figma-menu-chrome']);
+    expect(rendered).toHaveBeenCalledOnce();
+  });
+
+  it.each([false, true])('drains a new unique resource declared by hydration and publishes current save and selection (second resource fails: %s)', async failSecond => {
+    const harness = createHarness({ create: false });
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: {} }));
+    const controller = new MainMenuController(harness.context);
+    controller.open('loadout');
+    controller.selectEquipmentCandidate('commando');
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const loaded = new Set(['art-figma-menu-chrome']);
+    const queued: string[] = [];
+    const batch: string[] = [];
+    const complete = new Map<string, () => void>();
+    const batches: Array<(success?: boolean) => void> = [];
+    let error!: (file: { key: string }) => void;
+    const scene = new MenuScene() as unknown as {
+      ensurePanelPresentation(panel: 'loadout', ids: readonly string[]): Promise<void>;
+      panelArtLoading: boolean; renderRevision: number; root: object;
+    };
+    const snapshot = vi.fn(() => controller.snapshot());
+    const presented: Array<{ selected: string | undefined; tier: number; save: typeof harness.context.saveData }> = [];
+    const rendered = vi.fn((next: ReturnType<MainMenuController['snapshot']>) => {
+      expect(scene.panelArtLoading, 'reentrant publication must retain resource ownership').toBe(true);
+      presented.push({ selected: next.equipment.selectedInstanceId,
+        tier: harness.context.saveData.equipment.commando!.tier, save: harness.context.saveData });
+      scene.root = {};
+      scene.renderRevision += 1;
+      // A real draw can reveal a previously undeclared resource. Both its
+      // new physical work and its cached aliases belong to the ongoing drain.
+      void scene.ensurePanelPresentation('loadout', ['enemy:dust-mite', 'enemy:scrap-sniper']);
+    });
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'loadout', controller: { snapshot }, render: rendered,
+      root: {}, renderRevision: 0,
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: (event: string, handler: typeof error) => { if (event === 'loaderror') error = handler; },
+        off: () => undefined,
+        once: (event: string, handler: () => void) => { complete.set(event, handler); },
+        spritesheet: (key: string) => { queued.push(key); batch.push(key); },
+        start: () => {
+          const keys = batch.splice(0);
+          batches.push((success = true) => keys.forEach(key => {
+            if (!success) error({ key });
+            else { loaded.add(key); complete.get(`filecomplete-spritesheet-${key}`)!(); }
+          }));
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art,
+    });
+    const pending = scene.ensurePanelPresentation('loadout', ['enemy:dust-mite']);
+    await vi.waitFor(() => expect(batches).toHaveLength(1));
+    batches[0]!();
+    await vi.waitFor(() => expect(batches).toHaveLength(2));
+    expect(rendered).toHaveBeenCalledOnce();
+    expect(scene.panelArtLoading).toBe(true);
+    const previousSave = harness.context.saveData;
+    harness.context.updateEquipment(({ equipment, loadout }) => ({ equipment: {
+      ...equipment, commando: { equipmentId: 'equipment:commando-helmet', tier: 2 },
+    }, loadout }));
+    expect(harness.context.saveData === previousSave, 'save changes retain immutable publication').toBe(false);
+    controller.selectEquipmentCandidate('recon');
+    // No display rebuild accompanies this authoritative change. A cached-only
+    // request still requires the same fresh-state recovery as ordinary drains.
+    await scene.ensurePanelPresentation('loadout', ['enemy:dust-mite']);
+    batches[1]!(!failSecond);
+    await pending;
+    expect(queued).toEqual(['art-enemy-dust-mite', 'art-enemy-scrap-sniper']);
+    expect(rendered).toHaveBeenCalledTimes(2);
+    expect(snapshot).toHaveBeenCalledTimes(2);
+    expect(presented.map(({ selected, tier }) => ({ selected, tier }))).toEqual([
+      { selected: 'commando', tier: 1 }, { selected: 'recon', tier: 2 },
+    ]);
+    expect(presented.at(-1)!.save === harness.context.saveData).toBe(true);
+    expect(scene.panelArtLoading).toBe(false);
   });
 
   it('rerenders successfully loaded Equipment art when another requested icon fails', async () => {
