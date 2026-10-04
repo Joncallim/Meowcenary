@@ -21,6 +21,7 @@ import { DataVisualArtRegistry, DataVisualResourceRegistry, ensureVisualAnimatio
 import { isPortraitOrientationBlocked } from '../platform/orientation';
 import { createUiVisualChrome, type UiVisualChrome } from '../ui/visualChrome';
 import { LoadoutSurface } from '../ui/menuSurfaces/loadoutSurface';
+import { MountedStaticArt } from '../ui/menuSurfaces/mountedStaticArt';
 import { EquipmentSurface } from '../ui/menuSurfaces/equipmentSurface';
 import { GunsmithSurface } from '../ui/menuSurfaces/gunsmithSurface';
 import { loadoutFooterPadding } from '../ui/menuSurfaces/layout';
@@ -140,6 +141,16 @@ export class MenuScene extends Phaser.Scene {
   private readonly pendingPanelArtIds = new Set<string>();
   private readonly pendingPanelArtRepaints = new Set<MainMenuSnapshot['panel']>();
   private panelArtGeneration = 0;
+  /** Static declarations belong to the current Loadout mount, not its cached
+   * surface instance or any asynchronous resource request. */
+  private loadoutArt?: MountedStaticArt;
+  private loadoutArtState?: {
+    readonly context: GameContext;
+    readonly saveData: GameContext['saveData'];
+    readonly characterId: string;
+    readonly arenaId: string;
+    readonly stageId: string;
+  };
   /** Scene-lifetime physical binding resolver. Career can render a large
    * gallery repeatedly, so per-badge catalog cloning/validation is invalid. */
   private visualArt?: DataVisualArtRegistry;
@@ -173,6 +184,27 @@ export class MenuScene extends Phaser.Scene {
   /** Read-only browser acceptance seam: observes production focus, geometry
    * and presentation state without invoking commands. Derived read models
    * are resolved at most once per observation and remain lazy off-panel. */
+  /** Explicit test observation of actual bound images; regular menu/input and
+   * performance polling do not walk this tree. No live nodes escape. */
+  artUiDiagnostics() {
+    const rows: { texture: string; frame: string | number; x: number; y: number;
+      width: number; height: number; alpha: number; visible: boolean }[] = [];
+    const collect = (object: Phaser.GameObjects.GameObject): void => {
+      const display = object as Phaser.GameObjects.GameObject & {
+        list?: readonly Phaser.GameObjects.GameObject[];
+        texture?: { key: string }; frame?: { name: string | number };
+        x: number; y: number; displayWidth: number; displayHeight: number; alpha: number; visible: boolean;
+      };
+      if (display.texture && display.frame) rows.push({
+        texture: display.texture.key, frame: display.frame.name, x: display.x, y: display.y,
+        width: display.displayWidth, height: display.displayHeight, alpha: display.alpha, visible: display.visible,
+      });
+      for (const child of display.list ?? []) collect(child);
+    };
+    for (const child of this.root?.list ?? []) collect(child);
+    return rows;
+  }
+
   loadoutUiDiagnostics() {
     const snapshot = this.controller?.snapshot();
     const equipment = snapshot && (snapshot.panel === 'equipment' || snapshot.panel === 'loadout')
@@ -854,6 +886,12 @@ export class MenuScene extends Phaser.Scene {
       this.panelSurfaces[panel] = surface;
     }
     this.activeSurface = surface;
+    this.loadoutArt = panel === 'loadout' ? new MountedStaticArt() : undefined;
+    const context = this.getContext();
+    this.loadoutArtState = panel === 'loadout' ? {
+      context, saveData: context.saveData, characterId: context.selectedCharacterId,
+      arenaId: context.selectedArenaId, stageId: context.selectedStageId,
+    } : undefined;
     surface.present(root, snapshot, {
       width: this.scale.width, height: this.scale.height, top, margin, hitTarget,
       centerX: this.safeCenterX, rightMargin: this.safeRightMargin,
@@ -864,11 +902,17 @@ export class MenuScene extends Phaser.Scene {
   private get panelContentRoot(): Phaser.GameObjects.Container | undefined { return this.activeSurface?.root; }
 
   private unmountPanelSurface(): void {
+    this.loadoutArt?.clear();
+    this.loadoutArt = undefined;
+    this.loadoutArtState = undefined;
     this.activeSurface?.unmount();
     this.activeSurface = undefined;
   }
 
   private disposePanelSurfaces(): void {
+    this.loadoutArt?.clear();
+    this.loadoutArt = undefined;
+    this.loadoutArtState = undefined;
     for (const surface of Object.values(this.panelSurfaces)) surface?.dispose();
     this.panelSurfaces = {};
     this.activeSurface = undefined;
@@ -1620,9 +1664,12 @@ export class MenuScene extends Phaser.Scene {
    * into an unusable menu action. */
   private addCatalogIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26, scrollOwnerIndex?: number): void {
     const binding = this.requireVisualArt().bindingById(iconArtId);
-    if (!binding || (binding.kind !== 'icon' && binding.kind !== 'upgrade-icon' && binding.kind !== 'achievement-icon' && binding.kind !== 'weapon-icon') || !this.textures?.exists(binding.textureKey)) return;
-    const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
+    if (!binding || (binding.kind !== 'icon' && binding.kind !== 'upgrade-icon' && binding.kind !== 'achievement-icon' && binding.kind !== 'weapon-icon')) return;
     const scale = maxSize / Math.max(binding.display.width, binding.display.height);
+    if (this.addStaticLoadoutArt(root, x, y, binding.textureKey, binding.frameKey,
+      binding.display.width * scale, binding.display.height * scale, 1, scrollOwnerIndex)) return;
+    if (!this.textures?.exists(binding.textureKey)) return;
+    const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
     icon.setDisplaySize(binding.display.width * scale, binding.display.height * scale);
     icon.setScrollFactor(0);
     this.registerScrollObject(icon, scrollOwnerIndex);
@@ -1633,8 +1680,15 @@ export class MenuScene extends Phaser.Scene {
    * binding capabilities. */
   private addPanelArt(root: Phaser.GameObjects.Container, x: number, y: number, artId: string, maxSize: number, subdued = false, animate = false, scrollOwnerIndex?: number): void {
     const binding = this.requireVisualArt().bindingById(artId);
-    if (!binding || !this.textures?.exists(binding.textureKey)) return;
+    if (!binding) return;
     const frame = binding.load.type === 'spritesheet' ? binding.clips?.idle?.start ?? 0 : binding.frameKey;
+    if (!animate) {
+      const size = binding.load.type === 'spritesheet' ? binding.load.frame : binding.display;
+      const scale = Math.min(maxSize / size.width, maxSize / size.height);
+      if (this.addStaticLoadoutArt(root, x, y, binding.textureKey, frame,
+        size.width * scale, size.height * scale, subdued ? 0.35 : 1, scrollOwnerIndex)) return;
+    }
+    if (!this.textures?.exists(binding.textureKey)) return;
     const image = this.own(root, animate && binding.load.type === 'spritesheet'
       ? this.add.sprite(x, y, binding.textureKey, frame)
       : this.add.image(x, y, binding.textureKey, frame));
@@ -1650,6 +1704,66 @@ export class MenuScene extends Phaser.Scene {
     }
     image.setAlpha(subdued ? 0.35 : 1).setScrollFactor(0);
     this.registerScrollObject(image, scrollOwnerIndex);
+  }
+
+  private addStaticLoadoutArt(root: Phaser.GameObjects.Container, x: number, y: number,
+    textureKey: string, frame: string | number | undefined, width: number, height: number,
+    alpha: number, ownerIndex?: number): boolean {
+    const slots = this.loadoutArt;
+    if (!slots || !(this.activeSurface instanceof LoadoutSurface)) return false;
+    if (!this.textures?.exists) { slots.unavailable(); return false; }
+    if (typeof this.add.image !== 'function') { slots.unavailable(); return false; }
+    const ready = this.textures.exists(textureKey);
+    // Phaser's built-in default texture reserves the final image's geometry
+    // and layer position without requiring another physical resource. Opacity
+    // hides it: the shared scroll owner deliberately resets visibility.
+    const image = this.own(root, this.add.image(x, y, ready ? textureKey : '__DEFAULT', ready ? frame : undefined));
+    image.setDisplaySize(width, height).setAlpha(ready ? alpha : 0).setScrollFactor(0);
+    this.registerScrollObject(image, ownerIndex);
+    slots.register(image, { textureKey, frame, width, height, alpha }, ready);
+    return true;
+  }
+
+  /** Equipment/Gunsmith resource completion changes only mounted static art.
+   * Generic panel completion still rebuilds shared chrome and the backdrop. */
+  private tryHydrateLoadoutArt(): boolean {
+    const slots = this.loadoutArt;
+    const state = this.loadoutArtState;
+    if (!this.isLive || !this.committedDisplay || this.committedPanel !== 'loadout'
+      || !(this.activeSurface instanceof LoadoutSurface) || !this.root || !slots?.canHydrate
+      || !state || !this.textures?.exists) return false;
+    // Resource completion previously read a fresh snapshot. Keep that recovery
+    // for authoritative changes made while loading without a rendered command,
+    // without eagerly deriving Equipment/Gunsmith models on the stable path.
+    const context = this.getContext();
+    if (context !== state.context || context.saveData !== state.saveData
+      || context.selectedCharacterId !== state.characterId || context.selectedArenaId !== state.arenaId
+      || context.selectedStageId !== state.stageId) return false;
+    const before = performanceProbe ? collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[]) : undefined;
+    const started = performanceProbe?.now();
+    let hydratedCount = 0;
+    let failed = false;
+    try {
+      hydratedCount = slots.hydrate(key => this.textures.exists(key));
+      if (hydratedCount > 0) this.renderRevision += 1;
+      return true;
+    } catch {
+      // A partial texture update cannot publish success. The caller's existing
+      // fresh-snapshot full render recovers without replaying a command.
+      slots.clear();
+      failed = true;
+      return false;
+    } finally {
+      if (started !== undefined && before && (hydratedCount > 0 || failed)) {
+        performanceProbe!.record('menu.update', started, {
+          panel: 'loadout', reason: 'lazy-art-hydration', section: 'loadout-static-art',
+          rebuildCount: this.rebuildCount, revision: this.renderRevision,
+          committed: !failed, hydratedCount,
+          ...displayObjectChange(before, collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[])),
+          textures: this.textures.getTextureKeys().length,
+        });
+      }
+    }
   }
 
   /** Enemy identity is already art-backed in the Stage read model. Menus show
@@ -1850,8 +1964,8 @@ export class MenuScene extends Phaser.Scene {
     }
   }
 
-  /** Equipment/sets use the same physical-resource resolver as Career badges,
-   * but stay out of Boot because they are not needed to reach the Home panel. */
+  /** Equipment/sets stay lazy. Reentrant declarations share one physical
+   * attempt set until this drain ends; later commands may retry failed art. */
   private async ensureEquipmentPresentation(iconArtIds: readonly string[]): Promise<void> {
     if (!this.textures?.exists) return;
     if (this.equipmentArtLoading) {
@@ -1860,43 +1974,61 @@ export class MenuScene extends Phaser.Scene {
     }
     const context = this.getContext();
     const art = this.requireVisualArt();
-    const resources = new DataVisualResourceRegistry(context.data);
-    const missing = new Map<string, import('../systems/types').VisualTextureResource>();
-    for (const iconArtId of iconArtIds) {
-      const binding = art.bindingById(iconArtId);
-      if (!binding || !binding.resourceId || this.textures.exists(binding.textureKey)) continue;
-      const resource = resources.resourceById(binding.resourceId);
-      if (resource) missing.set(resource.id, resource);
-    }
-    if (missing.size === 0) return;
+    let resources: DataVisualResourceRegistry | undefined;
+    const attempted = new Set<string>();
+    let batch = iconArtIds;
+    let queuedBatch = false;
+    let hydratedRoot = this.root;
     const generation = this.menuTextureLoadGeneration;
     this.equipmentArtLoading = true;
-    let loadedAny = false;
     try {
-      const result = await this.serializeTextureLoad(
-        () => loadTextureResources(this, [...missing.values()]),
-        EMPTY_RESOURCE_LOAD_RESULT,
-      );
-      loadedAny = result.loaded.length > 0;
+      while (generation === this.menuTextureLoadGeneration) {
+        const missing = new Map<string, import('../systems/types').VisualTextureResource>();
+        let cachedAny = false;
+        for (const iconArtId of batch) {
+          const binding = art.bindingById(iconArtId);
+          if (!binding?.resourceId) continue;
+          if (this.textures.exists(binding.textureKey)) { cachedAny = true; continue; }
+          if (attempted.has(binding.resourceId)) continue;
+          const resource = (resources ??= new DataVisualResourceRegistry(context.data)).resourceById(binding.resourceId);
+          if (resource) missing.set(resource.id, resource);
+        }
+        let loadedAny = false;
+        if (missing.size > 0) {
+          for (const id of missing.keys()) attempted.add(id);
+          const result = await this.serializeTextureLoad(
+            () => loadTextureResources(this, [...missing.values()]), EMPTY_RESOURCE_LOAD_RESULT,
+          );
+          if (generation !== this.menuTextureLoadGeneration) return;
+          loadedAny = result.loaded.length > 0;
+        }
+        // Preserve successful partial art and cached declarations on a newer
+        // mount. Repainting can queue more IDs, but cannot retry a physical
+        // resource already attempted by this owned drain.
+        if ((loadedAny || queuedBatch && cachedAny && this.root !== hydratedRoot)
+          && (this.committedPanel === 'equipment' || this.committedPanel === 'loadout') && this.controller) {
+          if (!this.tryHydrateLoadoutArt()) this.render(this.controller.snapshot(), 'lazy-art-hydration');
+          hydratedRoot = this.root;
+        } else if (queuedBatch && cachedAny && this.committedPanel === 'loadout') {
+          if (!this.tryHydrateLoadoutArt() && this.controller) {
+            this.render(this.controller.snapshot(), 'lazy-art-hydration');
+            hydratedRoot = this.root;
+          }
+        }
+        if (this.pendingEquipmentArtIds.size === 0) break;
+        batch = [...this.pendingEquipmentArtIds];
+        this.pendingEquipmentArtIds.clear();
+        queuedBatch = true;
+      }
     } finally {
       if (generation === this.menuTextureLoadGeneration) this.equipmentArtLoading = false;
-    }
-    if (generation !== this.menuTextureLoadGeneration) return;
-    // Clear the loading flag before fresh-model hydration. The repaint can
-    // require an atlas which was absent when the first closure was captured.
-    if (loadedAny && (this.committedPanel === 'equipment' || this.committedPanel === 'loadout') && this.controller) {
-      this.render(this.controller.snapshot(), 'lazy-art-hydration');
-    }
-    if (!this.equipmentArtLoading && this.pendingEquipmentArtIds.size > 0) {
-      const pending = [...this.pendingEquipmentArtIds];
-      this.pendingEquipmentArtIds.clear();
-      await this.ensureEquipmentPresentation(pending);
     }
   }
 
   /** Gunsmith presentation is a data-owned lazy closure. Physical Part art,
    * neutral slots and reusable traits may share one atlas without the scene
-   * knowing that resource identity or constructing a semantic art ID. */
+   * knowing that resource identity or constructing a semantic art ID. Pending
+   * declarations share this drain's attempts, not a permanent failure cache. */
   private async ensureGunsmithPresentation(iconArtIds: readonly string[]): Promise<void> {
     if (!this.textures?.exists) return;
     if (this.gunsmithArtLoading) {
@@ -1906,34 +2038,50 @@ export class MenuScene extends Phaser.Scene {
     const generation = this.gunsmithArtGeneration;
     const context = this.getContext();
     const art = this.requireVisualArt();
-    const resources = new DataVisualResourceRegistry(context.data);
-    const missing = new Map<string, import('../systems/types').VisualTextureResource>();
-    for (const iconArtId of iconArtIds) {
-      const binding = art.bindingById(iconArtId);
-      if (!binding || (binding.kind !== 'icon' && binding.kind !== 'weapon-icon') || !binding.resourceId || this.textures.exists(binding.textureKey)) continue;
-      const resource = resources.resourceById(binding.resourceId);
-      if (resource) missing.set(resource.id, resource);
-    }
-    if (missing.size === 0) return;
+    let resources: DataVisualResourceRegistry | undefined;
+    const attempted = new Set<string>();
+    let batch = iconArtIds;
+    let queuedBatch = false;
+    let hydratedRoot = this.root;
     this.gunsmithArtLoading = true;
-    let loadedAny = false;
     try {
-      const result = await this.serializeTextureLoad(
-        () => loadTextureResources(this, [...missing.values()]),
-        EMPTY_RESOURCE_LOAD_RESULT,
-      );
-      loadedAny = result.loaded.length > 0;
+      while (generation === this.gunsmithArtGeneration) {
+        const missing = new Map<string, import('../systems/types').VisualTextureResource>();
+        let cachedAny = false;
+        for (const iconArtId of batch) {
+          const binding = art.bindingById(iconArtId);
+          if (!binding || (binding.kind !== 'icon' && binding.kind !== 'weapon-icon') || !binding.resourceId) continue;
+          if (this.textures.exists(binding.textureKey)) { cachedAny = true; continue; }
+          if (attempted.has(binding.resourceId)) continue;
+          const resource = (resources ??= new DataVisualResourceRegistry(context.data)).resourceById(binding.resourceId);
+          if (resource) missing.set(resource.id, resource);
+        }
+        let loadedAny = false;
+        if (missing.size > 0) {
+          for (const id of missing.keys()) attempted.add(id);
+          const result = await this.serializeTextureLoad(
+            () => loadTextureResources(this, [...missing.values()]), EMPTY_RESOURCE_LOAD_RESULT,
+          );
+          if (generation !== this.gunsmithArtGeneration || !this.isLive) return;
+          loadedAny = result.loaded.length > 0;
+        }
+        if ((loadedAny || queuedBatch && cachedAny && this.root !== hydratedRoot)
+          && (this.committedPanel === 'gunsmith' || this.committedPanel === 'loadout') && this.controller) {
+          if (!this.tryHydrateLoadoutArt()) this.render(this.controller.snapshot(), 'lazy-art-hydration');
+          hydratedRoot = this.root;
+        } else if (queuedBatch && cachedAny && this.committedPanel === 'loadout') {
+          if (!this.tryHydrateLoadoutArt() && this.controller) {
+            this.render(this.controller.snapshot(), 'lazy-art-hydration');
+            hydratedRoot = this.root;
+          }
+        }
+        if (this.pendingGunsmithArtIds.size === 0) break;
+        batch = [...this.pendingGunsmithArtIds];
+        this.pendingGunsmithArtIds.clear();
+        queuedBatch = true;
+      }
     } finally {
       if (generation === this.gunsmithArtGeneration) this.gunsmithArtLoading = false;
-    }
-    if (generation !== this.gunsmithArtGeneration || !this.isLive) return;
-    if (loadedAny && (this.committedPanel === 'gunsmith' || this.committedPanel === 'loadout') && this.controller) {
-      this.render(this.controller.snapshot(), 'lazy-art-hydration');
-    }
-    if (!this.gunsmithArtLoading && this.pendingGunsmithArtIds.size > 0) {
-      const pending = [...this.pendingGunsmithArtIds];
-      this.pendingGunsmithArtIds.clear();
-      await this.ensureGunsmithPresentation(pending);
     }
   }
 
