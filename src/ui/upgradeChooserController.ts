@@ -60,6 +60,22 @@ export class UpgradeChooserController {
   ) {
     this.unsubscribeOffered = bus.on('card:offered', this.handleOffered);
     this.unsubscribeChosen = bus.on('card:chosen', this.handleChosen);
+    // A replacement view can attach while UpgradeSystem already owns an
+    // unresolved offer. Restore that frozen presentation without asking the
+    // system to roll again, emit gameplay events, or consume the level queue.
+    try {
+      const snapshot = source.currentOfferSnapshot;
+      if (snapshot) {
+        this.handleOffered({
+          offerId: snapshot.offerId,
+          choices: snapshot.choices.map((choice) => choice.id),
+        });
+      }
+    } catch (error) {
+      // Constructor failures leave no owner available to dispose listeners.
+      this.destroy();
+      throw error;
+    }
   }
 
   get currentOfferId(): number | undefined {

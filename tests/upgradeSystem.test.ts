@@ -1151,6 +1151,7 @@ describe('UpgradeSystem authoritative read model (Epic 18 D7)', () => {
       target: 'weapon',
       description: 'Increase pistol damage for this run.',
       category: 'synergy',
+      effects: scopedUpgrade.effects,
       iconArtId: 'upgrade-icon:pistol-power',
       family: 'pistol',
       owned: false,
@@ -1159,6 +1160,9 @@ describe('UpgradeSystem authoritative read model (Epic 18 D7)', () => {
       nextStack: 1,
     });
     expect(Object.isFrozen(choice)).toBe(true);
+    expect(Object.isFrozen(choice?.effects)).toBe(true);
+    expect(Object.isFrozen(choice?.effects[0])).toBe(true);
+    expect(Object.isFrozen(choice?.effects[0]?.scope)).toBe(true);
   });
 
   it('reflects owned/currentStacks/nextStack from prior stacks on a later offer', () => {
