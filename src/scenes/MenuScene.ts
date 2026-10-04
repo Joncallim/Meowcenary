@@ -129,6 +129,10 @@ export class MenuScene extends Phaser.Scene {
   private gunsmithArtGeneration = 0;
   private panelArtLoading = false;
   private panelArtInFlight?: Promise<void>;
+  /** Other lazy owners can publish after the generic drain ends. Their
+   * hydration belongs to the same loader wave and must not reopen failed
+   * generic resources. A later idle declaration starts a fresh retry wave. */
+  private readonly panelArtAttempts = new Set<string>();
   /** Phaser has one LoaderPlugin per scene. Every menu/run presentation
    * closure enters this tail so rapid panel changes cannot overlap queues. */
   private menuTextureLoadTail: Promise<void> = Promise.resolve();
@@ -259,6 +263,7 @@ export class MenuScene extends Phaser.Scene {
     this.panelArtGeneration += 1;
     this.panelArtLoading = false;
     this.panelArtInFlight = undefined;
+    this.panelArtAttempts.clear();
     this.pendingPanelArtIds.clear();
     this.pendingPanelArtRepaints.clear();
     this.isLive = true;
@@ -1809,6 +1814,8 @@ export class MenuScene extends Phaser.Scene {
       this.pendingPanelArtRepaints.add(panel);
       return Promise.resolve();
     }
+    if (!this.equipmentArtLoading && !this.gunsmithArtLoading && !this.achievementArtLoading
+      && !this.mercenaryArtLoading && this.menuTextureLoadPending === 0) this.panelArtAttempts.clear();
     const task = this.loadPanelPresentation(panel, artIds, repaintWhenCached);
     this.panelArtInFlight = task;
     const clearTask = () => {
@@ -1827,6 +1834,11 @@ export class MenuScene extends Phaser.Scene {
     const art = this.requireVisualArt();
     const resources = new DataVisualResourceRegistry(this.getContext().data);
     const repaintPanels = new Set<MainMenuSnapshot['panel']>();
+    const attempted = this.panelArtAttempts;
+    let hydratedRoot = this.root;
+    let hydratedPanel: MainMenuSnapshot['panel'] | undefined;
+    let hydratedRevision: number | undefined;
+    let hydratedState: MenuScene['loadoutArtState'];
     let batchPanel = panel;
     let batchArtIds = artIds;
     let repaintCachedBatch = repaintWhenCached;
@@ -1846,12 +1858,19 @@ export class MenuScene extends Phaser.Scene {
             continue;
           }
           const resource = resources.resourceById(binding.resourceId);
-          if (resource) missing.set(resource.id, resource);
+          if (resource && !attempted.has(resource.id)) missing.set(resource.id, resource);
         }
         // Earlier batches may have fulfilled part of a queued panel's closure.
         // Those cached bindings can hydrate even if its remaining files fail.
-        if (repaintCachedBatch && cachedAny) repaintPanels.add(batchPanel);
+        const currentContext = this.getContext();
+        const repaintCached = repaintCachedBatch && (hydratedRevision === undefined
+          || this.root !== hydratedRoot || this.committedPanel !== hydratedPanel || this.renderRevision !== hydratedRevision
+          || currentContext !== hydratedState?.context || currentContext.saveData !== hydratedState.saveData
+          || currentContext.selectedCharacterId !== hydratedState.characterId
+          || currentContext.selectedArenaId !== hydratedState.arenaId || currentContext.selectedStageId !== hydratedState.stageId);
+        if (repaintCached && cachedAny) repaintPanels.add(batchPanel);
         if (missing.size > 0) {
+          for (const resource of missing.values()) attempted.add(resource.id);
           const result = await this.serializeTextureLoad(
             () => loadTextureResources(this, [...missing.values()]),
             EMPTY_RESOURCE_LOAD_RESULT,
@@ -1864,12 +1883,26 @@ export class MenuScene extends Phaser.Scene {
             const animationScene = this as unknown as { readonly anims?: Phaser.Animations.AnimationManager };
             if (animationScene.anims) ensureVisualAnimations(this, art);
           }
-        } else if (repaintCachedBatch) repaintPanels.add(batchPanel);
+        } else if (repaintCached) repaintPanels.add(batchPanel);
         // Keep the pipeline owned until every overlapping request has drained.
         // A queued closure already in cache can still hydrate its current panel.
         if (this.pendingPanelArtIds.size === 0) {
           this.pendingPanelArtRepaints.clear();
-          break;
+          // Keep ownership through publication: drawing the current surface
+          // declares its closure again. Those declarations share these physical
+          // attempts, rather than reopening a failed atlas as a new drain.
+          if (this.committedPanel && repaintPanels.has(this.committedPanel) && this.controller) {
+            repaintPanels.clear();
+            this.render(this.controller.snapshot(), 'lazy-art-hydration');
+            if (generation !== this.panelArtGeneration || !this.isLive) return;
+            hydratedRoot = this.root;
+            hydratedPanel = this.committedPanel;
+            hydratedRevision = this.renderRevision;
+            const context = this.getContext();
+            hydratedState = { context, saveData: context.saveData, characterId: context.selectedCharacterId,
+              arenaId: context.selectedArenaId, stageId: context.selectedStageId };
+          }
+          if (this.pendingPanelArtIds.size === 0) break;
         }
         batchArtIds = [...this.pendingPanelArtIds];
         batchPanel = this.committedPanel ?? batchPanel;
@@ -1879,11 +1912,6 @@ export class MenuScene extends Phaser.Scene {
       }
     } finally {
       if (generation === this.panelArtGeneration) this.panelArtLoading = false;
-    }
-    // Publish once, using current state after the complete closure has settled.
-    if (generation === this.panelArtGeneration && this.isLive && this.committedPanel
-      && repaintPanels.has(this.committedPanel) && this.controller) {
-      this.render(this.controller.snapshot(), 'lazy-art-hydration');
     }
   }
 
@@ -2568,6 +2596,7 @@ export class MenuScene extends Phaser.Scene {
     this.pendingPanelArtRepaints.clear();
     this.panelArtLoading = false;
     this.panelArtInFlight = undefined;
+    this.panelArtAttempts.clear();
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.scale.off?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);
