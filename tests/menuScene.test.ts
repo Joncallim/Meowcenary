@@ -615,6 +615,137 @@ describe('MenuScene', () => {
     expect(queued).toHaveLength(2);
   });
 
+  it.each(['current mount', 'returned and resized mount', 'authoritative save changed', 'scene shutdown', 'cached-only queued save change'] as const)('handles late Loadout equipment art at the current mount boundary: %s', async scenario => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando' } }));
+    const complete = new Map<string, () => void>();
+    const queued: string[] = [];
+    let loadError: ((file: { key?: string }) => void) | undefined;
+    let ready = false;
+    const images: Array<FakeObject & { textureKey: string; frameKey?: string | number; alpha: number }> = [];
+    const scene = harness.menuScene as unknown as {
+      controller: { open(panel: 'loadout' | 'home'): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void; handleResize(): void;
+      root?: FakeObject; panelContentRoot?: FakeObject;
+      equipmentArtLoading: boolean;
+      ensureEquipmentPresentation(ids: readonly string[]): Promise<void>;
+      add: { image?: (x: number, y: number, key: string, frame?: string | number) => unknown };
+      scrollRegion: { scrollOffset: number }; applyScrollViewport(): void;
+    };
+    scene.add.image = (x, y, key, frame) => {
+      const base = fakeObject('rect', '', 16, 16, undefined, x, y);
+      const image = Object.assign(base, {
+        textureKey: key, frameKey: frame, alpha: 1, scene: harness.menuScene,
+        setTexture(textureKey: string, frameKey?: string | number) {
+          if (base.state.destroyed) throw new Error('Rebound destroyed Loadout art');
+          image.textureKey = textureKey; image.frameKey = frameKey; return image;
+        },
+        setDisplaySize(width: number, height: number) { base.setFixedSize(width, height); return image; },
+        setScale(scale: number) { base.setFixedSize(16 * scale, 16 * scale); return image; },
+        setAlpha(alpha: number) { image.alpha = alpha; return image; },
+      });
+      images.push(image);
+      harness.objects.push(image);
+      return image;
+    };
+    Object.assign(scene, {
+      textures: { exists: (key: string) => key !== 'art-equipment-commando' || ready,
+        get: () => ({ setFilter: () => undefined }) },
+      load: { on: (event: string, listener: (file: { key?: string }) => void) => { if (event === 'loaderror') loadError = listener; }, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        atlas: (key: string) => { queued.push(key); }, start: () => undefined },
+      // Generic/chassis art is cached. Isolate the real Equipment closure.
+      ensurePanelPresentation: () => Promise.resolve(), ensureGunsmithPresentation: () => Promise.resolve(),
+    });
+    const ensureEquipment = scene.ensureEquipmentPresentation.bind(scene);
+    if (scenario === 'cached-only queued save change') scene.ensureEquipmentPresentation = () => Promise.resolve();
+    scene.render(scene.controller.open('loadout'));
+    if (scenario === 'cached-only queued save change') {
+      scene.ensureEquipmentPresentation = ensureEquipment;
+      void ensureEquipment(['equipment-icon:commando-helmet']);
+      await ensureEquipment(['equipment-set-icon:recon']); // Different, already cached physical atlas.
+    }
+    await vi.waitFor(() => expect(queued).toEqual(['art-equipment-commando']));
+    const obsoleteImages = images.slice();
+    if (scenario === 'returned and resized mount') {
+      scene.render(scene.controller.open('home'));
+      scene.render(scene.controller.open('loadout'));
+      scene.handleResize();
+    }
+    const root = scene.root!; const content = scene.panelContentRoot!;
+    const button = harness.buttonByLabel('HELMET\nT1 • Fitted')!;
+    const command = button.state.handlers.pointerup;
+    harness.input.emit('wheel', { isDown: false }, [], 0, 120);
+    const controls = harness.menuScene.loadoutUiDiagnostics().buttons;
+    const scrollOffset = scene.scrollRegion.scrollOffset;
+    const before = harness.menuScene.renderRebuildCount;
+    const revision = harness.menuScene.renderRevisionCount;
+    const saved = structuredClone(harness.context.saveData);
+    const imageCount = images.length;
+    const slot = images.find(image => !image.state.destroyed && image.textureKey === '__DEFAULT');
+    const geometry = slot && { x: slot.x, y: slot.y, width: slot.width, height: slot.height, mask: slot.state.mask, visible: slot.state.visible };
+    if (scenario === 'scene shutdown') harness.lifecycle.emit('shutdown');
+    if (scenario === 'authoritative save changed' || scenario === 'cached-only queued save change') {
+      harness.context.updateEquipment(({ equipment, loadout }) => ({
+        equipment: { ...equipment, commando: { equipmentId: 'equipment:commando-helmet', tier: 2 } }, loadout,
+      }));
+    }
+    if (scenario === 'cached-only queued save change') loadError!({ key: 'art-equipment-commando' });
+    else { ready = true; complete.get('filecomplete-atlasjson-art-equipment-commando')!(); }
+    await vi.waitFor(() => expect(scene.equipmentArtLoading).toBe(false));
+    if (scenario === 'scene shutdown') {
+      expect(scene.root).toBeUndefined();
+      expect(root.state.destroyed).toBe(true);
+      expect(harness.menuScene.renderRebuildCount).toBe(before);
+      expect(harness.context.saveData).toEqual(saved);
+      expect(slot!.state.destroyed).toBe(true);
+      expect(slot!.alpha).toBe(0);
+      return;
+    }
+    if (scenario === 'authoritative save changed' || scenario === 'cached-only queued save change') {
+      expect(scene.root !== root, 'fresh-state fallback replaces the stale mount').toBe(true);
+      expect(harness.menuScene.renderRebuildCount).toBe(before + 1);
+      expect(root.state.destroyed).toBe(true);
+      expect(harness.menuScene.loadoutUiDiagnostics().copy.join('\n')).toContain('T2 • Fitted');
+      const binding = new DataVisualArtRegistry(harness.context.data).bindingById('equipment-icon:commando-helmet:t2')!;
+      if (scenario === 'cached-only queued save change') {
+        expect(queued).toEqual(['art-equipment-commando']);
+        // A later explicit retry fills the current T2 declaration, never T1.
+        const retry = ensureEquipment(['equipment-icon:commando-helmet:t2']);
+        await vi.waitFor(() => expect(queued).toHaveLength(2));
+        ready = true;
+        complete.get('filecomplete-atlasjson-art-equipment-commando')!();
+        await retry;
+      }
+      expect(images.some(image => !image.state.destroyed && image.textureKey === binding.textureKey && image.frameKey === binding.frameKey && image.alpha === 1)).toBe(true);
+      expect(slot!.state.destroyed).toBe(true);
+      expect(slot!.alpha).toBe(0);
+      return;
+    }
+    expect(scene.root === root, 'lazy art replaced the Menu shell').toBe(true);
+    expect(scene.panelContentRoot === content, 'lazy art replaced Loadout content').toBe(true);
+    expect(harness.menuScene.renderRebuildCount).toBe(before);
+    expect(harness.menuScene.renderRevisionCount).toBe(revision + 1);
+    expect(harness.menuScene.loadoutUiDiagnostics().buttons).toEqual(controls);
+    expect(button.state.destroyed).toBe(false);
+    expect(button.state.handlers.pointerup).toBe(command);
+    expect(scene.scrollRegion.scrollOffset).toBe(scrollOffset);
+    expect(harness.context.saveData).toEqual(saved);
+    expect(images).toHaveLength(imageCount);
+    expect(slot, 'known missing equipment art has one transparent slot').toBeDefined();
+    expect(slot!.textureKey).toBe('art-equipment-commando');
+    expect(slot!.frameKey).toBe(new DataVisualArtRegistry(harness.context.data).bindingById('equipment-icon:commando-helmet')!.frameKey);
+    expect(slot!.alpha).toBe(1);
+    expect({ x: slot!.x, y: slot!.y, width: slot!.width, height: slot!.height, mask: slot!.state.mask, visible: slot!.state.visible }).toEqual(geometry);
+    expect(root.state.destroyed).toBe(false);
+    if (scenario === 'returned and resized mount') {
+      expect(obsoleteImages.every(image => image.state.destroyed)).toBe(true);
+      expect(obsoleteImages.filter(image => image.textureKey === '__DEFAULT').every(image => image.alpha === 0)).toBe(true);
+    }
+  });
+
   it('opens Equipment with four selectable slots and selects an item before any equip mutation', () => {
     const harness = createHarness();
     harness.context.updateEquipment(() => ({
@@ -3860,6 +3991,44 @@ describe('MenuScene', () => {
     expect(scene.equipmentArtLoading).toBe(false);
     await scene.ensureEquipmentPresentation(['equipment-icon:recon-helmet']);
     expect(queued).toHaveLength(2);
+  });
+
+  it.each([
+    ['equipment', 'equipment-icon:commando-helmet', 'equipment-set-icon:commando', 'art-equipment-commando'],
+    ['gunsmith', 'gun-slot-icon:barrel', 'trait-icon:fire', 'art-gunsmith-icons'],
+  ] as const)('does not retry an already attempted physical %s resource while draining overlapping logical requests', async (owner, initialId, overlappingId, textureKey) => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const queued: string[] = [];
+    let loadError: ((file: { key?: string }) => void) | undefined;
+    const scene = new MenuScene() as unknown as {
+      ensureEquipmentPresentation(ids: readonly string[]): Promise<void>;
+      ensureGunsmithPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'home',
+      textures: { exists: () => false, get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: (event: string, handler: (file: { key?: string }) => void) => { if (event === 'loaderror') loadError = handler; },
+        off: () => undefined, once: () => undefined,
+        atlas: (key: string) => { queued.push(key); },
+        // Hold the first batch. Any duplicate batch fails synchronously so
+        // the baseline reaches the ownership assertion instead of hanging.
+        start: () => { if (queued.length > 1) loadError?.({ key: textureKey }); },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art,
+    });
+    const ensure = (ids: readonly string[]) => owner === 'equipment'
+      ? scene.ensureEquipmentPresentation(ids) : scene.ensureGunsmithPresentation(ids);
+    const first = ensure([initialId]);
+    await ensure([overlappingId]);
+    await vi.waitFor(() => expect(queued).toEqual([textureKey]));
+    loadError!({ key: textureKey });
+    await first;
+    expect(queued, 'a queued logical alias retried the same failed physical closure').toEqual([textureKey]);
+    // Once the owner closes, a genuinely later navigation can retry it.
+    await ensure([overlappingId]);
+    expect(queued).toEqual([textureKey, textureKey]);
   });
 
   it('rerenders successfully loaded Equipment art when another requested icon fails', async () => {

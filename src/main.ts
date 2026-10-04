@@ -577,6 +577,12 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         };
         return scene?.loadoutUiDiagnostics?.();
       },
+      menuArtDiagnostics: () => {
+        const scene = game.scene.getScene('MenuScene') as unknown as {
+          artUiDiagnostics?(): readonly Record<string, unknown>[];
+        };
+        return scene?.artUiDiagnostics?.();
+      },
       isMenuPresentationSettled,
       menuPresentationDiagnostics,
       isMenuInputNeutral,
