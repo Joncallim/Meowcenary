@@ -25,6 +25,11 @@ async function checkpoint(page: Page) {
 
 for (const scenario of ['current mount', 'returned and resized mount', 'equipment failure and retry'] as const) {
 test(`late Loadout art preserves mounted controls without full rebuilds: ${scenario}`, async ({ page }, testInfo) => {
+  const capture = async (name: string) => {
+    const path = testInfo.outputPath(`${name}.png`);
+    await page.screenshot({ path });
+    await testInfo.attach(name, { path, contentType: 'image/png' });
+  };
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   const seed = {
@@ -132,7 +137,7 @@ test(`late Loadout art preserves mounted controls without full rebuilds: ${scena
     expect(assembly[0]!.y).toBe(assembly[1]!.y);
     expect(assemblyRequested).toBe(1);
     expect(errors).toEqual([]);
-    await testInfo.attach('loadout-hydrated', { body: await page.screenshot(), contentType: 'image/png' });
+    await capture('loadout-hydrated');
     if (scenario === 'equipment failure and retry') {
       failEquipment = false;
       // Warm navigation retries the unavailable physical resource, while
@@ -147,13 +152,13 @@ test(`late Loadout art preserves mounted controls without full rebuilds: ${scena
       expect(assemblyRequested).toBe(1);
       expect((await checkpoint(page)).saved).toBe(before.saved);
       expect(errors).toEqual([]);
-      await testInfo.attach('loadout-retried', { body: await page.screenshot(), contentType: 'image/png' });
+      await capture('loadout-retried');
     }
     const scroll = (await checkpoint(page)).diagnostic.scroll!;
     await page.mouse.move(page.viewportSize()!.width / 2, (scroll.top + scroll.bottom) / 2);
     await page.mouse.wheel(0, 9000);
     await expect.poll(async () => (await checkpoint(page)).diagnostic.scroll!.offset).toBeGreaterThan(0);
-    await testInfo.attach('loadout-assembly', { body: await page.screenshot(), contentType: 'image/png' });
+    await capture('loadout-assembly');
   } finally {
     releaseEquipment(); releaseAssembly();
   }
