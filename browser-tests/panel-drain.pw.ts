@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 
 type Seams = typeof globalThis & {
@@ -5,6 +6,7 @@ type Seams = typeof globalThis & {
     showMenu(panel: string): boolean;
     waitForMenuPresentation(): Promise<boolean>;
     isMenuPresentationSettled(): boolean;
+    menuPresentationDiagnostics(): unknown;
     waitForInputFrame(): Promise<boolean>;
     isMenuInputNeutral(): boolean;
     menuLoadoutDiagnostics(): { panel: string; focusedKey?: string; buttons: { text: string; interactive: boolean; visible: boolean; bounds: { x: number; y: number; width: number; height: number } }[] };
@@ -16,12 +18,15 @@ test('overlapping Loadout and Equipment art share one failed physical attempt an
   const held = new Promise<void>(resolve => { release = resolve; });
   let requested!: () => void;
   const firstRequest = new Promise<void>(resolve => { requested = resolve; });
+  let excessiveAttempt!: (value: false) => void;
+  const excessAttempt = new Promise<false>(resolve => { excessiveAttempt = resolve; });
   let requests = 0;
   let fail = true;
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/assets/ui/figma/figma-menu-chrome.png', async route => {
     requests += 1;
+    if (fail && requests > 3) excessiveAttempt(false);
     if (requests === 1) { requested(); await held; }
     if (fail) await route.abort('failed');
     else await route.continue();
@@ -50,8 +55,15 @@ test('overlapping Loadout and Equipment art share one failed physical attempt an
     else await page.mouse.click(x + width / 2, y + height / 2);
     await expect.poll(() => page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuLoadoutDiagnostics().panel)).toBe('equipment');
     release();
-    await expect.poll(async () => requests > 3 || await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.isMenuPresentationSettled())).toBe(true);
+    // Join the same generation-owned closure used by the other lazy-art tests.
+    // Resource work is not a five-second responsiveness assertion. Duplicate
+    // attempts still fail immediately; the outer test deadline is unchanged.
+    const drained = await Promise.race([
+      page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation()),
+      excessAttempt,
+    ]);
     expect(requests, 'one physical attempt plus Phaser\'s two existing retries').toBe(3);
+    expect(drained).toBe(true);
     expect(await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.isMenuPresentationSettled())).toBe(true);
     const state = await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuLoadoutDiagnostics());
     expect(state.panel).toBe('equipment');
@@ -66,6 +78,10 @@ test('overlapping Loadout and Equipment art share one failed physical attempt an
     expect(errors).toEqual([]);
   } finally {
     release();
-    await testInfo.attach('physical-load-evidence', { body: JSON.stringify({ requests, errors }), contentType: 'application/json' });
+    const path = testInfo.outputPath('physical-load-evidence.json');
+    const menu = await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuPresentationDiagnostics())
+      .catch(error => ({ diagnosticError: String(error) }));
+    await writeFile(path, JSON.stringify({ requests, errors, menu }));
+    await testInfo.attach('physical-load-evidence', { path, contentType: 'application/json' });
   }
 });

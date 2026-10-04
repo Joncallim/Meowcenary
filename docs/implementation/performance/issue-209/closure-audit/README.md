@@ -25,6 +25,10 @@ Unit RED covers queued aliases and ownership through partial-success repaint. In
 
 An initial exploratory Home/Career route used boot-required Navigation art and could not reach Home; it was rejected and is not acceptance evidence. Early green attempts also exposed an existing cached-repaint regression and a short-phone button clipped by its fixed footer; the former was fixed, and the browser harness now focuses/scrolls the router through real keyboard input before touch. We preserve valid RED and final GREEN logs and do not relabel the discarded hypotheses as production defects.
 
+## Hosted browser-oracle follow-up
+
+The first merged-main run failed the new regression's incidental five-second poll. The [bounded test-only follow-up](browser-oracle/README.md) joins the existing scene-owned closure, preserves fail-fast duplicate detection and all postconditions, and retains the unchanged whole-test deadline. It adds no runtime changes. Final follow-up/main local and hosted results are recorded on the PR and issue.
+
 ## Measurement method and limits
 
 The pristine original main is **26f46fb5398c7eb769fe1bffa5ed60f80f20eea5**. Its Phase A opt-in observation implementation is **ef8d90cfca226c5595598fb74b3f699d0feb3caa**. The latter is the served measurement baseline, not a claim that the pristine commit contained instrumentation. Ordinary bundle/boot counts use the archived exact-pristine production inventory. Both sides of the new matched capture use the same current `scripts/performance-baseline.mjs` and `scripts/performance-contract-baseline.mjs`, with explicit expected served SHA checks.

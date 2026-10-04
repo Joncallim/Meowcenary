@@ -1,0 +1,65 @@
+[
+  {
+    "raw": "main-hosted-ci-failed.log",
+    "rawBytes": 319311,
+    "rawSha256": "6b0633ad22cb32a39517f59ea7c60a30bc251a242b5ea16a6dff767719f1aa4e",
+    "archive": "main-hosted-ci-failed.log.gz",
+    "archiveSha256": "4df6c15fecccbe1f0a1f5fc60a400a82f827664d0ddeb090c5f06a8791b96534"
+  },
+  {
+    "raw": "browser-oracle-held-owner-red.log",
+    "rawBytes": 3055,
+    "rawSha256": "0c4b8dcd98b81092ef11261c6b5395cdc863e4d9d2ce280da2a276ae3cc96e5d",
+    "archive": "browser-oracle-held-owner-red.log.gz",
+    "archiveSha256": "e7db867706ac915e71495f764f1fc1d59ec76f26888bf870eeacf70124cc588f"
+  },
+  {
+    "raw": "browser-oracle-held-owner-red.json",
+    "rawBytes": 1749,
+    "rawSha256": "35b9d2d4971becad85d14c4bfb84ffa2085a7e622a03f1b8229e3e75ce6fba8d",
+    "archive": "browser-oracle-held-owner-red.json.gz",
+    "archiveSha256": "7140cdc84f3a8c65a30a6c312c511e1e884fa14f4f3f1b6f40bff69d90a8cf22"
+  },
+  {
+    "raw": "browser-oracle-held-owner-green.log",
+    "rawBytes": 762,
+    "rawSha256": "69fc708504bd26d43a8c645655e2a2d20cb425511af1c80cc740da8e50d32542",
+    "archive": "browser-oracle-held-owner-green.log.gz",
+    "archiveSha256": "67add86a059a5043a77a41727087bdd4fec033fb18fa1c07a77d9ac55ebc4a32"
+  },
+  {
+    "raw": "browser-oracle-held-owner-green.json",
+    "rawBytes": 1602,
+    "rawSha256": "f869244b2887bbaf6c139bcd5e774198ae0d2d41a7bd9ce838d4214cc45040e8",
+    "archive": "browser-oracle-held-owner-green.json.gz",
+    "archiveSha256": "9780a2add4ee58adfcdc0d0404accf56c9fb451ec0fc695b8a99c2bf6beed5c4"
+  },
+  {
+    "raw": "browser-oracle-original-runtime-red.log",
+    "rawBytes": 3330,
+    "rawSha256": "f26d11a77de1078dd515fa606b1d8ac7a371b20a70d57a5cd80f9ca330c74c36",
+    "archive": "browser-oracle-original-runtime-red.log.gz",
+    "archiveSha256": "e76e9aaba282afc2a7722d2da57383d6739208b8284a2c79103877c5cfdcbc28"
+  },
+  {
+    "raw": "browser-oracle-original-runtime-red.json",
+    "rawBytes": 1773,
+    "rawSha256": "369ee427b60fe37cc45e02bf18075b25fbc9155fe25212aa0defe1f854a7443f",
+    "archive": "browser-oracle-original-runtime-red.json.gz",
+    "archiveSha256": "1d69c4f7022f9732164803bd84c12ae6073139842dce4dce063a47e5cb9ae4e0"
+  },
+  {
+    "raw": "browser-oracle-six-profile-green.log",
+    "rawBytes": 2417,
+    "rawSha256": "cb7069ae054d87e9911a15f01c26c2ed9f3d4ae2de975aedabdda187d2646b3b",
+    "archive": "browser-oracle-six-profile-green.log.gz",
+    "archiveSha256": "1b5014f8e5a7aa783d2f419c951b76c56f035d3315c5a49f7541e464673d2e9b"
+  },
+  {
+    "raw": "browser-oracle-constrained-red.log",
+    "rawBytes": 1429,
+    "rawSha256": "ba759b3c32351a9822e134e97a8bfd483d93e3da8d4c194f401cafa908bab983",
+    "archive": "browser-oracle-constrained-red.log.gz",
+    "archiveSha256": "b6041aadf36b7eeb60833180e23bfb3623010a8d961b89e01653a8df25d53d9c"
+  }
+]
