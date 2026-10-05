@@ -89,6 +89,22 @@ results and limitations are in `evidence/pointer-journey-timings.json`; these
 fixture timings do not claim a production performance improvement. Full final
 candidate and merged-main runs remain the release authority.
 
+The715a8e1 candidate passed the full local matrix368/64/0, but exact-head
+hosted CI remained red361/64/7: seven desktop1920 native-input/capture journeys
+exceeded their existing budgets. Hosted traces showed repeated forward focus
+walks before replacement and cumulative frame/protocol cost. The correction
+uses the shared navigator's existing shortest wrapping Left/Right path (including
+actual D-pad polling), direct wheel/click for desktop pointer journeys, and the
+existing freeze/resume seam only while PNGs encode. Family-direction, release,
+held-confirm, resize, ownership and all save assertions remain on live frames.
+Three consecutive seven-case desktop runs passed; raw durations and environment
+are recorded in `evidence/hosted-native-driver.json`. Two-CPU affinity experiments
+were materially slower than hosted timings and failed before/after correction;
+they are retained as an uncalibrated limitation, not passing evidence or a new
+gate. The suspected mask churn was rejected: current main already masks the
+scroll content once. No runtime optimization or timeout change was justified.
+Fresh full local and exact-head hosted gates remain required after this patch.
+
 ## Screenshot changes and release checks
 
 Only22 existing baseline files may change. `snapshot-review.json` records each

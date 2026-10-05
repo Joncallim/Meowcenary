@@ -8,7 +8,8 @@ type PerformanceState = { events: Array<{ owner: string; facts: Record<string, u
 type Seams = typeof globalThis & {
   __MEOWCENARY_VISUAL_TEST__: { showMenu(panel: string): boolean;
     waitForMenuPresentation(): Promise<boolean>; isMenuInputNeutral(): boolean;
-    menuFocusedKey(): string | undefined; menuLoadoutDiagnostics(): Diagnostic };
+    menuFocusedKey(): string | undefined; menuLoadoutDiagnostics(): Diagnostic;
+    freeze(): Promise<void>; resume(): void };
   __MEOWCENARY_PERFORMANCE__: { snapshot(): PerformanceState; resetMeasurement(): void };
 };
 const diagnostic = (page: Page) => page.evaluate(() =>
@@ -55,17 +56,28 @@ async function press(page: Page, key: string): Promise<string | undefined> {
   expect(released.neutral, `${key} sampled released`).toBe(true);
   return released.focusedKey;
 }
-async function focus(page: Page, key: string, direction = 'ArrowDown'): Promise<void> {
+async function focus(page: Page, key: string, direction?: string): Promise<void> {
+  const order = direction ? undefined : (await diagnostic(page)).buttons.map(button => button.key);
+  const target = order?.indexOf(key);
+  if (target !== undefined) expect(target).toBeGreaterThanOrEqual(0);
   let focusedKey = await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.menuFocusedKey());
   const started = Date.now();
   let steps = 0;
   try {
     for (; steps < 80; steps += 1) {
       if (focusedKey === key) return;
-      focusedKey = await press(page, direction);
+      let next = direction;
+      if (order && target !== undefined) {
+        const current = order.indexOf(focusedKey);
+        expect(current).toBeGreaterThanOrEqual(0);
+        const count = order.length;
+        next = (target - current + count) % count <= (current - target + count) % count
+          ? 'ArrowRight' : 'ArrowLeft';
+      }
+      focusedKey = await press(page, next!);
     }
   } finally {
-    phase(page, `focus ${key} via ${direction}: steps=${steps} focused=${focusedKey} elapsed=${Date.now() - started}ms`);
+    phase(page, `focus ${key} via ${direction ?? 'shortest wrap'}: steps=${steps} focused=${focusedKey} elapsed=${Date.now() - started}ms`);
   }
   throw new Error(`Missing semantic focus ${key}: ${JSON.stringify(await diagnostic(page))}`);
 }
@@ -175,7 +187,9 @@ test('Gunsmith replacement retains menu ownership and semantic focus through res
   const { rebuildCount, errors } = await openGunsmith(page);
   const replacement = await replaceCompact(page, rebuildCount, testInfo.project.use.hasTouch);
   const saved = replacement.saved;
-  await page.screenshot({ path: testInfo.outputPath('gunsmith-replacement-committed.png'), scale: 'css' });
+  await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.freeze());
+  try { await page.screenshot({ path: testInfo.outputPath('gunsmith-replacement-committed.png'), scale: 'css' }); }
+  finally { await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.resume()); }
 
   const viewport = page.viewportSize()!;
   await page.setViewportSize({ width: viewport.width + 20, height: viewport.height });

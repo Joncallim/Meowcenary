@@ -1,0 +1,169 @@
+{
+  "runtimeCandidate": "715a8e159b058681bd156adf83f577f6192ddf70",
+  "hostedRed": {
+    "url": "https://github.com/Joncallim/Meowcenary/actions/runs/37269859591",
+    "passed": 361,
+    "skipped": 64,
+    "failed": 7,
+    "failure": "Seven desktop1920 native-input/capture journeys exceeded existing budgets; no golden mismatch."
+  },
+  "environment": "Local Linux, Node22.23.2, Chromium, single CI worker; ordinary available CPU affinity, three consecutive repeats. No timeouts, retries, assertions, snapshots or supported profiles changed. Test fixture durations, not production frame timings.",
+  "driverCorrection": [
+    "Shared linear Gunsmith focus uses real Left/Right shortest wrap; family Down/Up checks retained.",
+    "Controller uses actual D-pad polling with press/release samples on shortest wrapping path.",
+    "Desktop pointer journeys use real wheel reveal and click rather than prerequisite keyboard traversal.",
+    "Existing freeze/resume seam only around PNG encoding; finally resumes before later live input/resize/save assertions."
+  ],
+  "repeats": [
+    {
+      "source": "native-final-trials.json",
+      "stats": {
+        "startTime": "2026-10-05T07:34:19.712Z",
+        "duration": 86555.849,
+        "expected": 7,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "results": [
+        {
+          "title": "focused Gunsmith replacement keeps the entire action clear of its card border across resize",
+          "status": "passed",
+          "durationMs": 11906
+        },
+        {
+          "title": "Gunsmith family switching preserves builds and parts before replacement in the returned family",
+          "status": "passed",
+          "durationMs": 13364
+        },
+        {
+          "title": "Gunsmith replacement retains menu ownership and semantic focus through resize and removal",
+          "status": "passed",
+          "durationMs": 12752
+        },
+        {
+          "title": "Gunsmith candidate touch or pointer previews replacement before a separate commit",
+          "status": "passed",
+          "durationMs": 8996
+        },
+        {
+          "title": "Gunsmith preview cancellation and failed commit retain stored ownership through warm return",
+          "status": "passed",
+          "durationMs": 16476
+        },
+        {
+          "title": "Gunsmith Parts selection and fabrication cancellation spend nothing before explicit confirmation",
+          "status": "passed",
+          "durationMs": 11559
+        },
+        {
+          "title": "physical controller polling previews and commits the selected receiver with one held confirmation",
+          "status": "passed",
+          "durationMs": 10154
+        }
+      ]
+    },
+    {
+      "source": "native-final-repeat2.json",
+      "stats": {
+        "startTime": "2026-10-05T07:53:00.120Z",
+        "duration": 88172.707,
+        "expected": 7,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "results": [
+        {
+          "title": "focused Gunsmith replacement keeps the entire action clear of its card border across resize",
+          "status": "passed",
+          "durationMs": 12331
+        },
+        {
+          "title": "Gunsmith family switching preserves builds and parts before replacement in the returned family",
+          "status": "passed",
+          "durationMs": 13660
+        },
+        {
+          "title": "Gunsmith replacement retains menu ownership and semantic focus through resize and removal",
+          "status": "passed",
+          "durationMs": 12787
+        },
+        {
+          "title": "Gunsmith candidate touch or pointer previews replacement before a separate commit",
+          "status": "passed",
+          "durationMs": 9050
+        },
+        {
+          "title": "Gunsmith preview cancellation and failed commit retain stored ownership through warm return",
+          "status": "passed",
+          "durationMs": 16870
+        },
+        {
+          "title": "Gunsmith Parts selection and fabrication cancellation spend nothing before explicit confirmation",
+          "status": "passed",
+          "durationMs": 11460
+        },
+        {
+          "title": "physical controller polling previews and commits the selected receiver with one held confirmation",
+          "status": "passed",
+          "durationMs": 10214
+        }
+      ]
+    },
+    {
+      "source": "native-final-repeat3.json",
+      "stats": {
+        "startTime": "2026-10-05T07:55:26.311Z",
+        "duration": 87926.59700000001,
+        "expected": 7,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "results": [
+        {
+          "title": "focused Gunsmith replacement keeps the entire action clear of its card border across resize",
+          "status": "passed",
+          "durationMs": 12165
+        },
+        {
+          "title": "Gunsmith family switching preserves builds and parts before replacement in the returned family",
+          "status": "passed",
+          "durationMs": 13676
+        },
+        {
+          "title": "Gunsmith replacement retains menu ownership and semantic focus through resize and removal",
+          "status": "passed",
+          "durationMs": 12967
+        },
+        {
+          "title": "Gunsmith candidate touch or pointer previews replacement before a separate commit",
+          "status": "passed",
+          "durationMs": 8880
+        },
+        {
+          "title": "Gunsmith preview cancellation and failed commit retain stored ownership through warm return",
+          "status": "passed",
+          "durationMs": 16493
+        },
+        {
+          "title": "Gunsmith Parts selection and fabrication cancellation spend nothing before explicit confirmation",
+          "status": "passed",
+          "durationMs": 11738
+        },
+        {
+          "title": "physical controller polling previews and commits the selected receiver with one held confirmation",
+          "status": "passed",
+          "durationMs": 10420
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Hosted runner remains authoritative; local repeats do not replace full local and exact-head CI.",
+    "Two-CPU affinity experiments remained slower than observed hosted cold-ready/input timings and timed out before/after correction; they are not a calibrated CI proxy or a new acceptance gate.",
+    "CPUs0,1 share a physical core; separate-core0,2 experiment was also uncalibrated. No production performance inference from either experiment.",
+    "Menu scrolling already uses one content-container mask; per-object masking hypothesis was rejected without runtime changes."
+  ]
+}

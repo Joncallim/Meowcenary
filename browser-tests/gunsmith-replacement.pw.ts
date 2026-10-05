@@ -10,7 +10,8 @@ type Diagnostic = {
   scroll: { top: number; bottom: number };
 };
 type Seam = { showMenu(panel: string): boolean; waitForMenuPresentation(): Promise<boolean>;
-  isMenuInputNeutral(): boolean; menuLoadoutDiagnostics(): Diagnostic };
+  isMenuInputNeutral(): boolean; menuLoadoutDiagnostics(): Diagnostic;
+  freeze(): Promise<void>; resume(): void };
 const diagnostic = (page: Page) => page.evaluate(() =>
   (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam })
     .__MEOWCENARY_VISUAL_TEST__.menuLoadoutDiagnostics());
@@ -48,7 +49,19 @@ test('focused Gunsmith replacement keeps the entire action clear of its card bor
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam })
     .__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
   const saveBefore = await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'));
-  for (let step = 0; step < 64 && !candidate(await diagnostic(page)).focused; step++) await press(page, 'ArrowDown');
+  for (let step = 0; step < 64; step++) {
+    const state = await diagnostic(page);
+    if (candidate(state).focused) break;
+    const current = state.buttons.findIndex(button => button.focused);
+    const target = state.buttons.findIndex(button => button.key === 'gunsmith-part:compact');
+    expect(current).toBeGreaterThanOrEqual(0);
+    expect(target).toBeGreaterThanOrEqual(0);
+    const count = state.buttons.length;
+    // The shared linear navigator wraps. Keep native keyboard coverage without
+    // walking the long way around before the actual focus/resize assertions.
+    await press(page, (target - current + count) % count <= (current - target + count) % count
+      ? 'ArrowRight' : 'ArrowLeft');
+  }
   expect(candidate(await diagnostic(page)).focused).toBe(true);
   expect(candidate(await diagnostic(page)).text).toContain('Compact Receiver T1');
   expect(candidate(await diagnostic(page)).text).toContain('STORED');
@@ -67,7 +80,13 @@ test('focused Gunsmith replacement keeps the entire action clear of its card bor
     const state = await diagnostic(page);
     const row = replacement(state);
     const capturePath = testInfo.outputPath(`focused-replacement-${viewport.width}x${viewport.height}.png`);
-    await page.screenshot({ path: capturePath, scale: 'css' });
+    await page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam })
+      .__MEOWCENARY_VISUAL_TEST__.freeze());
+    try { await page.screenshot({ path: capturePath, scale: 'css' }); }
+    finally {
+      await page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam })
+        .__MEOWCENARY_VISUAL_TEST__.resume());
+    }
     await testInfo.attach(`focused-replacement-${viewport.width}x${viewport.height}`, {
       path: capturePath, contentType: 'image/png',
     });

@@ -9,7 +9,8 @@ type Art = { texture: string; frame: string | number; x: number; y: number;
   width: number; height: number; alpha: number; visible: boolean };
 type Globals = typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: {
   showMenu(panel: string): boolean; waitForMenuPresentation(): Promise<boolean>;
-  waitForInputFrame(): Promise<boolean>; menuLoadoutDiagnostics(): Diagnostic; menuArtDiagnostics(): Art[] } };
+  waitForInputFrame(): Promise<boolean>; menuLoadoutDiagnostics(): Diagnostic; menuArtDiagnostics(): Art[];
+  freeze(): Promise<void>; resume(): void } };
 const seed = { version: 4, settings: { muted: true, musicVolume: 0, sfxVolume: 0, reducedMotion: true },
   progression: { scrap: 640, unlocks: ['capability:equipment-tier-2'] }, stages: {}, achievements: {}, characters: {},
   gunsmith: { selectedBuildId: 'build:pistol', fabricationSerials: {},
@@ -52,6 +53,11 @@ async function focus(page: Page, key: string) {
     expect(target).toBeGreaterThanOrEqual(0);
     const columns = diagnostic.panel === 'loadout' || page.viewportSize()!.width >= 1000 ? 4 : 2;
     let direction = current < target ? 'ArrowRight' : 'ArrowLeft';
+    if (diagnostic.panel === 'gunsmith') {
+      const count = diagnostic.buttons.length;
+      direction = (target - current + count) % count <= (current - target + count) % count
+        ? 'ArrowRight' : 'ArrowLeft';
+    }
     if (diagnostic.panel === 'equipment' || diagnostic.panel === 'loadout') {
       if (current < 4 && target >= 4) direction = 'ArrowDown';
       else if (current >= 4 && target < 4) direction = current > 4 ? 'ArrowLeft' : 'ArrowUp';
@@ -63,6 +69,10 @@ async function focus(page: Page, key: string) {
   throw new Error(`Focus did not reach ${key}: ${JSON.stringify((await read(page)).diagnostic)}`);
 }
 async function activate(page: Page, key: string, testInfo: TestInfo) {
+  if (!testInfo.project.use.hasTouch) {
+    const initial = await read(page);
+    if (initial.diagnostic.panel === 'gunsmith') return activateByPointerScroll(page, key, testInfo, initial.diagnostic);
+  }
   await focus(page, key);
   const { diagnostic } = await read(page);
   const target = diagnostic.buttons.find(button => button.key === key)!;
@@ -75,12 +85,12 @@ async function activate(page: Page, key: string, testInfo: TestInfo) {
   else await page.mouse.click(x, y);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
 }
-async function activateByPointerScroll(page: Page, key: string, testInfo: TestInfo) {
+async function activateByPointerScroll(page: Page, key: string, testInfo: TestInfo, initial?: Diagnostic) {
   if (testInfo.project.use.hasTouch) return activate(page, key, testInfo);
   // This journey exercises pointer selection. Reveal its target with a real
   // wheel gesture instead of first walking the entire keyboard focus order.
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    const { diagnostic } = await read(page);
+    const diagnostic = attempt === 0 && initial ? initial : (await read(page)).diagnostic;
     const target = diagnostic.buttons.find(button => button.key === key);
     expect(target, `semantic pointer target ${key}`).toBeDefined();
     const top = diagnostic.scroll?.top ?? 0;
@@ -100,7 +110,9 @@ async function activateByPointerScroll(page: Page, key: string, testInfo: TestIn
 }
 async function evidence(page: Page, testInfo: TestInfo, name: string) {
   const path = testInfo.outputPath(`${name}.png`);
-  await page.screenshot({ path, scale: 'css' });
+  await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.freeze());
+  try { await page.screenshot({ path, scale: 'css' }); }
+  finally { await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.resume()); }
   await testInfo.attach(name, { path, contentType: 'image/png' });
   const factsPath = testInfo.outputPath(`${name}-facts.json`);
   await writeFile(factsPath, JSON.stringify(await read(page), null, 2));
@@ -304,9 +316,16 @@ test('physical controller polling previews and commits the selected receiver wit
     await page.evaluate(() => { (globalThis as Fixture).__loadoutPad.pressed = -1; });
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
   };
-  // One actual right D-pad edge for each logical move, with release samples.
-  const count = before.diagnostic.buttons.findIndex(row => row.key === 'gunsmith-part:compact');
-  for (let index = 0; index < count; index += 1) await padPulse(15);
+  // Actual D-pad edges use the shared linear navigator's wrapping path;
+  // release samples still separate each move from preview/confirmation.
+  const order = before.diagnostic.buttons.map(row => row.key);
+  const target = order.indexOf('gunsmith-part:compact');
+  const current = order.indexOf(before.diagnostic.focusedKey);
+  expect(target).toBeGreaterThanOrEqual(0); expect(current).toBeGreaterThanOrEqual(0);
+  const forward = (target - current + order.length) % order.length;
+  const backward = (current - target + order.length) % order.length;
+  for (let index = 0; index < Math.min(forward, backward); index += 1)
+    await padPulse(forward <= backward ? 15 : 14);
   expect((await read(page)).diagnostic.focusedKey).toBe('gunsmith-part:compact');
   await padPulse(0);
   expect((await read(page)).saved).toBe(before.saved);
