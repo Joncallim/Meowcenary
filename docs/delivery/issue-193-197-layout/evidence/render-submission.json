@@ -1064,11 +1064,45 @@
     "gunsmith1920ChangedPixels": 2192,
     "totalPixels": 2073600,
     "reason": "Changing quad/UV interpolation produces nearest-sampling rounding at texel boundaries; observed one-pixel edge lines, no recenter/scale/layout change. Original art textures remain byte-identical.",
-    "goldensOrThresholdsChanged": false,
-    "requirement": "Inspect final captures and pass unchanged complete visual gates; experimental raster is not canonical authority.",
+    "requirement": "Pass fresh complete gates with unchanged128pixel limit; these two inspected candidate regression expectations are not product-owner visual authority.",
     "equipment1920ChangedPixels": 3564,
     "equipment1920ChangedRatio": 0.00171875,
-    "gunsmith1920ChangedRatio": 0.0010570987654320988
+    "gunsmith1920ChangedRatio": 0.0010570987654320988,
+    "thresholdsChanged": false,
+    "individuallyReviewedGoldenExceptions": [
+      {
+        "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-foldable-1114x720-linux.png",
+        "before": "574476e96690332715d9b122a050dcb6e7c4c254cd011127b987195dbfc51581",
+        "after": "94899fb80c9dad7a13e1f8fa7f4216157352a6de97c5a6aded9b4107696ceb87",
+        "sourceHead": "364a116aa401b2d2cd5e3a2ab9a26b1093a1fe65",
+        "pixelmatchPixels": 144,
+        "unchangedLimit": 128,
+        "rawChangedPixels": 1157,
+        "pixelmatchBounds": [
+          345,
+          365,
+          785,
+          540
+        ],
+        "independentDisposition": "Individually inspected expected/actual/diff. Changes confined to one-pixel artwork sampling lines from native source-local crop; same geometry/source alpha, zero shell/text/control/background changes. Desktop exact RGBA delta equals foldable translated83px. Candidate regression expectation only; owner actual-scale approval remains open."
+      },
+      {
+        "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-desktop-1280x720-linux.png",
+        "before": "04b033932e7e7e329c18dda5c9385d2f258c6c8ddf5947be27fbf3f5cd062cf9",
+        "after": "310217bd067b062cb59cae53aefac5f47267f16326c393a96505d90110486fc6",
+        "sourceHead": "364a116aa401b2d2cd5e3a2ab9a26b1093a1fe65",
+        "pixelmatchPixels": 144,
+        "unchangedLimit": 128,
+        "rawChangedPixels": 1157,
+        "pixelmatchBounds": [
+          428,
+          365,
+          868,
+          540
+        ],
+        "independentDisposition": "Individually inspected expected/actual/diff. Changes confined to one-pixel artwork sampling lines from native source-local crop; same geometry/source alpha, zero shell/text/control/background changes. Desktop exact RGBA delta equals foldable translated83px. Candidate regression expectation only; owner actual-scale approval remains open."
+      }
+    ]
   },
   "limitations": [
     "Two separate CPU cores materially slow software graphics and are not an exact hosted CI proxy or a phone/device benchmark.",
@@ -1076,5 +1110,12 @@
     "CPU/render spans measure JS and command submission; shader/GPU work can appear primarily in frame cadence rather than these spans.",
     "Gunsmith experiment22% cadence gain; Equipment experiment733\u2013750ms vs750ms has little reliable effect and is not claimed improved.",
     "Current product/physical-device approval remains open."
-  ]
+  ],
+  "fullRunDisposition": {
+    "head": "364a116aa401b2d2cd5e3a2ab9a26b1093a1fe65",
+    "passed": 366,
+    "existingSkips": 64,
+    "failed": 2,
+    "onlyFailures": "Two named assembled-image native-crop sampling deltas; no layout/save/input/loader assertion failure. Hosted37297131931 cancelled after known local RED; not green."
+  }
 }

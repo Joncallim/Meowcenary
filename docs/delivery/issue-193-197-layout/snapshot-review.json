@@ -140,7 +140,7 @@
     {
       "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-desktop-1280x720-linux.png",
       "previousSha256": "f9fb16c57f4fde0ae8cb7651b48de33c7f98b24f7a3988354b2b6fc882815b6d",
-      "candidateSha256": "04b033932e7e7e329c18dda5c9385d2f258c6c8ddf5947be27fbf3f5cd062cf9",
+      "candidateSha256": "310217bd067b062cb59cae53aefac5f47267f16326c393a96505d90110486fc6",
       "family": "Gunsmith",
       "figmaNodes": [
         "130:76",
@@ -150,12 +150,26 @@
         "146:102"
       ],
       "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
-      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll. Subsequent measured transparent-padding crop preserves full authored source/placement but changes nearest-sampling rounding; this named assembled reference explicitly records that legitimate renderer ownership delta. Threshold remains128.",
+      "preCropCandidateSha256": "04b033932e7e7e329c18dda5c9385d2f258c6c8ddf5947be27fbf3f5cd062cf9",
+      "cropRasterReview": {
+        "sourceHead": "364a116aa401b2d2cd5e3a2ab9a26b1093a1fe65",
+        "pixelmatchPixels": 144,
+        "unchangedLimit": 128,
+        "rawChangedPixels": 1157,
+        "pixelmatchBounds": [
+          428,
+          365,
+          868,
+          540
+        ],
+        "independentDisposition": "Individually inspected expected/actual/diff. Changes confined to one-pixel artwork sampling lines from native source-local crop; same geometry/source alpha, zero shell/text/control/background changes. Desktop exact RGBA delta equals foldable translated83px. Candidate regression expectation only; owner actual-scale approval remains open."
+      }
     },
     {
       "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-foldable-1114x720-linux.png",
       "previousSha256": "de8c5742a6bc75370efba72c4e963e2b9b318763f9b038de0b8b8754e1ffb28a",
-      "candidateSha256": "574476e96690332715d9b122a050dcb6e7c4c254cd011127b987195dbfc51581",
+      "candidateSha256": "94899fb80c9dad7a13e1f8fa7f4216157352a6de97c5a6aded9b4107696ceb87",
       "family": "Gunsmith",
       "figmaNodes": [
         "130:76",
@@ -165,7 +179,21 @@
         "146:102"
       ],
       "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
-      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll. Subsequent measured transparent-padding crop preserves full authored source/placement but changes nearest-sampling rounding; this named assembled reference explicitly records that legitimate renderer ownership delta. Threshold remains128.",
+      "preCropCandidateSha256": "574476e96690332715d9b122a050dcb6e7c4c254cd011127b987195dbfc51581",
+      "cropRasterReview": {
+        "sourceHead": "364a116aa401b2d2cd5e3a2ab9a26b1093a1fe65",
+        "pixelmatchPixels": 144,
+        "unchangedLimit": 128,
+        "rawChangedPixels": 1157,
+        "pixelmatchBounds": [
+          345,
+          365,
+          785,
+          540
+        ],
+        "independentDisposition": "Individually inspected expected/actual/diff. Changes confined to one-pixel artwork sampling lines from native source-local crop; same geometry/source alpha, zero shell/text/control/background changes. Desktop exact RGBA delta equals foldable translated83px. Candidate regression expectation only; owner actual-scale approval remains open."
+      }
     },
     {
       "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-phone-390x844-linux.png",

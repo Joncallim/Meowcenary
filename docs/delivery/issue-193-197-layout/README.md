@@ -126,8 +126,15 @@ crops. RED eager/lazy hydration and faint-alpha regressions precede the fix.
 The experimental raster differed on2192 of2073600 Gunsmith desktop pixels
 (0.106%) and3564 Equipment pixels (0.172%), along one-pixel nearest-sampling texel-boundary lines caused by changed quad/UV
 interpolation. It did not recenter or rescale artwork, omit nonzero source alpha,
-or change textures. This difference is explicitly inspectable; no golden is
-refreshed and no existing image threshold is relaxed. Complete unchanged visual
+or change textures. This difference is explicitly inspectable. The full364a116 run passed366
+with64 existing skips and failed only two assembled references: foldable1114×720
+and desktop1280×720 each exceeded the unchanged128pixel limit with144 marked
+pixels. Independent expected/actual/diff inspection confirmed all1157 raw changed
+pixels are confined to artwork sampling; desktop is exactly the same RGBA change
+translated83px. Only these two named candidate expectations are replaced, with
+before/after hashes and per-image disposition in `snapshot-review.json`.
+They are regression evidence, not owner visual authority. No image limit is
+relaxed; every other baseline remains untouched by this crop tranche. Complete unchanged visual
 gates and final actual-scale capture inspection remain required. Method, frame
 percentiles, geometry, rejected hypotheses and limitations are preserved in
 `evidence/render-submission.json`.
