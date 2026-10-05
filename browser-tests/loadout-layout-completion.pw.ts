@@ -6,7 +6,8 @@ type Button = { key?: string; text: string; visible: boolean; interactive: boole
 type Diagnostic = { panel: string; focusedKey?: string; copy: string[]; buttons: Button[];
   scroll?: { top: number; bottom: number; offset: number } };
 type Art = { texture: string; frame: string | number; x: number; y: number;
-  width: number; height: number; alpha: number; visible: boolean };
+  width: number; height: number; alpha: number; visible: boolean;
+  crop?: { x: number; y: number; width: number; height: number } };
 type Globals = typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: {
   showMenu(panel: string): boolean; waitForMenuPresentation(): Promise<boolean>;
   waitForInputFrame(): Promise<boolean>; menuLoadoutDiagnostics(): Diagnostic; menuArtDiagnostics(): Art[];
@@ -69,41 +70,56 @@ async function focus(page: Page, key: string) {
   throw new Error(`Focus did not reach ${key}: ${JSON.stringify((await read(page)).diagnostic)}`);
 }
 async function activate(page: Page, key: string, testInfo: TestInfo): Promise<void> {
-  if (!testInfo.project.use.hasTouch) {
-    const initial = await read(page);
-    if (initial.diagnostic.panel === 'gunsmith') return activateByPointerScroll(page, key, testInfo, initial.diagnostic);
-  }
-  await focus(page, key);
-  const { diagnostic } = await read(page);
-  const target = diagnostic.buttons.find(button => button.key === key)!;
-  expect(target.visible && target.interactive).toBe(true);
-  const top = Math.max(target.bounds.y, diagnostic.scroll?.top ?? 0);
-  const bottom = Math.min(target.bounds.y + target.bounds.height, diagnostic.scroll?.bottom ?? page.viewportSize()!.height);
-  expect(bottom).toBeGreaterThan(top);
-  const x = target.bounds.x + target.bounds.width / 2; const y = (top + bottom) / 2;
-  if (testInfo.project.use.hasTouch) await page.touchscreen.tap(x, y);
-  else await page.mouse.click(x, y);
-  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
+  return activateByPointerScroll(page, key, testInfo);
 }
-async function activateByPointerScroll(page: Page, key: string, testInfo: TestInfo, initial?: Diagnostic): Promise<void> {
-  if (testInfo.project.use.hasTouch) return activate(page, key, testInfo);
-  // This journey exercises pointer selection. Reveal its target with a real
-  // wheel gesture instead of first walking the entire keyboard focus order.
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const diagnostic = attempt === 0 && initial ? initial : (await read(page)).diagnostic;
+async function activateByPointerScroll(page: Page, key: string, testInfo: TestInfo, hover = false): Promise<void> {
+  // Pointer/touch journeys reveal with their own real wheel/drag gestures.
+  // Native keyboard/controller navigation has separate release/held-edge cases.
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const { diagnostic } = await read(page);
     const target = diagnostic.buttons.find(button => button.key === key);
     expect(target, `semantic pointer target ${key}`).toBeDefined();
     const top = diagnostic.scroll?.top ?? 0;
     const bottom = diagnostic.scroll?.bottom ?? page.viewportSize()!.height;
+    const visibleTop = Math.max(top, target!.bounds.y);
+    const visibleBottom = Math.min(bottom, target!.bounds.y + target!.bounds.height);
     const x = target!.bounds.x + target!.bounds.width / 2;
-    const y = target!.bounds.y + target!.bounds.height / 2;
-    if (target!.visible && target!.interactive && y > top && y < bottom) {
-      await page.mouse.click(x, y);
-      expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
+    if (target!.visible && target!.interactive && visibleBottom > visibleTop) {
+      const y = (visibleTop + visibleBottom) / 2;
+      if (hover) {
+        expect(testInfo.project.use.hasTouch).toBeFalsy();
+        await page.mouse.move(x, y);
+        expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
+        expect((await read(page)).diagnostic.focusedKey).toBe(key);
+      } else {
+        if (testInfo.project.use.hasTouch) await page.touchscreen.tap(x, y);
+        else await page.mouse.click(x, y);
+        expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
+      }
       return;
     }
-    await page.mouse.move(x, (top + bottom) / 2);
-    await page.mouse.wheel(0, y - (top + bottom) / 2);
+    const middle = (top + bottom) / 2;
+    const delta = target!.bounds.y + target!.bounds.height / 2 - middle;
+    if (testInfo.project.use.hasTouch) {
+      const session = await page.context().newCDPSession(page);
+      const distance = Math.max(-(bottom - top) * 0.65, Math.min((bottom - top) * 0.65, delta));
+      const gestureX = page.viewportSize()!.width * 0.82;
+      const startY = middle + distance / 2;
+      try {
+        await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: gestureX, y: startY, id: 1 }] });
+        for (let step = 1; step <= 3; step += 1) {
+          await session.send('Input.dispatchTouchEvent', { type: 'touchMove',
+            touchPoints: [{ x: gestureX, y: startY - distance * step / 3, id: 1 }] });
+          expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
+        }
+      } finally {
+        try { await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); }
+        finally { await session.detach(); }
+      }
+    } else {
+      await page.mouse.move(x, middle);
+      await page.mouse.wheel(0, delta);
+    }
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
   }
   throw new Error(`Pointer scroll did not reveal ${key}: ${JSON.stringify((await read(page)).diagnostic)}`);
@@ -160,6 +176,8 @@ test('Gunsmith Pistol chassis and receiver use one native assembly transform at 
   expect(receiver).toBeDefined();
   const base = state.art.find(row => row.frame === 'gun-build-base:pistol' && row.alpha === 1 && row.x === receiver.x && row.y === receiver.y)!;
   expect(base).toBeDefined(); expect(receiver).toBeDefined();
+  expect(base.crop).toEqual({ x: 87, y: 67, width: 114, height: 104 });
+  expect(receiver.crop).toEqual({ x: 103, y: 63, width: 74, height: 59 });
   expect([receiver.x, receiver.y, receiver.width, receiver.height]).toEqual([base.x, base.y, base.width, base.height]);
   const a = alpha(base, 358, 196, 89, 69, 110, 100);
   const b = alpha(receiver, 358, 196, 105, 65, 70, 55);
@@ -244,7 +262,7 @@ test('Gunsmith preview cancellation and failed commit retain stored ownership th
   await expect.poll(async () => (await read(page)).diagnostic.panel).toBe('loadout');
   const link = (await read(page)).diagnostic.buttons.find(row => row.text === 'Gunsmith')!;
   expect(link).toBeDefined();
-  await focus(page, link.key!); await pulse(page, 'Enter');
+  await activate(page, link.key!, testInfo);
   await expect.poll(async () => (await read(page)).diagnostic.panel).toBe('gunsmith');
   expect((await read(page)).diagnostic.buttons.some(row => row.key === 'gunsmith-commit')).toBe(false);
   expect((await read(page)).saved).toBe(initial.saved);
@@ -284,12 +302,16 @@ test('Equipment equipped upgrade shows exact values and keeps its instance and s
   expect(before.diagnostic.copy.join('\n')).toContain('100 Scrap');
   expect(before.diagnostic.copy.join('\n')).toContain('12');
   expect(before.diagnostic.copy.join('\n')).toContain('24');
-  await focus(page, 'equipment-upgrade:helmet');
+  if (testInfo.project.use.hasTouch) await focus(page, 'equipment-upgrade:helmet');
+  else await activateByPointerScroll(page, 'equipment-upgrade:helmet', testInfo, true);
   await evidence(page, testInfo, 'equipment-equipped-upgrade-preview');
   await resetStorage(page, true); await pulse(page, 'Enter');
   expect((await read(page)).saved).toBe(before.saved);
   expect(await storage(page)).toMatchObject({ attempts: 1, writes: 0 });
-  await resetStorage(page, false); await focus(page, 'equipment-upgrade:helmet'); await pulse(page, 'Enter');
+  await resetStorage(page, false);
+  if (testInfo.project.use.hasTouch) await focus(page, 'equipment-upgrade:helmet');
+  else await activateByPointerScroll(page, 'equipment-upgrade:helmet', testInfo, true);
+  await pulse(page, 'Enter');
   await expect.poll(async () => JSON.parse((await read(page)).saved).equipment.helmet.tier).toBe(2);
   const committed = JSON.parse((await read(page)).saved);
   expect(committed.progression.scrap).toBe(540);

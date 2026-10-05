@@ -24,7 +24,7 @@ import { LoadoutSurface } from '../ui/menuSurfaces/loadoutSurface';
 import { MountedStaticArt } from '../ui/menuSurfaces/mountedStaticArt';
 import { EquipmentSurface } from '../ui/menuSurfaces/equipmentSurface';
 import { GunsmithSurface } from '../ui/menuSurfaces/gunsmithSurface';
-import { loadoutArtBounds, resolveLoadoutArtPlacement } from '../presentation/loadoutArtFraming';
+import { loadoutArtBounds, resolveLoadoutArtCrop, resolveLoadoutArtPlacement } from '../presentation/loadoutArtFraming';
 import { loadoutFooterPadding } from '../ui/menuSurfaces/layout';
 import type { LoadoutMenuPanel, MenuPanelSurface, MenuSurfaceEnvironment } from '../ui/menuSurfaces/surface';
 import { performanceProbe } from '../platform/performanceProbe';
@@ -193,16 +193,20 @@ export class MenuScene extends Phaser.Scene {
    * performance polling do not walk this tree. No live nodes escape. */
   artUiDiagnostics() {
     const rows: { texture: string; frame: string | number; x: number; y: number;
-      width: number; height: number; alpha: number; visible: boolean }[] = [];
+      width: number; height: number; alpha: number; visible: boolean;
+      crop?: Readonly<{ x: number; y: number; width: number; height: number }> }[] = [];
     const collect = (object: Phaser.GameObjects.GameObject): void => {
       const display = object as Phaser.GameObjects.GameObject & {
         list?: readonly Phaser.GameObjects.GameObject[];
         texture?: { key: string }; frame?: { name: string | number };
         x: number; y: number; displayWidth: number; displayHeight: number; alpha: number; visible: boolean;
+        isCropped?: boolean; _crop?: { x: number; y: number; width: number; height: number };
       };
       if (display.texture && display.frame) rows.push({
         texture: display.texture.key, frame: display.frame.name, x: display.x, y: display.y,
         width: display.displayWidth, height: display.displayHeight, alpha: display.alpha, visible: display.visible,
+        ...(display.isCropped && display._crop ? { crop: { x: display._crop.x, y: display._crop.y,
+          width: display._crop.width, height: display._crop.height } } : {}),
       });
       for (const child of display.list ?? []) collect(child);
     };
@@ -1696,13 +1700,16 @@ export class MenuScene extends Phaser.Scene {
     if (this.textures?.exists(binding.textureKey) && binding.frameKey !== undefined
       && !this.textures.get(binding.textureKey).has(binding.frameKey)) return;
     const visibleBounds = { top: y - maxHeight / 2, bottom: y + maxHeight / 2 };
+    const crop = resolveLoadoutArtCrop(artId);
     if (this.addStaticLoadoutArt(root, placement.x, placement.y, binding.textureKey,
-      binding.frameKey, placement.width, placement.height, 1, ownerIndex, visibleBounds)) return;
+      binding.frameKey, placement.width, placement.height, 1, ownerIndex, visibleBounds, crop)) return;
     if (!this.textures?.exists(binding.textureKey)) return;
     const image = this.own(root, this.add.image(placement.x, placement.y, binding.textureKey, binding.frameKey));
     image.setDisplaySize(placement.width, placement.height).setScrollFactor(0);
+    if (crop) image.setCrop?.(crop.x, crop.y, crop.width, crop.height);
     // Transparent canvas outside the media slot must not inflate its logical
-    // focus/scroll bounds. The authored full image still draws untrimmed.
+    // focus/scroll bounds. Crop only alpha-zero padding; authored pixels and
+    // the shared full-canvas placement/scale remain unchanged.
     this.registerScrollObject(image, ownerIndex, { top: y - maxHeight / 2, bottom: y + maxHeight / 2 });
   }
 
@@ -1739,7 +1746,8 @@ export class MenuScene extends Phaser.Scene {
 
   private addStaticLoadoutArt(root: Phaser.GameObjects.Container, x: number, y: number,
     textureKey: string, frame: string | number | undefined, width: number, height: number,
-    alpha: number, ownerIndex?: number, visibleBounds?: Readonly<{ top: number; bottom: number }>): boolean {
+    alpha: number, ownerIndex?: number, visibleBounds?: Readonly<{ top: number; bottom: number }>,
+    crop?: Readonly<{ x: number; y: number; width: number; height: number }>): boolean {
     const slots = this.loadoutArt;
     if (!slots || !(this.activeSurface instanceof LoadoutSurface)) return false;
     if (!this.textures?.exists) { slots.unavailable(); return false; }
@@ -1752,7 +1760,7 @@ export class MenuScene extends Phaser.Scene {
     const image = this.own(root, this.add.image(x, y, ready ? textureKey : '__DEFAULT', ready ? frame : undefined));
     image.setDisplaySize(width, height).setAlpha(ready ? alpha : 0).setScrollFactor(0);
     this.registerScrollObject(image, ownerIndex, visibleBounds);
-    slots.register(image, { textureKey, frame, width, height, alpha }, ready);
+    slots.register(image, { textureKey, frame, width, height, alpha, ...(crop ? { crop } : {}) }, ready);
     return true;
   }
 

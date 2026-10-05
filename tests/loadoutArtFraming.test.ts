@@ -1,9 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { resolveLoadoutArtPlacement, type LoadoutArtBounds } from '../src/presentation/loadoutArtFraming';
+import { resolveLoadoutArtCrop, resolveLoadoutArtPlacement, type LoadoutArtBounds } from '../src/presentation/loadoutArtFraming';
 
 const padded: LoadoutArtBounds = { frameWidth: 96, frameHeight: 96, left: 16, top: 12, width: 64, height: 72 };
 
 describe('visible Loadout art framing', () => {
+  it('limits submitted Pistol quads to native pixels without changing full-canvas registration', () => {
+    // Literal exported native geometry, independent of the framing table's
+    // visible-size algorithm. These coordinates remain source-frame local.
+    expect(resolveLoadoutArtCrop('gun-build-base:pistol'))
+      .toEqual({ x: 87, y: 67, width: 114, height: 104 });
+    expect(resolveLoadoutArtCrop('gun-build-part:receiver-heavy:t2'))
+      .toEqual({ x: 103, y: 63, width: 74, height: 59 });
+    expect(resolveLoadoutArtCrop('unregistered-art')).toBeUndefined();
+    const chassis = { frameWidth: 358, frameHeight: 196, left: 89, top: 69, width: 110, height: 100 };
+    const layer = { ...chassis, left: 105, top: 65, width: 70, height: 55 };
+    const before = resolveLoadoutArtPlacement(chassis, [chassis, layer], 960, 650, 700, 700)!;
+    expect(resolveLoadoutArtPlacement(layer, [chassis, layer], 960, 650, 700, 700)).toEqual(before);
+    expect(before.width / before.height).toBeCloseTo(358 / 196);
+    expect(resolveLoadoutArtCrop('gun-build-base:pistol')!.width * resolveLoadoutArtCrop('gun-build-base:pistol')!.height)
+      .toBeLessThan(chassis.frameWidth * chassis.frameHeight / 5);
+  });
   it('fits the visible object rather than transparent source padding', () => {
     const result = resolveLoadoutArtPlacement(padded, [padded], 200, 150, 144, 144)!;
     expect(result.width).toBe(192);

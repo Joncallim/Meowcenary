@@ -32,7 +32,7 @@ def build(root=ROOT):
         ids.update(part["presentation"]["traitIconArtIds"].values())
     # Presentation roles, not a branch on one weapon family or item definition.
     ids.update(key for key in bindings if key.startswith(("gun-build-base:", "gun-chassis-icon:")))
-    images, atlases, sources, bounds = {}, {}, {}, {}
+    images, atlases, sources, bounds, nonzero_bounds = {}, {}, {}, {}, {}
     for art_id in sorted(ids):
         binding = bindings[art_id]
         resource = resources[binding["resourceId"]]
@@ -64,7 +64,15 @@ def build(root=ROOT):
             "frameWidth": image.width, "frameHeight": image.height,
             "left": left, "top": top, "width": right - left, "height": bottom - top,
         }
-    return {"schemaVersion": 1, "alphaThreshold": 16, "sources": dict(sorted(sources.items())), "bounds": bounds}
+        # Rendering may omit only exactly transparent pixels. The visible-size
+        # threshold above deliberately excludes faint edges and is not a crop.
+        left, top, right, bottom = image.getchannel("A").getbbox()
+        nonzero_bounds[art_id] = {
+            "frameWidth": image.width, "frameHeight": image.height,
+            "left": left, "top": top, "width": right - left, "height": bottom - top,
+        }
+    return {"schemaVersion": 2, "alphaThreshold": 16, "sources": dict(sorted(sources.items())),
+            "bounds": bounds, "nonzeroBounds": nonzero_bounds}
 
 
 def main():

@@ -5,6 +5,7 @@ export interface StaticArtNode {
   setTexture?(key: string, frame?: string | number): unknown;
   setDisplaySize(width: number, height: number): unknown;
   setAlpha(alpha: number): unknown;
+  setCrop?(x: number, y: number, width: number, height: number): unknown;
 }
 
 export interface StaticArtSlot {
@@ -13,6 +14,7 @@ export interface StaticArtSlot {
   readonly width: number;
   readonly height: number;
   readonly alpha: number;
+  readonly crop?: Readonly<{ x: number; y: number; width: number; height: number }>;
 }
 
 export class MountedStaticArt {
@@ -29,6 +31,7 @@ export class MountedStaticArt {
     // Minimal display mocks cannot rebind textures. Keep their existing full
     // render recovery rather than treating absent capabilities as hydration.
     if (!node.scene || typeof node.setTexture !== 'function') this.unavailable();
+    if (ready && slot.crop) node.setCrop?.(slot.crop.x, slot.crop.y, slot.crop.width, slot.crop.height);
     if (!ready) this.pending.set(node, slot);
   }
 
@@ -42,6 +45,7 @@ export class MountedStaticArt {
       if (!exists(slot.textureKey, slot.frame)) continue;
       node.setTexture!(slot.textureKey, slot.frame);
       node.setDisplaySize(slot.width, slot.height);
+      if (slot.crop) node.setCrop?.(slot.crop.x, slot.crop.y, slot.crop.width, slot.crop.height);
       node.setAlpha(slot.alpha);
       this.pending.delete(node);
       changed += 1;

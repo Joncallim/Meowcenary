@@ -44,6 +44,12 @@ class BoundsTests(unittest.TestCase):
         self.assertEqual(result['bounds']['gun-build-base:test']['left'], 8)
         self.assertEqual(builder.build(self.root), result)
 
+    def test_render_bounds_preserve_faint_pixels_excluded_from_visible_size_measurement(self):
+        result = builder.build(self.root)
+        self.assertEqual(result['nonzeroBounds']['gear'], {
+            'frameWidth': 10, 'frameHeight': 10, 'left': 0, 'top': 0, 'width': 6, 'height': 8})
+        self.assertEqual(result['bounds']['gear']['left'], 2)
+
     def test_changed_export_pixel_invalidates_hash_even_with_same_bounds(self):
         before = builder.build(self.root)
         with Image.open(self.root / 'public/assets/test.png') as source:

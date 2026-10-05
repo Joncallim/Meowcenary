@@ -1,7 +1,8 @@
-import { bounds } from './loadout-art-bounds.json';
+import { bounds, nonzeroBounds } from './loadout-art-bounds.json';
 import { deepFreeze } from '../engine/freeze';
 
 deepFreeze(bounds);
+deepFreeze(nonzeroBounds);
 
 export interface LoadoutArtBounds {
   readonly frameWidth: number;
@@ -14,6 +15,19 @@ export interface LoadoutArtBounds {
 
 export function loadoutArtBounds(id: string): Readonly<LoadoutArtBounds> | undefined {
   return (bounds as Readonly<Record<string, Readonly<LoadoutArtBounds>>>)[id];
+}
+
+/** Only alpha-zero padding can be omitted from submitted image quads. Keep
+ * two native transparent pixels for sampling at the edge; do not recenter or
+ * resize the full image, its authored layers, or its logical media bounds. */
+export function resolveLoadoutArtCrop(id: string):
+  Readonly<{ x: number; y: number; width: number; height: number }> | undefined {
+  const row = (nonzeroBounds as Readonly<Record<string, Readonly<LoadoutArtBounds>>>)[id];
+  if (!row || !valid(row)) return undefined;
+  const x = Math.max(0, row.left - 2), y = Math.max(0, row.top - 2);
+  return Object.freeze({ x, y,
+    width: Math.min(row.frameWidth, row.left + row.width + 2) - x,
+    height: Math.min(row.frameHeight, row.top + row.height + 2) - y });
 }
 
 function valid(row: LoadoutArtBounds): boolean {

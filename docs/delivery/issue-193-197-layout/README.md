@@ -105,6 +105,43 @@ gate. The suspected mask churn was rejected: current main already masks the
 scroll content once. No runtime optimization or timeout change was justified.
 Fresh full local and exact-head hosted gates remain required after this patch.
 
+A laterbc2032f2 full local run passed every gate, including strict browser
+typing, but hosted CI failed362/64/6. All failures exceeded30s with correct
+observed states; tablet/foldable Parts and desktop Equipment also failed on this
+slower runner. Three paired constrained-renderer measurements against starting
+main found Home unchanged (~400ms median), Gunsmith517–533→900–917ms, and
+Equipment650→750–767ms. JS owner spans stayed below11ms atp95; the difference
+was primarily rendering cadence, not a loader or save race. This environment is
+not a calibrated CI proxy or physical-device performance claim.
+
+The native-size Gunsmith submitted large transparent source-canvas quads.
+A three-repeat transient crop experiment reduced Gunsmith900→~700ms while
+keeping the same source pixels, full placement/scale and shared layer transform.
+Equipment showed little reliable benefit. The owning correction prepares a
+separate **alpha>0** rectangle offline, pads it by two native pixels, and crops
+only transparent padding after actual texture/frame binding on eager/lazy paths.
+The >=16 visible-size bounds remain unchanged and cannot serve as rendering
+crops. RED eager/lazy hydration and faint-alpha regressions precede the fix.
+
+The experimental raster differed on2192 of2073600 Gunsmith desktop pixels
+(0.106%) and3564 Equipment pixels (0.172%), along one-pixel nearest-sampling texel-boundary lines caused by changed quad/UV
+interpolation. It did not recenter or rescale artwork, omit nonzero source alpha,
+or change textures. This difference is explicitly inspectable; no golden is
+refreshed and no existing image threshold is relaxed. Complete unchanged visual
+gates and final actual-scale capture inspection remain required. Method, frame
+percentiles, geometry, rejected hypotheses and limitations are preserved in
+`evidence/render-submission.json`.
+
+Touch and pointer activation fixtures now reveal with real drag/wheel gestures
+and tap/click rather than prerequisites from another input method. The separate
+keyboard family navigation, release sampling, controller polling and held-confirm
+assertions remain. Desktop Equipment preview uses actual hover focus followed by
+keyboard confirmation; save-failure and exactly-one-write assertions are retained.
+Native activation passed all78 targeted cases across the six profiles. The
+DPR3 fixture uses pointer mode from its outer profile: touch profiles use actual
+touch drags, desktop copies use mouse/wheel. CDP cleanup releases/detaches even
+on failure. No new framework, culling subsystem, FPS cap or timeout was introduced.
+
 ## Screenshot changes and release checks
 
 Only22 existing baseline files may change. `snapshot-review.json` records each
