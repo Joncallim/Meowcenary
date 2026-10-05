@@ -34,6 +34,7 @@ import type { WeaponDefinition } from '../systems/types';
 import { deepFreeze } from '../engine/freeze';
 import { GUNSMITH_CHASSIS, resolveGunsmithPartVisual, resolveGunsmithVisualAssembly } from './gunsmithVisualAssembly';
 import { resolveEquipmentLoadoutPresentation, type EquipmentLoadoutPresentation } from './equipmentPresentation';
+import { presentLoadoutWeaponStats, type LoadoutWeaponStatDelta } from './loadoutPresentation';
 
 export type GunsmithSurface = 'build' | 'workshop' | 'parts';
 
@@ -91,6 +92,7 @@ export interface GunsmithCatalogPartView {
   readonly partId: string;
   readonly name: string;
   readonly slot: string;
+  readonly effectScope: string;
   readonly rarity: string;
   readonly iconArtId: string;
   readonly traitIcons: readonly { readonly trait: string; readonly iconArtId: string }[];
@@ -174,6 +176,7 @@ export interface GunsmithWorkshopConfirmation {
     readonly before: EquipmentLoadoutPresentation['runTruth'];
     readonly after: EquipmentLoadoutPresentation['runTruth'];
     readonly lines: readonly string[];
+    readonly stats: readonly LoadoutWeaponStatDelta[];
   };
 }
 
@@ -211,6 +214,7 @@ export interface GunsmithSnapshot {
   readonly candidatePreview?: GunsmithAssembledPreview;
   readonly candidateComparison?: {
     readonly lines: readonly string[];
+    readonly stats: readonly LoadoutWeaponStatDelta[];
     readonly displacedInstanceId?: string;
     readonly movedFromBuildId?: string;
     readonly before: EquipmentLoadoutPresentation['runTruth'];
@@ -452,6 +456,7 @@ export class GunsmithController {
             : catalogState === 'locked' ? 'LOCKED' : 'REWARD ONLY';
       return Object.freeze({
         partId: definition.id, name: definition.name, slot: definition.slot, rarity: definition.rarity,
+        effectScope: compatibleFamilyScope(definition.slot),
         iconArtId: resolveGunsmithPartVisual(definition, displayTier).iconArtId,
         traitIcons: Object.freeze(Object.entries(definition.presentation.traitIconArtIds).flatMap(([trait, iconArtId]) => iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })])),
         state: catalogState, stateLabel, ownedCount: owned.length,
@@ -586,6 +591,13 @@ export class GunsmithController {
     this.pendingWorkshop = undefined;
     this.presentationRevision += 1;
     return { ok: true, persisted: false };
+  }
+
+  /** Switching operation cancels its transient inputs, never durable Parts. */
+  resetWorkshopSelection(): void {
+    this.pendingWorkshop = undefined;
+    this.pendingMergeSelection = undefined;
+    this.presentationRevision += 1;
   }
 
   confirmWorkshop(): GunsmithCommandResult {
@@ -728,7 +740,7 @@ export class GunsmithController {
         ...(preservedInstanceIds.includes(output.instanceId) ? [`Preserves ${outputView.name} T${outputView.tier} identity.`] : []),
         ...(outputView.stateLabel === 'STORED' ? ['Output remains STORED. Fit it separately.'] : []),
       ],
-      comparison: { before, after, lines: persistentComparisonLines(before, after, weapon) },
+      comparison: { before, after, lines: persistentComparisonLines(before, after, weapon), stats: persistentComparisonStats(before, after, weapon) },
     };
   }
 
@@ -842,7 +854,7 @@ export class GunsmithController {
     if (result.movedFromBuildId && result.movedFromBuildId !== build.id) lines.unshift(`Move from ${save.gunsmith.builds.find((row) => row.id === result.movedFromBuildId)?.name ?? result.movedFromBuildId}`);
     this.pendingPart = deepFreeze({ buildId: build.id, slot, instanceId,
       signature: loadoutSignature(save), preview: resolveGunsmithVisualAssembly(candidateBuild, result.state, this.registry.asMap()),
-      comparison: { lines, before, after, displacedInstanceId: result.displacedInstanceId, movedFromBuildId: result.movedFromBuildId } });
+      comparison: { lines, before, after, stats: persistentComparisonStats(before, after, weapon), displacedInstanceId: result.displacedInstanceId, movedFromBuildId: result.movedFromBuildId } });
     this.presentationRevision += 1;
     return { ok: true, persisted: false };
   }
@@ -1099,6 +1111,17 @@ function selectedBuildComparison(
 
 function loadoutSignature(save: GameContext['saveData']): string {
   return JSON.stringify([save.gunsmith, save.equipment, save.equipmentLoadout]);
+}
+
+function persistentComparisonStats(before: EquipmentLoadoutPresentation['runTruth'],
+  after: EquipmentLoadoutPresentation['runTruth'], weapon: WeaponDefinition | undefined): readonly LoadoutWeaponStatDelta[] {
+  if (!weapon) return Object.freeze([]);
+  const resolve = (truth: EquipmentLoadoutPresentation['runTruth']) => {
+    const run = createRunState({ seed: 0, characterId: 'gunsmith-preview', arenaId: 'gunsmith-preview' });
+    for (const modifier of truth.modifiers) run.stats.add(modifier);
+    return resolveWeaponStats(run, weapon);
+  };
+  return presentLoadoutWeaponStats(resolve(before), resolve(after));
 }
 
 function persistentComparisonLines(before: EquipmentLoadoutPresentation['runTruth'],

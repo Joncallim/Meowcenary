@@ -24,10 +24,13 @@ export interface MenuSurfaceControls {
     minHeight: number, callback?: () => void, audioEvent?: 'ui:confirm' | 'ui:back',
     maxLabelWidth?: number, artId?: string, trailingReserve?: number,
     leadingReserve?: number, topAligned?: boolean, horizontalAlign?: 'left' | 'center',
-    appearance?: 'card' | 'section'): Phaser.GameObjects.Text;
+    appearance?: 'card' | 'section', topReserve?: number): Phaser.GameObjects.Text;
   disableButton(button: Phaser.GameObjects.Text): void;
   addHeading(root: Phaser.GameObjects.Container, x: number, y: number, text: string): Phaser.GameObjects.Text;
   addCatalogIcon(root: Phaser.GameObjects.Container, x: number, y: number, id: string, size?: number, ownerIndex?: number): void;
+  /** Fits exported visible pixels. Assembly layers share the same framing IDs. */
+  addLoadoutArt(root: Phaser.GameObjects.Container, x: number, y: number, id: string,
+    maxWidth: number, maxHeight: number, ownerIndex?: number, framingIds?: readonly string[]): void;
   addPanelArt(root: Phaser.GameObjects.Container, x: number, y: number, id: string, size: number,
     subdued?: boolean, animate?: boolean, ownerIndex?: number): void;
   beginScrollableRegion(top: number, bottom: number): void;
@@ -53,7 +56,9 @@ export type EquipmentSurfaceCommands = LoadoutSurfaceCommands & Pick<MainMenuCon
 export type GunsmithSurfaceCommands = Pick<MainMenuController,
   'back' | 'selectGunBuild' | 'createGunBuild' | 'removeUnavailableGunPart' | 'unequipGunPart' |
   'fitGunPart' | 'beginGunMerge' | 'requestGunWorkshop' | 'selectGunMergeInput' |
-  'confirmGunWorkshop' | 'cancelGunWorkshop' | 'fabricateGunPart'>;
+  'confirmGunWorkshop' | 'cancelGunWorkshop' | 'fabricateGunPart' | 'openGunsmithSurface' |
+  'selectGunsmithSlot' | 'selectGunsmithTraitSocket' | 'previewGunPart' |
+  'commitGunPartPreview' | 'cancelGunPartPreview' | 'resetGunWorkshop'>;
 
 export interface MenuSurfaceEnvironment {
   readonly scene: Phaser.Scene;

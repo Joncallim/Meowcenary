@@ -1,0 +1,84 @@
+{
+  "candidateUnderInvestigation": "3a2b7f377b20270f6f5b965a82eb5e9f6c6a0d14",
+  "environment": "Local Linux, Node22.23.2, Playwright Chromium, desktop1920x1080, single worker; three repeats each; existing30s test budget. Test timings, not game performance benchmarks.",
+  "fullMatrixBeforeCorrection": {
+    "passed": 367,
+    "skipped": 64,
+    "failed": 1,
+    "failure": "Desktop1920 warm return exceeded30s after completing return."
+  },
+  "original": {
+    "results": [
+      {
+        "status": "passed",
+        "durationMs": 29755
+      },
+      {
+        "status": "passed",
+        "durationMs": 30731
+      },
+      {
+        "status": "passed",
+        "durationMs": 30899
+      }
+    ],
+    "stats": {
+      "startTime": "2026-10-05T05:34:18.547Z",
+      "duration": 93582.973,
+      "expected": 3,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    }
+  },
+  "cheapFocusInvestigationRejected": {
+    "results": [
+      {
+        "status": "timedOut",
+        "durationMs": 31529
+      },
+      {
+        "status": "passed",
+        "durationMs": 30501
+      },
+      {
+        "status": "failed",
+        "durationMs": 32147
+      }
+    ],
+    "stats": {
+      "startTime": "2026-10-05T05:40:33.555Z",
+      "duration": 96511.246,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 2,
+      "flaky": 0
+    }
+  },
+  "nativePointerCorrection": {
+    "results": [
+      {
+        "status": "passed",
+        "durationMs": 17895
+      },
+      {
+        "status": "passed",
+        "durationMs": 17931
+      },
+      {
+        "status": "passed",
+        "durationMs": 18158
+      }
+    ],
+    "stats": {
+      "startTime": "2026-10-05T05:50:53.651Z",
+      "duration": 56071.145,
+      "expected": 3,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    }
+  },
+  "attribution": "Original body before evidence ~21.7\u201322.5s; screenshot ~1.2s. Instrumented14 key pulses ~0.66\u20130.86s each before pointer selection. Cheap getter did not materially improve. Native pointer scroll replaces only the initial desktop keyboard walk; touch and all subsequent assertions unchanged.",
+  "limitations": "Shared-host variance; these repeated timings diagnose one acceptance fixture and do not establish production game improvement. Full exact-head matrix and hosted CI are separate release requirements."
+}

@@ -29,6 +29,39 @@ describe('mounted static Loadout art', () => {
     expect(image.setTexture).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps native layer registration while excluding transparent padding after lazy binding', () => {
+    const art = new MountedStaticArt();
+    const image = { ...node(), setCrop: vi.fn() };
+    const order: string[] = [];
+    image.setTexture.mockImplementation(() => { order.push('texture'); });
+    image.setDisplaySize.mockImplementation(() => { order.push('size'); });
+    image.setCrop.mockImplementation(() => { order.push('crop'); });
+    image.setAlpha.mockImplementation(() => { order.push('alpha'); });
+    const cropped = { ...slot, width: 2278, height: 1247,
+      crop: { x: 116, y: 44, width: 110, height: 104 } };
+    art.register(image, cropped, false);
+    expect(image.setCrop).not.toHaveBeenCalled();
+    expect(art.hydrate(() => false)).toBe(0);
+    expect(art.hydrate(() => true)).toBe(1);
+    expect(image.setCrop).toHaveBeenCalledExactlyOnceWith(116, 44, 110, 104);
+    expect(image.setDisplaySize).toHaveBeenCalledExactlyOnceWith(2278, 1247);
+    expect(order).toEqual(['texture', 'size', 'crop', 'alpha']);
+    expect({ x: image.x, y: image.y, visible: image.visible }).toEqual({ x: 73, y: -21, visible: true });
+    expect(art.hydrate(() => true)).toBe(0);
+  });
+
+  it('applies the same transparent-padding crop to an already loaded image without reloading it', () => {
+    const art = new MountedStaticArt();
+    const image = { ...node(), setCrop: vi.fn() };
+    const cropped = { ...slot, crop: { x: 10, y: 12, width: 24, height: 20 } };
+    art.register(image, cropped, true);
+    expect(image.setCrop).toHaveBeenCalledExactlyOnceWith(10, 12, 24, 20);
+    expect(image.setTexture).not.toHaveBeenCalled();
+    expect(image.setDisplaySize).not.toHaveBeenCalled();
+    expect(image.setAlpha).not.toHaveBeenCalled();
+    expect(art.hydrate(() => true)).toBe(0);
+  });
+
   it('retains failed bindings while successful weapon layers keep their declared order', () => {
     const art = new MountedStaticArt();
     const base = node(), layer = node(), equipment = node();

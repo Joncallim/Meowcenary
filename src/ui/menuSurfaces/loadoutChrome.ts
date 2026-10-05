@@ -17,13 +17,13 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     return effects.map((effect) => `${effect.kind === 'modifier' ? effect.text : effect.label} [${effect.target.label}]`).join(' • ');
   }
 
-  protected renderScopedLoadoutEffects(root: Phaser.GameObjects.Container, effects: readonly LoadoutEffectPresentation[], left: number, top: number, width: number): number {
+  protected renderScopedLoadoutEffects(root: Phaser.GameObjects.Container, effects: readonly LoadoutEffectPresentation[], left: number, top: number, width: number, fontSize: number = ThemeFont.bodyMin): number {
     let y = top;
     for (const effect of effects) {
-      const copy = this.loadoutCopy(root, left + 30, y, this.loadoutEffectCopy([effect]), width - 30);
+      const copy = this.loadoutCopy(root, left + 30, y, this.loadoutEffectCopy([effect]), width - 30).setStyle({ fontSize: `${fontSize}px` });
       this.environment.controls.addPanelArt(root, left + 12, y + 12,
         effect.target.kind === 'mercenary' ? 'nav-icon:mercenary' : 'nav-icon:gunsmith', 22);
-      y += Math.max(26, copy.height) + 6;
+      y += Math.max(fontSize + 12, copy.height) + 6;
     }
     return y;
   }
@@ -56,23 +56,23 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     const top = edgeMargin(this.layout.viewport, 'top') - 12;
     this.own(root, this.environment.scene.add.rectangle(left, top + 28, 4, 24, 0xf78003));
     this.own(root, createUiText(this.environment.scene, left + 12, top + 12, title, {
-      color: '#e5d8c5', fontFamily: ThemeFont.family, fontSize: '12px', fontStyle: '700',
+      color: '#e5d8c5', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.headingMin}px`, fontStyle: '700',
     })).setScrollFactor(0);
-    this.own(root, createUiText(this.environment.scene, left + 12, top + 36, subtitle, {
-      color: '#82949d', fontFamily: ThemeFont.family, fontSize: '8px',
+    this.own(root, createUiText(this.environment.scene, left + 12, top + 42, subtitle, {
+      color: '#82949d', fontFamily: ThemeFont.family, fontSize: '12px',
     })).setScrollFactor(0);
   }
 
   protected loadoutSection(root: Phaser.GameObjects.Container, left: number, y: number, label: string): void {
     const text = this.own(root, createUiText(this.environment.scene, left + 4, y, label, {
-      color: '#f78003', fontFamily: ThemeFont.family, fontSize: '10px', fontStyle: '700',
+      color: '#f78003', fontFamily: ThemeFont.family, fontSize: '14px', fontStyle: '700',
     })).setScrollFactor(0);
     this.environment.controls.registerScrollObject(text);
   }
 
   protected loadoutRouter(root: Phaser.GameObjects.Container, left: number, y: number, width: number, hitTarget: number, label: string, action: () => void, accent: number): Phaser.GameObjects.Text {
     const button = this.button(root, left, y, label, hitTarget, action, 'ui:confirm', width, undefined, 52, 12, false, 'left');
-    button.setStyle({ fontSize: '10px' });
+    button.setStyle({ fontSize: `${ThemeFont.bodyMin}px` });
     const index = this.environment.controls.buttonIndex(button);
     const bounds = button.getBounds();
     const stroke = this.own(root, this.environment.scene.add.rectangle(bounds.centerX, bounds.centerY, bounds.width, bounds.height, accent, 0)).setStrokeStyle(1, accent);
@@ -89,7 +89,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     const y = this.layout.height - edgeMargin(this.layout.viewport, 'bottom', 16) - hitTarget - this.loadoutFooterPadding();
     this.own(root, this.environment.scene.add.rectangle(left + width / 2, y + hitTarget / 2, width, hitTarget + 16, 0x101b22)).setScrollFactor(0);
     const button = this.button(root, left, y, label, hitTarget, action, 'ui:confirm', width, undefined, 52, 12, false, 'left');
-    button.setStyle({ fontSize: '10px' });
+    button.setStyle({ fontSize: `${ThemeFont.bodyMin}px` });
     const bounds = button.getBounds();
     const chrome = this.environment.visuals?.addPanel(this.environment.scene, bounds.centerX, bounds.centerY, bounds.width, bounds.height, 'figma-card');
     this.own(root, this.environment.scene.add.rectangle(bounds.centerX, bounds.centerY, bounds.width, bounds.height, 0x2ec4b6, 0)).setStrokeStyle(1, 0x2ec4b6);
@@ -100,28 +100,55 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     return button;
   }
 
+  protected loadoutContentWidth(): number {
+    return Math.min(1360, this.layout.width - this.layout.margin - this.layout.rightMargin);
+  }
+
+  protected equipmentMediaExtent(): number {
+    return this.layout.width < 375 ? 128 : this.layout.width < 600 ? 144 : 264;
+  }
+
+  protected equipmentInspectionExtent(contentWidth: number): number {
+    return Math.min(this.layout.width < 600 ? 264 : 400, contentWidth - 24);
+  }
+
+  /** The media inset is supplied before button chrome/focus/hit geometry is
+   * built. All subsequent art belongs to that same shared scroll owner. */
+  protected equipmentInspection(root: Phaser.GameObjects.Container, left: number, top: number,
+    width: number, label: string, artId: string): Phaser.GameObjects.Text {
+    const extent = this.equipmentInspectionExtent(width);
+    const button = this.button(root, left, top, label, extent + 110, () => undefined,
+      'ui:confirm', width, undefined, 0, 12, true, 'left', 'card', extent + 24);
+    this.environment.controls.disableButton(button);
+    this.environment.controls.addLoadoutArt(root, left + width / 2, top + 12 + extent / 2,
+      artId, extent, extent, this.environment.controls.buttonIndex(button));
+    return button;
+  }
+
   protected renderEquipmentSlots(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, left: number, top: number, contentWidth: number, hitTarget: number, overview = false): number {
-    const columns = overview ? 4 : 1;
+    const columns = overview ? 4 : contentWidth >= 1080 ? 4 : 2;
     this.environment.controls.equipmentSlotColumns(columns);
-    const gap = overview || this.layout.height < 760 ? 8 : 12;
+    const gap = overview || columns === 4 ? 8 : 12;
     const slotWidth = (contentWidth - gap * (columns - 1)) / columns;
+    const media = Math.min(overview ? 48 : this.equipmentMediaExtent(), slotWidth - (overview ? 12 : 24));
     let y = top;
     for (let row = 0; row < 4 / columns; row += 1) {
-      let rowHeight = Math.max(hitTarget, overview ? 98 : this.layout.height >= 760 ? 64 : 56);
+      let rowHeight = Math.max(hitTarget, overview ? 98 : media + 120);
       snapshot.equipment.presentation.slots.slice(row * columns, (row + 1) * columns).forEach((slot, column) => {
         const x = left + column * (slotWidth + gap);
         const item = slot.equipped;
-        const label = `${slot.label.toUpperCase()}\n${item ? overview ? `T${item.tier} • Fitted` : `${item.name}\nT${item.tier} • EQUIPPED` : 'Empty'}`;
+        const label = `${slot.label.toUpperCase()}\n${item ? overview ? `T${item.tier} • EQUIPPED` : `${item.name}\nT${item.tier} • EQUIPPED` : 'Empty'}`;
         const button = this.button(root, x, y, label, rowHeight, () => {
           const next = this.commands.selectEquipmentSlot(slot.slot);
           this.environment.controls.focusNext(`equipment-slot:${slot.slot}`);
           this.environment.onSnapshot(overview ? this.commands.open('equipment') : next);
-        }, 'ui:confirm', slotWidth, undefined, 0, !overview ? 50 : 0, true, overview ? 'center' : 'left');
-        if (overview) button.setPadding(4, item ? 66 : 34, 4, 8).setFixedSize(slotWidth, rowHeight);
+        }, 'ui:confirm', slotWidth, undefined, 0, overview ? 4 : 12, true, overview ? 'center' : 'left', 'card', media + 24);
         this.rememberLoadoutFocus(button, `equipment-slot:${slot.slot}`);
         const index = this.environment.controls.buttonIndex(button);
-        if (item) this.environment.controls.addCatalogIcon(root, overview ? x + slotWidth / 2 : x + 26, y + (overview ? 32 : Math.min(button.height / 2, 50)), item.iconArtId, overview ? Math.min(48, slotWidth - 12) : 44, index);
-        else if (!overview) this.environment.controls.addPanelArt(root, x + 26, y + Math.min(button.height / 2, 50), slot.placeholderArtId, 44, true, false, index);
+        if (item) this.environment.controls.addLoadoutArt(root, x + slotWidth / 2,
+          y + 12 + media / 2, item.iconArtId, media, media, index);
+        else if (!overview) this.environment.controls.addPanelArt(root, x + slotWidth / 2,
+          y + 12 + media / 2, slot.placeholderArtId, media, true, false, index);
         rowHeight = Math.max(rowHeight, button.height);
       });
       y += rowHeight + gap;

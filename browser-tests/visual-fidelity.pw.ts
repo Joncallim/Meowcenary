@@ -21,6 +21,7 @@ type VisualTestSeam = {
   resume(): void;
   isSceneActive(key: string): boolean;
   isMenuPresentationSettled(): boolean;
+  menuFocusedKey(): string | undefined;
   waitForMenuPresentation(): Promise<boolean>;
   focusFirstEnemy(bossOnly?: boolean): boolean;
   focusPlayer(): boolean;
@@ -279,7 +280,18 @@ test('stocked Gunsmith showcases assembled weapons, Parts, traits, and Workshop 
   });
   await test.step('navigate and capture the stocked Parts list', async () => {
     await resumeLoop(page);
-    for (let index = 0; index < 9; index += 1) await press(page, 'ArrowDown');
+    for (let index = 0; index < 24; index += 1) {
+      const key = await page.evaluate(() => (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
+      }).__MEOWCENARY_VISUAL_TEST__?.menuFocusedKey());
+      if (key === 'gunsmith-surface:parts') break;
+      await press(page, 'ArrowDown');
+    }
+    expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
+    }).__MEOWCENARY_VISUAL_TEST__?.menuFocusedKey())).toBe('gunsmith-surface:parts');
+    await press(page, 'Enter');
+    await expectMenuPresentationSettled(page);
     await freezeAtStableFrame(page);
     await expect(page).toHaveScreenshot('gunsmith-parts.png', illustratedScreenshot);
   });

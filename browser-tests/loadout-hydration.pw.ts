@@ -11,7 +11,8 @@ type Globals = typeof globalThis & {
   __MEOWCENARY_VISUAL_TEST__?: { showMenu(panel: string): boolean; waitForMenuPresentation(): Promise<boolean>;
     menuLoadoutDiagnostics(): Diagnostic; isMenuInputNeutral(): boolean;
     menuArtDiagnostics(): { texture: string; frame: string | number; x: number; y: number;
-      width: number; height: number; alpha: number; visible: boolean }[] };
+      width: number; height: number; alpha: number; visible: boolean;
+      crop?: { x: number; y: number; width: number; height: number } }[] };
   __MEOWCENARY_PERFORMANCE__?: { resetMeasurement(): void; snapshot(): {
     events: Event[]; presentedMenu?: { panel: string; rebuildCount: number; revision: number } } };
 };
@@ -91,6 +92,7 @@ test(`late Loadout art preserves mounted controls without full rebuilds: ${scena
     const missing = reserved.filter(row => row.texture === '__DEFAULT');
     expect(missing.length).toBeGreaterThanOrEqual(2);
     expect(missing.every(row => row.alpha === 0 && row.width > 0 && row.height > 0)).toBe(true);
+    expect(missing.every(row => row.crop === undefined)).toBe(true);
     await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_PERFORMANCE__!.resetMeasurement());
     releaseEquipment();
     await expect.poll(() => assemblyRequested).toBe(1);
@@ -114,13 +116,14 @@ test(`late Loadout art preserves mounted controls without full rebuilds: ${scena
     const bound = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.menuArtDiagnostics());
     expect(bound).toHaveLength(reserved.length);
     // Tree traversal order is the actual Phaser draw order. Rebinding changes
-    // texture/frame/opacity only; geometry and layer position stay fixed.
-    expect(bound.map(({ texture: _texture, frame: _frame, alpha: _alpha, ...geometry }) => geometry))
-      .toEqual(reserved.map(({ texture: _texture, frame: _frame, alpha: _alpha, ...geometry }) => geometry));
+    // texture/frame/opacity and source-local crop; full placement and layer
+    // position stay fixed. Crop is checked separately after binding below.
+    expect(bound.map(({ texture: _texture, frame: _frame, alpha: _alpha, crop: _crop, ...geometry }) => geometry))
+      .toEqual(reserved.map(({ texture: _texture, frame: _frame, alpha: _alpha, crop: _crop, ...geometry }) => geometry));
     if (scenario === 'equipment failure and retry') {
       // The Commando physical atlas owns both this helmet and its Set emblem.
       expect(bound.filter(row => row.texture === '__DEFAULT')).toHaveLength(2);
-      expect(bound.filter(row => row.texture === '__DEFAULT').every(row => row.alpha === 0)).toBe(true);
+      expect(bound.filter(row => row.texture === '__DEFAULT').every(row => row.alpha === 0 && row.crop === undefined)).toBe(true);
       expect(equipmentRequested).toBe(3); // Phaser's established two retries.
     } else {
       expect(bound.some(row => row.texture === 'art-equipment-commando' && row.frame === 'equipment-icon:commando-helmet' && row.alpha === 1 && row.visible)).toBe(true);
@@ -132,6 +135,12 @@ test(`late Loadout art preserves mounted controls without full rebuilds: ${scena
     if (!('assemblyArtId' in receiverTier)) throw new Error('The selected receiver tier must have assembly art');
     const receiver = visualArt.bindings.find(row => row.id === receiverTier.assemblyArtId)!;
     expect(assembly.map(row => row.frame)).toEqual([base.frameKey, receiver.frameKey]);
+    // Literal native rectangles retain two transparent pixels around every
+    // nonzero source pixel. Lazy binding must match the already-loaded path.
+    expect(assembly.map(row => row.crop)).toEqual([
+      { x: 87, y: 67, width: 114, height: 104 },
+      { x: 103, y: 63, width: 74, height: 59 },
+    ]);
     expect(assembly.every(row => row.alpha === 1 && row.width > 0 && row.height > 0)).toBe(true);
     expect(assembly[0]!.x).toBe(assembly[1]!.x);
     expect(assembly[0]!.y).toBe(assembly[1]!.y);

@@ -1,0 +1,41 @@
+[WebServer] (node:2031564) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:2031577) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 6 tests using 1 worker
+
+(node:2031597) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/6] [phone-390x844] › browser-tests/loadout-layout-completion.pw.ts:93:1 › Equipment renders the equipped native helmet at the approved visible size
+[2/6] [phone-390x844] › browser-tests/visual-fidelity.pw.ts:129:1 › fixed art reference compositions retain the Meowcenary visual system
+[phone-390x844] › browser-tests/visual-fidelity.pw.ts:129:1 › fixed art reference compositions retain the Meowcenary visual system
+/home/jon/projects/meowcenary-worktrees/meowcenary-loadout-closeout/browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-phone-390x844-linux.png is re-generated, writing actual.
+
+(node:2032197) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[3/6] [foldable-1114x720] › browser-tests/loadout-layout-completion.pw.ts:93:1 › Equipment renders the equipped native helmet at the approved visible size
+[4/6] [foldable-1114x720] › browser-tests/visual-fidelity.pw.ts:129:1 › fixed art reference compositions retain the Meowcenary visual system
+[foldable-1114x720] › browser-tests/visual-fidelity.pw.ts:129:1 › fixed art reference compositions retain the Meowcenary visual system
+/home/jon/projects/meowcenary-worktrees/meowcenary-loadout-closeout/browser-tests/visual-fidelity.pw.ts-snapshots/loadout-equipment-foldable-1114x720-linux.png is re-generated, writing actual.
+
+/home/jon/projects/meowcenary-worktrees/meowcenary-loadout-closeout/browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-foldable-1114x720-linux.png is re-generated, writing actual.
+
+(node:2033203) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[5/6] [desktop-1280x720] › browser-tests/loadout-layout-completion.pw.ts:93:1 › Equipment renders the equipped native helmet at the approved visible size
+[6/6] [desktop-1280x720] › browser-tests/visual-fidelity.pw.ts:129:1 › fixed art reference compositions retain the Meowcenary visual system
+[desktop-1280x720] › browser-tests/visual-fidelity.pw.ts:129:1 › fixed art reference compositions retain the Meowcenary visual system
+/home/jon/projects/meowcenary-worktrees/meowcenary-loadout-closeout/browser-tests/visual-fidelity.pw.ts-snapshots/loadout-equipment-desktop-1280x720-linux.png is re-generated, writing actual.
+
+/home/jon/projects/meowcenary-worktrees/meowcenary-loadout-closeout/browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-desktop-1280x720-linux.png is re-generated, writing actual.
+
+  6 passed (1.2m)

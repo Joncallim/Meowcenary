@@ -1,0 +1,114 @@
+[WebServer] (node:1952859) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 3 tests using 1 worker
+
+(node:1952885) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/3] [phone-390x844] › browser-tests/loadout-layout-completion.pw.ts:90:1 › Equipment renders the equipped native helmet at the approved visible size
+  1) [phone-390x844] › browser-tests/loadout-layout-completion.pw.ts:90:1 › Equipment renders the equipped native helmet at the approved visible size
+
+    Error: expect(received).toBeCloseTo(expected, precision)
+
+    Expected: 144
+    Received: 47.5
+
+    Expected precision:    1
+    Expected difference: < 0.05
+    Received difference:   96.5
+
+       96 |   const visible = rows.map(row => alpha(row, 96, 96, 10, 10, 76, 75));
+       97 |   const target = page.viewportSize()!.width < 380 ? 128 : page.viewportSize()!.width < 1000 ? 144 : 264;
+    >  98 |   expect(Math.max(...visible.map(bounds => Math.max(bounds.width, bounds.height)))).toBeCloseTo(target, 1);
+          |                                                                                     ^
+       99 |   expect(JSON.parse(state.saved).equipmentLoadout.helmet).toBe('helmet');
+      100 | });
+      101 | test('Gunsmith Pistol chassis and receiver use one native assembly transform at the approved visible width', async ({ page }, testInfo) => {
+        at /home/jon/projects/meowcenary-worktrees/meowcenary-loadout-closeout/browser-tests/loadout-layout-completion.pw.ts:98:85
+
+    attachment #1: equipment-native-size (image/png) ───────────────────────────────────────────────
+    ../../meowcenary-evidence/loadout-closeout/baseline-red-artifacts/loadout-layout-completion.-0b1b6-t-the-approved-visible-size-phone-390x844/attachments/equipment-native-size-ac54997fa7d32b57995e94f7aa6550cdf3680ec8.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../meowcenary-evidence/loadout-closeout/baseline-red-artifacts/loadout-layout-completion.-0b1b6-t-the-approved-visible-size-phone-390x844/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../meowcenary-evidence/loadout-closeout/baseline-red-artifacts/loadout-layout-completion.-0b1b6-t-the-approved-visible-size-phone-390x844/error-context.md
+
+
+(node:1953105) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[2/3] [phone-390x844] › browser-tests/loadout-layout-completion.pw.ts:101:1 › Gunsmith Pistol chassis and receiver use one native assembly transform at the approved visible width
+  2) [phone-390x844] › browser-tests/loadout-layout-completion.pw.ts:101:1 › Gunsmith Pistol chassis and receiver use one native assembly transform at the approved visible width
+
+    Error: expect(received).toBeCloseTo(expected, precision)
+
+    Expected: 326
+    Received: 54.07821229050279
+
+    Expected precision:    1
+    Expected difference: < 0.05
+    Received difference:   271.9217877094972
+
+      112 |   const unionWidth = Math.max(a.x + a.width, b.x + b.width) - Math.min(a.x, b.x);
+      113 |   const width = page.viewportSize()!.width;
+    > 114 |   expect(unionWidth).toBeCloseTo(Math.min(700, width - 64), 1);
+          |                      ^
+      115 |   expect(JSON.parse(state.saved).gunsmith.builds[0].fitted.receiver).toBe('heavy');
+      116 | });
+      117 | test('Gunsmith candidate touch or pointer previews replacement before a separate commit', async ({ page }, testInfo) => {
+        at /home/jon/projects/meowcenary-worktrees/meowcenary-loadout-closeout/browser-tests/loadout-layout-completion.pw.ts:114:22
+
+    attachment #1: pistol-native-assembly (image/png) ──────────────────────────────────────────────
+    ../../meowcenary-evidence/loadout-closeout/baseline-red-artifacts/loadout-layout-completion.-a42ae--the-approved-visible-width-phone-390x844/attachments/pistol-native-assembly-c5561b1af90055d0588a4cbd79bf496d936a05ec.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../meowcenary-evidence/loadout-closeout/baseline-red-artifacts/loadout-layout-completion.-a42ae--the-approved-visible-width-phone-390x844/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../meowcenary-evidence/loadout-closeout/baseline-red-artifacts/loadout-layout-completion.-a42ae--the-approved-visible-width-phone-390x844/error-context.md
+
+
+(node:1953299) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[3/3] [phone-390x844] › browser-tests/loadout-layout-completion.pw.ts:117:1 › Gunsmith candidate touch or pointer previews replacement before a separate commit
+  3) [phone-390x844] › browser-tests/loadout-layout-completion.pw.ts:117:1 › Gunsmith candidate touch or pointer previews replacement before a separate commit
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "{\"version\":4,\"settings\":{\"muted\":true,\"musicVolume\":0,\"sfxVolume\":0,\"reducedMotion\":true},\"progression\":{\"scrap\":640,\"unlocks\":[\"capability:equipment-tier-2\"]},\"stages\":{},\"achievements\":{},\"characters\":{},\"gunsmith\":{\"selectedBuildId\":\"build:pistol\",\"fabricationSerials\":{},\"builds\":[{\"id\":\"build:pistol\",\"name\":\"Pistol Build\",\"baseWeaponFamily\":\"pistol\",\"fitted\":{\"receiver\":\"heavy\"},\"traitParts\":[]},{\"id\":\"build:smg\",\"name\":\"SMG Build\",\"baseWeaponFamily\":\"smg\",\"fitted\":{},\"traitParts\":[]},{\"id\":\"build:shotgun\",\"name\":\"Shotgun Build\",\"baseWeaponFamily\":\"shotgun\",\"fitted\":{},\"traitParts\":[]}],\"parts\":{\"heavy\":{\"partId\":\"part:receiver-heavy\",\"tier\":2,\"infusedTraits\":[]},\"compact\":{\"partId\":\"part:receiver-compact\",\"tier\":1,\"infusedTraits\":[]}}},\"equipment\":{\"helmet\":{\"equipmentId\":\"equipment:scavenger-helmet\",\"tier\":1},\"armour\":{\"equipmentId\":\"equipment:scavenger-armour\",\"tier\":1}},\"equipmentLoadout\":{\"helmet\":\"helmet\",\"armour\":\"armour\"}}"
+    Received: "{\"version\":4,\"settings\":{\"muted\":true,\"musicVolume\":0,\"sfxVolume\":0,\"reducedMotion\":true},\"progression\":{\"scrap\":640,\"unlocks\":[\"capability:equipment-tier-2\"]},\"stages\":{},\"achievements\":{},\"achievementMetrics\":{},\"characters\":{},\"gunsmith\":{\"builds\":[{\"id\":\"build:pistol\",\"name\":\"Pistol Build\",\"baseWeaponFamily\":\"pistol\",\"fitted\":{\"receiver\":\"compact\"},\"traitParts\":[]},{\"id\":\"build:smg\",\"name\":\"SMG Build\",\"baseWeaponFamily\":\"smg\",\"fitted\":{},\"traitParts\":[]},{\"id\":\"build:shotgun\",\"name\":\"Shotgun Build\",\"baseWeaponFamily\":\"shotgun\",\"fitted\":{},\"traitParts\":[]}],\"parts\":{\"heavy\":{\"partId\":\"part:receiver-heavy\",\"tier\":2,\"infusedTraits\":[]},\"compact\":{\"partId\":\"part:receiver-compact\",\"tier\":1,\"infusedTraits\":[]}},\"selectedBuildId\":\"build:pistol\",\"fabricationSerials\":{}},\"equipment\":{\"helmet\":{\"equipmentId\":\"equipment:scavenger-helmet\",\"tier\":1},\"armour\":{\"equipmentId\":\"equipment:scavenger-armour\",\"tier\":1}},\"equipmentLoadout\":{\"helmet\":\"helmet\",\"armour\":\"armour\"},\"items\":{},\"bosses\":{},\"compendium\":{},\"pendingAchievementReports\":[],\"appliedGrantTransactions\":{},\"grantTransactionFingerprints\":{}}"
+
+      121 |   await evidence(page, testInfo, 'replacement-preview');
+      122 |   const preview = await read(page);
+    > 123 |   expect(preview.saved).toBe(before.saved);
+          |                         ^
+      124 |   expect(preview.diagnostic.focusedKey).toBe('gunsmith-commit');
+      125 |   expect(preview.diagnostic.buttons.find(button => button.key === 'gunsmith-commit')!.text).toContain('REPLACE HEAVY RECEIVER T2');
+      126 |   expect(preview.diagnostic.copy.join('\n')).toContain('storage');
+        at /home/jon/projects/meowcenary-worktrees/meowcenary-loadout-closeout/browser-tests/loadout-layout-completion.pw.ts:123:25
+
+    attachment #1: replacement-preview (image/png) ─────────────────────────────────────────────────
+    ../../meowcenary-evidence/loadout-closeout/baseline-red-artifacts/loadout-layout-completion.-dc1c0-nt-before-a-separate-commit-phone-390x844/attachments/replacement-preview-253e7f271a98f44d307ac4d6cf828ea0bf1b879d.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../meowcenary-evidence/loadout-closeout/baseline-red-artifacts/loadout-layout-completion.-dc1c0-nt-before-a-separate-commit-phone-390x844/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../meowcenary-evidence/loadout-closeout/baseline-red-artifacts/loadout-layout-completion.-dc1c0-nt-before-a-separate-commit-phone-390x844/error-context.md
+
+
+  3 failed
+    [phone-390x844] › browser-tests/loadout-layout-completion.pw.ts:90:1 › Equipment renders the equipped native helmet at the approved visible size
+    [phone-390x844] › browser-tests/loadout-layout-completion.pw.ts:101:1 › Gunsmith Pistol chassis and receiver use one native assembly transform at the approved visible width
+    [phone-390x844] › browser-tests/loadout-layout-completion.pw.ts:117:1 › Gunsmith candidate touch or pointer previews replacement before a separate commit

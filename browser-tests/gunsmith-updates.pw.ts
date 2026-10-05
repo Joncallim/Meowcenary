@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-type Diagnostic = { panel: string; focusedKey?: string; buttons: Array<{ key?: string;
+type Diagnostic = { panel: string; focusedKey?: string; scroll?: { top: number; bottom: number }; buttons: Array<{ key?: string;
   text: string; focused: boolean; visible: boolean; interactive: boolean;
   bounds: { x: number; y: number; width: number; height: number } }> };
 type PerformanceState = { events: Array<{ owner: string; facts: Record<string, unknown> }>;
@@ -8,7 +8,8 @@ type PerformanceState = { events: Array<{ owner: string; facts: Record<string, u
 type Seams = typeof globalThis & {
   __MEOWCENARY_VISUAL_TEST__: { showMenu(panel: string): boolean;
     waitForMenuPresentation(): Promise<boolean>; isMenuInputNeutral(): boolean;
-    menuFocusedKey(): string | undefined; menuLoadoutDiagnostics(): Diagnostic };
+    menuFocusedKey(): string | undefined; menuLoadoutDiagnostics(): Diagnostic;
+    freeze(): Promise<void>; resume(): void };
   __MEOWCENARY_PERFORMANCE__: { snapshot(): PerformanceState; resetMeasurement(): void };
 };
 const diagnostic = (page: Page) => page.evaluate(() =>
@@ -55,17 +56,28 @@ async function press(page: Page, key: string): Promise<string | undefined> {
   expect(released.neutral, `${key} sampled released`).toBe(true);
   return released.focusedKey;
 }
-async function focus(page: Page, key: string, direction = 'ArrowDown'): Promise<void> {
+async function focus(page: Page, key: string, direction?: string): Promise<void> {
+  const order = direction ? undefined : (await diagnostic(page)).buttons.map(button => button.key);
+  const target = order?.indexOf(key);
+  if (target !== undefined) expect(target).toBeGreaterThanOrEqual(0);
   let focusedKey = await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.menuFocusedKey());
   const started = Date.now();
   let steps = 0;
   try {
     for (; steps < 80; steps += 1) {
       if (focusedKey === key) return;
-      focusedKey = await press(page, direction);
+      let next = direction;
+      if (order && target !== undefined) {
+        const current = order.indexOf(focusedKey);
+        expect(current).toBeGreaterThanOrEqual(0);
+        const count = order.length;
+        next = (target - current + count) % count <= (current - target + count) % count
+          ? 'ArrowRight' : 'ArrowLeft';
+      }
+      focusedKey = await press(page, next!);
     }
   } finally {
-    phase(page, `focus ${key} via ${direction}: steps=${steps} focused=${focusedKey} elapsed=${Date.now() - started}ms`);
+    phase(page, `focus ${key} via ${direction ?? 'shortest wrap'}: steps=${steps} focused=${focusedKey} elapsed=${Date.now() - started}ms`);
   }
   throw new Error(`Missing semantic focus ${key}: ${JSON.stringify(await diagnostic(page))}`);
 }
@@ -122,18 +134,28 @@ async function openGunsmith(page: Page) {
 async function replaceCompact(page: Page, rebuildCount: unknown, hasTouch: boolean | undefined) {
   await focus(page, 'gunsmith-part:compact');
   const target = (await diagnostic(page)).buttons.find(row => row.key === 'gunsmith-part:compact')!;
-  expect(target.text).toContain('REPLACE HEAVY RECEIVER T2');
+  expect(target.text).toContain('STORED');
+  expect(target.text).toContain('Preview change');
+  const before = await checkpoint(page);
   expect(target.visible && target.interactive).toBe(true);
   await reset(page);
   const { x, y, width, height } = target.bounds;
-  if (hasTouch) await page.touchscreen.tap(x + width / 2, y + height / 2);
-  else await page.mouse.click(x + width / 2, y + height / 2);
+  const scroll = before.diagnostic.scroll;
+  const tapY = (Math.max(y, scroll?.top ?? 0) + Math.min(y + height, scroll?.bottom ?? page.viewportSize()!.height)) / 2;
+  if (hasTouch) await page.touchscreen.tap(x + width / 2, tapY);
+  else await page.mouse.click(x + width / 2, tapY);
+  const preview = await assertLocalCommit(page, rebuildCount);
+  expect(preview.saved).toEqual(before.saved);
+  expect(preview.diagnostic.focusedKey).toBe('gunsmith-commit');
+  expect(preview.diagnostic.buttons.find(row => row.key === 'gunsmith-commit')!.text).toContain('REPLACE HEAVY RECEIVER T2');
+  await reset(page);
+  await press(page, 'Enter');
   const replacement = await assertLocalCommit(page, rebuildCount);
   const saved = replacement.saved;
   expect(saved.gunsmith.builds[0].fitted.receiver).toBe('compact');
   expect(saved.gunsmith.parts.heavy).toMatchObject({ partId: 'part:receiver-heavy', tier: 2 });
-  expect(replacement.diagnostic.focusedKey).toBe('gunsmith-part:compact');
-  expect(replacement.diagnostic.buttons.find(row => row.key === 'gunsmith-part:compact')!.text).toContain('FITTED');
+  expect(replacement.diagnostic.focusedKey).toBe('gunsmith-inspect:compact');
+  expect(replacement.diagnostic.buttons.find(row => row.key === 'gunsmith-inspect:compact')!.text).toContain('EQUIPPED');
   phase(page, 'replacement committed and presented');
   return replacement;
 }
@@ -150,11 +172,11 @@ test('Gunsmith family switching preserves builds and parts before replacement in
     // Selection changes the body's fitting commands, not the stored builds or
     // part assignments. Returning to Pistol must restore its replacement row.
     expect(switched.saved.gunsmith).toEqual({ ...gunsmith, selectedBuildId: `build:${family}` });
-    const heavy = switched.diagnostic.buttons.find(row => row.key === 'gunsmith-part:heavy')!;
+    const heavy = switched.diagnostic.buttons.find(row => row.key === (family === 'smg' ? 'gunsmith-part:heavy' : 'gunsmith-inspect:heavy'))!;
     const compact = switched.diagnostic.buttons.find(row => row.key === 'gunsmith-part:compact')!;
-    expect(heavy.text).toContain(family === 'smg' ? 'FITTED TO PISTOL BUILD' : 'FITTED\n');
-    expect(compact.text).toContain('OWNED');
-    expect(compact.text.split('\n').at(-1)).toBe(family === 'smg' ? 'FIT' : 'REPLACE HEAVY RECEIVER T2');
+    expect(heavy.text).toContain(family === 'smg' ? 'EQUIPPED • Pistol Build' : 'EQUIPPED');
+    expect(compact.text).toContain('STORED');
+    expect(compact.text.split('\n').at(-1)).toBe('Preview change');
     phase(page, `${family} selected and presented`);
   }
   await replaceCompact(page, rebuildCount, testInfo.project.use.hasTouch);
@@ -165,7 +187,9 @@ test('Gunsmith replacement retains menu ownership and semantic focus through res
   const { rebuildCount, errors } = await openGunsmith(page);
   const replacement = await replaceCompact(page, rebuildCount, testInfo.project.use.hasTouch);
   const saved = replacement.saved;
-  await page.screenshot({ path: testInfo.outputPath('gunsmith-replacement-committed.png'), scale: 'css' });
+  await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.freeze());
+  try { await page.screenshot({ path: testInfo.outputPath('gunsmith-replacement-committed.png'), scale: 'css' }); }
+  finally { await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.resume()); }
 
   const viewport = page.viewportSize()!;
   await page.setViewportSize({ width: viewport.width + 20, height: viewport.height });
@@ -173,12 +197,13 @@ test('Gunsmith replacement retains menu ownership and semantic focus through res
     resized: (globalThis as Seams).__MEOWCENARY_PERFORMANCE__.snapshot().events.some(event =>
       event.owner === 'menu.render' && event.facts.reason === 'viewport-resize'),
     focusedKey: (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.menuFocusedKey(),
-  }))).toEqual({ resized: true, focusedKey: 'gunsmith-part:compact' });
+  }))).toEqual({ resized: true, focusedKey: 'gunsmith-inspect:compact' });
   phase(page, 'resize focus restored');
   const resize = await checkpoint(page);
   expect(resize.saved.gunsmith).toEqual(saved.gunsmith);
-  expect(resize.diagnostic.focusedKey).toBe('gunsmith-part:compact');
+  expect(resize.diagnostic.focusedKey).toBe('gunsmith-inspect:compact');
   const resized = resize.measurement.events.filter(event => event.owner === 'menu.render').at(-1)!;
+  await focus(page, 'gunsmith-unequip:compact');
   await reset(page);
   await press(page, 'Enter');
   const removal = await assertLocalCommit(page, resized.facts.rebuildCount);
