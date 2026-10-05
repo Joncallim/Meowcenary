@@ -9,8 +9,8 @@ export class LoadoutSurface extends LoadoutPanelSurface<LoadoutSurfaceCommands> 
   readonly panel = 'loadout' as const;
 
   protected draw(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, layout: MenuSurfaceLayout, scrap: number): void {
-    const { width, top, margin, hitTarget } = layout;
-    const contentWidth = Math.min(840, width - margin - this.layout.rightMargin);
+    const { top, hitTarget } = layout;
+    const contentWidth = this.loadoutContentWidth();
     const left = this.layout.centerX - contentWidth / 2;
     this.loadoutHeader(root, left, 'LOADOUT', 'PRE-RUN ENGINEERING');
     let y = top + 26;
@@ -62,12 +62,13 @@ export class LoadoutSurface extends LoadoutPanelSurface<LoadoutSurfaceCommands> 
     const gunsmithHeading = this.loadoutCopy(root, left, y, 'GUNSMITH • ENGINEERED WEAPON FAMILY', contentWidth);
     y += gunsmithHeading.height + 10;
     if (selected) {
+      const previewWidth = 88;
       const previewHeight = 100;
       if (selected.preview) {
-        renderAssembledWeapon(this.environment.controls, root, selected.preview, this.layout.centerX, y + 40, 88);
-        selected.preview.traitEmblems.forEach((trait, index) => this.environment.controls.addCatalogIcon(root, left + 22 + index * 40, y + 40, trait.iconArtId, 34));
+        renderAssembledWeapon(this.environment.controls, root, selected.preview, this.layout.centerX, y + previewHeight / 2, previewWidth, previewHeight);
+        selected.preview.traitEmblems.forEach((trait, index) => this.environment.controls.addCatalogIcon(root, left + 22 + index * 40, y + previewHeight + 20, trait.iconArtId, 34));
       }
-      y += previewHeight;
+      y += previewHeight + (selected.preview?.traitEmblems.length ? 48 : 16);
       const familyCopy = this.loadoutCopy(root, left, y, `${family?.name ?? selected.familyId} • ACTIVE\n${selected.activation.toUpperCase()}\n${selected.summary}`, contentWidth);
       y += familyCopy.height + 8;
       const scoped = equipment.presentation.runTruth.modifiers.filter((modifier) => modifier.scope?.kind === 'weapon-family' && modifier.scope.family === selected.familyId);

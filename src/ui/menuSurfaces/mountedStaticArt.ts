@@ -32,14 +32,14 @@ export class MountedStaticArt {
     if (!ready) this.pending.set(node, slot);
   }
 
-  hydrate(exists: (key: string) => boolean): number {
+  hydrate(exists: (key: string, frame?: string | number) => boolean): number {
     if (!this.canHydrate) return 0;
     let changed = 0;
     for (const [node, slot] of this.pending) {
       // Phaser clears scene during destroy. The mount also clears this set
       // before teardown, so obsolete nodes cannot be resurrected.
       if (!node.scene) { this.pending.delete(node); continue; }
-      if (!exists(slot.textureKey)) continue;
+      if (!exists(slot.textureKey, slot.frame)) continue;
       node.setTexture!(slot.textureKey, slot.frame);
       node.setDisplaySize(slot.width, slot.height);
       node.setAlpha(slot.alpha);

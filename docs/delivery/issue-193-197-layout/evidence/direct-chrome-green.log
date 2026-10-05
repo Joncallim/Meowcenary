@@ -1,0 +1,10 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-loadout-closeout
+
+ ✓ tests/gunsmithSurfaceFlow.test.ts (16 tests) 26ms
+ ✓ tests/menuScene.test.ts (165 tests) 5227ms
+
+ Test Files  2 passed (2)
+      Tests  181 passed (181)
+   Start at  11:56:04
+   Duration  6.38s (transform 894ms, setup 0ms, collect 1.14s, tests 5.25s, environment 0ms, prepare 181ms)

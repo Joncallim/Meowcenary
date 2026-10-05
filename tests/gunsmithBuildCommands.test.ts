@@ -131,6 +131,22 @@ describe('Gunsmith Build commands', () => {
     expect(controller.snapshot().selectedBuild?.preview).toEqual(preview);
   });
 
+  it('exposes immutable resolved weapon-stat rows for the exact persistent preview and committed result', () => {
+    const { controller } = setup();
+    controller.selectSlot('barrel');
+    expect(controller.previewPart('long')).toMatchObject({ ok: true });
+    const comparison = controller.snapshot().candidateComparison as unknown as {
+      stats?: readonly { key: string; label: string; before: number; after: number; direction: string }[];
+    };
+    expect(comparison.stats).toHaveLength(7);
+    expect(comparison.stats?.find(row => row.key === 'range')).toMatchObject({ label: 'Range', direction: 'better' });
+    expect(comparison.stats?.find(row => row.key === 'spreadDeg')?.label).toBe('Accuracy');
+    expect(comparison.stats?.find(row => row.key === 'intervalMs')?.label).toBe('Fire Rate');
+    expect(Object.isFrozen(comparison.stats)).toBe(true);
+    expect(comparison.stats?.every(Object.isFrozen)).toBe(true);
+    expect(controller.commitPreview()).toMatchObject({ ok: true });
+  });
+
   it('normalizes both displayed and commanded slots after changing weapon family', () => {
     const { controller, context } = setup();
     controller.createBuild('smg');

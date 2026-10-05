@@ -1,0 +1,318 @@
+{
+  "baseline": "8eb45a7b4ce16475fca87e70779e84cc0effed77",
+  "unchangedThresholdsTimeoutsRetriesSkips": true,
+  "files": [
+    {
+      "path": "browser-tests/responsive.pw.ts-snapshots/compact-loadout-desktop-1280x720-linux.png",
+      "previousSha256": "fcc0332cb7cfe6b414f196a73914be631945d758ef62019424a5a1910417f609",
+      "candidateSha256": "611a1e8ef40d5af6a68e94635eac52a6e9b13957e734ad18a72670df765b8de1",
+      "family": "Loadout",
+      "figmaNodes": [
+        "104:206",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared chrome/lane sizing and compact four-slot overview retained; Equipment/Gunsmith routes and readiness retained."
+    },
+    {
+      "path": "browser-tests/ui-audit-capture.pw.ts-snapshots/menu-equipment-desktop-1280x720-linux.png",
+      "previousSha256": "588ccc075c175ac273a458d38930f8fd31053202b50bcb599f99cb718fa7262b",
+      "candidateSha256": "9f8f975f49b09dad8cff13d95dcd7720a10a60ae2207c231277dcc17d4e21c74",
+      "family": "Equipment",
+      "figmaNodes": [
+        "129:10",
+        "134:66",
+        "130:22",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Visible tier art enlarged; two phone/four foldable-desktop slots, complete labels inside scroll viewport; redundant Set hero removed."
+    },
+    {
+      "path": "browser-tests/ui-audit-capture.pw.ts-snapshots/menu-equipment-foldable-1114x720-linux.png",
+      "previousSha256": "9635a30276160c27ca7aaa9b7781ff1a9e1bcc8fad5b1d399e381254740630c1",
+      "candidateSha256": "815916b3768d74315dcd3d9519c93018c768b8344c12bdcc000dbdd002310b9a",
+      "family": "Equipment",
+      "figmaNodes": [
+        "129:10",
+        "134:66",
+        "130:22",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Visible tier art enlarged; two phone/four foldable-desktop slots, complete labels inside scroll viewport; redundant Set hero removed."
+    },
+    {
+      "path": "browser-tests/ui-audit-capture.pw.ts-snapshots/menu-equipment-phone-390x844-linux.png",
+      "previousSha256": "2370e31df3be992bb9a11d216caf6c35403484a744d41811d54f8773641c1f30",
+      "candidateSha256": "ebfc21dd4b0a88021fe5655feb86b7211701d63deced921897d72722a7d7e6ad",
+      "family": "Equipment",
+      "figmaNodes": [
+        "129:10",
+        "134:66",
+        "130:22",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Visible tier art enlarged; two phone/four foldable-desktop slots, complete labels inside scroll viewport; redundant Set hero removed."
+    },
+    {
+      "path": "browser-tests/ui-audit-capture.pw.ts-snapshots/menu-gunsmith-desktop-1280x720-linux.png",
+      "previousSha256": "26104d250c3f149fa0ef22e7281249cad01177dea025d631c6bce65df792d6eb",
+      "candidateSha256": "529098686bdd8af780f5a7daf5f8643a175c34457d073508c972f307433cf578",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    },
+    {
+      "path": "browser-tests/ui-audit-capture.pw.ts-snapshots/menu-gunsmith-foldable-1114x720-linux.png",
+      "previousSha256": "acc245f731cdc495aac5fd6114ea790a6abece3a5d1c7ebaaf3abce96a2ce7fc",
+      "candidateSha256": "4e0eecff78d1ff1829e801c9d38009df1fc425d74d6d9704503bc994306c3d5b",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    },
+    {
+      "path": "browser-tests/ui-audit-capture.pw.ts-snapshots/menu-gunsmith-phone-390x844-linux.png",
+      "previousSha256": "7d75e9137320779aeca7613a3a9178b545f9b2f9682325a04d7a1735936da685",
+      "candidateSha256": "6b8cb7bcc22b1e9cd6b5915394bb7e28226825adda02670933a030a70b8189b1",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    },
+    {
+      "path": "browser-tests/ui-audit-capture.pw.ts-snapshots/menu-loadout-desktop-1280x720-linux.png",
+      "previousSha256": "c02e12feeff655f52f4200c17421b6558caf30ad930df0ce42be5ddb0bc875b1",
+      "candidateSha256": "a41e1e8ae93ea94d01f69b044bd5ad7b98d328cb6fb3ef250f912c9ef441d014",
+      "family": "Loadout",
+      "figmaNodes": [
+        "104:206",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared chrome/lane sizing and compact four-slot overview retained; Equipment/Gunsmith routes and readiness retained."
+    },
+    {
+      "path": "browser-tests/ui-audit-capture.pw.ts-snapshots/menu-loadout-foldable-1114x720-linux.png",
+      "previousSha256": "a079283d1f98eb7e6ee155dada9da00d1544b75508d1b894aa85d7122154b41e",
+      "candidateSha256": "031253bb4cd6ce4a05da7835c7b193560fed8a1cdc091a312252a6d6ae81f255",
+      "family": "Loadout",
+      "figmaNodes": [
+        "104:206",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared chrome/lane sizing and compact four-slot overview retained; Equipment/Gunsmith routes and readiness retained."
+    },
+    {
+      "path": "browser-tests/ui-audit-capture.pw.ts-snapshots/menu-loadout-phone-390x844-linux.png",
+      "previousSha256": "fc4f934ad12e17a3bee6780293c1fe1690dedf528d3f795f15ceee72bec47dec",
+      "candidateSha256": "688109f1d5764d87c4521c138a4d1ee62c5b23b725f0ca6ae037018ff4314602",
+      "family": "Loadout",
+      "figmaNodes": [
+        "104:206",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared chrome/lane sizing and compact four-slot overview retained; Equipment/Gunsmith routes and readiness retained."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-desktop-1280x720-linux.png",
+      "previousSha256": "f9fb16c57f4fde0ae8cb7651b48de33c7f98b24f7a3988354b2b6fc882815b6d",
+      "candidateSha256": "04b033932e7e7e329c18dda5c9385d2f258c6c8ddf5947be27fbf3f5cd062cf9",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-foldable-1114x720-linux.png",
+      "previousSha256": "de8c5742a6bc75370efba72c4e963e2b9b318763f9b038de0b8b8754e1ffb28a",
+      "candidateSha256": "574476e96690332715d9b122a050dcb6e7c4c254cd011127b987195dbfc51581",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-phone-390x844-linux.png",
+      "previousSha256": "73895f6f8edbcaba7879c431f8bc9d151a35730a46cc0bb9e5cc8fd84b2ad820",
+      "candidateSha256": "15ce1adef697a6584341687cb6d7e23e0c8a72e6a6b6ddbbe329551d478b18d9",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-parts-desktop-1280x720-linux.png",
+      "previousSha256": "05f926b2d137e676a36da0845199ae9a10afed9b7607bc9e0b82ac53842372f6",
+      "candidateSha256": "a7382ba9e1fa0585fd121dd2ee3a4287c8bb3261db85ea6310f72503699af235",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-parts-foldable-1114x720-linux.png",
+      "previousSha256": "1afb6bf34db3358cc614817b700c596aee941f2e48d37c76954a82df1bfa888a",
+      "candidateSha256": "d531197d3e9fe6ec8e83e96b2a4fa3fe3cfd64f53fa0988daa809b943be94b84",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-parts-phone-390x844-linux.png",
+      "previousSha256": "c4bed216496ae4caf30cd53784b17df8e4a5f9980a53baa7b98356d14e6f3f79",
+      "candidateSha256": "4b903c0e0e7a4b92c2e4979fbb7f39fe697f3faaebb0bc9da7032dbe873b9ef1",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/loadout-equipment-desktop-1280x720-linux.png",
+      "previousSha256": "588ccc075c175ac273a458d38930f8fd31053202b50bcb599f99cb718fa7262b",
+      "candidateSha256": "040134c09d7b0a836777420dada752a4d27faad1f88809b3fd94dad7850e0206",
+      "family": "Equipment",
+      "figmaNodes": [
+        "129:10",
+        "134:66",
+        "130:22",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Visible tier art enlarged; two phone/four foldable-desktop slots, complete labels inside scroll viewport; redundant Set hero removed."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/loadout-equipment-foldable-1114x720-linux.png",
+      "previousSha256": "9635a30276160c27ca7aaa9b7781ff1a9e1bcc8fad5b1d399e381254740630c1",
+      "candidateSha256": "815916b3768d74315dcd3d9519c93018c768b8344c12bdcc000dbdd002310b9a",
+      "family": "Equipment",
+      "figmaNodes": [
+        "129:10",
+        "134:66",
+        "130:22",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Visible tier art enlarged; two phone/four foldable-desktop slots, complete labels inside scroll viewport; redundant Set hero removed."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/loadout-equipment-phone-390x844-linux.png",
+      "previousSha256": "2370e31df3be992bb9a11d216caf6c35403484a744d41811d54f8773641c1f30",
+      "candidateSha256": "ebfc21dd4b0a88021fe5655feb86b7211701d63deced921897d72722a7d7e6ad",
+      "family": "Equipment",
+      "figmaNodes": [
+        "129:10",
+        "134:66",
+        "130:22",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Visible tier art enlarged; two phone/four foldable-desktop slots, complete labels inside scroll viewport; redundant Set hero removed."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-desktop-1280x720-linux.png",
+      "previousSha256": "02acc6e1fee2598367e8c2073a5e857b199b8e67f888afecfa2ee31b3b4aba9a",
+      "candidateSha256": "529098686bdd8af780f5a7daf5f8643a175c34457d073508c972f307433cf578",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-foldable-1114x720-linux.png",
+      "previousSha256": "6f9007fe4696196857ad7e4802b613db10aff6da046a9f3fbf9ad9f75abede2e",
+      "candidateSha256": "4e0eecff78d1ff1829e801c9d38009df1fc425d74d6d9704503bc994306c3d5b",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-phone-390x844-linux.png",
+      "previousSha256": "788a1b8aec8bbcd5977ae40e309800c782cc9a06bf0ac773e22aa0701dd29fdd",
+      "candidateSha256": "6b8cb7bcc22b1e9cd6b5915394bb7e28226825adda02670933a030a70b8189b1",
+      "family": "Gunsmith",
+      "figmaNodes": [
+        "130:76",
+        "145:102",
+        "130:94",
+        "54:76",
+        "146:102"
+      ],
+      "inspection": "Inspected candidate against previous implementation and Figma references; accepted implementation delta only, human approval pending.",
+      "explanation": "Shared dark chrome, family rail, separate Build/Workshop/Parts, visible union-framed assembled art; Parts capture navigates semantic tab. Large portrait assembly and catalogs use existing shared scroll."
+    }
+  ]
+}

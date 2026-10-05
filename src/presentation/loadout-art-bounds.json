@@ -1,0 +1,1930 @@
+{
+  "schemaVersion": 1,
+  "alphaThreshold": 16,
+  "sources": {
+    "public/assets/equipment/commando/commando-equipment-atlas.json": "b118fc2095ddbd45e1d8614b1c09ed8abaae43a4f5e426f512ab51644aee6ee6",
+    "public/assets/equipment/commando/commando-equipment-atlas.png": "54728a764deeb63a4b396b79191b933346bb849ac0e6ecb148a24a3523bc14d6",
+    "public/assets/equipment/sets/equipment-sets-atlas.json": "e8732d34d9f0f7812cc02a218668e7ebbebf37909e9b18e089d9228b6eb49229",
+    "public/assets/equipment/sets/equipment-sets-atlas.png": "7120f60c3696613c7ccfbabf4f6b7ba111a19b9867776e707e201a3eceb6d393",
+    "public/assets/gunsmith/icons/gunsmith-icons-atlas.json": "d0e905c0b6bd905d7d7d2636048300bd37dc813999d69a2ce3700513fae1d400",
+    "public/assets/gunsmith/icons/gunsmith-icons-atlas.png": "41235c7cc3738ade75d114fd09ce89ce5bbc5b40820407510664e25071f708e9",
+    "public/assets/gunsmith/tiers/gunsmith-tier-assembly-atlas.json": "df04b0edb7372dcf2b3330094b56b5fab96ea437b6a0d281641dbfea28469e7f",
+    "public/assets/gunsmith/tiers/gunsmith-tier-assembly-atlas.png": "a57422a64f9ae18854015d70661669c1eff98001ae230c9c4580b047036d176e",
+    "public/assets/gunsmith/tiers/gunsmith-tier-icons-atlas.json": "5a9b4bd7d8007843ab7516b6e25aeefc01f25e5bee17afed61a35a0d62b035e1",
+    "public/assets/gunsmith/tiers/gunsmith-tier-icons-atlas.png": "747fb55afcf572879672eff2ebfd41e16e974f891fd801bdcb553afa75eeace8"
+  },
+  "bounds": {
+    "equipment-icon:commando-armour": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 12,
+      "top": 13,
+      "width": 72,
+      "height": 69
+    },
+    "equipment-icon:commando-armour:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 12,
+      "width": 77,
+      "height": 71
+    },
+    "equipment-icon:commando-armour:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 11,
+      "width": 77,
+      "height": 73
+    },
+    "equipment-icon:commando-armour:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 11,
+      "width": 84,
+      "height": 73
+    },
+    "equipment-icon:commando-boots": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 10,
+      "width": 79,
+      "height": 75
+    },
+    "equipment-icon:commando-boots:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 9,
+      "width": 79,
+      "height": 77
+    },
+    "equipment-icon:commando-boots:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 8,
+      "width": 81,
+      "height": 79
+    },
+    "equipment-icon:commando-boots:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 7,
+      "width": 84,
+      "height": 82
+    },
+    "equipment-icon:commando-gloves": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 13,
+      "width": 81,
+      "height": 70
+    },
+    "equipment-icon:commando-gloves:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 12,
+      "width": 81,
+      "height": 72
+    },
+    "equipment-icon:commando-gloves:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 10,
+      "width": 84,
+      "height": 76
+    },
+    "equipment-icon:commando-gloves:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 8,
+      "width": 83,
+      "height": 80
+    },
+    "equipment-icon:commando-helmet": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 11,
+      "top": 16,
+      "width": 74,
+      "height": 64
+    },
+    "equipment-icon:commando-helmet:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 15,
+      "width": 76,
+      "height": 65
+    },
+    "equipment-icon:commando-helmet:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 15,
+      "width": 77,
+      "height": 66
+    },
+    "equipment-icon:commando-helmet:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 12,
+      "width": 84,
+      "height": 72
+    },
+    "equipment-icon:demolition-armour": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 15,
+      "top": 22,
+      "width": 66,
+      "height": 51
+    },
+    "equipment-icon:demolition-armour:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 18,
+      "width": 79,
+      "height": 59
+    },
+    "equipment-icon:demolition-armour:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 17,
+      "width": 84,
+      "height": 62
+    },
+    "equipment-icon:demolition-armour:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 13,
+      "width": 80,
+      "height": 70
+    },
+    "equipment-icon:demolition-boots": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 25,
+      "width": 78,
+      "height": 45
+    },
+    "equipment-icon:demolition-boots:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 22,
+      "width": 77,
+      "height": 52
+    },
+    "equipment-icon:demolition-boots:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 21,
+      "width": 84,
+      "height": 54
+    },
+    "equipment-icon:demolition-boots:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 17,
+      "width": 80,
+      "height": 62
+    },
+    "equipment-icon:demolition-gloves": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 23,
+      "width": 76,
+      "height": 49
+    },
+    "equipment-icon:demolition-gloves:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 22,
+      "width": 81,
+      "height": 51
+    },
+    "equipment-icon:demolition-gloves:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 20,
+      "width": 84,
+      "height": 55
+    },
+    "equipment-icon:demolition-gloves:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 18,
+      "width": 80,
+      "height": 59
+    },
+    "equipment-icon:demolition-helmet": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 15,
+      "top": 21,
+      "width": 65,
+      "height": 54
+    },
+    "equipment-icon:demolition-helmet:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 11,
+      "top": 19,
+      "width": 74,
+      "height": 58
+    },
+    "equipment-icon:demolition-helmet:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 17,
+      "width": 82,
+      "height": 61
+    },
+    "equipment-icon:demolition-helmet:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 10,
+      "width": 84,
+      "height": 76
+    },
+    "equipment-icon:juggernaut-armour": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 17,
+      "width": 75,
+      "height": 62
+    },
+    "equipment-icon:juggernaut-armour:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 15,
+      "width": 76,
+      "height": 66
+    },
+    "equipment-icon:juggernaut-armour:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 13,
+      "width": 82,
+      "height": 69
+    },
+    "equipment-icon:juggernaut-armour:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 10,
+      "width": 84,
+      "height": 75
+    },
+    "equipment-icon:juggernaut-boots": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 15,
+      "width": 76,
+      "height": 65
+    },
+    "equipment-icon:juggernaut-boots:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 14,
+      "width": 81,
+      "height": 67
+    },
+    "equipment-icon:juggernaut-boots:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 15,
+      "width": 81,
+      "height": 66
+    },
+    "equipment-icon:juggernaut-boots:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 13,
+      "width": 84,
+      "height": 70
+    },
+    "equipment-icon:juggernaut-gloves": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 11,
+      "top": 20,
+      "width": 73,
+      "height": 56
+    },
+    "equipment-icon:juggernaut-gloves:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 16,
+      "width": 78,
+      "height": 63
+    },
+    "equipment-icon:juggernaut-gloves:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 15,
+      "width": 81,
+      "height": 65
+    },
+    "equipment-icon:juggernaut-gloves:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 15,
+      "width": 84,
+      "height": 66
+    },
+    "equipment-icon:juggernaut-helmet": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 12,
+      "width": 75,
+      "height": 71
+    },
+    "equipment-icon:juggernaut-helmet:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 12,
+      "width": 79,
+      "height": 71
+    },
+    "equipment-icon:juggernaut-helmet:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 12,
+      "width": 82,
+      "height": 71
+    },
+    "equipment-icon:juggernaut-helmet:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 9,
+      "width": 84,
+      "height": 77
+    },
+    "equipment-icon:medic-armour": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 11,
+      "top": 19,
+      "width": 73,
+      "height": 58
+    },
+    "equipment-icon:medic-armour:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 16,
+      "width": 80,
+      "height": 64
+    },
+    "equipment-icon:medic-armour:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 13,
+      "width": 83,
+      "height": 70
+    },
+    "equipment-icon:medic-armour:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 14,
+      "width": 84,
+      "height": 68
+    },
+    "equipment-icon:medic-boots": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 11,
+      "top": 14,
+      "width": 73,
+      "height": 67
+    },
+    "equipment-icon:medic-boots:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 13,
+      "width": 80,
+      "height": 69
+    },
+    "equipment-icon:medic-boots:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 12,
+      "width": 83,
+      "height": 72
+    },
+    "equipment-icon:medic-boots:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 10,
+      "width": 84,
+      "height": 75
+    },
+    "equipment-icon:medic-gloves": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 11,
+      "top": 20,
+      "width": 73,
+      "height": 55
+    },
+    "equipment-icon:medic-gloves:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 17,
+      "width": 79,
+      "height": 61
+    },
+    "equipment-icon:medic-gloves:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 18,
+      "width": 78,
+      "height": 60
+    },
+    "equipment-icon:medic-gloves:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 13,
+      "width": 84,
+      "height": 69
+    },
+    "equipment-icon:medic-helmet": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 15,
+      "top": 18,
+      "width": 66,
+      "height": 59
+    },
+    "equipment-icon:medic-helmet:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 14,
+      "width": 80,
+      "height": 67
+    },
+    "equipment-icon:medic-helmet:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 13,
+      "width": 76,
+      "height": 70
+    },
+    "equipment-icon:medic-helmet:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 11,
+      "width": 84,
+      "height": 74
+    },
+    "equipment-icon:pyro-armour": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 15,
+      "width": 80,
+      "height": 66
+    },
+    "equipment-icon:pyro-armour:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 13,
+      "width": 82,
+      "height": 69
+    },
+    "equipment-icon:pyro-armour:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 13,
+      "width": 84,
+      "height": 70
+    },
+    "equipment-icon:pyro-armour:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 9,
+      "width": 82,
+      "height": 77
+    },
+    "equipment-icon:pyro-boots": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 14,
+      "width": 76,
+      "height": 68
+    },
+    "equipment-icon:pyro-boots:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 11,
+      "width": 79,
+      "height": 73
+    },
+    "equipment-icon:pyro-boots:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 12,
+      "width": 84,
+      "height": 72
+    },
+    "equipment-icon:pyro-boots:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 9,
+      "width": 82,
+      "height": 78
+    },
+    "equipment-icon:pyro-gloves": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 18,
+      "width": 77,
+      "height": 60
+    },
+    "equipment-icon:pyro-gloves:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 14,
+      "width": 81,
+      "height": 67
+    },
+    "equipment-icon:pyro-gloves:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 13,
+      "width": 84,
+      "height": 69
+    },
+    "equipment-icon:pyro-gloves:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 10,
+      "width": 80,
+      "height": 76
+    },
+    "equipment-icon:pyro-helmet": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 10,
+      "width": 77,
+      "height": 75
+    },
+    "equipment-icon:pyro-helmet:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 10,
+      "width": 82,
+      "height": 75
+    },
+    "equipment-icon:pyro-helmet:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 10,
+      "width": 83,
+      "height": 76
+    },
+    "equipment-icon:pyro-helmet:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 8,
+      "width": 84,
+      "height": 80
+    },
+    "equipment-icon:recon-armour": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 12,
+      "top": 13,
+      "width": 72,
+      "height": 69
+    },
+    "equipment-icon:recon-armour:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 13,
+      "width": 77,
+      "height": 70
+    },
+    "equipment-icon:recon-armour:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 11,
+      "width": 84,
+      "height": 73
+    },
+    "equipment-icon:recon-armour:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 11,
+      "width": 80,
+      "height": 74
+    },
+    "equipment-icon:recon-boots": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 13,
+      "width": 82,
+      "height": 69
+    },
+    "equipment-icon:recon-boots:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 13,
+      "width": 81,
+      "height": 70
+    },
+    "equipment-icon:recon-boots:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 12,
+      "width": 84,
+      "height": 72
+    },
+    "equipment-icon:recon-boots:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 11,
+      "width": 84,
+      "height": 73
+    },
+    "equipment-icon:recon-gloves": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 16,
+      "width": 79,
+      "height": 63
+    },
+    "equipment-icon:recon-gloves:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 14,
+      "width": 80,
+      "height": 67
+    },
+    "equipment-icon:recon-gloves:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 13,
+      "width": 83,
+      "height": 70
+    },
+    "equipment-icon:recon-gloves:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 11,
+      "width": 84,
+      "height": 74
+    },
+    "equipment-icon:recon-helmet": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 12,
+      "width": 80,
+      "height": 71
+    },
+    "equipment-icon:recon-helmet:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 12,
+      "width": 81,
+      "height": 71
+    },
+    "equipment-icon:recon-helmet:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 12,
+      "width": 82,
+      "height": 72
+    },
+    "equipment-icon:recon-helmet:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 8,
+      "width": 84,
+      "height": 79
+    },
+    "equipment-icon:scavenger-armour": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 11,
+      "top": 16,
+      "width": 73,
+      "height": 64
+    },
+    "equipment-icon:scavenger-armour:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 17,
+      "width": 78,
+      "height": 62
+    },
+    "equipment-icon:scavenger-armour:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 15,
+      "width": 82,
+      "height": 66
+    },
+    "equipment-icon:scavenger-armour:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 12,
+      "width": 84,
+      "height": 72
+    },
+    "equipment-icon:scavenger-boots": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 13,
+      "width": 77,
+      "height": 70
+    },
+    "equipment-icon:scavenger-boots:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 12,
+      "width": 83,
+      "height": 71
+    },
+    "equipment-icon:scavenger-boots:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 13,
+      "width": 83,
+      "height": 70
+    },
+    "equipment-icon:scavenger-boots:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 10,
+      "width": 84,
+      "height": 75
+    },
+    "equipment-icon:scavenger-gloves": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 18,
+      "width": 75,
+      "height": 59
+    },
+    "equipment-icon:scavenger-gloves:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 17,
+      "width": 78,
+      "height": 62
+    },
+    "equipment-icon:scavenger-gloves:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 16,
+      "width": 83,
+      "height": 63
+    },
+    "equipment-icon:scavenger-gloves:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 15,
+      "width": 84,
+      "height": 66
+    },
+    "equipment-icon:scavenger-helmet": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 10,
+      "width": 76,
+      "height": 75
+    },
+    "equipment-icon:scavenger-helmet:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 10,
+      "width": 77,
+      "height": 75
+    },
+    "equipment-icon:scavenger-helmet:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 10,
+      "width": 84,
+      "height": 75
+    },
+    "equipment-icon:scavenger-helmet:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 7,
+      "top": 6,
+      "width": 82,
+      "height": 83
+    },
+    "equipment-icon:technician-armour": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 14,
+      "top": 20,
+      "width": 68,
+      "height": 56
+    },
+    "equipment-icon:technician-armour:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 18,
+      "width": 75,
+      "height": 59
+    },
+    "equipment-icon:technician-armour:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 8,
+      "top": 17,
+      "width": 79,
+      "height": 61
+    },
+    "equipment-icon:technician-armour:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 12,
+      "width": 84,
+      "height": 71
+    },
+    "equipment-icon:technician-boots": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 20,
+      "width": 76,
+      "height": 55
+    },
+    "equipment-icon:technician-boots:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 20,
+      "width": 77,
+      "height": 56
+    },
+    "equipment-icon:technician-boots:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 19,
+      "width": 78,
+      "height": 58
+    },
+    "equipment-icon:technician-boots:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 16,
+      "width": 84,
+      "height": 63
+    },
+    "equipment-icon:technician-gloves": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 13,
+      "top": 22,
+      "width": 69,
+      "height": 51
+    },
+    "equipment-icon:technician-gloves:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 11,
+      "top": 19,
+      "width": 74,
+      "height": 57
+    },
+    "equipment-icon:technician-gloves:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 18,
+      "width": 77,
+      "height": 59
+    },
+    "equipment-icon:technician-gloves:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 14,
+      "width": 84,
+      "height": 67
+    },
+    "equipment-icon:technician-helmet": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 13,
+      "top": 17,
+      "width": 69,
+      "height": 62
+    },
+    "equipment-icon:technician-helmet:t2": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 11,
+      "top": 17,
+      "width": 74,
+      "height": 61
+    },
+    "equipment-icon:technician-helmet:t3": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 13,
+      "width": 76,
+      "height": 69
+    },
+    "equipment-icon:technician-helmet:t4": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 6,
+      "top": 10,
+      "width": 84,
+      "height": 76
+    },
+    "gun-build-base:pistol": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 89,
+      "top": 69,
+      "width": 110,
+      "height": 100
+    },
+    "gun-build-base:shotgun": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 80,
+      "top": 74,
+      "width": 170,
+      "height": 75
+    },
+    "gun-build-base:smg": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 83,
+      "top": 68,
+      "width": 170,
+      "height": 99
+    },
+    "gun-build-part:barrel-long:t1": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 171,
+      "top": 70,
+      "width": 90,
+      "height": 40
+    },
+    "gun-build-part:barrel-long:t2": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 170,
+      "top": 70,
+      "width": 101,
+      "height": 40
+    },
+    "gun-build-part:barrel-long:t3": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 169,
+      "top": 69,
+      "width": 114,
+      "height": 42
+    },
+    "gun-build-part:barrel-long:t4": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 168,
+      "top": 66,
+      "width": 125,
+      "height": 47
+    },
+    "gun-build-part:barrel-long:t5": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 166,
+      "top": 66,
+      "width": 150,
+      "height": 48
+    },
+    "gun-build-part:barrel-piercing:t1": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 170,
+      "top": 66,
+      "width": 96,
+      "height": 48
+    },
+    "gun-build-part:barrel-piercing:t2": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 170,
+      "top": 66,
+      "width": 96,
+      "height": 48
+    },
+    "gun-build-part:barrel-piercing:t3": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 169,
+      "top": 66,
+      "width": 108,
+      "height": 48
+    },
+    "gun-build-part:barrel-piercing:t4": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 169,
+      "top": 66,
+      "width": 115,
+      "height": 48
+    },
+    "gun-build-part:barrel-piercing:t5": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 169,
+      "top": 65,
+      "width": 111,
+      "height": 50
+    },
+    "gun-build-part:barrel-standard:t1": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 172,
+      "top": 68,
+      "width": 65,
+      "height": 43
+    },
+    "gun-build-part:barrel-standard:t2": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 172,
+      "top": 69,
+      "width": 69,
+      "height": 42
+    },
+    "gun-build-part:barrel-standard:t3": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 172,
+      "top": 69,
+      "width": 74,
+      "height": 43
+    },
+    "gun-build-part:barrel-standard:t4": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 171,
+      "top": 68,
+      "width": 92,
+      "height": 44
+    },
+    "gun-build-part:barrel-standard:t5": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 169,
+      "top": 65,
+      "width": 115,
+      "height": 50
+    },
+    "gun-build-part:magazine-extended:t1": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 166,
+      "top": 112,
+      "width": 20,
+      "height": 42
+    },
+    "gun-build-part:magazine-extended:t2": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 162,
+      "top": 111,
+      "width": 27,
+      "height": 51
+    },
+    "gun-build-part:magazine-extended:t3": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 159,
+      "top": 111,
+      "width": 33,
+      "height": 58
+    },
+    "gun-build-part:magazine-extended:t4": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 155,
+      "top": 111,
+      "width": 42,
+      "height": 56
+    },
+    "gun-build-part:magazine-extended:t5": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 152,
+      "top": 111,
+      "width": 48,
+      "height": 58
+    },
+    "gun-build-part:optic-red-dot:t1": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 124,
+      "top": 52,
+      "width": 37,
+      "height": 28
+    },
+    "gun-build-part:optic-red-dot:t2": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 123,
+      "top": 46,
+      "width": 39,
+      "height": 35
+    },
+    "gun-build-part:optic-red-dot:t3": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 122,
+      "top": 46,
+      "width": 42,
+      "height": 34
+    },
+    "gun-build-part:optic-red-dot:t4": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 118,
+      "top": 45,
+      "width": 51,
+      "height": 36
+    },
+    "gun-build-part:optic-red-dot:t5": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 113,
+      "top": 47,
+      "width": 61,
+      "height": 33
+    },
+    "gun-build-part:receiver-compact:t1": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 108,
+      "top": 68,
+      "width": 64,
+      "height": 49
+    },
+    "gun-build-part:receiver-compact:t2": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 102,
+      "top": 65,
+      "width": 76,
+      "height": 53
+    },
+    "gun-build-part:receiver-compact:t3": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 102,
+      "top": 65,
+      "width": 75,
+      "height": 55
+    },
+    "gun-build-part:receiver-compact:t4": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 98,
+      "top": 62,
+      "width": 83,
+      "height": 59
+    },
+    "gun-build-part:receiver-compact:t5": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 93,
+      "top": 62,
+      "width": 94,
+      "height": 60
+    },
+    "gun-build-part:receiver-heavy:t1": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 106,
+      "top": 66,
+      "width": 68,
+      "height": 51
+    },
+    "gun-build-part:receiver-heavy:t2": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 105,
+      "top": 65,
+      "width": 70,
+      "height": 55
+    },
+    "gun-build-part:receiver-heavy:t3": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 104,
+      "top": 64,
+      "width": 72,
+      "height": 55
+    },
+    "gun-build-part:receiver-heavy:t4": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 105,
+      "top": 63,
+      "width": 71,
+      "height": 57
+    },
+    "gun-build-part:receiver-heavy:t5": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 97,
+      "top": 62,
+      "width": 86,
+      "height": 60
+    },
+    "gun-build-part:stock-padded:t1": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 57,
+      "top": 74,
+      "width": 51,
+      "height": 32
+    },
+    "gun-build-part:stock-padded:t2": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 46,
+      "top": 72,
+      "width": 62,
+      "height": 37
+    },
+    "gun-build-part:stock-padded:t3": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 39,
+      "top": 68,
+      "width": 70,
+      "height": 43
+    },
+    "gun-build-part:stock-padded:t4": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 25,
+      "top": 68,
+      "width": 85,
+      "height": 44
+    },
+    "gun-build-part:stock-padded:t5": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 33,
+      "top": 65,
+      "width": 76,
+      "height": 50
+    },
+    "gun-build-part:trigger-hair:t1": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 125,
+      "top": 114,
+      "width": 35,
+      "height": 26
+    },
+    "gun-build-part:trigger-hair:t2": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 124,
+      "top": 114,
+      "width": 37,
+      "height": 27
+    },
+    "gun-build-part:trigger-hair:t3": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 125,
+      "top": 114,
+      "width": 36,
+      "height": 28
+    },
+    "gun-build-part:trigger-hair:t4": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 123,
+      "top": 114,
+      "width": 40,
+      "height": 27
+    },
+    "gun-build-part:trigger-hair:t5": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 120,
+      "top": 114,
+      "width": 45,
+      "height": 31
+    },
+    "gun-build-part:underbarrel-grenade:t1": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 197,
+      "top": 107,
+      "width": 56,
+      "height": 40
+    },
+    "gun-build-part:underbarrel-grenade:t2": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 196,
+      "top": 107,
+      "width": 59,
+      "height": 41
+    },
+    "gun-build-part:underbarrel-grenade:t3": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 196,
+      "top": 107,
+      "width": 63,
+      "height": 42
+    },
+    "gun-build-part:underbarrel-grenade:t4": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 194,
+      "top": 107,
+      "width": 74,
+      "height": 42
+    },
+    "gun-build-part:underbarrel-grenade:t5": {
+      "frameWidth": 358,
+      "frameHeight": 196,
+      "left": 194,
+      "top": 106,
+      "width": 74,
+      "height": 45
+    },
+    "gun-chassis-icon:pistol": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 26,
+      "top": 6,
+      "width": 75,
+      "height": 68
+    },
+    "gun-chassis-icon:shotgun": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 6,
+      "top": 14,
+      "width": 116,
+      "height": 51
+    },
+    "gun-chassis-icon:smg": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 6,
+      "top": 6,
+      "width": 116,
+      "height": 67
+    },
+    "gun-part-icon:barrel-long:t1": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 29,
+      "top": 25,
+      "width": 69,
+      "height": 31
+    },
+    "gun-part-icon:barrel-long:t2": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 25,
+      "top": 25,
+      "width": 78,
+      "height": 31
+    },
+    "gun-part-icon:barrel-long:t3": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 20,
+      "top": 24,
+      "width": 88,
+      "height": 32
+    },
+    "gun-part-icon:barrel-long:t4": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 16,
+      "top": 22,
+      "width": 96,
+      "height": 36
+    },
+    "gun-part-icon:barrel-long:t5": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 6,
+      "top": 22,
+      "width": 116,
+      "height": 37
+    },
+    "gun-part-icon:barrel-piercing:t1": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 15,
+      "top": 16,
+      "width": 97,
+      "height": 49
+    },
+    "gun-part-icon:barrel-piercing:t2": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 16,
+      "top": 16,
+      "width": 97,
+      "height": 48
+    },
+    "gun-part-icon:barrel-piercing:t3": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 10,
+      "top": 16,
+      "width": 109,
+      "height": 49
+    },
+    "gun-part-icon:barrel-piercing:t4": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 6,
+      "top": 16,
+      "width": 116,
+      "height": 49
+    },
+    "gun-part-icon:barrel-piercing:t5": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 8,
+      "top": 15,
+      "width": 112,
+      "height": 50
+    },
+    "gun-part-icon:barrel-standard:t1": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 31,
+      "top": 18,
+      "width": 65,
+      "height": 44
+    },
+    "gun-part-icon:barrel-standard:t2": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 29,
+      "top": 19,
+      "width": 70,
+      "height": 42
+    },
+    "gun-part-icon:barrel-standard:t3": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 27,
+      "top": 18,
+      "width": 75,
+      "height": 43
+    },
+    "gun-part-icon:barrel-standard:t4": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 18,
+      "top": 18,
+      "width": 93,
+      "height": 44
+    },
+    "gun-part-icon:barrel-standard:t5": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 6,
+      "top": 15,
+      "width": 116,
+      "height": 50
+    },
+    "gun-part-icon:magazine-extended:t1": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 52,
+      "top": 15,
+      "width": 23,
+      "height": 50
+    },
+    "gun-part-icon:magazine-extended:t2": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 48,
+      "top": 10,
+      "width": 32,
+      "height": 60
+    },
+    "gun-part-icon:magazine-extended:t3": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 45,
+      "top": 6,
+      "width": 39,
+      "height": 68
+    },
+    "gun-part-icon:magazine-extended:t4": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 39,
+      "top": 7,
+      "width": 50,
+      "height": 66
+    },
+    "gun-part-icon:magazine-extended:t5": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 36,
+      "top": 6,
+      "width": 56,
+      "height": 67
+    },
+    "gun-part-icon:optic-red-dot:t1": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 29,
+      "top": 14,
+      "width": 70,
+      "height": 52
+    },
+    "gun-part-icon:optic-red-dot:t2": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 27,
+      "top": 7,
+      "width": 74,
+      "height": 67
+    },
+    "gun-part-icon:optic-red-dot:t3": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 25,
+      "top": 7,
+      "width": 79,
+      "height": 65
+    },
+    "gun-part-icon:optic-red-dot:t4": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 16,
+      "top": 6,
+      "width": 96,
+      "height": 68
+    },
+    "gun-part-icon:optic-red-dot:t5": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 7,
+      "top": 8,
+      "width": 115,
+      "height": 63
+    },
+    "gun-part-icon:receiver-compact:t1": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 27,
+      "top": 12,
+      "width": 73,
+      "height": 55
+    },
+    "gun-part-icon:receiver-compact:t2": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 21,
+      "top": 10,
+      "width": 86,
+      "height": 61
+    },
+    "gun-part-icon:receiver-compact:t3": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 21,
+      "top": 9,
+      "width": 86,
+      "height": 62
+    },
+    "gun-part-icon:receiver-compact:t4": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 17,
+      "top": 6,
+      "width": 94,
+      "height": 67
+    },
+    "gun-part-icon:receiver-compact:t5": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 11,
+      "top": 6,
+      "width": 106,
+      "height": 68
+    },
+    "gun-part-icon:receiver-heavy:t1": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 25,
+      "top": 11,
+      "width": 78,
+      "height": 58
+    },
+    "gun-part-icon:receiver-heavy:t2": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 25,
+      "top": 9,
+      "width": 79,
+      "height": 62
+    },
+    "gun-part-icon:receiver-heavy:t3": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 23,
+      "top": 9,
+      "width": 81,
+      "height": 63
+    },
+    "gun-part-icon:receiver-heavy:t4": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 24,
+      "top": 7,
+      "width": 80,
+      "height": 65
+    },
+    "gun-part-icon:receiver-heavy:t5": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 15,
+      "top": 6,
+      "width": 97,
+      "height": 68
+    },
+    "gun-part-icon:stock-padded:t1": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 30,
+      "top": 18,
+      "width": 69,
+      "height": 44
+    },
+    "gun-part-icon:stock-padded:t2": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 22,
+      "top": 15,
+      "width": 85,
+      "height": 50
+    },
+    "gun-part-icon:stock-padded:t3": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 17,
+      "top": 11,
+      "width": 95,
+      "height": 59
+    },
+    "gun-part-icon:stock-padded:t4": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 6,
+      "top": 10,
+      "width": 115,
+      "height": 59
+    },
+    "gun-part-icon:stock-padded:t5": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 12,
+      "top": 6,
+      "width": 104,
+      "height": 68
+    },
+    "gun-part-icon:trait-fire": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 11,
+      "top": 8,
+      "width": 74,
+      "height": 80
+    },
+    "gun-part-icon:trait-fire-mastered": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 12,
+      "top": 8,
+      "width": 74,
+      "height": 80
+    },
+    "gun-part-icon:trigger-hair:t1": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 26,
+      "top": 12,
+      "width": 77,
+      "height": 56
+    },
+    "gun-part-icon:trigger-hair:t2": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 24,
+      "top": 11,
+      "width": 80,
+      "height": 58
+    },
+    "gun-part-icon:trigger-hair:t3": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 25,
+      "top": 9,
+      "width": 78,
+      "height": 61
+    },
+    "gun-part-icon:trigger-hair:t4": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 21,
+      "top": 11,
+      "width": 86,
+      "height": 58
+    },
+    "gun-part-icon:trigger-hair:t5": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 15,
+      "top": 6,
+      "width": 97,
+      "height": 68
+    },
+    "gun-part-icon:underbarrel-grenade:t1": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 21,
+      "top": 10,
+      "width": 85,
+      "height": 60
+    },
+    "gun-part-icon:underbarrel-grenade:t2": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 19,
+      "top": 9,
+      "width": 90,
+      "height": 62
+    },
+    "gun-part-icon:underbarrel-grenade:t3": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 16,
+      "top": 8,
+      "width": 96,
+      "height": 64
+    },
+    "gun-part-icon:underbarrel-grenade:t4": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 8,
+      "top": 8,
+      "width": 112,
+      "height": 64
+    },
+    "gun-part-icon:underbarrel-grenade:t5": {
+      "frameWidth": 128,
+      "frameHeight": 80,
+      "left": 8,
+      "top": 6,
+      "width": 112,
+      "height": 68
+    },
+    "trait-icon:explosive": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 10,
+      "top": 10,
+      "width": 77,
+      "height": 74
+    },
+    "trait-icon:fire": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 9,
+      "top": 9,
+      "width": 78,
+      "height": 75
+    },
+    "trait-icon:piercing": {
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "left": 16,
+      "top": 8,
+      "width": 66,
+      "height": 63
+    }
+  }
+}

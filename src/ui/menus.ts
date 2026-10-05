@@ -189,6 +189,12 @@ export class MainMenuController {
     return this.snapshot();
   }
 
+  resetGunWorkshop(): MainMenuSnapshot {
+    this.gunsmithController.resetWorkshopSelection();
+    this.notice = undefined;
+    return this.snapshot();
+  }
+
   selectGunsmithSlot(slot: PartSlot): MainMenuSnapshot {
     this.gunsmithController.selectSlot(slot);
     this.notice = undefined;

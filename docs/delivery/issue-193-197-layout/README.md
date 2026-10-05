@@ -1,0 +1,116 @@
+# Equipment and Gunsmith layout checkpoint
+
+Starting implementation: `8eb45a7b4ce16475fca87e70779e84cc0effed77`.
+This finishes the layout tranche requested under #197/#193. Exact candidate,
+merged-main validation and deployment identities are recorded on its PR and
+owning issues. Product-owner and real-device acceptance remain separate gates.
+
+## Authority and boundaries
+
+Figma file `LHpXaKqFKksfF2uismDws5` was traversed by page, including Menu
+Screens—Premium (`28:2`), UI Chrome—Premium (`27:2`), Gunsmith—Premium (`53:2`),
+Gameplay UI (`50:2`) and the art-first Loadout amendment (`129:2`).
+
+The shared amendment [146:102](https://www.figma.com/design/LHpXaKqFKksfF2uismDws5/Meowcenary?node-id=146-102)
+requires preserving integrated equip/replace/Workshop semantics while increasing
+**visible artwork**, rather than transparent image canvas size. Reference frames:
+
+| Family | Figma references | Runtime ownership |
+| --- | --- | --- |
+| Compact Loadout overview | `104:206`, within Complete Screen Set | Existing four inline slots, Equipment/Gunsmith routers, readiness and fixed return action |
+| Equipment overview | `129:10`, `134:66`, `130:22` | Four canonical slots; two phone/tablet columns; four foldable/desktop columns |
+| Equipment inspection/upgrade | `129:29`, `131:42`, `143:189`, `143:82` | Authoritative piece, cost, state, Set/scope and full before/after consequence |
+| Equipment failures | `144:102`, `144:123`, `144:144` | Actual tier lock, funds deficit and unchanged publication after save failure |
+| Gunsmith | `130:76`, `145:102`, `130:94`, `131:102`, `131:119`, `53:8`, `54:3`, `54:76`, `57:3` | Separate Build/Workshop/Parts; current/candidate assembled weapon; compatible slot candidates and explicit commit |
+
+No runtime sprites were regenerated, no second tier registry was added, and no
+balance, RNG, gameplay, save schema or transaction semantics changed. Existing
+editable art sources, exports and logical/physical bindings remain authoritative.
+Screenshot baselines describe this implementation candidate; they do not grant
+human approval or promote rejected artwork to canonical authority.
+
+## Corrected behavior and evidence
+
+At the pinned starting main, the independent 390px browser witnesses measured
+Scavenger Helmet visible alpha at **47.5px** (required144px), Pistol chassis/receiver
+union at **54.078px** (required326px), and demonstrated a candidate tap saving an
+occupied-slot replacement immediately. All three contracts fail there.
+
+The new framing table derives opaque bounds offline from committed PNG/atlas
+exports. Its checker pins hashes and rejects stale pixels, empty artwork, and
+trimmed/rotated coordinate systems. The browser reads prepared bounds, never
+scans pixels. Every assembled layer uses one union/transform; current and
+candidate previews share that union. Artwork and its focus/scroll media frame
+are registered together without transparent padding inflating logical bounds.
+
+| Evidence | Result required by regression |
+| --- | --- |
+| Equipment artwork |128px at360,144px at390;240–264px at1114;264px at wider desktop;264/400px inspection |
+| Foldable four-slot layout | All four complete slot cards inside the scroll viewport; candidate two-column capture was rejected because lower labels fell below the fold |
+| Gunsmith three-family artwork |296px at360,326px at390, up to700px on wide screens; native Pistol/SMG/Shotgun frames measured independently of the production helper |
+| Preview and commit | Candidate selection leaves durable save unchanged; structured resolved Damage/Fire Rate/Accuracy/etc and trait/Set/move/displacement consequences precede one explicit authoritative commit |
+| Workshop/Parts | Legal merge/infusion inputs and exact output tiers/traits; destruction/unfitting warnings before confirm; catalog selection/request/cancel do not fabricate; held confirmation writes once |
+| Controller and orientation | Actual navigator polling; held confirm produces one write;390DPR3 preserves preview/focus/save through blocked phone landscape and portrait restoration |
+| Resource lifecycle | Rapid/stale loading, resize, shutdown, warm return and retry preserve existing semantics; delayed atlas missing a declared frame stays hidden rather than displaying an unrelated atlas fallback |
+| Cold direct Gunsmith | Declares shared Figma chrome even with default backdrop and cached content; physical chrome loads once and is deduplicated on warm entry |
+| Compact landscape | Fixed Gunsmith Back sits at right, clear of the title |
+
+Pistol assembly originally shrank again when using an SMG-shaped height constraint;
+a native-frame regression caught that193px intermediate candidate and corrected
+the workbench height from the shared union aspect. The missing-chrome cold
+captures were also rejected: visiting Equipment first had concealed an omitted
+shared resource request. Both failures were reproduced before correction.
+
+All165 existing/current Menu scene cases and16 Gunsmith surface cases retain the
+save, stale command, lifecycle, focus and resource assertions. Existing Equipment
+update and Loadout hydration browser source is unchanged. Gunsmith update tests
+now perform preview→commit→inspect/unequip while retaining ownership, revision,
+no-full-rebuild, save and resize assertions. The text-constructor inventory is46
+rather than56 because ten repeated Gunsmith text sites now share helpers; the
+symbol-resolved bypass audit and its negative probes remain intact.
+
+## Screenshot changes and release checks
+
+Only22 existing baseline files may change. `snapshot-review.json` records each
+path, previous/current hash, Figma owner and explanation:
+
+- Equipment: `menu-equipment-*` and `loadout-equipment-*` at390/1114/1280;
+  enlarged media, slot grid, useful header and removal of redundant Set hero.
+- Loadout: `menu-loadout-*` and `compact-loadout-*`; readable shared chrome,
+  consistent compact slots and lane sizing. Its four-slot router remains compact.
+- Gunsmith: `menu-gunsmith-*`, `loadout-gunsmith-*`, `gunsmith-assembled-*`,
+  `gunsmith-parts-*`; approved dark chrome, family/state rail, separate tabs,
+  real assembled media and actual Parts navigation rather than nine row presses.
+
+Every changed image must be inspected. Missing chrome, overlapping Back and the
+foldable two-column candidate are rejected intermediate evidence, never final
+visual authority. Other menu/actor/arena/Upgrade baselines and all pixel limits,
+timeouts, retries and pre-existing skips remain unchanged.
+
+Full release gates run at exact final candidate and merged main: lint/typecheck,
+ordinary units, nine allocation gates, nine runner self-audits/probes, content,
+complete art/source/export validation, ordinary build/resource identity and
+production diagnostics absence, strict browser typecheck, six-profile browser
+matrix, and diff checks. Hosted CI must pass before merge/deploy. The live site
+must expose the exact verified main SHA and pass ordinary phone/desktop menu,
+loadout operation, run-launch and naturally-earned Upgrade checks.
+
+## Acceptance reconciliation
+
+| Requirement | Machine evidence / remaining gate |
+| --- | --- |
+| #197 slots, state, scopes and selected-slot candidates | Structured existing read models; enlarged slot/inspection rendering; scene/controller/browser regressions |
+| #197 replaced piece, Set gain/loss, mixed Sets, global traits/dedupe | Preserved immutable comparison through existing pure equip/persistent-run truth; no rules moved to MenuScene |
+| #197 fabrication, stored/equipped upgrade, actual lock/funds and failed save | Existing authoritative commands; separate acquisition/equip; exact100Scrap upgrade and same-instance/set browser fixture; failure leaves save unchanged |
+| #193 Build/Workshop/Parts and compatible slot/trait sockets | Surface flow regressions and real browser navigation, including large50-Part inventory |
+| #193 actual before/after mechanics and visuals | Shared resolved stat formatter; one current/candidate union; existing atomic fit/move/persistence tests plus real separate preview/commit |
+| #193 Workshop consequences and Parts acquisition | Exact tier/trait/input/output facts and warnings; request/confirm/cancel separation; generation-guarded stale callbacks |
+| #193/#197 shared input, focus, scrolling, resource closure | Shared owners retained; browser matrix, controller-held edge, DPR3 blocked orientation, warm navigation and late art regressions |
+| First-time player comprehension / genuine device/controller use | **HUMAN/DEVICE GATE**: no synthetic browser or unit assertion proves subjective clarity or physical-device behavior |
+| Product-owner actual-scale visual acceptance | **HUMAN GATE**: Figma amendment approval is not approval of every runtime capture |
+| #198/#199/#175/#165/#167/#171 and art umbrellas | Deliberately remain with their owning issues; no closure implied by this layout checkpoint |
+| #201 delayed stale-context achievement acknowledgement | Untouched; remains a bounded correctness tranche before introducing actual native lifecycle/context recreation |
+
+The requested stop is deployment followed by a development pause. Remaining
+owner/device checks are recorded honestly; they do not justify another design
+or architecture tranche in this checkpoint.

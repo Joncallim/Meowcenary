@@ -63,23 +63,17 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   }
 
   protected draw(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, layout: MenuSurfaceLayout, scrap: number): void {
-    const { width, top, margin, hitTarget } = layout;
+    const { top, hitTarget } = layout;
     const equipment = snapshot.equipment;
-    const contentWidth = Math.min(840, width - margin - this.layout.rightMargin);
+    const contentWidth = this.loadoutContentWidth();
     const left = this.layout.centerX - contentWidth / 2;
-    this.loadoutHeader(root, left, 'EQUIPMENT', 'SETS + PIECES');
-    let y = top + 26;
-    this.environment.controls.beginScrollableRegion(y, this.layout.scrollBottom);
     const selectedSetEmblem = equipment.blueprints.find((piece) => piece.equipmentId === equipment.selectedBlueprintId)?.setEmblemArtId;
     const activeSet = equipment.presentation.sets.find((set) => set.emblemArtId === selectedSetEmblem)
       ?? equipment.presentation.sets.find((set) => set.equippedCount > 0);
-    this.loadoutSection(root, left, y, activeSet ? activeSet.equippedCount > 0 ? 'ACTIVE SET' : 'SELECTED SET' : 'NO ACTIVE SET');
-    y += 20;
-    const heroHeight = this.layout.height >= 760 ? 142 : 64;
-    this.loadoutMaterial(root, left, y, contentWidth, heroHeight, true);
-    this.loadoutCopy(root, left + (activeSet ? 94 : 16), y + (heroHeight > 100 ? 36 : 12), activeSet ? `${activeSet.name} Set\n${activeSet.equippedCount}/4 equipped` : '0 pieces equipped', contentWidth - (activeSet ? 110 : 32));
-    if (activeSet) this.environment.controls.addCatalogIcon(root, left + 42, y + heroHeight / 2, activeSet.emblemArtId, Math.min(68, heroHeight - 12));
-    y += heroHeight + (this.layout.height >= 760 ? 38 : 4);
+    this.loadoutHeader(root, left, 'EQUIPMENT', activeSet
+      ? `${activeSet.name.toUpperCase()} SET • ${activeSet.equippedCount}/4 EQUIPPED` : '0/4 PIECES EQUIPPED');
+    let y = top + 26;
+    this.environment.controls.beginScrollableRegion(y, this.layout.scrollBottom);
     this.loadoutSection(root, left, y, 'EQUIPPED SLOTS');
     y += 20;
     y = this.renderEquipmentSlots(root, snapshot, left, y, contentWidth, hitTarget);
@@ -110,25 +104,25 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const selectedSlot = equipment.presentation.slots.find((slot) => slot.slot === equipment.selectedSlot)!;
     put(`${selectedSlot.label.toUpperCase()} CANDIDATES • ${scrap} Scrap`);
     for (const item of selectedSlot.candidates) {
-      const row = this.button(root, left, y, `${item.name}\nT${item.tier} • ${item.state}`, Math.max(hitTarget, 76), () => {
+      const row = this.button(root, left, y, `${item.name}\nT${item.tier} • ${item.state}`, Math.max(hitTarget, this.equipmentMediaExtent() + 24), () => {
         this.environment.controls.focusNext(`equipment-detail:${item.instanceId}`, true);
         this.environment.onSnapshot(this.commands.selectEquipmentCandidate(item.instanceId), 'equipment-selection');
-      }, 'ui:confirm', contentWidth, undefined, 0, 76, true, 'left');
+      }, 'ui:confirm', contentWidth, undefined, 0, this.equipmentMediaExtent() + 24, true, 'left');
       this.rememberLoadoutFocus(row, `equipment-candidate:${item.instanceId}`);
-      this.environment.controls.addCatalogIcon(root, left + 34, y + row.height / 2, item.iconArtId, 60, this.environment.controls.buttonIndex(row));
+      this.environment.controls.addLoadoutArt(root, left + 12 + this.equipmentMediaExtent() / 2, y + row.height / 2, item.iconArtId, this.equipmentMediaExtent(), this.equipmentMediaExtent(), this.environment.controls.buttonIndex(row));
       y += row.height + 8;
     }
     if (!selectedSlot.candidates.length) put(`No stored ${selectedSlot.label.toLowerCase()} pieces. Choose a blueprint to fabricate.`);
     const blueprints = equipment.blueprints.filter((piece) => piece.slot === equipment.selectedSlot);
     if (blueprints.length) put('AVAILABLE BLUEPRINTS');
     for (const blueprint of blueprints) {
-      const row = this.button(root, left, y, `${blueprint.name}\nFABRICABLE • ${blueprint.fabricationCost} Scrap`, Math.max(hitTarget, 76), () => {
+      const row = this.button(root, left, y, `${blueprint.name}\nFABRICABLE • ${blueprint.fabricationCost} Scrap`, Math.max(hitTarget, this.equipmentMediaExtent() + 24), () => {
         this.environment.controls.focusNext(`equipment-blueprint-detail:${blueprint.equipmentId}`, true);
         this.environment.onSnapshot(this.commands.selectEquipmentBlueprint(blueprint.equipmentId), 'equipment-selection');
-      }, 'ui:confirm', contentWidth, undefined, 0, 76, true, 'left');
+      }, 'ui:confirm', contentWidth, undefined, 48, this.equipmentMediaExtent() + 24, true, 'left');
       this.rememberLoadoutFocus(row, `equipment-blueprint:${blueprint.equipmentId}`);
       const index = this.environment.controls.buttonIndex(row);
-      this.environment.controls.addCatalogIcon(root, left + 34, y + row.height / 2, blueprint.iconArtId, 60, index);
+      this.environment.controls.addLoadoutArt(root, left + 12 + this.equipmentMediaExtent() / 2, y + row.height / 2, blueprint.iconArtId, this.equipmentMediaExtent(), this.equipmentMediaExtent(), index);
       this.environment.controls.addCatalogIcon(root, left + contentWidth - 24, y + row.height / 2, blueprint.setEmblemArtId, 34, index);
       y += row.height + 8;
     }
@@ -140,8 +134,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   private drawSelection(root: Phaser.GameObjects.Container, fixedRoot: Phaser.GameObjects.Container,
     snapshot: MainMenuSnapshot, scrap: number): void {
     const equipment = snapshot.equipment;
-    const { width, margin, hitTarget } = this.layout;
-    const contentWidth = Math.min(840, width - margin - this.layout.rightMargin);
+    const { hitTarget } = this.layout;
+    const contentWidth = this.loadoutContentWidth();
     const left = this.layout.centerX - contentWidth / 2;
     let y = this.detailTop;
     const selectedSlot = equipment.presentation.slots.find(slot => slot.slot === equipment.selectedSlot)!;
@@ -154,12 +148,11 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const selectedBlueprint = blueprints.find((piece) => piece.equipmentId === equipment.selectedBlueprintId);
     if (selected) {
       const set = equipment.presentation.sets.find((row) => row.setId === selected.setId)!;
-      const detail = this.button(root, left, y, `${selected.name} • T${selected.tier}\n${selectedSlot.label} • ${set.name} Set • ${selected.state}`, Math.max(hitTarget, 100), () => undefined, 'ui:confirm', contentWidth, undefined, 0, 82, true, 'left');
+      const detail = this.equipmentInspection(root, left, y, contentWidth,
+        `${selected.name} • T${selected.tier}\n${selectedSlot.label} • ${set.name} Set • ${selected.state}`, selected.iconArtId);
       this.rememberLoadoutFocus(detail, `equipment-detail:${selected.instanceId}`);
-      this.environment.controls.disableButton(detail);
-      this.environment.controls.addCatalogIcon(root, left + 38, y + 48, selected.iconArtId, 72, this.environment.controls.buttonIndex(detail));
-      y += detail.height + 10;
-      y = this.renderScopedLoadoutEffects(root, selected.effects, left, y, contentWidth);
+      y += detail.height + 16;
+      y = this.renderScopedLoadoutEffects(root, selected.effects, left, y, contentWidth, 22);
       const equipped = selected.state === 'EQUIPPED';
       const comparison = equipped ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot }) : equipment.comparison;
       put(equipped ? 'IF UNEQUIPPED' : comparison?.displaced ? `Replaces ${comparison.displaced.name}` : `Fills empty ${selectedSlot.label.toLowerCase()} slot`);
@@ -171,28 +164,40 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       y += equip.height + 10;
       const upgrade = equipment.owned.find((item) => item.instanceId === selected.instanceId)!;
       if (upgrade.upgradePreview) {
-        put(`UPGRADE • T${selected.tier} → T${selected.tier + 1} • ${upgrade.upgradePreview.cost} Scrap\n${equipped ? 'EQUIPPED: improved values apply immediately after upgrade.' : 'STORED: no active Loadout value changes until equipped.'}`);
+        const cost = upgrade.upgradePreview.cost;
+        put(`UPGRADE • T${selected.tier} → T${selected.tier + 1} • ${cost} Scrap\n${equipped ? 'EQUIPPED: improved values apply immediately after upgrade.' : 'STORED: no active Loadout value changes until equipped.'}`);
+        if (cost !== undefined) put(upgrade.upgradeLockReason ? `No Scrap spent • balance remains ${scrap}`
+          : scrap < cost ? `Need ${cost - scrap} more Scrap • balance remains ${scrap}`
+            : `Balance after: ${scrap - cost} Scrap`);
         const afterItem = upgrade.upgradePreview.after.slots.find((slot) => slot.slot === selected.slot)!.candidates.find((item) => item.instanceId === selected.instanceId)!;
-        this.environment.controls.addCatalogIcon(root, left + 40, y + 40, selected.iconArtId, 72);
-        this.environment.controls.addCatalogIcon(root, left + 136, y + 40, afterItem.iconArtId, 72);
-        y += 88;
+        const pairWidth = (contentWidth - 16) / 2;
+        const extent = Math.min(this.equipmentMediaExtent(), pairWidth - 24);
+        const framing = [selected.iconArtId, afterItem.iconArtId];
+        this.loadoutMaterial(root, left, y, pairWidth, extent + 56);
+        this.loadoutMaterial(root, left + pairWidth + 16, y, pairWidth, extent + 56);
+        this.environment.controls.addLoadoutArt(root, left + pairWidth / 2, y + 12 + extent / 2,
+          selected.iconArtId, extent, extent, undefined, framing);
+        this.environment.controls.addLoadoutArt(root, left + pairWidth + 16 + pairWidth / 2, y + 12 + extent / 2,
+          afterItem.iconArtId, extent, extent, undefined, framing);
+        this.loadoutCopy(root, left + 12, y + extent + 24, `TIER ${selected.tier}`, pairWidth - 24, '#24cec7');
+        this.loadoutCopy(root, left + pairWidth + 28, y + extent + 24, `TIER ${afterItem.tier}`, pairWidth - 24, '#24cec7');
+        y += extent + 72;
         put(`ITEM NOW\n${this.loadoutEffectCopy(selected.effects)}\nITEM AFTER UPGRADE\n${this.loadoutEffectCopy(afterItem.effects)}`);
-        if (upgrade.upgradeCost !== undefined) {
-          const action = this.button(root, left, y, `Upgrade for ${upgrade.upgradeCost} Scrap`, hitTarget, () => this.environment.onSnapshot(this.commands.upgradeEquipment(selected.instanceId, selected.tier)), 'ui:confirm', contentWidth);
+        if (cost !== undefined) {
+          const action = this.button(root, left, y, upgrade.upgradeLockReason ? `LOCKED • ${upgrade.upgradeLockReason}` : `Upgrade for ${cost} Scrap`, hitTarget, () => this.environment.onSnapshot(this.commands.upgradeEquipment(selected.instanceId, selected.tier)), 'ui:confirm', contentWidth);
           this.rememberLoadoutFocus(action, `equipment-upgrade:${selected.instanceId}`);
-          if (scrap < upgrade.upgradeCost) this.environment.controls.disableButton(action);
+          if (upgrade.upgradeLocked || scrap < cost) this.environment.controls.disableButton(action);
           y += action.height + 8;
         }
       }
       if (upgrade.upgradeLockReason) put(`LOCKED • ${upgrade.upgradeLockReason}`, '#fbbf24');
       else if (selected.tier >= 4) put('Maximum Equipment tier');
     } else if (selectedBlueprint) {
-      const detail = this.button(root, left, y, `${selectedBlueprint.name}\n${selectedBlueprint.setName} Set • ${selectedSlot.label}\nFABRICABLE`, Math.max(hitTarget, 100), () => undefined, 'ui:confirm', contentWidth, undefined, 0, 82, true, 'left');
+      const detail = this.equipmentInspection(root, left, y, contentWidth,
+        `${selectedBlueprint.name}\n${selectedBlueprint.setName} Set • ${selectedSlot.label}\nFABRICABLE`, selectedBlueprint.iconArtId);
       this.rememberLoadoutFocus(detail, `equipment-blueprint-detail:${selectedBlueprint.equipmentId}`);
-      this.environment.controls.disableButton(detail);
-      this.environment.controls.addCatalogIcon(root, left + 38, y + 48, selectedBlueprint.iconArtId, 72, this.environment.controls.buttonIndex(detail));
-      y += detail.height + 10;
-      y = this.renderScopedLoadoutEffects(root, selectedBlueprint.effects, left, y, contentWidth);
+      y += detail.height + 16;
+      y = this.renderScopedLoadoutEffects(root, selectedBlueprint.effects, left, y, contentWidth, 22);
       put('Creates a stored T1 item. Equip it separately to change your Loadout.');
     }
     put('ACTIVE SETS');
@@ -213,7 +218,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         this.environment.onSnapshot(next);
       });
     // Create the bounded fixed Back control last: slots remain the first four
-    // semantic focus entries for the shared vertical navigator.
+    // semantic focus entries for the shared grid navigator.
     this.button(fixedRoot, left + contentWidth - 72, edgeMargin(this.layout.viewport, 'top') - 12 + 7, 'Back', hitTarget,
       () => this.environment.onSnapshot(this.commands.open('loadout')), 'ui:back', 72);
     if (selectedBlueprint) this.rememberLoadoutFocus(fabricate, `equipment-fabricate:${selectedBlueprint.equipmentId}`);

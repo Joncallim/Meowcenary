@@ -1,0 +1,5 @@
+{
+  "workingBaseline": "8eb45a7b4ce16475fca87e70779e84cc0effed77",
+  "captures": "Uncommitted final-layout visual-test build, deterministic fixture; final exact-head gates recorded on PR.",
+  "physicalDeviceAcceptance": false
+}

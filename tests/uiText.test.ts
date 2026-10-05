@@ -195,8 +195,10 @@ describe('createUiText', () => {
     // for every stat, Set threshold, row and comparison label. The separate
     // AST audit still rejects every constructor that bypasses the factory.
     // Native panel headers add two factory sites; section labels add one.
-    // Upgrade card text now shares one factory for four roles (59 minus 3).
-    expect(migratedSites).toHaveLength(56);
+    // Upgrade card text shares one factory for four roles. Gunsmith now
+    // shares copy/header helpers instead of ten repeated factory sites.
+    // Every actual site remains covered by the symbol-resolved bypass audit.
+    expect(migratedSites).toHaveLength(46);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);

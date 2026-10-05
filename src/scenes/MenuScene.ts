@@ -24,6 +24,7 @@ import { LoadoutSurface } from '../ui/menuSurfaces/loadoutSurface';
 import { MountedStaticArt } from '../ui/menuSurfaces/mountedStaticArt';
 import { EquipmentSurface } from '../ui/menuSurfaces/equipmentSurface';
 import { GunsmithSurface } from '../ui/menuSurfaces/gunsmithSurface';
+import { loadoutArtBounds, resolveLoadoutArtPlacement } from '../presentation/loadoutArtFraming';
 import { loadoutFooterPadding } from '../ui/menuSurfaces/layout';
 import type { LoadoutMenuPanel, MenuPanelSurface, MenuSurfaceEnvironment } from '../ui/menuSurfaces/surface';
 import { performanceProbe } from '../platform/performanceProbe';
@@ -408,7 +409,7 @@ export class MenuScene extends Phaser.Scene {
       backdrop.setScale(coverScale);
     }
 
-    this.loadoutSurface = snapshot.panel === 'loadout' || snapshot.panel === 'equipment';
+    this.loadoutSurface = snapshot.panel === 'loadout' || snapshot.panel === 'equipment' || snapshot.panel === 'gunsmith';
     const width = this.scale.width;
     const viewport: UiViewport = responsiveUiViewport(this.scale.width, this.scale.height);
     this.currentViewport = viewport;
@@ -416,7 +417,7 @@ export class MenuScene extends Phaser.Scene {
       width,
       edgeMargin(viewport, 'left', this.loadoutSurface ? 16 : 12),
       edgeMargin(viewport, 'right', this.loadoutSurface ? 16 : 12),
-      840,
+      this.loadoutSurface ? 1360 : 840,
     );
     const leftMargin = contentInsets.left;
     const topMargin = edgeMargin(viewport, 'top');
@@ -874,6 +875,7 @@ export class MenuScene extends Phaser.Scene {
           disableButton: button => this.disableButton(button),
           addHeading: (...args) => this.addHeading(...args),
           addCatalogIcon: (...args) => this.addCatalogIcon(...args),
+          addLoadoutArt: (...args) => this.addLoadoutArt(...args),
           addPanelArt: (...args) => this.addPanelArt(...args),
           beginScrollableRegion: (start, bottom) => this.beginScrollableRegion(start, bottom),
           endScrollableRegion: () => this.endScrollableRegion(),
@@ -1467,6 +1469,7 @@ export class MenuScene extends Phaser.Scene {
     topAligned = false,
     horizontalAlign?: 'left' | 'center',
     appearance: 'card' | 'section' = 'card',
+    topReserve = 0,
   ): Phaser.GameObjects.Text {
     const hasNavigationChevron = artId !== undefined && !artId.startsWith('settings-icon:') && !artId.startsWith('action-icon:');
     const effectiveTrailingReserve = Math.max(trailingReserve, hasNavigationChevron ? 34 : 0);
@@ -1494,8 +1497,8 @@ export class MenuScene extends Phaser.Scene {
     const horizontalPadding = maxLabelWidth === undefined && bounds.width < MIN_MENU_BUTTON_LOGICAL_WIDTH
       ? (MIN_MENU_BUTTON_LOGICAL_WIDTH - bounds.width) / 2 + (text.padding.left ?? 10)
       : (text.padding.left ?? 10);
-    const targetHeight = Math.max(minHeight, bounds.height + (topAligned ? 16 : 0));
-    const verticalPadding = topAligned ? 8 : Math.max(0, Math.round((targetHeight - bounds.height) / 2));
+    const targetHeight = Math.max(minHeight, bounds.height + (topAligned ? Math.max(8, topReserve) + 8 : 0));
+    const verticalPadding = topAligned ? Math.max(8, topReserve) : Math.max(0, Math.round((targetHeight - bounds.height) / 2));
     // Text bounds include padding. The same correction used for height also
     // applies horizontally: augment padding by half the missing bounds plus
     // the current inset, so short labels meet the 44px physical width floor
@@ -1680,6 +1683,29 @@ export class MenuScene extends Phaser.Scene {
     this.registerScrollObject(icon, scrollOwnerIndex);
   }
 
+  private addLoadoutArt(root: Phaser.GameObjects.Container, x: number, y: number,
+    artId: string, maxWidth: number, maxHeight: number, ownerIndex?: number,
+    framingIds: readonly string[] = [artId]): void {
+    const binding = this.requireVisualArt().bindingById(artId);
+    const source = loadoutArtBounds(artId);
+    const framing = framingIds.map(loadoutArtBounds);
+    if (!binding || !source || framing.some(row => row === undefined)) return;
+    const placement = resolveLoadoutArtPlacement(source, framing as readonly NonNullable<typeof source>[],
+      x, y, maxWidth, maxHeight);
+    if (!placement) return;
+    if (this.textures?.exists(binding.textureKey) && binding.frameKey !== undefined
+      && !this.textures.get(binding.textureKey).has(binding.frameKey)) return;
+    const visibleBounds = { top: y - maxHeight / 2, bottom: y + maxHeight / 2 };
+    if (this.addStaticLoadoutArt(root, placement.x, placement.y, binding.textureKey,
+      binding.frameKey, placement.width, placement.height, 1, ownerIndex, visibleBounds)) return;
+    if (!this.textures?.exists(binding.textureKey)) return;
+    const image = this.own(root, this.add.image(placement.x, placement.y, binding.textureKey, binding.frameKey));
+    image.setDisplaySize(placement.width, placement.height).setScrollFactor(0);
+    // Transparent canvas outside the media slot must not inflate its logical
+    // focus/scroll bounds. The authored full image still draws untrimmed.
+    this.registerScrollObject(image, ownerIndex, { top: y - maxHeight / 2, bottom: y + maxHeight / 2 });
+  }
+
   /** Shared art anchor for Contract, Career and Compendium cards. Semantic IDs
    * come from their read models; this renderer only understands physical
    * binding capabilities. */
@@ -1713,18 +1739,19 @@ export class MenuScene extends Phaser.Scene {
 
   private addStaticLoadoutArt(root: Phaser.GameObjects.Container, x: number, y: number,
     textureKey: string, frame: string | number | undefined, width: number, height: number,
-    alpha: number, ownerIndex?: number): boolean {
+    alpha: number, ownerIndex?: number, visibleBounds?: Readonly<{ top: number; bottom: number }>): boolean {
     const slots = this.loadoutArt;
     if (!slots || !(this.activeSurface instanceof LoadoutSurface)) return false;
     if (!this.textures?.exists) { slots.unavailable(); return false; }
     if (typeof this.add.image !== 'function') { slots.unavailable(); return false; }
-    const ready = this.textures.exists(textureKey);
+    const ready = this.textures.exists(textureKey)
+      && (frame === undefined || this.textures.get(textureKey).has(String(frame)));
     // Phaser's built-in default texture reserves the final image's geometry
     // and layer position without requiring another physical resource. Opacity
     // hides it: the shared scroll owner deliberately resets visibility.
     const image = this.own(root, this.add.image(x, y, ready ? textureKey : '__DEFAULT', ready ? frame : undefined));
     image.setDisplaySize(width, height).setAlpha(ready ? alpha : 0).setScrollFactor(0);
-    this.registerScrollObject(image, ownerIndex);
+    this.registerScrollObject(image, ownerIndex, visibleBounds);
     slots.register(image, { textureKey, frame, width, height, alpha }, ready);
     return true;
   }
@@ -1749,7 +1776,8 @@ export class MenuScene extends Phaser.Scene {
     let hydratedCount = 0;
     let failed = false;
     try {
-      hydratedCount = slots.hydrate(key => this.textures.exists(key));
+      hydratedCount = slots.hydrate((key, frame) => this.textures.exists(key)
+        && (frame === undefined || this.textures.get(key).has(String(frame))));
       if (hydratedCount > 0) this.renderRevision += 1;
       return true;
     } catch {
@@ -1845,7 +1873,7 @@ export class MenuScene extends Phaser.Scene {
     this.panelArtLoading = true;
     try {
       while (generation === this.panelArtGeneration && this.isLive) {
-        const ids = batchPanel === 'loadout' || batchPanel === 'equipment'
+        const ids = batchPanel === 'loadout' || batchPanel === 'equipment' || batchPanel === 'gunsmith'
           ? [...batchArtIds, 'ui-chrome:figma-card', 'ui-chrome:figma-selected', 'ui-chrome:figma-primary', 'ui-chrome:figma-arrow']
           : batchArtIds;
         const missing = new Map<string, import('../systems/types').VisualTextureResource>();
@@ -2183,9 +2211,10 @@ export class MenuScene extends Phaser.Scene {
     this.collectingScrollItems = false;
   }
 
-  private registerScrollObject(object: Phaser.GameObjects.GameObject, ownerIndex?: number): void {
+  private registerScrollObject(object: Phaser.GameObjects.GameObject, ownerIndex?: number,
+    visibleBounds?: Readonly<{ top: number; bottom: number }>): void {
     if (!this.scrollRegion || !this.collectingScrollItems) return;
-    const positioned = object as unknown as { x: number; y: number; getBounds?: () => { bottom: number } };
+    const positioned = object as unknown as { x: number; y: number; getBounds?: () => { top: number; bottom: number } };
     const validOwnerIndex = ownerIndex !== undefined && this.scrollItemIndexes.has(ownerIndex)
       ? ownerIndex
       : undefined;
@@ -2195,8 +2224,8 @@ export class MenuScene extends Phaser.Scene {
       y: positioned.y,
       ...(validOwnerIndex === undefined ? {} : { ownerIndex: validOwnerIndex }),
     });
-    const bottom = positioned.getBounds?.().bottom;
-    const bounds = (object as unknown as { getBounds?: () => { top: number; bottom: number } }).getBounds?.();
+    const bounds = visibleBounds ?? positioned.getBounds?.();
+    const bottom = bounds?.bottom;
     if (validOwnerIndex !== undefined && bounds) {
       const prior = this.scrollItemBounds.get(validOwnerIndex);
       this.scrollItemBounds.set(validOwnerIndex, {
@@ -2418,6 +2447,8 @@ export class MenuScene extends Phaser.Scene {
     // Home Esc is still a back command; it emits even when the controller
     // refuses (already home).
     this.bus?.emit('ui:back', {});
+    if (this.activeSurface instanceof GunsmithSurface
+      && this.activeSurface.handleBack(this.requireController().snapshot())) return;
     const next = this.requireController().back();
     this.render(next);
   }

@@ -1,0 +1,28 @@
+[WebServer] (node:2034999) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:2035012) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 3 tests using 1 worker
+
+(node:2035032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/3] [phone-390x844] › browser-tests/ui-audit-capture.pw.ts:15:1 › locks every player-facing menu surface after the polish audit
+(node:2035311) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[2/3] [foldable-1114x720] › browser-tests/ui-audit-capture.pw.ts:15:1 › locks every player-facing menu surface after the polish audit
+[foldable-1114x720] › browser-tests/ui-audit-capture.pw.ts:15:1 › locks every player-facing menu surface after the polish audit
+/home/jon/projects/meowcenary-worktrees/meowcenary-loadout-closeout/browser-tests/ui-audit-capture.pw.ts-snapshots/menu-equipment-foldable-1114x720-linux.png is re-generated, writing actual.
+
+(node:2035850) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[3/3] [desktop-1280x720] › browser-tests/ui-audit-capture.pw.ts:15:1 › locks every player-facing menu surface after the polish audit
+  3 passed (32.5s)
