@@ -65,7 +65,14 @@ All165 existing/current Menu scene cases and16 Gunsmith surface cases retain the
 save, stale command, lifecycle, focus and resource assertions. Existing Equipment
 update and Loadout hydration browser source is unchanged. Gunsmith update tests
 now perform preview→commit→inspect/unequip while retaining ownership, revision,
-no-full-rebuild, save and resize assertions. The text-constructor inventory is46
+no-full-rebuild, save and resize assertions. The first integrated six-profile run
+finished356 passed/64 existing skips/12 failures: two old tests per profile
+expected vertical Equipment rows and an inline OWNED replacement row. Their
+corrections traverse every slot in the approved grid, then preview and focus the
+explicit Gunsmith replacement action. All prior scope/Set, save, local-update,
+resize, full-action bounds and focus-border clearance assertions remain. The
+displacement warning is checked in its new preview-detail owner. No budgets,
+assertions or supported viewports were removed. The text-constructor inventory is46
 rather than56 because ten repeated Gunsmith text sites now share helpers; the
 symbol-resolved bypass audit and its negative probes remain intact.
 

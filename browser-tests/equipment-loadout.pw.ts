@@ -28,7 +28,18 @@ async function press(page: Page, key: string) {
 async function focus(page: Page, key: string) {
   for (let step = 0; step < 80; step += 1) {
     if ((await diagnostic(page)).focusedKey === key) return;
-    await press(page, 'ArrowDown');
+    const state = await diagnostic(page);
+    const current = state.buttons.findIndex(button => button.key === state.focusedKey);
+    const target = state.buttons.findIndex(button => button.key === key);
+    expect(current, `Known focus ${state.focusedKey}`).toBeGreaterThanOrEqual(0);
+    expect(target, `Existing semantic target ${key}`).toBeGreaterThanOrEqual(0);
+    const columns = state.panel === 'loadout' || page.viewportSize()!.width >= 1114 ? 4 : 2;
+    let direction = current < target ? 'ArrowRight' : 'ArrowLeft';
+    if (current < 4 && target >= 4) direction = 'ArrowDown';
+    else if (current >= 4 && target < 4) direction = current > 4 ? 'ArrowLeft' : 'ArrowUp';
+    else if (current < 4 && target < 4 && Math.floor(current / columns) !== Math.floor(target / columns))
+      direction = current < target ? 'ArrowDown' : 'ArrowUp';
+    await press(page, direction);
   }
   throw new Error(`Focus did not reach ${key}: ${JSON.stringify(await diagnostic(page))}`);
 }
@@ -68,16 +79,16 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   await focus(page, 'loadout:equipment'); await press(page, 'Enter'); await settle(page);
   state = await diagnostic(page);
   expect(state.panel).toBe('equipment');
-  // The canonical Equipment surface has four vertical rows. Horizontal
-  // input stays on the current row; vertical input visits each physical slot.
-  await press(page, 'ArrowRight');
-  expect((await diagnostic(page)).focusedKey).toBe('equipment-slot:helmet');
-  for (const slot of ['armour', 'gloves', 'boots']) {
-    await press(page, 'ArrowDown');
-    expect((await diagnostic(page)).focusedKey).toBe(`equipment-slot:${slot}`);
-  }
-  for (const slot of ['gloves', 'armour', 'helmet']) {
-    await press(page, 'ArrowUp');
+  // Traverse every physical slot using the same spatial grid as the owner.
+  const columns = page.viewportSize()!.width >= 1114 ? 4 : 2;
+  const forward = columns === 2
+    ? [['ArrowRight', 'armour'], ['ArrowDown', 'boots'], ['ArrowLeft', 'gloves'], ['ArrowUp', 'helmet']]
+    : [['ArrowRight', 'armour'], ['ArrowRight', 'gloves'], ['ArrowRight', 'boots']];
+  const reverse = columns === 2
+    ? [['ArrowDown', 'gloves'], ['ArrowRight', 'boots'], ['ArrowUp', 'armour'], ['ArrowLeft', 'helmet']]
+    : [['ArrowLeft', 'gloves'], ['ArrowLeft', 'armour'], ['ArrowLeft', 'helmet']];
+  for (const [direction, slot] of [...forward, ...reverse]) {
+    await press(page, direction!);
     expect((await diagnostic(page)).focusedKey).toBe(`equipment-slot:${slot}`);
   }
   expect(state.buttons.filter((button) => button.key?.startsWith('equipment-candidate:'))).toHaveLength(8);
@@ -92,7 +103,11 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   expect(mounted).toBeDefined();
   await page.evaluate(() => (globalThis as PerfGlobal).__MEOWCENARY_PERFORMANCE__.resetMeasurement());
   const x = target.bounds.x + target.bounds.width / 2;
-  const y = target.bounds.y + target.bounds.height / 2;
+  const viewport = await diagnostic(page);
+  const top = Math.max(target.bounds.y, viewport.scroll!.top);
+  const bottom = Math.min(target.bounds.y + target.bounds.height, viewport.scroll!.bottom);
+  expect(bottom).toBeGreaterThan(top);
+  const y = (top + bottom) / 2;
   if (testInfo.project.use.hasTouch) await page.touchscreen.tap(x, y);
   else await page.mouse.click(x, y);
   await settle(page);
