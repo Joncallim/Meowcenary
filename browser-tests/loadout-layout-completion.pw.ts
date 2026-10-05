@@ -68,7 +68,7 @@ async function focus(page: Page, key: string) {
   }
   throw new Error(`Focus did not reach ${key}: ${JSON.stringify((await read(page)).diagnostic)}`);
 }
-async function activate(page: Page, key: string, testInfo: TestInfo) {
+async function activate(page: Page, key: string, testInfo: TestInfo): Promise<void> {
   if (!testInfo.project.use.hasTouch) {
     const initial = await read(page);
     if (initial.diagnostic.panel === 'gunsmith') return activateByPointerScroll(page, key, testInfo, initial.diagnostic);
@@ -85,7 +85,7 @@ async function activate(page: Page, key: string, testInfo: TestInfo) {
   else await page.mouse.click(x, y);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
 }
-async function activateByPointerScroll(page: Page, key: string, testInfo: TestInfo, initial?: Diagnostic) {
+async function activateByPointerScroll(page: Page, key: string, testInfo: TestInfo, initial?: Diagnostic): Promise<void> {
   if (testInfo.project.use.hasTouch) return activate(page, key, testInfo);
   // This journey exercises pointer selection. Reveal its target with a real
   // wheel gesture instead of first walking the entire keyboard focus order.
