@@ -1,4 +1,4 @@
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 
 type Rect = { x: number; y: number; width: number; height: number };
@@ -68,6 +68,42 @@ async function frames(page: Page, count = 2): Promise<void> {
   }
 }
 
+// Logical keyboard actions are polled. Keep the real down and neutral states
+// visible to one owning update each instead of assuming a zero-duration press
+// overlaps the render loop. Number shortcuts deliberately remain event tests.
+async function keyboardPulse(page: Page, key: string): Promise<void> {
+  await page.keyboard.down(key);
+  try { await frames(page, 1); }
+  finally { await page.keyboard.up(key); }
+  await frames(page, 1);
+}
+
+// Serial phases keep the same production scene and input owner alive while
+// giving each independent set of assertions the ordinary test budget.
+function sharedGame(options: {
+  beforeLaunch?: (page: Page) => Promise<void>;
+  afterLaunch?: (page: Page) => Promise<void>;
+} = {}): () => Page {
+  let context: BrowserContext | undefined;
+  let page: Page;
+  test.beforeAll(async ({ browser }, testInfo) => {
+    const { contextOptions, baseURL, colorScheme, viewport, hasTouch, isMobile, deviceScaleFactor } = testInfo.project.use;
+    context = await browser.newContext({ ...contextOptions, baseURL, colorScheme, viewport, hasTouch, isMobile, deviceScaleFactor });
+    page = await context.newPage();
+    await options.beforeLaunch?.(page);
+    await launch(page);
+    await options.afterLaunch?.(page);
+  });
+  test.afterEach(async ({}, testInfo) => {
+    if (testInfo.status === testInfo.expectedStatus || testInfo.status === 'skipped' || !page || page.isClosed()) return;
+    const path = testInfo.outputPath('test-failed-1.png');
+    await page.screenshot({ path });
+    await testInfo.attach('screenshot', { path, contentType: 'image/png' });
+  });
+  test.afterAll(async () => { await context?.close(); });
+  return () => page;
+}
+
 async function diagnostics(page: Page): Promise<Diagnostics> {
   return page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__!.upgradeChooserDiagnostics());
 }
@@ -101,7 +137,7 @@ function assertReadable(state: Diagnostics, owned: Record<string, number> = {}):
     const card = state.cards[index];
     const current = owned[id] ?? 0;
     const max = expected[4];
-    const status = `${expected[3]} · ${current ? 'OWNED' : 'NEW'} ${current} → ${current + 1}/${max}${current + 1 === max ? ' MAX' : ''}`;
+    const status = `${expected[3]} · ${current ? 'OWNED' : 'NEW'} ${current} to ${current + 1}/${max}${current + 1 === max ? ' MAX' : ''}`;
     within(card, state.canvas);
     expect(card.interactive).toBe(true);
     expect(card.height).toBeGreaterThanOrEqual(44);
@@ -150,9 +186,27 @@ function assertFocusPaint(state: Diagnostics, index: number): void {
   expect(state.cards.flatMap((card, index) => card.stroke.isStroked && card.stroke.alpha > 0 ? [index] : [])).toEqual([index]);
 }
 
-test('every shipped upgrade keeps its full name, exact effects, scope, stacks and authored icon', async ({ page }, testInfo) => {
-  await launch(page);
+test.describe.serial('every shipped upgrade through one warm GameScene', () => {
+  const game = sharedGame();
   for (let start = 0; start < CARDS.length; start += 4) {
+    test(`warm catalog group ${start / 4 + 1}: full names, exact effects, scope, stacks, icons and real selection`, async () => {
+      const page = game();
+      const ids = CARDS.slice(start, start + 4).map(row => row[0]);
+      const owned = Object.fromEntries(Object.entries(OWNED).filter(([id]) => ids.includes(id as typeof ids[number])));
+      const state = await prepare(page, ids, owned);
+      expect([...state.catalogIds].sort()).toEqual(CARDS.map(row => row[0]).sort());
+      assertReadable(state, owned);
+      const selected = state.choiceIds[0];
+      await page.keyboard.press('1');
+      await expect.poll(async () => (await diagnostics(page)).chosenIds).toEqual([selected]);
+      expect((await diagnostics(page)).stacks[selected]).toBe((owned[selected] ?? 0) + 1);
+    });
+  }
+});
+
+for (let start = 0; start < CARDS.length; start += 4) {
+  test(`catalog group ${start / 4 + 1}: every shipped upgrade keeps its full name, exact effects, scope, stacks and authored icon`, async ({ page }, testInfo) => {
+    await launch(page);
     const ids = CARDS.slice(start, start + 4).map(row => row[0]);
     const owned = Object.fromEntries(Object.entries(OWNED).filter(([id]) => ids.includes(id as typeof ids[number])));
     const state = await prepare(page, ids, owned);
@@ -163,94 +217,143 @@ test('every shipped upgrade keeps its full name, exact effects, scope, stacks an
     await page.keyboard.press('1');
     await expect.poll(async () => (await diagnostics(page)).chosenIds).toEqual([selected]);
     expect((await diagnostics(page)).stacks[selected]).toBe((owned[selected] ?? 0) + 1);
-  }
-});
+  });
+}
 
-test('touch and pointer commands require a fresh down on the same live card', async ({ page }, testInfo) => {
+test('pointer hover paints the real card with its shared visible focus stroke', async ({ page }, testInfo) => {
   await launch(page);
-  const first = await prepare(page, FIRST_FOUR, {}, 2);
-  const a = first.cards[0]; const b = first.cards[1];
-  const point = (card: Rect) => ({ x: card.x + card.width / 2, y: card.y + card.height / 2 });
-  await page.mouse.move(point(a).x, point(a).y);
-  await page.mouse.up(); // No arm.
+  const first = await prepare(page);
+  const card = first.cards[0];
+  await page.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
   await frames(page);
-  expect((await diagnostics(page)).chosenIds).toEqual([]);
   const hovered = await diagnostics(page);
   expect(hovered.cards[0].fillColor).toBe(0x214756);
   assertFocusPaint(hovered, 0);
+  expect(hovered.chosenIds).toEqual([]);
   await capture(page, testInfo, 'pointer-hover');
+});
+
+test('pointer press paints the real card before its release commits the visible choice', async ({ page }, testInfo) => {
+  await launch(page);
+  const first = await prepare(page);
+  const card = first.cards[0];
+  await page.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
   await page.mouse.down();
   await frames(page);
   const pressed = await diagnostics(page);
   expect(pressed.cards[0].fillColor).toBe(0x2c6263);
   assertFocusPaint(pressed, 0);
+  expect(pressed.chosenIds).toEqual([]);
   await capture(page, testInfo, 'pointer-pressed');
-  await page.mouse.move(point(b).x, point(b).y);
-  await page.mouse.up(); // Down A, release B.
-  await frames(page);
-  expect((await diagnostics(page)).chosenIds).toEqual([]);
-  await page.mouse.move(point(a).x, point(a).y);
-  await page.mouse.down();
-  await page.keyboard.press('1'); // Resolve while old pointer is held.
-  await expect.poll(async () => (await diagnostics(page)).chosenIds.length).toBe(1);
-  const second = await diagnostics(page);
-  expect(second.offerId).not.toBe(first.offerId);
-  await page.mouse.up(); // Release cannot submit replacement offer.
-  await frames(page);
-  expect((await diagnostics(page)).chosenIds.length).toBe(1);
-  const target = point(second.cards[1]);
-  if (testInfo.project.use.hasTouch) await page.touchscreen.tap(target.x, target.y);
-  else await page.mouse.click(target.x, target.y);
-  await expect.poll(async () => (await diagnostics(page)).chosenIds.length).toBe(2);
-  const final = await diagnostics(page);
-  expect(final.chosenIds[1]).toBe(second.choiceIds[1]);
-  expect(final.pendingCount).toBe(0);
-  expect(final.status).toBe('active');
-});
-
-test('keyboard and number-key holds consume one queued offer and require a fresh confirm', async ({ page }) => {
-  await launch(page);
-  const first = await prepare(page, FIRST_FOUR, {}, 3);
-  await page.keyboard.down('1');
-  await page.keyboard.down('1'); // Browser emits repeat=true for held key.
-  await frames(page, 5);
-  expect((await diagnostics(page)).chosenIds).toEqual([first.choiceIds[0]]);
-  await page.keyboard.up('1');
-  await page.keyboard.press('ArrowDown');
-  const second = await diagnostics(page);
-  expect(second.cards[1].focused).toBe(true);
-  await page.keyboard.down('Enter');
-  await frames(page, 5);
-  expect((await diagnostics(page)).chosenIds).toEqual([first.choiceIds[0], second.choiceIds[1]]);
-  expect((await diagnostics(page)).pendingCount).toBe(1);
-  await page.keyboard.up('Enter');
-  await frames(page);
-  const third = await diagnostics(page);
-  await page.keyboard.press('Space');
-  await expect.poll(async () => (await diagnostics(page)).chosenIds.length).toBe(3);
-  expect((await diagnostics(page)).chosenIds[2]).toBe(third.choiceIds[0]);
+  await page.mouse.up();
+  await expect.poll(async () => (await diagnostics(page)).chosenIds).toEqual([first.choiceIds[0]]);
   expect((await diagnostics(page)).status).toBe('active');
 });
 
-test('resize rebuild preserves the current token and keyboard focus', async ({ page }, testInfo) => {
-  await launch(page);
-  await prepare(page);
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('ArrowDown');
-  const before = await diagnostics(page);
-  const viewport = page.viewportSize()!;
-  await page.setViewportSize({ width: viewport.width, height: viewport.height + 20 });
-  await expect.poll(async () => (await diagnostics(page)).rebuildCount).toBeGreaterThan(before.rebuildCount);
-  const resized = await diagnostics(page);
-  expect(resized.offerId).toBe(before.offerId);
-  expect(resized.choiceIds).toEqual(before.choiceIds);
-  expect(resized.cards[2].focused).toBe(true);
-  assertReadable(resized);
-  await page.setViewportSize(viewport);
-  await expect.poll(async () => (await diagnostics(page)).rebuildCount).toBeGreaterThan(resized.rebuildCount);
-  await capture(page, testInfo, 'resized-restored');
-  await page.keyboard.press('Enter');
-  await expect.poll(async () => (await diagnostics(page)).chosenIds).toEqual([before.choiceIds[2]]);
+test.describe.serial('touch and pointer commands require a fresh down on the same live card', () => {
+  let first: Diagnostics;
+  const game = sharedGame({ afterLaunch: async page => { first = await prepare(page, FIRST_FOUR, {}, 2); } });
+  const point = (card: Rect) => ({ x: card.x + card.width / 2, y: card.y + card.height / 2 });
+  test('unarmed release and down A / up B cannot select; hover and press paint the real card', async () => {
+    const page = game();
+    const a = first.cards[0]; const b = first.cards[1];
+    await page.mouse.move(point(a).x, point(a).y);
+    await page.mouse.up(); // No arm.
+    await frames(page);
+    expect((await diagnostics(page)).chosenIds).toEqual([]);
+    const hovered = await diagnostics(page);
+    expect(hovered.cards[0].fillColor).toBe(0x214756);
+    assertFocusPaint(hovered, 0);
+    await page.mouse.down();
+    await frames(page);
+    const pressed = await diagnostics(page);
+    expect(pressed.cards[0].fillColor).toBe(0x2c6263);
+    assertFocusPaint(pressed, 0);
+    await page.mouse.move(point(b).x, point(b).y);
+    await page.mouse.up(); // Down A, release B.
+    await frames(page);
+    expect((await diagnostics(page)).chosenIds).toEqual([]);
+  });
+  test('replacing an offer while its pointer is held rejects stale release and accepts fresh touch or pointer input', async ({}, testInfo) => {
+    const page = game();
+    const a = first.cards[0];
+    await page.mouse.move(point(a).x, point(a).y);
+    await page.mouse.down();
+    await page.keyboard.press('1'); // Resolve while old pointer is held.
+    await expect.poll(async () => (await diagnostics(page)).chosenIds.length).toBe(1);
+    const second = await diagnostics(page);
+    expect(second.offerId).not.toBe(first.offerId);
+    await page.mouse.up(); // Release cannot submit replacement offer.
+    await frames(page);
+    expect((await diagnostics(page)).chosenIds.length).toBe(1);
+    const target = point(second.cards[1]);
+    if (testInfo.project.use.hasTouch) await page.touchscreen.tap(target.x, target.y);
+    else await page.mouse.click(target.x, target.y);
+    await expect.poll(async () => (await diagnostics(page)).chosenIds.length).toBe(2);
+    const final = await diagnostics(page);
+    expect(final.chosenIds[1]).toBe(second.choiceIds[1]);
+    expect(final.pendingCount).toBe(0);
+    expect(final.status).toBe('active');
+  });
+});
+
+test.describe.serial('keyboard and number-key holds consume one queued offer and require a fresh confirm', () => {
+  let first: Diagnostics;
+  let second: Diagnostics;
+  const game = sharedGame({ afterLaunch: async page => { first = await prepare(page, FIRST_FOUR, {}, 3); } });
+  test('a held number key consumes exactly one offer', async () => {
+    const page = game();
+    await page.keyboard.down('1');
+    await page.keyboard.down('1'); // Browser emits repeat=true for held key.
+    await frames(page, 5);
+    expect((await diagnostics(page)).chosenIds).toEqual([first.choiceIds[0]]);
+    await page.keyboard.up('1');
+  });
+  test('a held keyboard confirm consumes exactly the focused queued offer', async () => {
+    const page = game();
+    await keyboardPulse(page, 'ArrowDown');
+    second = await diagnostics(page);
+    expect(second.cards[1].focused).toBe(true);
+    await page.keyboard.down('Enter');
+    await frames(page, 5);
+    expect((await diagnostics(page)).chosenIds).toEqual([first.choiceIds[0], second.choiceIds[1]]);
+    expect((await diagnostics(page)).pendingCount).toBe(1);
+  });
+  test('a released confirm and fresh Space pulse complete the same queue', async () => {
+    const page = game();
+    await page.keyboard.up('Enter');
+    await frames(page);
+    const third = await diagnostics(page);
+    await keyboardPulse(page, 'Space');
+    await expect.poll(async () => (await diagnostics(page)).chosenIds.length).toBe(3);
+    expect((await diagnostics(page)).chosenIds[2]).toBe(third.choiceIds[0]);
+    expect((await diagnostics(page)).status).toBe('active');
+  });
+});
+
+test.describe.serial('resize on one live production offer', () => {
+  const game = sharedGame({ afterLaunch: async page => { await prepare(page); } });
+  test('resize rebuild preserves the current token and keyboard focus', async ({}, testInfo) => {
+    const page = game();
+    await keyboardPulse(page, 'ArrowDown');
+    await keyboardPulse(page, 'ArrowDown');
+    const before = await diagnostics(page);
+    expect(before.cards[2].focused).toBe(true);
+    const viewport = page.viewportSize()!;
+    await page.setViewportSize({ width: viewport.width, height: viewport.height + 20 });
+    await expect.poll(async () => (await diagnostics(page)).rebuildCount).toBeGreaterThan(before.rebuildCount);
+    const resized = await diagnostics(page);
+    await testInfo.attach('resize-before-after-facts', { body: JSON.stringify({ before, resized }, null, 2), contentType: 'application/json' });
+    expect(resized.offerId).toBe(before.offerId);
+    expect(resized.choiceIds).toEqual(before.choiceIds);
+    expect(resized.cards[2].focused).toBe(true);
+    assertReadable(resized);
+    await page.setViewportSize(viewport);
+    await expect.poll(async () => (await diagnostics(page)).rebuildCount).toBeGreaterThan(resized.rebuildCount);
+    await capture(page, testInfo, 'resized-restored');
+    await keyboardPulse(page, 'Enter');
+    await expect.poll(async () => (await diagnostics(page)).chosenIds).toEqual([before.choiceIds[2]]);
+  });
 });
 
 for (const kind of ['texture', 'frame'] as const) {
@@ -269,44 +372,54 @@ for (const kind of ['texture', 'frame'] as const) {
   });
 }
 
-test('virtual controller is polled by the real input owner and held confirm cannot drain the queue', async ({ page }, testInfo) => {
-  await page.addInitScript(() => {
-    const pad = { id: 'Upgrade browser standard controller', index: 0, connected: true, mapping: 'standard', timestamp: 0,
-      axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ value: 0, pressed: false, touched: false })) };
-    Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [pad] });
-    (globalThis as BrowserGlobals).__UPGRADE_PAD__ = (button, pressed) => {
-      pad.buttons[button] = { value: pressed ? 1 : 0, pressed, touched: pressed };
-      pad.timestamp = performance.now();
-    };
+test.describe.serial('virtual controller is polled by the real input owner and held confirm cannot drain the queue', () => {
+  let first: Diagnostics;
+  const game = sharedGame({
+    beforeLaunch: async page => {
+      await page.addInitScript(() => {
+        const pad = { id: 'Upgrade browser standard controller', index: 0, connected: true, mapping: 'standard', timestamp: 0,
+          axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ value: 0, pressed: false, touched: false })) };
+        Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [pad] });
+        (globalThis as BrowserGlobals).__UPGRADE_PAD__ = (button, pressed) => {
+          pad.buttons[button] = { value: pressed ? 1 : 0, pressed, touched: pressed };
+          pad.timestamp = performance.now();
+        };
+      });
+    },
+    afterLaunch: async page => { await prepare(page, FIRST_FOUR, {}, 2); },
   });
-  await launch(page);
-  await prepare(page, FIRST_FOUR, {}, 2);
-  await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(13, true));
-  await frames(page);
-  await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(13, false));
-  await frames(page);
-  const first = await diagnostics(page);
-  expect(first.inputMode).toBe('gamepad');
-  expect(first.cards[1].focused).toBe(true);
-  assertFocusPaint(first, 1);
-  await capture(page, testInfo, 'controller-focused');
-  await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(0, true));
-  // A keyboard confirm while the same logical confirm remains held on the
-  // pad is coalesced. Releasing one source cannot manufacture a new edge.
-  await page.keyboard.down('Enter');
-  await frames(page, 5);
-  expect((await diagnostics(page)).chosenIds).toEqual([first.choiceIds[1]]);
-  expect((await diagnostics(page)).pendingCount).toBe(1);
-  await page.keyboard.up('Enter');
-  await frames(page);
-  expect((await diagnostics(page)).chosenIds).toEqual([first.choiceIds[1]]);
-  await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(0, false));
-  await frames(page);
-  const second = await diagnostics(page);
-  await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(0, true));
-  await expect.poll(async () => (await diagnostics(page)).chosenIds).toEqual([first.choiceIds[1], second.choiceIds[0]]);
-  await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(0, false));
-  expect((await diagnostics(page)).status).toBe('active');
+  test('real controller navigation paints focus and mixed held confirm consumes one offer', async ({}, testInfo) => {
+    const page = game();
+    await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(13, true));
+    await frames(page);
+    await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(13, false));
+    await frames(page);
+    first = await diagnostics(page);
+    expect(first.inputMode).toBe('gamepad');
+    expect(first.cards[1].focused).toBe(true);
+    assertFocusPaint(first, 1);
+    await capture(page, testInfo, 'controller-focused');
+    await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(0, true));
+    // A keyboard confirm while the same logical confirm remains held on the
+    // pad is coalesced. Releasing one source cannot manufacture a new edge.
+    await page.keyboard.down('Enter');
+    await frames(page, 5);
+    expect((await diagnostics(page)).chosenIds).toEqual([first.choiceIds[1]]);
+    expect((await diagnostics(page)).pendingCount).toBe(1);
+  });
+  test('releasing only keyboard confirm keeps the pad held; a fresh pad edge completes the same queue', async () => {
+    const page = game();
+    await page.keyboard.up('Enter');
+    await frames(page);
+    expect((await diagnostics(page)).chosenIds).toEqual([first.choiceIds[1]]);
+    await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(0, false));
+    await frames(page);
+    const second = await diagnostics(page);
+    await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(0, true));
+    await expect.poll(async () => (await diagnostics(page)).chosenIds).toEqual([first.choiceIds[1], second.choiceIds[0]]);
+    await page.evaluate(() => (globalThis as BrowserGlobals).__UPGRADE_PAD__!(0, false));
+    expect((await diagnostics(page)).status).toBe('active');
+  });
 });
 
 test('390px DPR3 portrait and blocked 844px landscape restore the same production offer', async ({ browser }, testInfo) => {

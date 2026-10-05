@@ -1,0 +1,36 @@
+[
+  {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "focusBefore": [
+      2
+    ],
+    "focusAfter": [
+      2
+    ],
+    "modeBefore": "keyboard",
+    "modeAfter": "keyboard",
+    "sameOffer": true,
+    "rebuildBefore": 1,
+    "rebuildAfter": 3
+  },
+  {
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "focusBefore": [
+      2
+    ],
+    "focusAfter": [
+      2
+    ],
+    "modeBefore": "keyboard",
+    "modeAfter": "keyboard",
+    "sameOffer": true,
+    "rebuildBefore": 1,
+    "rebuildAfter": 3
+  }
+]

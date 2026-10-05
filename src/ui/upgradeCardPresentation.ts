@@ -42,9 +42,10 @@ export function resolveUpgradeCardPresentation(choice: UpgradeCardReadModel): {
     ? scopedFamilies.map(family => family === 'smg' ? 'SMG' : family.charAt(0).toUpperCase() + family.slice(1)).join(' + ')
     : allWeapons ? 'All weapons' : allMercenary ? 'Mercenary' : 'Run';
   const maxed = choice.currentStacks >= choice.maxStacks;
+  // Keep stack copy in the bundled Latin font; U+2192 invokes an OS fallback.
   const stacks = maxed
     ? `MAX ${choice.currentStacks}/${choice.maxStacks}`
-    : `${choice.owned ? 'OWNED' : 'NEW'} ${choice.currentStacks} → ${choice.nextStack}/${choice.maxStacks}${choice.nextStack === choice.maxStacks ? ' MAX' : ''}`;
+    : `${choice.owned ? 'OWNED' : 'NEW'} ${choice.currentStacks} to ${choice.nextStack}/${choice.maxStacks}${choice.nextStack === choice.maxStacks ? ' MAX' : ''}`;
   return Object.freeze({
     effect: choice.effects.map(describeUpgradeEffect).join(' · '),
     scope,
