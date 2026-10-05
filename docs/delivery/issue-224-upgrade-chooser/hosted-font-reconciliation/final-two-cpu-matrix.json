@@ -1,0 +1,21 @@
+{
+  "browserFileSha256": "e4287ec0172e4b1b9221e8ee1c01e73ec14a83637f023417b19489e3d8304378",
+  "cpuAffinity": [
+    0,
+    1
+  ],
+  "exitCode": 0,
+  "stats": {
+    "startTime": "2026-10-05T01:32:20.475Z",
+    "duration": 1441779.2619999999,
+    "expected": 133,
+    "skipped": 5,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "profileCount": 6,
+  "casesPerProfile": 23,
+  "timeoutsChanged": false,
+  "retriesChanged": false,
+  "scopeChanged": false
+}

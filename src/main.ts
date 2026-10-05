@@ -7,13 +7,18 @@ import './styles.css';
 import { physicsDebugEnabled } from './systems/debug';
 import { installDiagnostics } from './engine/diagnostics';
 import { bindVisualViewportRefresh, isGestureActive } from './platform/visualViewport';
-import { installPortraitOrientationGuard } from './platform/orientation';
+import { installPortraitOrientationGuard, isPortraitOrientationBlocked } from './platform/orientation';
 import { responsiveScaleConfig } from './platform/gameScale';
 import { performanceProbe } from './platform/performanceProbe';
 import { collectDisplayObjects, type DisplayNode } from './platform/performanceDisplay';
 import type { GameContext } from './engine/context';
 import type { ComposedRunRequest } from './gameplay/runRequest';
 import { responsiveArenaPresentationBounds } from './gameplay/responsiveArenaPresentation';
+import { createWeaponInstance } from './gameplay/weapons';
+import type { RunState } from './gameplay/runState';
+import type { UpgradeSystem } from './systems/UpgradeSystem';
+import type { UpgradeChooser } from './ui/UpgradeChooser';
+import { DataVisualArtRegistry } from './systems/visualArt';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -141,6 +146,125 @@ if (performanceProbe) {
 // never expose mutable scene internals in a deployed game.
 if (import.meta.env.VITE_VISUAL_TEST === '1'
     && new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') === '1') {
+  type UpgradeFixtureScene = Phaser.Scene & {
+    runState?: RunState;
+    upgradeSystem?: UpgradeSystem;
+    upgradeChooser?: UpgradeChooser;
+    getContext(): GameContext;
+    inputController?: { getInputMode(): string; core?: { isNeutral(): boolean } };
+  };
+  let upgradeObservedRun: RunState | undefined;
+  let stopUpgradeObservation: (() => void) | undefined;
+  let upgradeChosen: string[] = [];
+  let upgradeFixtureLevel = 100;
+  const upgradeFixtureScene = (): UpgradeFixtureScene | undefined => {
+    if (!game.scene.isActive('GameScene')) return undefined;
+    return game.scene.getScene('GameScene') as UpgradeFixtureScene;
+  };
+  const prepareUpgradeOffer = (
+    ids: readonly string[], owned: Readonly<Record<string, number>> = {}, pendingLevels = 1,
+  ): boolean => {
+    const scene = upgradeFixtureScene();
+    const run = scene?.runState;
+    const system = scene?.upgradeSystem;
+    if (!scene || !run || !system || run.status !== 'active' || system.currentOfferSnapshot
+      || ids.length === 0 || ids.length > RuntimeConfig.gameplay.upgrades.offerCount
+      || new Set(ids).size !== ids.length || !Number.isSafeInteger(pendingLevels) || pendingLevels < 1 || pendingLevels > 5) return false;
+    const ctx = scene.getContext();
+    const definitions = ctx.data.upgrades;
+    if (ids.some(id => !definitions.some(definition => definition.id === id))) return false;
+    for (const [id, stacks] of Object.entries(owned)) {
+      const definition = definitions.find(row => row.id === id);
+      if (!ids.includes(id) || !definition || !Number.isSafeInteger(stacks) || stacks < 0 || stacks >= definition.maxStacks) return false;
+    }
+    const familyDefinitions = ['pistol', 'smg', 'shotgun'].map(family => ctx.data.weapons.find(row => row.family === family && row.mergeTier === 1));
+    if (familyDefinitions.some(definition => !definition)) return false;
+    // Isolated visual-test fixture state controls eligibility only. The real
+    // coordinator still rolls its named stream, publishes the frozen offer,
+    // acquires its pause lease, and applies only real player input commands.
+    for (const definition of definitions) {
+      run.upgradeStacks[definition.id] = ids.includes(definition.id) ? owned[definition.id] ?? 0 : definition.maxStacks;
+    }
+    run.equipped = familyDefinitions.map((definition, index) => createWeaponInstance(definition!, `upgrade-browser:${index}`));
+    if (upgradeObservedRun !== run) {
+      stopUpgradeObservation?.();
+      upgradeObservedRun = run;
+      stopUpgradeObservation = ctx.bus.on('card:chosen', ({ upgradeId }) => { upgradeChosen.push(upgradeId); });
+      scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+        if (upgradeObservedRun !== run) return;
+        stopUpgradeObservation?.();
+        stopUpgradeObservation = undefined;
+        upgradeObservedRun = undefined;
+        upgradeChosen = [];
+      });
+    }
+    upgradeChosen = [];
+    for (let index = 0; index < pendingLevels; index++) ctx.bus.emit('level:up', { level: upgradeFixtureLevel++ });
+    return system.currentOfferSnapshot !== undefined;
+  };
+  const upgradeChooserDiagnostics = (): Record<string, unknown> | undefined => {
+    const scene = upgradeFixtureScene();
+    const chooser = scene?.upgradeChooser;
+    if (!scene || !chooser || !scene.runState) return undefined;
+    const view = (chooser as unknown as { view: {
+      root?: Phaser.GameObjects.Container;
+      cardBackgrounds: Phaser.GameObjects.Rectangle[];
+      cardEdges: Phaser.GameObjects.Rectangle[];
+      renderedText: Array<{ role: string; object: Phaser.GameObjects.Text }>;
+    } }).view;
+    const camera = scene.cameras.main;
+    const canvasRect = game.canvas.getBoundingClientRect();
+    const screenBounds = (object: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text | Phaser.GameObjects.Image) => {
+      const matrix = Phaser.GameObjects.GetCalcMatrix(object, camera, object.parentContainer?.getWorldTransformMatrix()).calc;
+      const topLeft = matrix.transformPoint(-object.displayOriginX, -object.displayOriginY);
+      const bottomRight = matrix.transformPoint(object.width - object.displayOriginX, object.height - object.displayOriginY);
+      return {
+        x: canvasRect.left + topLeft.x * canvasRect.width / game.scale.gameSize.width,
+        y: canvasRect.top + topLeft.y * canvasRect.height / game.scale.gameSize.height,
+        width: (bottomRight.x - topLeft.x) * canvasRect.width / game.scale.gameSize.width,
+        height: (bottomRight.y - topLeft.y) * canvasRect.height / game.scale.gameSize.height,
+      };
+    };
+    const diagnostics = chooser.diagnostics;
+    const screenScale = camera.zoom * canvasRect.height / game.scale.gameSize.height;
+    const images = (view.root?.list ?? []).filter((node): node is Phaser.GameObjects.Image => node instanceof Phaser.GameObjects.Image);
+    return {
+      ...diagnostics,
+      catalogIds: scene.getContext().data.upgrades.map(definition => definition.id),
+      cards: diagnostics.cards.map((card, index) => ({
+        ...card, ...screenBounds(view.cardBackgrounds[index]),
+        stroke: {
+          visible: view.cardEdges[index].visible && view.root?.visible === true,
+          isStroked: view.cardEdges[index].isStroked,
+          color: view.cardEdges[index].strokeColor,
+          alpha: view.cardEdges[index].strokeAlpha * view.cardEdges[index].alpha * (view.root?.alpha ?? 1) * camera.alpha,
+          width: view.cardEdges[index].lineWidth,
+          physicalWidth: view.cardEdges[index].lineWidth * screenScale,
+        },
+      })),
+      text: diagnostics.text.map((row, index) => ({
+        ...row, ...screenBounds(view.renderedText[index].object),
+        physicalFontSize: Number.parseFloat(String(view.renderedText[index].object.style.fontSize)) * screenScale,
+        physicalNaturalHeight: row.naturalHeight * screenScale,
+        // Phaser 3.90's cropped WebGL batch replaces logical Text size with
+        // backing-pixel crop size. At resolution 2 that magnifies glyphs 2x
+        // while metadata bounds still look valid; expose this independent
+        // renderer fact so unsupported crop use cannot pass the fit oracle.
+        rasterScale: view.renderedText[index].object.isCropped ? view.renderedText[index].object.style.resolution : 1,
+      })),
+      icons: diagnostics.icons.map((icon, index) => ({ ...icon, ...screenBounds(images[index]), frameKey: images[index].frame.name, visible: images[index].visible })),
+      status: scene.runState.status,
+      pauseReason: scene.runState.pauseReason,
+      stacks: { ...scene.runState.upgradeStacks },
+      chosenIds: [...upgradeChosen],
+      pendingCount: scene.upgradeSystem?.pendingCount,
+      inputMode: scene.inputController?.getInputMode(),
+      inputNeutral: scene.inputController?.core?.isNeutral() === true,
+      orientationBlocked: isPortraitOrientationBlocked(),
+      canvas: { x: canvasRect.x, y: canvasRect.y, width: canvasRect.width, height: canvasRect.height },
+      devicePixelRatio,
+    };
+  };
   let focusedActorWorldPoint: { x: number; y: number } | undefined;
   const isMenuPresentationSettled = (): boolean => {
     const scene = game.scene.getScene('MenuScene') as unknown as {
@@ -251,6 +375,24 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
   Object.defineProperty(globalThis, '__MEOWCENARY_VISUAL_TEST__', {
     configurable: true,
     value: Object.freeze({
+      prepareUpgradeOffer,
+      upgradeChooserDiagnostics,
+      setUpgradeTestReducedMotion: (reducedMotion: boolean): boolean => {
+        const scene = upgradeFixtureScene();
+        if (!scene) return false;
+        return scene.getContext().updateSettings({ reducedMotion }).persisted;
+      },
+      removeUpgradeTestArt: (id: string, kind: 'texture' | 'frame'): boolean => {
+        const scene = upgradeFixtureScene();
+        if (!scene) return false;
+        const ctx = scene.getContext();
+        const definition = ctx.data.upgrades.find(row => row.id === id);
+        const binding = definition && new DataVisualArtRegistry(ctx.data).bindingById(definition.presentation.iconArtId);
+        if (!binding || !game.textures.exists(binding.textureKey)) return false;
+        if (kind === 'texture') game.textures.remove(binding.textureKey);
+        else game.textures.get(binding.textureKey).remove(String(binding.frameKey ?? '__BASE'));
+        return true;
+      },
       freeze: freezeVisualFrame,
       focusArtBackdrop: (): boolean => {
         // Explicit synthetic transient-art fixture, never a runtime command.

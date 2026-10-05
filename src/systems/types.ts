@@ -315,6 +315,8 @@ export interface UpgradeCardReadModel {
   readonly target: UpgradeDefinition['target'];
   readonly description: string;
   readonly category: UpgradePresentation['category'];
+  /** Canonical, deeply frozen effect facts for presentation; never parsed from prose. */
+  readonly effects: readonly RunUpgradeEffect[];
   readonly iconArtId: string;
   readonly family?: string;
   readonly owned: boolean;

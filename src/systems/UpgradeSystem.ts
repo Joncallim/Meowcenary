@@ -57,6 +57,7 @@ function buildReadModel(
     target: definition.target,
     description: definition.description,
     category: definition.presentation.category,
+    effects: definition.effects,
     iconArtId: definition.presentation.iconArtId,
     ...(family !== undefined ? { family } : {}),
     owned: currentStacks > 0,

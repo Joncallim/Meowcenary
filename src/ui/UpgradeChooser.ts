@@ -14,18 +14,14 @@ import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
 import type { InputMode } from '../systems/input';
 import { physicalToLogical, responsiveGameUiViewport, responsiveUiViewport, type UiViewport } from './layout';
 import { ZERO_SAFE_AREA } from '../platform/safeArea';
+import { resolveUpgradeCardPresentation } from './upgradeCardPresentation';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
 
 const CHOOSER_DEPTH = ThemeDepth.upgradeChooser;
 const RARITY_EDGE_ALPHA = 0.95;
 const RARITY_CARD_BACKGROUND = {
-  // Deliberately distinct card plates keep upgrade rarity readable before a
-  // player reads the small label on a portrait phone.
-  common: 0x31485a,
-  uncommon: 0x18563c,
-  rare: 0x244b78,
-  epic: 0x503478,
-  legendary: 0x624719,
+  common: ThemeColor.card, uncommon: ThemeColor.card, rare: ThemeColor.card,
+  epic: ThemeColor.card, legendary: ThemeColor.card,
 } as const;
 
 /** Measure the actual Phaser glyphs, then reduce/truncate only as far as the
@@ -128,6 +124,7 @@ export interface UpgradeChooserRenderDiagnostics {
     readonly width: number;
     readonly height: number;
   }[];
+  readonly icons: readonly { readonly index: number; readonly artId: string; readonly textureKey: string; readonly frameKey?: string | number; readonly x: number; readonly y: number; readonly width: number; readonly height: number }[];
   readonly text: readonly {
     readonly role: string;
     readonly text: string;
@@ -137,15 +134,21 @@ export interface UpgradeChooserRenderDiagnostics {
     readonly width: number;
     readonly height: number;
     readonly scaleX: number;
+    readonly fontSize: number;
+    readonly naturalHeight: number;
+    readonly clipped: boolean;
   }[];
 }
+
+interface RenderedChooserText { role: string; object: Phaser.GameObjects.Text; naturalHeight?: number; clipped?: boolean }
 
 export class PhaserUpgradeChooserView implements UpgradeChooserView {
   private root?: Phaser.GameObjects.Container;
   private cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
   private cardBaseColors: number[] = [];
   private cardEdges: Phaser.GameObjects.Rectangle[] = [];
-  private renderedText: Array<{ role: string; object: Phaser.GameObjects.Text }> = [];
+  private renderedText: RenderedChooserText[] = [];
+  private renderedIcons: UpgradeChooserRenderDiagnostics['icons'] = [];
   private select?: (offerId: number, choiceIndex: number) => boolean;
   private offer?: UpgradeChooserOffer;
   private currentOfferId?: number;
@@ -197,7 +200,8 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         width: card.getBounds().width,
         height: card.getBounds().height,
       })),
-      text: this.renderedText.map(({ role, object }) => {
+      icons: this.renderedIcons,
+      text: this.renderedText.map(({ role, object, naturalHeight, clipped }) => {
         const bounds = object.getBounds();
         return {
           role,
@@ -208,6 +212,9 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           width: bounds.width,
           height: bounds.height,
           scaleX: object.scaleX,
+          fontSize: Number.parseFloat(String(object.style.fontSize)),
+          naturalHeight: naturalHeight ?? bounds.height,
+          clipped: clipped ?? false,
         };
       }),
     };
@@ -240,6 +247,8 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     // tween durations today; any animation added later must be gated through
     // reducedMotionDuration so it never delays a card command.
     this.reducedMotion = this.readReducedMotion();
+    this.inputMode = this.readInputMode();
+    this.lastInputMode = this.inputMode;
     // Hover belongs to the previous tree's display objects and is never
     // preserved across a rebuild (§3 committed-render transaction).
     this.hoveredIndex = -1;
@@ -263,10 +272,8 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     const cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
     const cardBaseColors: number[] = [];
     const cardEdges: Phaser.GameObjects.Rectangle[] = [];
-    const renderedText: Array<{ role: string; object: Phaser.GameObjects.Text }> = [];
-    // Four/five choices need fast phone-scale scanning: retain the benefit,
-    // omit stack detail, and hard-cap the copy to one contained line.
-    const condensedCards = offer.choices.length > 2;
+    const renderedText: RenderedChooserText[] = [];
+    const renderedIcons: UpgradeChooserRenderDiagnostics['icons'][number][] = [];
     const own = <T extends Phaser.GameObjects.GameObject>(object: T): T => {
       root.add(object);
       return object;
@@ -327,7 +334,6 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           return;
         }
         const cardLeft = cardLayout.x - cardLayout.width / 2;
-        const cardTop = cardLayout.y - cardLayout.height / 2;
         const card = own(this.scene.add.rectangle(
           cardLayout.x,
           cardLayout.y,
@@ -363,22 +369,25 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           RARITY_EDGE_ALPHA,
         )).setScrollFactor(0);
         cardEdges.push(edge);
+        const liveCard = () => !this.destroyed && this.committedDisplay
+          && this.currentOfferId === offer.offerId && this.cardBackgrounds[index] === card;
         card.on(Phaser.Input.Events.POINTER_OVER, () => {
-          if (this.enabled) {
+          if (liveCard() && this.enabled) {
             this.hoveredIndex = index;
             this.focusIndex = index;
             this.applyFocusStroke();
-            card.setFillStyle(RARITY_CARD_BACKGROUND[choice.rarity], 1);
+            card.setFillStyle(ThemeColor.cardHover, 1);
           }
         });
         card.on(Phaser.Input.Events.POINTER_OUT, () => {
+          if (!liveCard()) return;
           this.armedPointerIds.forEach((cardIndex, pointerId) => { if (cardIndex === index) this.armedPointerIds.delete(pointerId); });
           if (this.hoveredIndex === index) this.hoveredIndex = -1;
           this.applyFocusStroke();
           card.setFillStyle(RARITY_CARD_BACKGROUND[choice.rarity], this.enabled ? 1 : 0.58);
         });
         card.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
-          if (this.acceptsNavigation && this.currentOfferId === offer.offerId) {
+          if (liveCard() && this.acceptsNavigation) {
             // Touch has no hover phase. The pressed card becomes the logical
             // focus target at the same boundary that captures pointer identity,
             // so pointer, keyboard and controller submit the same card command.
@@ -386,146 +395,66 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
             this.focusIndex = index;
             this.applyFocusStroke();
             this.armedPointerIds.set(pointer.id, index);
+            card.setFillStyle(0x2c6263, 1);
           }
         });
         card.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
-          if (this.armedPointerIds.get(pointer?.id) !== index) return;
+          if (!liveCard() || this.armedPointerIds.get(pointer?.id) !== index) return;
           this.armedPointerIds.delete(pointer.id);
           if (!this.acceptsNavigation || this.currentOfferId !== offer.offerId || this.focusIndex !== index) return;
           this.submit(offer.offerId, index);
         });
 
-        // Epic 18 (D9 content priority 1): icon, falling back to a numbered
-        // badge (also a visible touch/keyboard-shortcut hint) when no bound,
-        // loaded texture exists for this card's icon.
         const iconBinding = this.visualArt?.bindingById(choice.iconArtId);
-        const showIcon =
-          iconBinding?.kind === 'upgrade-icon' &&
-          cardLayout.iconSize > 0 &&
-          this.scene.textures.exists(iconBinding.textureKey);
+        const showIcon = iconBinding?.kind === 'upgrade-icon' && cardLayout.iconSize > 0
+          && this.scene.textures.exists(iconBinding.textureKey)
+          && this.scene.textures.get(iconBinding.textureKey).has(iconBinding.frameKey ?? '__BASE');
         if (showIcon) {
-          // Upgrade cards intentionally promote their authored icon above the
-          // binding's gameplay/default display hint. The measured card box is
-          // still the hard limit, so this never causes narrow-screen overflow.
           const aspect = iconBinding.display.width / iconBinding.display.height;
           const size = aspect >= 1 ? cardLayout.iconSize : cardLayout.iconSize * aspect;
-          const height = aspect >= 1 ? cardLayout.iconSize / aspect : cardLayout.iconSize;
-          const icon = own(this.scene.add.image(
-            cardLeft + cardLayout.padding + size / 2,
-            cardTop + cardLayout.padding + height / 2,
-            iconBinding.textureKey,
-            iconBinding.frameKey,
-          ));
-          icon.setDisplaySize(size, height);
+          const iconHeight = aspect >= 1 ? cardLayout.iconSize / aspect : cardLayout.iconSize;
+          const icon = own(this.scene.add.image(cardLayout.iconX + size / 2,
+            cardLayout.iconY + iconHeight / 2, iconBinding.textureKey, iconBinding.frameKey));
+          icon.setDisplaySize(size, iconHeight).setScrollFactor(0);
+          renderedIcons.push({ index, artId: choice.iconArtId, textureKey: iconBinding.textureKey,
+            frameKey: iconBinding.frameKey, x: cardLayout.iconX, y: cardLayout.iconY, width: size, height: iconHeight });
         } else {
-          const number = own(createUiText(this.scene,
-            cardLeft + cardLayout.padding,
-            cardTop + cardLayout.padding,
-            `${index + 1}.`,
-            {
-              color: '#ffffff',
-              fontFamily: ThemeFont.family,
-              fontSize: `${layout.fonts.name}px`,
-              fontStyle: 'bold',
-            },
-          ));
+          // Missing texture OR frame stays playable and never borrows unrelated art.
+          const number = own(createUiText(this.scene, cardLayout.iconX + cardLayout.iconSize / 2,
+            cardLayout.iconY, `${index + 1}`, { color: '#a5f3fc', fontFamily: ThemeFont.family,
+              fontSize: `${Math.min(layout.fonts.heading * 1.8, cardLayout.iconSize)}px`, fontStyle: 'bold' }));
+          number.setOrigin(0.5, 0);
+          if (number.height > cardLayout.iconSize || number.width > cardLayout.iconSize) {
+            number.setFixedSize(cardLayout.iconSize, cardLayout.iconSize);
+          }
           renderedText.push({ role: `number:${index}`, object: number });
         }
 
-        if (cardLayout.nameWidth > 0) {
-          const name = own(createUiText(this.scene,
-            cardLeft + cardLayout.nameX,
-            cardTop + cardLayout.padding,
-            choice.name,
-            {
-              color: '#ffffff',
-              fontFamily: ThemeFont.family,
-              fontSize: `${layout.fonts.name}px`,
-              fontStyle: 'bold',
-            },
-          ));
-          containText(name, choice.name, cardLayout.nameWidth, layout.fonts.name, 10 / layout.displayScale);
-          renderedText.push({ role: `name:${index}`, object: name });
-        }
-
-        // Keep the full uppercase rarity word visible as the semantic cue; the
-        // color remains sourced exclusively from ThemeColor.rarity below.
-        const rarityLabel = choice.rarity.toUpperCase();
-        const rarity = own(createUiText(this.scene,
-          cardLeft + cardLayout.width - cardLayout.padding,
-          cardTop + cardLayout.padding,
-          rarityLabel,
-          {
-          align: 'right',
-          color: themeColorCss(ThemeColor.rarity[choice.rarity]),
-          fontFamily: ThemeFont.family,
-          fontSize: `${layout.fonts.rarity}px`,
-          },
-        ));
-        let rarityFontSize = layout.fonts.rarity;
-        const minimumRarityFontSize = 8 / layout.displayScale;
-        while (rarity.width > cardLayout.rarityReserve && rarityFontSize - 0.25 >= minimumRarityFontSize) {
-          rarityFontSize -= 0.25;
-          rarity.setFontSize(`${rarityFontSize}px`);
-        }
-        rarity
-          .setOrigin(1, 0)
-          .setMaxLines(1)
-          .setScrollFactor(0)
-          .setVisible(rarity.width <= cardLayout.rarityReserve);
-        renderedText.push({ role: `rarity:${index}`, object: rarity });
-
-        // Epic 18 (D9 content priority 2): current/max -> next/max stack
-        // state, read from the frozen offer snapshot (never recomputed).
-        // Hidden only when the clamped row cannot fit a line at all, the
-        // same containment rule the description below already follows.
-        const statusLabel = choice.owned
-          ? `${choice.currentStacks}/${choice.maxStacks} -> ${choice.nextStack}/${choice.maxStacks}`
-          : `New -> ${choice.nextStack}/${choice.maxStacks}`;
-        const statusWidth = Math.max(0, cardLayout.width - cardLayout.padding * 2);
-        const showStatus =
-          !condensedCards &&
-          statusWidth > 0 && cardLayout.statusHeight >= layout.fonts.status * 1.15;
-        if (showStatus) {
-          const status = own(createUiText(this.scene,
-            cardLeft + cardLayout.padding,
-            cardLayout.statusY,
-          statusLabel,
-            {
-              color: '#a5f3fc',
-              fontFamily: ThemeFont.family,
-              fontSize: `${layout.fonts.status}px`,
-            },
-          ));
-          containText(status, statusLabel, statusWidth, layout.fonts.status, 8 / layout.displayScale);
-          renderedText.push({ role: `status:${index}`, object: status });
-        }
-
-        const descriptionWidth = Math.max(
-          0,
-          cardLayout.width - cardLayout.padding * 2,
-        );
-        const showDescription =
-          descriptionWidth > 0 &&
-          cardLayout.descriptionHeight >= layout.fonts.description * 1.15;
-        if (showDescription) {
-          const description = own(createUiText(this.scene,
-            cardLeft + cardLayout.padding,
-            cardLayout.descriptionY,
-            choice.description,
-            {
-              color: '#d6f7ff',
-              fontFamily: ThemeFont.family,
-              fontSize: `${layout.fonts.description}px`,
-              lineSpacing: layout.lineSpacing,
-            },
-          ));
-          containText(description, choice.description, descriptionWidth, layout.fonts.description, 9 / layout.displayScale);
-          renderedText.push({
-            role: `description:${index}`,
-            object: description,
-          });
-        }
+        const presentation = resolveUpgradeCardPresentation(choice);
+        const wrapped = (role: string, value: string, x: number, y: number, regionWidth: number,
+          regionHeight: number, fontSize: number, color: string, bold = false): void => {
+          if (regionWidth <= 0 || regionHeight <= 0) return;
+          const text = own(createUiText(this.scene, x, y, value, { color, fontFamily: ThemeFont.family,
+            fontSize: `${fontSize}px`, fontStyle: bold ? 'bold' : 'normal', lineSpacing: layout.lineSpacing }));
+          text.setOrigin(0, 0).setScrollFactor(0).setWordWrapWidth(regionWidth, true);
+          const naturalHeight = text.height;
+          const clipped = text.height > regionHeight + 0.01 || text.width > regionWidth + 0.01;
+          // Collapsed/hostile geometry remains bounded. Supported production
+          // catalog offers are asserted NOT clipped in real font/browser tests.
+          // Text owns a resolution-scaled backing canvas. Fixed size bounds it;
+          // Phaser's sprite crop path would incorrectly scale those glyphs again.
+          text.setFixedSize(regionWidth, regionHeight);
+          renderedText.push({ role, object: text, naturalHeight, clipped });
+        };
+        wrapped(`name:${index}`, choice.name, cardLeft + cardLayout.nameX, cardLayout.nameY,
+          cardLayout.nameWidth, cardLayout.nameHeight, layout.fonts.name, '#ffffff', true);
+        wrapped(`description:${index}`, presentation.effect, cardLayout.descriptionX, cardLayout.descriptionY,
+          cardLayout.descriptionWidth, cardLayout.descriptionHeight, layout.fonts.description, '#d6f7ff');
+        wrapped(`status:${index}`, presentation.status, cardLayout.statusX, cardLayout.statusY,
+          cardLayout.statusWidth, cardLayout.statusHeight, layout.fonts.status, '#a5f3fc');
+        wrapped(`rarity:${index}`, choice.rarity.toUpperCase(), cardLayout.rarityX, cardLayout.rarityY,
+          cardLayout.rarityReserve, cardLayout.rarityHeight, layout.fonts.rarity,
+          themeColorCss(ThemeColor.rarity[choice.rarity]));
 
         cardBackgrounds.push(card);
         cardBaseColors.push(RARITY_CARD_BACKGROUND[choice.rarity]);
@@ -535,6 +464,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       this.cardBaseColors = cardBaseColors;
       this.cardEdges = cardEdges;
       this.renderedText = renderedText;
+      this.renderedIcons = renderedIcons;
       this.instructions = stagedInstructions;
       this.rebuildCount += 1;
       // currentOfferId is the sole chooser identity: a new offer resets
@@ -564,6 +494,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       this.cardBaseColors = [];
       this.cardEdges = [];
       this.renderedText = [];
+      this.renderedIcons = [];
       this.instructions = undefined;
       this.hoveredIndex = -1;
       throw error;
@@ -576,6 +507,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     }
 
     this.enabled = enabled;
+    if (!enabled) this.armedPointerIds.clear();
     this.applyEnabledState();
   }
 
@@ -684,6 +616,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     this.cardBaseColors = [];
     this.cardEdges = [];
     this.renderedText = [];
+    this.renderedIcons = [];
     // The instructions Text lives in the destroyed root; clear the ref so a
     // failed rebuild (before buildDisplay's try) can't setText() on it
     // (round-6 adversarial finding).

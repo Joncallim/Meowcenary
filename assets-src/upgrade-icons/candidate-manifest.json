@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "Pillow": "12.1.1",
+  "canvas": [
+    48,
+    48
+  ],
+  "candidatePreparation": "Transparent alpha crop, Pillow BOX reduction fitted within 42x42 with 3px minimum margin; exact resulting RGBA8 candidate is pinned below.",
+  "originalMasters": {
+    "availableInRepository": false,
+    "note": "Original 1254x1254 generated masters were supplied as three ChatGPT Library ZIPs, not included in the repository. Candidate hashes pin the included 48x48 deliverables; original-master hashes remain unverified here.",
+    "libraryFiles": [
+      {
+        "name": "Meowcenary-in-run-upgrade-masters-1-of-3.zip",
+        "fileId": "libfile_72aa938b4e108191b9a466a5ebee65e5",
+        "version": 0
+      },
+      {
+        "name": "Meowcenary-in-run-upgrade-masters-2-of-3.zip",
+        "fileId": "libfile_e59a455859c48191b31f73a380194055",
+        "version": 0
+      },
+      {
+        "name": "Meowcenary-in-run-upgrade-masters-3-of-3.zip",
+        "fileId": "libfile_1a3259af490c819188d19edb55b9f32d",
+        "version": 0
+      }
+    ]
+  },
+  "candidates": [
+    {
+      "id": "quick-paws",
+      "path": "assets-src/upgrade-icons/upgrade-icon-quick-paws/source/candidate-48.png",
+      "sha256": "17775d487fa60d7a24dcde98da168d061ddfde7b4e765af7432875344ed506ca"
+    },
+    {
+      "id": "extra-scrap",
+      "path": "assets-src/upgrade-icons/upgrade-icon-extra-scrap/source/candidate-48.png",
+      "sha256": "f9a719272c904ea7045c3b38b870e945c71cfa528c148861779972e22c34d6db"
+    },
+    {
+      "id": "hot-barrel",
+      "path": "assets-src/upgrade-icons/upgrade-icon-hot-barrel/source/candidate-48.png",
+      "sha256": "833d25796a4530384cfa8fdf1a57e9b69bb5ccee15b20054faa7131c2146deaf"
+    },
+    {
+      "id": "scrap-magnet",
+      "path": "assets-src/upgrade-icons/upgrade-icon-scrap-magnet/source/candidate-48.png",
+      "sha256": "b577a8a5d1d7aa15197b6e647eb9050d75bd7b9ce3cc07e5f2ff595d786e2e04"
+    },
+    {
+      "id": "reinforced-coat",
+      "path": "assets-src/upgrade-icons/upgrade-icon-reinforced-coat/source/candidate-48.png",
+      "sha256": "a1a68fde17d47ebb1ab1686560605b1e54761f8fe7286bf3059ba78b874f94d2"
+    },
+    {
+      "id": "fast-learner",
+      "path": "assets-src/upgrade-icons/upgrade-icon-fast-learner/source/candidate-48.png",
+      "sha256": "4eadd721c92dec0c4c912cf88b363c1b0213f2f2b2173c2cf2c42cc2da5a1a04"
+    },
+    {
+      "id": "heavy-rounds",
+      "path": "assets-src/upgrade-icons/upgrade-icon-heavy-rounds/source/candidate-48.png",
+      "sha256": "c73628af2982d229840ae315ad677b5bf428e34da1c5c6014aef4c52c5fe4cc5"
+    },
+    {
+      "id": "long-barrel",
+      "path": "assets-src/upgrade-icons/upgrade-icon-long-barrel/source/candidate-48.png",
+      "sha256": "a5ac64b0ad1f1dcc81ab033e3c32c6ed0c991f9070a6270dc42e8d0fb69ba079"
+    },
+    {
+      "id": "split-shot",
+      "path": "assets-src/upgrade-icons/upgrade-icon-split-shot/source/candidate-48.png",
+      "sha256": "bf12f584f665d8b99f60028742bf37f0b913a929c349372dced584cc8d139ef3"
+    },
+    {
+      "id": "punch-through",
+      "path": "assets-src/upgrade-icons/upgrade-icon-punch-through/source/candidate-48.png",
+      "sha256": "4991ef060f58135a2347e74eab5e37fca3b930c6dc56bbcb57f98b5f9cff3656"
+    },
+    {
+      "id": "glass-cannon",
+      "path": "assets-src/upgrade-icons/upgrade-icon-glass-cannon/source/candidate-48.png",
+      "sha256": "86388536ae6306a5ad167023297a0274c5902dd3f3f0e6ae6db40c182f6cc868"
+    },
+    {
+      "id": "run-and-gun",
+      "path": "assets-src/upgrade-icons/upgrade-icon-run-and-gun/source/candidate-48.png",
+      "sha256": "d9a569e688388f46ffe60e6ad3df173e503a2e909fe5d7866857b9012f52caab"
+    },
+    {
+      "id": "pistol-deadeye",
+      "path": "assets-src/upgrade-icons/upgrade-icon-pistol-deadeye/source/candidate-48.png",
+      "sha256": "a5f2a0978548b926e35914abe44f43ce5c0af698b475b28bc77af91611bc3d99"
+    },
+    {
+      "id": "pistol-needle-rounds",
+      "path": "assets-src/upgrade-icons/upgrade-icon-pistol-needle-rounds/source/candidate-48.png",
+      "sha256": "5a1670eb608546844d150cf0dbaf454d7be13f1c8af0cade6c98e3ef0890a34f"
+    },
+    {
+      "id": "smg-overclock",
+      "path": "assets-src/upgrade-icons/upgrade-icon-smg-overclock/source/candidate-48.png",
+      "sha256": "5379672074294210d71fc1f9ea265916716067d2629a0c02c4a5431e62460679"
+    },
+    {
+      "id": "smg-spray",
+      "path": "assets-src/upgrade-icons/upgrade-icon-smg-spray/source/candidate-48.png",
+      "sha256": "1c61870156ee5eeb7ab90911b5ea4b5a47722af2277c99d6c6e9281768117945"
+    },
+    {
+      "id": "shotgun-buckshot",
+      "path": "assets-src/upgrade-icons/upgrade-icon-shotgun-buckshot/source/candidate-48.png",
+      "sha256": "f4983fdd8861cf6b3c5d7f95b9243aa00dc9f09cea45e7cc20f1ab94d2c3f3a4"
+    },
+    {
+      "id": "shotgun-breacher",
+      "path": "assets-src/upgrade-icons/upgrade-icon-shotgun-breacher/source/candidate-48.png",
+      "sha256": "98c4ca89f0f6825111f71e78fe553b946b8f7e6bd75a586f2d6eee484ff3e4e3"
+    }
+  ],
+  "pixeloramaMetadataTemplate": {
+    "path": "public/assets/upgrade-icons/upgrade-icon-quick-paws/upgrade-icon-quick-paws.json",
+    "sha256": "cee6a95512cc875ca52f8cbc783cd9641a6b7c194c83ad388f14ae71fd565e43"
+  }
+}

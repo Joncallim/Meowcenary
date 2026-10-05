@@ -1,225 +1,89 @@
-export interface UpgradeChooserCardLayout {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  padding: number;
-  /** Leading-column width: the larger of the number badge and the icon box. */
-  numberWidth: number;
-  /** Epic 18 (D8): square icon box, clamped to the card's affordable space. */
-  iconSize: number;
-  nameX: number;
-  nameWidth: number;
-  nameHeight: number;
-  rarityReserve: number;
-  rarityHeight: number;
-  /** Epic 18 (D9 content priority 2): "current/max -> next/max" stack row. */
-  statusY: number;
-  statusHeight: number;
-  descriptionY: number;
-  descriptionHeight: number;
-}
-
 import { safeDisplayScale, type UiViewport } from './layout';
 import { ZERO_SAFE_AREA, type SafeAreaInsetsPx } from '../platform/safeArea';
 
+export interface UpgradeChooserCardLayout {
+  x: number; y: number; width: number; height: number; padding: number;
+  numberWidth: number; iconSize: number; iconX: number; iconY: number;
+  nameX: number; nameY: number; nameWidth: number; nameHeight: number;
+  rarityReserve: number; rarityHeight: number; rarityX: number; rarityY: number;
+  statusX: number; statusY: number; statusWidth: number; statusHeight: number;
+  descriptionX: number; descriptionY: number; descriptionWidth: number; descriptionHeight: number;
+}
 export interface UpgradeChooserLayout {
-  displayScale: number;
-  contentCenterX: number;
-  headerWidth: number;
-  headingY: number;
-  headingHeight: number;
-  instructionsY: number;
-  instructionsHeight: number;
-  fonts: {
-    heading: number;
-    instructions: number;
-    name: number;
-    rarity: number;
-    status: number;
-    description: number;
-  };
-  lineSpacing: number;
-  cards: readonly UpgradeChooserCardLayout[];
+  displayScale: number; contentCenterX: number; headerWidth: number;
+  headingY: number; headingHeight: number; instructionsY: number; instructionsHeight: number;
+  fonts: { heading: number; instructions: number; name: number; rarity: number; status: number; description: number };
+  lineSpacing: number; cards: readonly UpgradeChooserCardLayout[];
 }
 
-const MIN_PHYSICAL_FONT = {
-  heading: 18,
-  instructions: 11,
-  name: 14,
-  rarity: 10,
-  status: 10,
-  description: 12,
-} as const;
-
-const BASE_LOGICAL_FONT = {
-  heading: 24,
-  instructions: 13,
-  name: 18,
-  rarity: 12,
-  status: 12,
-  description: 14,
-} as const;
-
-const MIN_REGION_SIZE = 1;
-
+/** Physical-pixel hierarchy is shared by every title in an offer. Portrait
+ * uses four illustrated rows; wide canvases use bounded columns. Geometry,
+ * rather than string length, selects a hierarchy. Gameplay never reads it. */
 export function computeUpgradeChooserLayout(
-  canvasWidth: number,
-  canvasHeight: number,
-  displayedWidth: number,
-  displayedHeight: number,
-  choiceCount: number,
-  layoutInsets: SafeAreaInsetsPx = ZERO_SAFE_AREA,
+  canvasWidth: number, canvasHeight: number, displayedWidth: number, displayedHeight: number,
+  choiceCount: number, layoutInsets: SafeAreaInsetsPx = ZERO_SAFE_AREA,
 ): UpgradeChooserLayout {
-  const viewport: UiViewport = {
-    canvasWidth,
-    canvasHeight,
-    displayWidth: displayedWidth,
-    displayHeight: displayedHeight,
-    layoutInsets: ZERO_SAFE_AREA,
-  };
-  const displayScale = safeDisplayScale(viewport);
-  const physical = (pixels: number): number => pixels / displayScale;
-  const font = (base: number, minimumPhysical: number): number =>
-    Math.max(base, physical(minimumPhysical));
+  const displayScale = safeDisplayScale({ canvasWidth, canvasHeight, displayWidth: displayedWidth,
+    displayHeight: displayedHeight, layoutInsets } satisfies UiViewport);
+  const px = (value: number) => value / displayScale;
+  const safeLeft = Math.max(0, layoutInsets.left), safeTop = Math.max(0, layoutInsets.top);
+  const safeWidth = Math.max(1, canvasWidth - safeLeft - Math.max(0, layoutInsets.right));
+  const safeHeight = Math.max(1, canvasHeight - safeTop - Math.max(0, layoutInsets.bottom));
+  const physicalWidth = safeWidth * displayScale, physicalHeight = safeHeight * displayScale;
+  const count = Math.max(1, Math.min(5, Number.isFinite(choiceCount) ? Math.floor(choiceCount) : 1));
+  const columns = physicalWidth >= 1100 ? count : physicalWidth >= 640 && count > 2 ? 2 : 1;
+  const rows = Math.ceil(count / columns);
+  const compact = physicalHeight < 700 && rows >= 3 || physicalHeight < 500;
   const fonts = {
-    heading: font(BASE_LOGICAL_FONT.heading, MIN_PHYSICAL_FONT.heading),
-    instructions: font(BASE_LOGICAL_FONT.instructions, MIN_PHYSICAL_FONT.instructions),
-    name: font(BASE_LOGICAL_FONT.name, MIN_PHYSICAL_FONT.name),
-    rarity: font(BASE_LOGICAL_FONT.rarity, MIN_PHYSICAL_FONT.rarity),
-    status: font(BASE_LOGICAL_FONT.status, MIN_PHYSICAL_FONT.status),
-    description: font(BASE_LOGICAL_FONT.description, MIN_PHYSICAL_FONT.description),
+    heading: px(compact ? 22 : 28), instructions: px(12),
+    name: px(compact ? 18 : columns === 1 ? 20 : 24), rarity: px(11),
+    status: px(compact ? 11 : 12), description: px(compact ? 14 : 16),
   };
-  const compactHeader = canvasWidth * displayScale < 220;
-  const safeLeft = Math.max(0, layoutInsets.left);
-  const safeRight = Math.max(0, layoutInsets.right);
-  const safeTop = Math.max(0, layoutInsets.top);
-  const safeBottom = Math.max(0, layoutInsets.bottom);
-  const safeWidth = Math.max(MIN_REGION_SIZE, canvasWidth - safeLeft - safeRight);
   const contentCenterX = safeLeft + safeWidth / 2;
-  const headerWidth = Math.max(MIN_REGION_SIZE, safeWidth - physical(12));
-  const headingY = safeTop + physical(compactHeader ? 6 : 12);
-  const headingHeight = fonts.heading * (compactHeader ? 2.25 : 1.6);
-  const instructionsY = headingY + headingHeight + physical(compactHeader ? 2 : 4);
-  const instructionsHeight = fonts.instructions * (compactHeader ? 2.4 : 1.4);
-  const cardsRegionTop =
-    // The game scene renders through the 1.25x camera viewport; leaving only
-    // a few logical pixels here lets Phaser font ascenders touch the first
-    // card on a real portrait phone despite nominal bounds being separate.
-    instructionsY + instructionsHeight + physical(compactHeader ? 12 : 28);
-  const bottomMargin = physical(compactHeader ? 4 : 8);
-  const cardGap = Math.max(compactHeader ? 0 : 12, physical(compactHeader ? 4 : 6));
-  // Epic 18 (D2/D9): 1–5 cards, no legacy three-card clamp.
-  const count = Math.max(1, Math.min(5, Math.floor(choiceCount)));
-  const availableHeight = Math.max(0, canvasHeight - cardsRegionTop - bottomMargin - safeBottom);
-  const maxCardHeight = Math.max(168, physical(150));
-  const cardHeight = Math.max(
-    MIN_REGION_SIZE,
-    Math.min(
-      maxCardHeight,
-      (availableHeight - cardGap * (count - 1)) / count,
-    ),
-  );
-  const totalCardHeight = cardHeight * count + cardGap * (count - 1);
-  const cardsTop = cardsRegionTop + Math.max(0, (availableHeight - totalCardHeight) / 2);
-  const sideMargin = Math.max(compactHeader ? 0 : 10, physical(compactHeader ? 4 : 8));
-  const cardWidth = Math.max(MIN_REGION_SIZE, safeWidth - sideMargin * 2);
-  const desiredPadding = Math.max(
-    compactHeader ? 0 : 16,
-    physical(compactHeader ? 4 : 8),
-  );
-  const padding = Math.min(desiredPadding, Math.max(0, (cardWidth - 3) / 2));
-  const contentWidth = Math.max(MIN_REGION_SIZE, cardWidth - padding * 2);
-  const desiredNumberWidth = Math.max(fonts.name * 1.35, physical(18));
-  // Reserve the complete rarity word without letting that secondary label
-  // crowd the upgrade's player-facing name out of a portrait card.
-  const desiredRarityReserve = Math.max(compactHeader ? 0 : 92, physical(44));
-  const desiredInlineGap = Math.max(compactHeader ? 0 : 8, physical(3));
-  // The authored upgrade art is the primary recognition cue, not decoration
-  // for the old number badge. Give it a card-scale box and clamp only when a
-  // genuinely compact viewport cannot afford that size.
-  const roomyIconSize = canvasHeight >= 500 ? 64 : 52;
-  const desiredIconSize = Math.max(compactHeader ? 44 : roomyIconSize, physical(compactHeader ? 32 : 48));
-  const iconSize = Math.max(
-    0,
-    Math.min(
-      desiredIconSize,
-      contentWidth / 3,
-      Math.max(0, cardHeight - padding * 2),
-    ),
-  );
-  const numberWidth = Math.max(
-    MIN_REGION_SIZE,
-    Math.min(Math.max(desiredNumberWidth, iconSize), contentWidth - MIN_REGION_SIZE),
-  );
-  const remainingAfterNumber = Math.max(
-    MIN_REGION_SIZE,
-    contentWidth - numberWidth,
-  );
-  const inlineGap = Math.min(desiredInlineGap, remainingAfterNumber / 3);
-  const rarityReserve = Math.max(
-    MIN_REGION_SIZE,
-    Math.min(
-      desiredRarityReserve,
-      remainingAfterNumber - inlineGap,
-    ),
-  );
-  const nameX = padding + numberWidth + inlineGap;
-  const nameWidth = Math.max(
-    0,
-    contentWidth - numberWidth - rarityReserve - inlineGap * 2,
-  );
-  const nameHeight = Math.max(fonts.name * 1.15, physical(16));
-  const rarityHeight = Math.max(fonts.rarity * 1.15, physical(11));
-  const desiredStatusHeight = Math.max(fonts.status * 1.15, physical(11));
-  // The header row must clear the tallest of its three occupants so the icon
-  // never overlaps the stack-state row below it.
-  const headerOffset = padding + Math.max(nameHeight, rarityHeight, iconSize);
-  const statusOffset = headerOffset + physical(2);
-  const lineSpacing = Math.max(4, physical(2));
+  const headerWidth = Math.max(1, safeWidth - px(20));
+  const headingY = safeTop + px(10);
+  const headingHeight = fonts.heading * 1.3;
+  const instructionsY = headingY + headingHeight + px(3);
+  const instructionsHeight = fonts.instructions * 1.3;
+  const top = instructionsY + instructionsHeight + px(12);
+  const gap = px(compact ? 8 : 12);
+  const available = Math.max(1, safeTop + safeHeight - top - px(10));
+  const lane = Math.min(safeWidth - Math.min(px(24), safeWidth / 4), px(columns === 1 ? 520 : 1280));
+  const width = Math.max(1, (lane - gap * (columns - 1)) / columns);
+  const height = Math.max(1, Math.min(px(columns === 1 ? 184 : 500), (available - gap * (rows - 1)) / rows));
+  const totalHeight = height * rows + gap * (rows - 1);
+  const cardsTop = top + Math.max(0, (available - totalHeight) / 2);
+  const left = contentCenterX - lane / 2;
+  const lineSpacing = px(2);
+  const cards = Array.from({ length: count }, (_, index): UpgradeChooserCardLayout => {
+    const x = left + (index % columns) * (width + gap) + width / 2;
+    const y = cardsTop + Math.floor(index / columns) * (height + gap) + height / 2;
+    const cardLeft = x - width / 2, cardTop = y - height / 2;
+    const padding = Math.max(0, Math.min(px(compact ? 9 : 14), width / 8, height / 8));
+    const innerWidth = Math.max(1, width - padding * 2), innerHeight = Math.max(0, height - padding * 2);
+    const vertical = columns > 1 && height * displayScale >= 300;
+    const iconSize = Math.max(0, Math.min(px(vertical ? 144 : compact ? 84 : 108),
+      innerWidth * (vertical ? 0.8 : 0.3), innerHeight - px(15)));
+    const iconX = vertical ? x - iconSize / 2 : cardLeft + padding;
+    const iconY = cardTop + padding + (vertical ? px(10) : 0);
+    const textLeft = vertical ? cardLeft + padding : cardLeft + padding + iconSize + px(10);
+    const textWidth = Math.max(0, cardLeft + width - padding - textLeft);
+    const nameY = vertical ? iconY + iconSize + px(18) : cardTop + padding;
+    const nameHeight = Math.min(fonts.name * (compact ? 2.35 : 2.5), Math.max(0, cardTop + height - padding - nameY));
 
-  const cards = Array.from({ length: count }, (_, index) => {
-    const y = cardsTop + cardHeight / 2 + index * (cardHeight + cardGap);
-    const cardTop = y - cardHeight / 2;
-    const contentBottom = cardTop + cardHeight - padding;
-    const statusY = cardTop + statusOffset;
-    // The status row is clamped to the space actually left inside the card
-    // (4/5-card modes make cards much shorter), so a stack-state row can
-    // never escape its card. The view hides it when the clamped height
-    // cannot fit a line; D9's content priority still puts stack state above
-    // the description, which only receives whatever space remains.
-    const statusHeight = Math.max(0, Math.min(desiredStatusHeight, contentBottom - statusY));
-    const descriptionY = statusY + statusHeight + physical(2);
-    return {
-      x: contentCenterX,
-      y,
-      width: cardWidth,
-      height: cardHeight,
-      padding,
-      numberWidth,
-      iconSize,
-      nameX,
-      nameWidth,
-      nameHeight,
-      rarityReserve,
-      rarityHeight,
-      statusY,
-      statusHeight,
-      descriptionY,
-      descriptionHeight: Math.max(0, contentBottom - descriptionY),
-    };
+    const statusHeight = Math.min(fonts.status * (vertical ? 2.7 : 1.3), innerHeight);
+    const statusY = Math.max(cardTop + padding, cardTop + height - padding - statusHeight - (vertical ? px(20) : 0));
+    const descriptionY = Math.min(nameY + nameHeight + px(3), statusY);
+    const descriptionHeight = Math.max(0, statusY - px(4) - descriptionY);
+    const rarityHeight = Math.min(fonts.rarity * 1.3, innerHeight);
+    const rarityX = vertical ? cardLeft + padding : cardLeft + padding;
+    const rarityY = Math.max(cardTop + padding, cardTop + height - padding - rarityHeight);
+    return { x, y, width, height, padding, iconSize, iconX, iconY,
+      numberWidth: Math.max(1, iconSize), nameX: textLeft - cardLeft, nameY, nameWidth: textWidth, nameHeight,
+      rarityX, rarityY, rarityReserve: Math.max(1, vertical ? innerWidth : iconSize), rarityHeight,
+      statusX: textLeft, statusY, statusWidth: textWidth, statusHeight,
+      descriptionX: textLeft, descriptionY, descriptionWidth: textWidth, descriptionHeight };
   });
-
-  return {
-    displayScale,
-    contentCenterX,
-    headerWidth,
-    headingY,
-    headingHeight,
-    instructionsY,
-    instructionsHeight,
-    fonts,
-    lineSpacing,
-    cards,
-  };
+  return { displayScale, contentCenterX, headerWidth, headingY, headingHeight, instructionsY,
+    instructionsHeight, fonts, lineSpacing, cards };
 }

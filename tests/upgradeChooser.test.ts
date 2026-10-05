@@ -90,6 +90,7 @@ function toChoices(defs: readonly UpgradeDefinition[]): UpgradeCardReadModel[] {
     rarity: definition.rarity,
     target: definition.target,
     description: definition.description,
+    effects: definition.effects,
     category: definition.presentation.category,
     iconArtId: definition.presentation.iconArtId,
     owned: false,
@@ -348,6 +349,8 @@ class FakeDisplayObject extends FakeEmitter {
 
 class FakeText extends FakeDisplayObject {
   private fontSize: number;
+  private wrapWidth?: number;
+  get style() { return { fontSize: `${this.fontSize}px` }; }
   readonly resolution: number;
   constructor(
     x: number,
@@ -384,8 +387,12 @@ class FakeText extends FakeDisplayObject {
   }
   setMaxLines(): this { return this; }
   setWordWrapWidth(width: number | null): this {
-    if (width !== null && width <= 0) {
-      throw new Error('wordWrapWidth < a single character');
+    if (width !== null && width <= 0) throw new Error('wordWrapWidth < a single character');
+    this.wrapWidth = width ?? undefined;
+    if (this.wrapWidth !== undefined) {
+      const lineWidth = this.text.length * this.fontSize * 0.55;
+      this.width = Math.min(lineWidth, this.wrapWidth);
+      this.height = Math.max(1, Math.ceil(lineWidth / this.wrapWidth)) * this.fontSize * 1.2;
     }
     return this;
   }
@@ -574,19 +581,24 @@ describe('Upgrade chooser physical layout', () => {
         const right = card.x + card.width / 2;
         const top = card.y - card.height / 2;
         const bottom = card.y + card.height / 2;
-        const nameRight = left + card.nameX + card.nameWidth;
-        const rarityLeft = right - card.padding - card.rarityReserve;
+
 
         expect(left).toBeGreaterThanOrEqual(0);
         expect(right).toBeLessThanOrEqual(390);
         expect(top).toBeGreaterThan(layout.instructionsY + layout.fonts.instructions);
         expect(bottom).toBeLessThanOrEqual(844);
-        expect(nameRight).toBeLessThanOrEqual(rarityLeft + 0.001);
+        expect(left + card.nameX + card.nameWidth).toBeLessThanOrEqual(right - card.padding + 0.001);
+        expect(card.nameWidth === 0 || card.nameHeight === 0
+          || card.nameY + card.nameHeight <= card.rarityY + 0.001
+          || card.rarityY + card.rarityHeight <= card.nameY + 0.001
+          || left + card.nameX >= card.rarityX + card.rarityReserve - 0.001).toBe(true);
         expect(card.descriptionY).toBeGreaterThan(top + card.padding);
         expect(card.descriptionY + card.descriptionHeight).toBeLessThanOrEqual(
           bottom - card.padding + 0.001,
         );
-        expect(card.descriptionHeight * display.scale).toBeGreaterThanOrEqual(40);
+        // Concise measured effect copy replaces the old three-line prose
+        // reservation. Actual supported catalog/browser tests require full copy.
+        expect(card.descriptionHeight * display.scale).toBeGreaterThanOrEqual(layout.fonts.description * display.scale * 1.15);
 
         const previous = layout.cards[index - 1];
         if (previous) {
@@ -607,17 +619,20 @@ describe('Upgrade chooser physical layout', () => {
         const right = card.x + card.width / 2;
         const top = card.y - card.height / 2;
         const bottom = card.y + card.height / 2;
-        const nameRight = left + card.nameX + card.nameWidth;
-        const rarityLeft = right - card.padding - card.rarityReserve;
+
 
         expect(left).toBeGreaterThanOrEqual(0);
         expect(right).toBeLessThanOrEqual(390);
         expect(top).toBeGreaterThan(layout.instructionsY + layout.fonts.instructions);
         expect(bottom).toBeLessThanOrEqual(844);
-        expect(nameRight).toBeLessThanOrEqual(rarityLeft + 0.001);
+        expect(left + card.nameX + card.nameWidth).toBeLessThanOrEqual(right - card.padding + 0.001);
+        expect(card.nameWidth === 0 || card.nameHeight === 0
+          || card.nameY + card.nameHeight <= card.rarityY + 0.001
+          || card.rarityY + card.rarityHeight <= card.nameY + 0.001
+          || left + card.nameX >= card.rarityX + card.rarityReserve - 0.001).toBe(true);
         expect(card.statusY).toBeGreaterThan(top + card.padding);
         expect(card.statusHeight).toBeGreaterThanOrEqual(0);
-        expect(card.descriptionY).toBeGreaterThanOrEqual(card.statusY + card.statusHeight);
+        expect(card.descriptionY + card.descriptionHeight).toBeLessThanOrEqual(card.statusY + 0.001);
         // Both content rows stay inside the card's padded box when renderable.
         if (card.statusHeight > 0) {
           expect(card.statusY + card.statusHeight).toBeLessThanOrEqual(
@@ -653,7 +668,8 @@ describe('Upgrade chooser physical layout', () => {
         expect(card.nameX).toBeGreaterThanOrEqual(card.padding + card.iconSize);
         // The stack row starts below the icon, never overlapping it.
         const cardTop = card.y - card.height / 2;
-        expect(card.statusY).toBeGreaterThanOrEqual(cardTop + card.padding + card.iconSize);
+        expect(card.statusY >= cardTop + card.padding + card.iconSize
+          || card.statusX >= card.iconX + card.iconSize).toBe(true);
       });
     }
   });
@@ -698,51 +714,32 @@ describe('Upgrade chooser physical layout', () => {
         layout.cards.forEach((card) => {
           const left = card.x - card.width / 2;
           const right = card.x + card.width / 2;
-          const nameRight = left + card.nameX + card.nameWidth;
-          const rarityLeft = right - card.padding - card.rarityReserve;
 
-          expect(nameRight).toBeLessThanOrEqual(rarityLeft + 0.001);
+
+          expect(left + card.nameX + card.nameWidth).toBeLessThanOrEqual(right - card.padding + 0.001);
+        expect(card.nameWidth === 0 || card.nameHeight === 0
+          || card.nameY + card.nameHeight <= card.rarityY + 0.001
+          || card.rarityY + card.rarityHeight <= card.nameY + 0.001
+          || left + card.nameX >= card.rarityX + card.rarityReserve - 0.001).toBe(true);
         });
       }
     },
   );
 
   it.each([...VIEWPORTS, ...COLLAPSED_DISPLAYS])(
-    'keeps description height sufficient for the view-computed maxLines at $name size',
+    'bounds measured-effect regions before the stack footer at $name size',
     (viewport) => {
       const display = fittedCanvas(viewport.width, viewport.height);
-      const ls = computeUpgradeChooserLayout(390, 844, display.width, display.height, 1).lineSpacing;
-
       for (const count of [1, 2, 3, 4, 5]) {
-        const layout = computeUpgradeChooserLayout(
-          390,
-          844,
-          display.width,
-          display.height,
-          count,
-        );
-        const fs = layout.fonts.description;
-
-        layout.cards.forEach((card) => {
-          // Mirror the view's showDescription gate at UpgradeChooser.ts:466-468.
-          if (card.descriptionHeight <= 0 || card.descriptionHeight < fs * 1.15) return;
-
-          // The view at UpgradeChooser.ts:482-491 computes maxLines accounting
-          // for lineSpacing. Verify the invariant: descriptionHeight must hold
-          // maxLines lines when lineSpacing is included.
-          const viewMaxLines = Math.max(
-            1,
-            Math.min(
-              3,
-              Math.floor(
-                (card.descriptionHeight + ls) /
-                (fs * 1.2 + ls),
-              ),
-            ),
-          );
-          const needed = fs * 1.2 * viewMaxLines + ls * Math.max(0, viewMaxLines - 1);
-          expect(needed).toBeLessThanOrEqual(card.descriptionHeight + 0.001);
-        });
+        const layout = computeUpgradeChooserLayout(390, 844, display.width, display.height, count);
+        for (const card of layout.cards) {
+          const bottom = card.y + card.height / 2;
+          expect(card.descriptionY).toBeGreaterThanOrEqual(card.y - card.height / 2);
+          expect(card.descriptionY + card.descriptionHeight).toBeLessThanOrEqual(card.statusY + 0.001);
+          expect(card.descriptionY + card.descriptionHeight).toBeLessThanOrEqual(bottom - card.padding + 0.001);
+          expect(card.descriptionWidth).toBeGreaterThanOrEqual(0);
+          expect(card.descriptionHeight).toBeGreaterThanOrEqual(0);
+        }
       }
     },
   );
@@ -761,8 +758,7 @@ describe('Upgrade chooser physical layout', () => {
           const left = card.x - card.width / 2;
           const right = card.x + card.width / 2;
           const numberRight = left + card.padding + card.numberWidth;
-          const nameRight = left + card.nameX + card.nameWidth;
-          const rarityLeft = right - card.padding - card.rarityReserve;
+
           const values = [
             card.x,
             card.y,
@@ -801,8 +797,12 @@ describe('Upgrade chooser physical layout', () => {
               cardBottom - card.padding + 0.001,
             );
           }
-          expect(numberRight).toBeLessThanOrEqual(rarityLeft + 0.001);
-          expect(nameRight).toBeLessThanOrEqual(rarityLeft + 0.001);
+          expect(numberRight).toBeLessThanOrEqual(right - card.padding + 0.001);
+          expect(left + card.nameX + card.nameWidth).toBeLessThanOrEqual(right - card.padding + 0.001);
+        expect(card.nameWidth === 0 || card.nameHeight === 0
+          || card.nameY + card.nameHeight <= card.rarityY + 0.001
+          || card.rarityY + card.rarityHeight <= card.nameY + 0.001
+          || left + card.nameX >= card.rarityX + card.rarityReserve - 0.001).toBe(true);
         });
       }
     },
@@ -856,13 +856,59 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     return { scene, view, select };
   }
 
-  it('condenses four portrait choices into coloured, contained benefit cards', async () => {
+  it('retains explicit stacks on every normal four-card portrait choice', async () => {
+    const { view } = await createRenderedDisplay(390, 844, hostileDefinitions5.slice(0, 4));
+    for (let index = 0; index < 4; index += 1) {
+      const status = view.diagnostics.text.find((text) => text.role === `status:${index}`);
+      expect(status?.visible).toBe(true);
+      expect(status?.text).toContain('0');
+      expect(status?.text).toContain('1/');
+    }
+    view.destroy();
+  });
+
+  it('keeps the longest active name intact at the same title size as short names', async () => {
+    const long = { ...definitions[0]!, name: 'Pistol Needle Rounds' };
+    const { view } = await createRenderedDisplay(360, 640, [long, ...definitions]);
+    expect(view.diagnostics.text.find((text) => text.role === 'name:0')?.text).toBe(long.name);
+    view.destroy();
+  });
+
+  it('uses one title hierarchy in the real camera-compensated phone space', async () => {
+    const scene = createFakeScene(390, 844);
+    const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
+    const view = new PhaserUpgradeChooserView(scene as never, () => false, undefined, () => 'pointer', responsiveGameUiViewport(390, 844));
+    const long = { ...definitions[0]!, name: 'Pistol Needle Rounds' };
+    view.render({ offerId: 73, choices: toChoices([long, ...definitions]) }, () => true);
+    const title = (value: string) => scene.objects.find((object) => object instanceof FakeText && object.text === value) as unknown as { fontSize: number };
+    expect(title(long.name).fontSize).toBe(title('Quick Paws').fontSize);
+    expect(title(long.name).fontSize * 1.25).toBeGreaterThanOrEqual(18);
+    view.destroy();
+  });
+
+  it('uses a numbered fallback when a loaded texture lacks its intended frame', async () => {
+    const scene = createFakeScene(390, 844);
+    const image = vi.fn(() => { throw new Error('Wrong-frame image must never be constructed'); });
+    const textured = { ...scene, textures: { exists: () => true, get: () => ({ has: () => false }) },
+      add: { ...scene.add, image } };
+    const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
+    const art = { bindingById: () => ({ kind: 'upgrade-icon', textureKey: 'icons', frameKey: 'absent', display: { width: 36, height: 36 } }) };
+    const view = new PhaserUpgradeChooserView(textured as never, () => false, art as never);
+    view.render({ offerId: 73, choices: toChoices(definitions) }, () => true);
+    expect(image).not.toHaveBeenCalled();
+    expect(view.diagnostics.text.filter(text => text.role.startsWith('number:'))).toHaveLength(3);
+    expect(view.confirmFocused()).toBe(true);
+    view.destroy();
+  });
+
+  it('keeps benefit and stack facts visible with rarity as supporting information', async () => {
     const { view } = await createRenderedDisplay(390, 844, hostileDefinitions5.slice(0, 4));
     const diagnostics = view.diagnostics;
 
-    expect(new Set(diagnostics.cards.map((card) => card.fillColor)).size).toBeGreaterThan(1);
+    expect(new Set(diagnostics.cards.map((card) => card.fillColor)).size).toBe(1);
+    expect(diagnostics.text.filter(text => text.role.startsWith('rarity:'))).toHaveLength(4);
     for (let index = 0; index < 4; index += 1) {
-      expect(diagnostics.text.some((text) => text.role === `status:${index}`)).toBe(false);
+      expect(diagnostics.text.some((text) => text.role === `status:${index}` && text.visible)).toBe(true);
       const description = diagnostics.text.find((text) => text.role === `description:${index}`)!;
       const card = diagnostics.cards[index]!;
       expect(description.y + description.height).toBeLessThanOrEqual(card.y + card.height);
@@ -1422,7 +1468,7 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     const edgeIndex = root.children.findIndex((object) => sameCard(object) && object.strokeColor !== undefined);
     // Artwork-or-badge sits between the rarity edge and the labels: with no
     // bound icon texture this card renders the numbered badge (index + 1).
-    const badgeIndex = root.children.findIndex((object) => object instanceof FakeText && object.text === '1.');
+    const badgeIndex = root.children.findIndex((object) => object instanceof FakeText && object.text === '1');
     const labelIndex = root.children.findIndex((object) => object instanceof FakeText && object.text === 'COMMON');
     expect(fillIndex).toBeGreaterThanOrEqual(0);
     expect(edgeIndex).toBeGreaterThan(fillIndex);
@@ -1876,18 +1922,82 @@ describe('UpgradeChooserController reentrancy and lifecycle', () => {
 
     const freshView = new FakeView();
     const freshController = new UpgradeChooserController(harness.bus, harness.source, freshView);
+    expect(freshView.renders).toEqual([{ offerId: 1, ids: ['quick-paws'] }]);
     harness.setSnapshot({ offerId: 2, choices: toChoices([definitions[1]!]) });
     emitOffer(harness.bus, 2, [definitions[1]!]);
 
     expect(harness.view.renders).toHaveLength(1);
-    expect(freshView.renders).toEqual([{ offerId: 2, ids: ['hot-barrel'] }]);
+    expect(freshView.renders).toEqual([
+      { offerId: 1, ids: ['quick-paws'] },
+      { offerId: 2, ids: ['hot-barrel'] },
+    ]);
     expect(oldHandler.select(1, 0)).toBe(false);
-    expect(freshView.handlers[0]?.select(2, 0)).toBe(true);
+    expect(freshView.handlers[1]?.select(2, 0)).toBe(true);
+    freshController.destroy();
+  });
+
+  it('disposes a failed hydration and allows a fresh view to recover the same offer', () => {
+    const harness = createHarness();
+    harness.controller.destroy();
+    harness.setSnapshot({ offerId: 1, choices: toChoices([definitions[0]!]) });
+    const failedView = new FakeView();
+    failedView.onRender = () => { throw new Error('Injected hydration failure'); };
+
+    expect(() => new UpgradeChooserController(harness.bus, harness.source, failedView))
+      .toThrow('Injected hydration failure');
+    expect(failedView.destroyCount).toBe(1);
+    emitOffer(harness.bus, 1, [definitions[0]!]);
+    expect(failedView.renders).toHaveLength(1);
+    expect(harness.chooseCard).not.toHaveBeenCalled();
+
+    const freshView = new FakeView();
+    const freshController = new UpgradeChooserController(harness.bus, harness.source, freshView);
+    expect(freshView.renders).toEqual([{ offerId: 1, ids: ['quick-paws'] }]);
+    expect(freshView.handlers[0]!.select(1, 0)).toBe(true);
     freshController.destroy();
   });
 });
 
 describe('Upgrade chooser integration with UpgradeSystem', () => {
+  it('hydrates an unresolved offer on recreation without rerolling or consuming a queued level', () => {
+    const runState = createActiveRun();
+    const bus = createEventBus();
+    const rng = createFirstRng();
+    const weighted = vi.spyOn(rng, 'weighted');
+    const system = new UpgradeSystem({
+      runState, bus, definitions: [definitions[0]!], rng, offerCount: 1,
+    });
+    const firstView = new FakeView();
+    const firstChooser = new UpgradeChooserController(bus, system, firstView);
+    bus.emit('level:up', { level: 2 });
+    bus.emit('level:up', { level: 3 });
+    const snapshot = system.currentOfferSnapshot!;
+    const oldHandler = firstView.handlers[0]!;
+    const rolls = weighted.mock.calls.length;
+    firstChooser.destroy();
+
+    const freshView = new FakeView();
+    const freshChooser = new UpgradeChooserController(bus, system, freshView);
+
+    expect(freshView.renders).toEqual([{ offerId: snapshot.offerId, ids: ['quick-paws'] }]);
+    expect(freshChooser.currentOfferId).toBe(snapshot.offerId);
+    expect(system.currentOfferSnapshot).toBe(snapshot);
+    expect(weighted).toHaveBeenCalledTimes(rolls);
+    expect(system.pendingCount).toBe(2);
+    expect(runState.status).toBe('paused');
+    expect(runState.upgradeStacks['quick-paws']).toBeUndefined();
+    expect(oldHandler.select(snapshot.offerId, 0)).toBe(false);
+
+    expect(freshView.handlers[0]!.select(snapshot.offerId, 0)).toBe(true);
+    expect(freshView.renders.map((render) => render.offerId)).toEqual([1, 2]);
+    expect(freshView.handlers[1]!.select(2, 0)).toBe(true);
+    expect(runState.upgradeStacks['quick-paws']).toBe(2);
+    expect(system.pendingCount).toBe(0);
+    expect(runState.status).toBe('active');
+    freshChooser.destroy();
+    system.destroy();
+  });
+
   it('applies one visible choice per pending level and resumes only after the final choice', () => {
     const runState = createActiveRun();
     const bus = createEventBus();

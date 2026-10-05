@@ -195,7 +195,8 @@ describe('createUiText', () => {
     // for every stat, Set threshold, row and comparison label. The separate
     // AST audit still rejects every constructor that bypasses the factory.
     // Native panel headers add two factory sites; section labels add one.
-    expect(migratedSites).toHaveLength(59);
+    // Upgrade card text now shares one factory for four roles (59 minus 3).
+    expect(migratedSites).toHaveLength(56);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);

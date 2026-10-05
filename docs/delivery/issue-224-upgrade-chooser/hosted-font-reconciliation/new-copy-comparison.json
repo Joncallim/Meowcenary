@@ -1,0 +1,24 @@
+[
+  {
+    "profile": "phone-390x844",
+    "threshold": 0.2,
+    "changedPixelsAboveThreshold": 353,
+    "bounds": [
+      213,
+      231,
+      280,
+      818
+    ]
+  },
+  {
+    "profile": "desktop-1280x720",
+    "threshold": 0.2,
+    "changedPixelsAboveThreshold": 369,
+    "bounds": [
+      109,
+      580,
+      1120,
+      590
+    ]
+  }
+]
