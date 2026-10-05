@@ -76,6 +76,19 @@ assertions or supported viewports were removed. The text-constructor inventory i
 rather than56 because ten repeated Gunsmith text sites now share helpers; the
 symbol-resolved bypass audit and its negative probes remain intact.
 
+The next complete run finished367 passed/64 existing skips/one desktop1920
+warm-return timeout. Its final capture showed the correct returned Gunsmith;
+profiling found fourteen native keyboard pulses before an eventual pointer tap,
+consuming roughly ten seconds. Three repeated original runs took29.8–30.9s,
+while replacing only that initial desktop keyboard walk with a real wheel
+reveal and pointer click took17.9–18.2s. All cancellation, save-failure, ownership,
+focus and warm-return assertions remain; touch and separate keyboard/controller
+coverage are unchanged. A cheaper diagnostic getter did not materially improve
+this fixture and was rejected. The screenshot itself took about1.2s. Raw repeat
+results and limitations are in `evidence/pointer-journey-timings.json`; these
+fixture timings do not claim a production performance improvement. Full final
+candidate and merged-main runs remain the release authority.
+
 ## Screenshot changes and release checks
 
 Only22 existing baseline files may change. `snapshot-review.json` records each

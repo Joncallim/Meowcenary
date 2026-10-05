@@ -75,6 +75,29 @@ async function activate(page: Page, key: string, testInfo: TestInfo) {
   else await page.mouse.click(x, y);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
 }
+async function activateByPointerScroll(page: Page, key: string, testInfo: TestInfo) {
+  if (testInfo.project.use.hasTouch) return activate(page, key, testInfo);
+  // This journey exercises pointer selection. Reveal its target with a real
+  // wheel gesture instead of first walking the entire keyboard focus order.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const { diagnostic } = await read(page);
+    const target = diagnostic.buttons.find(button => button.key === key);
+    expect(target, `semantic pointer target ${key}`).toBeDefined();
+    const top = diagnostic.scroll?.top ?? 0;
+    const bottom = diagnostic.scroll?.bottom ?? page.viewportSize()!.height;
+    const x = target!.bounds.x + target!.bounds.width / 2;
+    const y = target!.bounds.y + target!.bounds.height / 2;
+    if (target!.visible && target!.interactive && y > top && y < bottom) {
+      await page.mouse.click(x, y);
+      expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
+      return;
+    }
+    await page.mouse.move(x, (top + bottom) / 2);
+    await page.mouse.wheel(0, y - (top + bottom) / 2);
+    expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
+  }
+  throw new Error(`Pointer scroll did not reveal ${key}: ${JSON.stringify((await read(page)).diagnostic)}`);
+}
 async function evidence(page: Page, testInfo: TestInfo, name: string) {
   const path = testInfo.outputPath(`${name}.png`);
   await page.screenshot({ path, scale: 'css' });
@@ -189,7 +212,7 @@ const storage = (page: Page) => page.evaluate(() => ({ ...(globalThis as Fixture
 test('Gunsmith preview cancellation and failed commit retain stored ownership through warm return', async ({ page }, testInfo) => {
   await storageFixture(page); await open(page, 'gunsmith');
   const initial = await read(page); await resetStorage(page, false);
-  await activate(page, 'gunsmith-part:compact', testInfo);
+  await activateByPointerScroll(page, 'gunsmith-part:compact', testInfo);
   await activate(page, 'gunsmith-preview-cancel', testInfo);
   expect((await read(page)).saved).toBe(initial.saved);
   expect((await read(page)).diagnostic.focusedKey).toBe('gunsmith-part:compact');
