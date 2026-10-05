@@ -137,6 +137,13 @@ and tap/click rather than prerequisites from another input method. The separate
 keyboard family navigation, release sampling, controller polling and held-confirm
 assertions remain. Desktop Equipment preview uses actual hover focus followed by
 keyboard confirmation; save-failure and exactly-one-write assertions are retained.
+The first full run caught a stale hydration geometry assertion including the
+new source-crop diagnostic. Its full placement equality is retained while eager/
+lazy native crops and uncropped placeholders are now asserted separately; no
+assertion is removed. That exact-head run is cancelled/red, not a green gate.
+The revised18 hydration cases passed all six profiles; all15 browser modules
+still typecheck. Independent supplemental review found no weakened gate.
+
 Native activation passed all78 targeted cases across the six profiles. The
 DPR3 fixture uses pointer mode from its outer profile: touch profiles use actual
 touch drags, desktop copies use mouse/wheel. CDP cleanup releases/detaches even
