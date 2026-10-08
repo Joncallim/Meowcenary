@@ -1,0 +1,17 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-scavenge-pulse
+
+ ✓ tests/xp.test.ts (7 tests) 9ms
+ ✓ tests/xpPulse.test.ts (11 tests) 13ms
+ ✓ tests/upgradeSystem.test.ts (59 tests) 88ms
+ ✓ tests/scavengePulseCollection.test.ts (23 tests) 349ms
+stderr | tests/dropSystem.test.ts > DropSystem > fails soft when the chest table is missing
+[DropSystem] Chest drop references missing loot table "missing"
+
+ ✓ tests/dropSystem.test.ts (67 tests) 650ms
+
+ Test Files  5 passed (5)
+      Tests  167 passed (167)
+   Start at  02:20:53
+   Duration  2.12s (transform 1.24s, setup 0ms, collect 2.60s, tests 1.11s, environment 1ms, prepare 724ms)
+

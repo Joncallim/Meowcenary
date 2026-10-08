@@ -11,7 +11,7 @@ import { distanceSq } from '../engine/vector';
 import { resolveKillLoot, resolveLootFromTable } from '../gameplay/loot';
 import type { LootGrant } from '../gameplay/loot';
 import type { RunState } from '../gameplay/runState';
-import { applyXp } from '../gameplay/xp';
+import { applyXp, withActivatedXpPulse } from '../gameplay/xp';
 import { grantWeaponToRack, WEAPON_RACK_CAPACITY } from '../gameplay/weaponRack';
 import type { WeaponRegistry } from '../gameplay/weapons';
 import type { LootTableLookup } from './lootTables';
@@ -106,15 +106,42 @@ export class DropSystem implements System {
    * normal deliberate interaction/rack rules. */
   collectNearbyConsumables(radius: number): number {
     if (this.runState.status !== 'active' || !Number.isFinite(radius) || radius < 0) return 0;
-    let collected = 0;
-    for (const drop of [...this.liveDrops]) {
+    const center = { x: this.player.x, y: this.player.y };
+    const eligible: Array<{ drop: Drop; serial: number }> = [];
+    for (const drop of this.liveDrops) {
       const grant = drop.grant;
-      if (!drop.active || (grant?.kind !== 'xp' && grant?.kind !== 'scrap')) continue;
-      if (Math.hypot(drop.x - this.player.x, drop.y - this.player.y) > radius) continue;
-      this.collect(drop);
-      collected += 1;
+      if (!drop.active || drop.pickupBlocked || (grant?.kind !== 'xp' && grant?.kind !== 'scrap')) continue;
+      if (Math.hypot(drop.x - center.x, drop.y - center.y) > radius) continue;
+      const serial = this.spawnSerialByDrop.get(drop);
+      if (serial !== undefined) eligible.push({ drop, serial });
     }
-    return collected;
+    return withActivatedXpPulse(this.runState, this.ctx.bus, (grantXp) => {
+      let collected = 0;
+      for (const { drop, serial } of eligible) {
+        if (this.runState.status !== 'active'
+          && !(this.runState.status === 'paused' && this.runState.pauseReason === 'levelUp')) break;
+        if (this.collectPulseConsumable(drop, serial, grantXp)) collected += 1;
+      }
+      return collected;
+    }) ?? 0;
+  }
+
+  /** Pulse-only consumption retires the admitted lifetime before callbacks.
+   * Listeners may spawn/reuse pooled drops without re-granting this pickup or
+   * letting its release consume a replacement. Ordinary pickup ordering stays
+   * at the existing collect boundary below. */
+  private collectPulseConsumable(drop: Drop, serial: number, grantXp: (amount: number) => number): boolean {
+    if (!this.liveDrops.has(drop) || !drop.active || drop.pickupBlocked
+      || this.spawnSerialByDrop.get(drop) !== serial) return false;
+    const grant = drop.grant;
+    if (grant?.kind !== 'xp' && grant?.kind !== 'scrap') return false;
+    const { x, y } = drop;
+    trace('drop:collect-enter', { kind: grant.kind, x: Math.round(x), y: Math.round(y) });
+    this.releaseDrop(drop);
+    if (grant.kind === 'xp') grantXp(grant.amount);
+    else this.applyScrapGrant(grant.amount);
+    this.ctx.bus.emit('drop:collected', { kind: grant.kind, amount: grant.amount, x, y });
+    return true;
   }
 
   /**

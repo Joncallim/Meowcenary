@@ -1,0 +1,233 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-scavenge-pulse
+
+ ❯ tests/scavengePulseCollection.test.ts (23 tests | 12 failed) 465ms
+   × Scavenge Pulse consumable collection boundary > finishes XP then Scrap after the real chooser takes its level-up pause 171ms
+     → expected true to be false // Object.is equality
+   × Scavenge Pulse consumable collection boundary > preserves subsequent XP, queues its level and leaves the chooser pause owned 19ms
+     → expected true to be false // Object.is equality
+   × Scavenge Pulse consumable collection boundary > awards later non-leveling XP under the pause with normal gain and face-value events 21ms
+     → expected 1 to be 3 // Object.is equality
+   ✓ Scavenge Pulse consumable collection boundary > rejects a later pulse and ordinary overlaps while the real chooser still owns the pause 16ms
+   ✓ Scavenge Pulse consumable collection boundary > rejects a pulse that starts in manual 27ms
+   ✓ Scavenge Pulse consumable collection boundary > rejects a pulse that starts in levelUp 15ms
+   ✓ Scavenge Pulse consumable collection boundary > rejects a pulse that starts in intro 24ms
+   ✓ Scavenge Pulse consumable collection boundary > rejects a pulse that starts in won 12ms
+   ✓ Scavenge Pulse consumable collection boundary > rejects a pulse that starts in lost 13ms
+   × Scavenge Pulse consumable collection boundary > stops after a listener changes the active run to manual and counts only consumption 19ms
+     → expected 2 to be 1 // Object.is equality
+   × Scavenge Pulse consumable collection boundary > stops after a listener changes the active run to won and counts only consumption 18ms
+     → expected 2 to be 1 // Object.is equality
+   × Scavenge Pulse consumable collection boundary > stops after a listener changes the active run to lost and counts only consumption 15ms
+     → expected 2 to be 1 // Object.is equality
+   × Scavenge Pulse consumable collection boundary > excludes outside, chest, weapon and blocked drops even with a full rack 10ms
+     → expected 3 to be 2 // Object.is equality
+   × Scavenge Pulse consumable collection boundary > keeps the activation center when a listener moves the player 14ms
+     → expected 100 to be 3 // Object.is equality
+   × Scavenge Pulse consumable collection boundary > keeps its admitted range snapshot when a listener moves a later drop 8ms
+     → expected 1 to be 2 // Object.is equality
+   ✓ Scavenge Pulse consumable collection boundary > does not chase a new nearby drop spawned by a collection listener 8ms
+   × Scavenge Pulse consumable collection boundary > skips an admitted object whose original lifetime was collected and reused by a listener 8ms
+     → expected 2 to be 1 // Object.is equality
+   × Scavenge Pulse consumable collection boundary > cannot recursively collect its current lifetime or release a listener-spawned replacement 9ms
+     → expected "spy" to be called once, but got 2 times
+   ✓ Scavenge Pulse consumable collection boundary > counts the consumed drop honestly when a listener destroys the system 7ms
+   × Scavenge Pulse consumable collection boundary > finishes the admitted pulse when a collection fact completes the objective 8ms
+     → expected 1 to be 3 // Object.is equality
+   ✓ Scavenge Pulse consumable collection boundary > keeps ordinary overlap pickups blocked during manual pause 7ms
+   ✓ Scavenge Pulse consumable collection boundary > keeps ordinary overlap pickups blocked during levelUp pause 7ms
+   ✓ Scavenge Pulse consumable collection boundary > keeps terminal-clear settlement global, suppresses level-up events and leaves a full-rack weapon 8ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > finishes XP then Scrap after the real chooser takes its level-up pause
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/scavengePulseCollection.test.ts:81:26
+     79|     expect(t.resumed).not.toHaveBeenCalled();
+     80|     expect(xp.active).toBe(false);
+     81|     expect(scrap.active).toBe(false);
+       |                          ^
+     82|     expect(t.runState.currency).toBe(7);
+     83|     expect(t.collected).toHaveBeenCalledTimes(2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > preserves subsequent XP, queues its level and leaves the chooser pause owned
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/scavengePulseCollection.test.ts:95:26
+     93|     const later = t.system.spawnDrop(2, 0, { kind: 'xp', amount: xpToN…
+     94|     expect(t.system.collectNearbyConsumables(10)).toBe(2);
+     95|     expect(later.active).toBe(false);
+       |                          ^
+     96|     expect(t.runState.level).toBe(3);
+     97|     expect(t.runState.xp).toBe(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > awards later non-leveling XP under the pause with normal gain and face-value events
+AssertionError: expected 1 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 1
+
+ ❯ tests/scavengePulseCollection.test.ts:121:27
+    119|     expect(t.system.collectNearbyConsumables(10)).toBe(2);
+    120|     expect(t.runState.level).toBe(2);
+    121|     expect(t.runState.xp).toBe(3);
+       |                           ^
+    122|     expect(t.gained.mock.calls.map(([event]) => event.amount)).toEqual…
+    123|     expect(t.collected.mock.calls.map(([event]) => event.amount)).toEq…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > stops after a listener changes the active run to manual and counts only consumption
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > stops after a listener changes the active run to won and counts only consumption
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > stops after a listener changes the active run to lost and counts only consumption
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ tests/scavengePulseCollection.test.ts:175:53
+    173|         else endRun(t.runState, state, t.bus);
+    174|       });
+    175|       expect(t.system.collectNearbyConsumables(10)).toBe(1);
+       |                                                     ^
+    176|       expect(t.collected).toHaveBeenCalledOnce();
+    177|       expect(t.runState.currency).toBe(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > excludes outside, chest, weapon and blocked drops even with a full rack
+AssertionError: expected 3 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 3
+
+ ❯ tests/scavengePulseCollection.test.ts:197:51
+    195|     const blocked = t.system.spawnDrop(2, 0, { kind: 'scrap', amount: …
+    196|     blocked.setPickupBlocked(true);
+    197|     expect(t.system.collectNearbyConsumables(10)).toBe(2);
+       |                                                   ^
+    198|     expect(t.collected).toHaveBeenCalledTimes(2);
+    199|     expect(t.runState.currency).toBe(3);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > keeps the activation center when a listener moves the player
+AssertionError: expected 100 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 100
+
+ ❯ tests/scavengePulseCollection.test.ts:215:33
+    213|     t.bus.on('drop:collected', () => { t.player.x = 50; });
+    214|     expect(t.system.collectNearbyConsumables(10)).toBe(2);
+    215|     expect(t.runState.currency).toBe(3);
+       |                                 ^
+    216|     expect(admitted.active).toBe(false);
+    217|     expect(outside.active).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > keeps its admitted range snapshot when a listener moves a later drop
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ tests/scavengePulseCollection.test.ts:225:51
+    223|     const admitted = t.system.spawnDrop(2, 0, { kind: 'scrap', amount:…
+    224|     t.bus.on('drop:collected', () => { admitted.sprite.setPosition(50,…
+    225|     expect(t.system.collectNearbyConsumables(10)).toBe(2);
+       |                                                   ^
+    226|     expect(t.runState.currency).toBe(3);
+    227|     expect(admitted.active).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/12]⎯
+
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > skips an admitted object whose original lifetime was collected and reused by a listener
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ tests/scavengePulseCollection.test.ts:251:51
+    249|       replacement = t.system.spawnDrop(2, 0, { kind: 'scrap', amount: …
+    250|     });
+    251|     expect(t.system.collectNearbyConsumables(10)).toBe(1);
+       |                                                   ^
+    252|     expect(replacement).toBe(later);
+    253|     expect(replacement.active).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/12]⎯
+
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > cannot recursively collect its current lifetime or release a listener-spawned replacement
+AssertionError: expected "spy" to be called once, but got 2 times
+ ❯ tests/scavengePulseCollection.test.ts:268:25
+    266|     });
+    267|     expect(t.system.collectNearbyConsumables(10)).toBe(1);
+    268|     expect(t.collected).toHaveBeenCalledOnce();
+       |                         ^
+    269|     expect(t.runState.currency).toBe(1);
+    270|     expect(replacement.active).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/12]⎯
+
+ FAIL  tests/scavengePulseCollection.test.ts > Scavenge Pulse consumable collection boundary > finishes the admitted pulse when a collection fact completes the objective
+AssertionError: expected 1 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 1
+
+ ❯ tests/scavengePulseCollection.test.ts:297:33
+    295|     expect(t.system.collectNearbyConsumables(10)).toBe(3);
+    296|     expect(runtime.state.status).toBe('objective-complete');
+    297|     expect(t.runState.currency).toBe(3);
+       |                                 ^
+    298|     expect(last.active).toBe(false);
+    299|     expect(t.runState.status).toBe('paused');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/12]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  12 failed | 11 passed (23)
+   Start at  02:16:13
+   Duration  1.55s (transform 631ms, setup 0ms, collect 702ms, tests 465ms, environment 0ms, prepare 135ms)
+
