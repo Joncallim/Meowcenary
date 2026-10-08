@@ -1,0 +1,19 @@
+{
+  "status": "CANDIDATE",
+  "purpose": "single idle identity/pose preview only",
+  "shipApproved": false,
+  "nativeProductionMaster": false,
+  "generatedBy": "built-in image_gen; canonical reference supplied",
+  "canonicalReference": {
+    "file": "LHpXaKqFKksfF2uismDws5",
+    "nodes": [
+      "91:2",
+      "92:2"
+    ],
+    "path": "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png",
+    "sha256": "25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729"
+  },
+  "files": {
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-idle-preview/brass-boar-idle-identity-preview.png": "78c43b8b0fde0ca95fb1639ba8cae904fa6536d20f5920af044cd63a0fef4fc5"
+  }
+}
