@@ -1,0 +1,27 @@
+import { chromium } from '/home/jon/projects/meowcenary/node_modules/playwright/index.mjs';
+import { readFile,writeFile } from 'node:fs/promises';
+const repo='/home/jon/projects/meowcenary-worktrees/meowcenary-mercenary-review';
+const path='/docs/art/evidence/mercenary-sprites-2026-10-08/roster/';
+const m=JSON.parse(await readFile(repo+path+'manifest.json','utf8'));
+const browser=await chromium.launch();const results=[];
+try {
+ for(const viewport of [{width:360,height:640},{width:390,height:844},{width:768,height:1024},{width:1114,height:720},{width:1280,height:720},{width:1920,height:1080}]) {
+  const context=await browser.newContext({viewport});const page=await context.newPage();const errors=[];
+  page.on('pageerror',e=>errors.push(String(e)));
+  await page.goto('http://127.0.0.1:4166'+path);await page.locator('#actor option').first().waitFor({state:'attached'});
+  for(const actor of m.selectedActors)for(const profile of m.selectedProfiles){
+   await page.selectOption('#actor',actor);await page.selectOption('#profile',profile);await page.selectOption('#mode','deterministic');
+   const facts=await page.evaluate(async()=>{
+    const imgs=[...document.querySelectorAll('.actual,.enlarged')];for(const i of imgs)i.loading='eager';await Promise.all(imgs.map(i=>i.decode()));
+    return{images:imgs.length,width:document.documentElement.scrollWidth,viewport:innerWidth,clipCount:document.querySelectorAll('.clip').length,actualRects:[...document.querySelectorAll('.actual')].map(i=>[i.getBoundingClientRect().width,i.getBoundingClientRect().height]),video:document.querySelector('video')?.getAttribute('src')};
+   });
+   if(facts.images!==32||facts.clipCount!==4||facts.width>facts.viewport||facts.actualRects.some(r=>r[0]!==96||r[1]!==96))throw Error(JSON.stringify({viewport,actor,profile,facts}));
+   const hasVideo=profile==='phone-390x844-dpr3'||profile==='desktop-1280x720';if(Boolean(facts.video)!==hasVideo)throw Error('Counterpart video missing/unexpected');
+   if(hasVideo){const response=await page.request.get('http://127.0.0.1:4166'+path+facts.video);if(!response.ok())throw Error('Video link broken');}
+   await page.selectOption('#mode','realtime');if(await page.locator('.clip').count()!==4)throw Error('Realtime event panel missing');
+  }
+  if(errors.length)throw Error(errors.join(';'));
+  results.push({viewport,actorProfileSelections:48,modes:2,status:'pass',errors});await context.close();console.log(`${viewport.width}x${viewport.height}: 48 selections, pass`);
+ }
+ await writeFile('/home/jon/projects/meowcenary-evidence/resume-2026-10-08/roster-gallery-check.json',JSON.stringify(results,null,2));
+}finally{await browser.close();}

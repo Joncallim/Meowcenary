@@ -1,0 +1,240 @@
+// External, presentation-only evidence harness. Does not start a server or edit the repository.
+// Run with /opt/node22/bin/node; Chromium TMPDIR defaults to the known evidence tmp directory.
+import { chromium } from '/home/jon/projects/meowcenary/node_modules/playwright/index.mjs';
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const root = '/home/jon/projects/meowcenary-evidence/resume-2026-10-08';
+const repo = '/home/jon/projects/meowcenary-worktrees/meowcenary-mercenary-sprite-fidelity';
+const review = '/home/jon/projects/meowcenary-worktrees/meowcenary-mercenary-review';
+const output = `${root}/roster-full-animation-evidence`;
+const implementation = '00bf2de9bbc6e2c61d4a5a4a55a3c55cceb0fde2';
+const origin = 'http://127.0.0.1:4175';
+const actors = ['scrap-tabby','bolt-hound','volt-lynx','brass-boar','ember-cougar','scrap-weasel','rattle-raptor','piston-ram'];
+const profiles = [
+  {name:'phone-360x640',viewport:{width:360,height:640},hasTouch:true,isMobile:true,deviceScaleFactor:1},
+  {name:'phone-390x844-dpr3',viewport:{width:390,height:844},hasTouch:true,isMobile:true,deviceScaleFactor:3},
+  {name:'tablet-768x1024',viewport:{width:768,height:1024},hasTouch:true,isMobile:true,deviceScaleFactor:1},
+  {name:'foldable-1114x720-dpr2',viewport:{width:1114,height:720},hasTouch:true,isMobile:true,deviceScaleFactor:2},
+  {name:'desktop-1280x720',viewport:{width:1280,height:720},deviceScaleFactor:1},
+  {name:'desktop-1920x1080',viewport:{width:1920,height:1080},deviceScaleFactor:1},
+];
+const videoProfiles = new Set(['phone-390x844-dpr3','desktop-1280x720']);
+const clips = ['idle','run','hurt','defeat'];
+function select(env, all, key = x => x) {
+  const requested = process.env[env]?.split(',').map(s=>s.trim()).filter(Boolean);
+  if (!requested?.length) return all;
+  for (const name of requested) if (!all.some(item=>key(item)===name)) throw Error(`Unknown ${env} value: ${name}`);
+  return all.filter(item=>requested.includes(key(item)));
+}
+const selectedActors = select('ROSTER_ACTORS', actors);
+const selectedProfiles = select('ROSTER_PROFILES', profiles, p=>p.name);
+if (Number(process.versions.node.split('.')[0]) !== 22) throw Error('This evidence runner requires Node 22.');
+process.env.TMPDIR ||= `${root}/tmp`;
+await mkdir(process.env.TMPDIR,{recursive:true});
+await mkdir(output,{recursive:true});
+const git = promisify(execFile);
+const repoHead = (await git('git',['rev-parse','HEAD'],{cwd:repo})).stdout.trim();
+if (repoHead !== implementation) throw Error(`Wrong frozen fixture checkout: ${repoHead}`);
+const reviewHead = (await git('git',['rev-parse','HEAD'],{cwd:review})).stdout.trim();
+const manifestBytes = await readFile(`${repo}/src/data/visual-art.json`);
+const visual = JSON.parse(manifestBytes);
+const phaserName = (await readdir(`${repo}/dist/assets`)).find(name=>/^phaser-.*\.js$/.test(name));
+if (!phaserName) throw Error('Compiled Phaser chunk missing. Root must prepare the 4175 fixture.');
+const sources = {};
+for (const id of selectedActors) {
+  const file = id === 'brass-boar'
+    ? `${review}/assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/brass-boar.png`
+    : `${repo}/public/assets/characters/${id}/${id}.png`;
+  const bytes = await readFile(file);
+  const binding = visual.bindings.find(b=>b.id===`character:${id}`);
+  if (!binding?.clips) throw Error(`Missing expected clips: ${id}`);
+  sources[id] = {file,bytes,sha256:createHash('sha256').update(bytes).digest('hex'),expected:binding.clips};
+}
+const metadata = {
+  implementation,reviewHead,origin,node:process.version,tmpdir:process.env.TMPDIR,
+  method:'Actual production player SpriteView, registered Phaser AnimationState and animation events. Existing authored-arena fixture frozen; scene, Arcade world and game loop paused. Only actor Sprite.preUpdate and existing renderer are driven. Deterministic 20ms stepping and separate fresh-context RAF playback. No manual frame selection, private one-shot resets, production code changes or gameplay simulation.',
+  limitations:'Emulated Chromium viewports/DPR; presentation-only art evidence. Not live-combat, real-device, accessibility, performance or deployment validation. Video captures full viewport only on phone390 and desktop1280; RAF event clocks are actual callback times.',
+  visualArtSha256:createHash('sha256').update(manifestBytes).digest('hex'),
+  phaserChunk:phaserName,phaserChunkSha256:createHash('sha256').update(await readFile(`${repo}/dist/assets/${phaserName}`)).digest('hex'),
+  selectedActors,selectedProfiles:selectedProfiles.map(p=>p.name),sources:Object.fromEntries(Object.entries(sources).map(([id,{bytes,...rest}])=>[id,rest])),rows:[],
+};
+const saveManifest = ()=>writeFile(`${output}/manifest.json`,JSON.stringify(metadata,null,2));
+await saveManifest();
+
+async function bootstrap(page,id,bytes,errors) {
+  let fulfilled = 0;
+  page.on('pageerror',error=>errors.push(String(error)));
+  page.on('console',message=>{if(message.type()==='error')errors.push(`console: ${message.text()}`);});
+  await page.route(`**/assets/characters/${id}/${id}.png`,async route=>{
+    fulfilled++; await route.fulfill({contentType:'image/png',body:bytes});
+  });
+  await page.addInitScript(id=>localStorage.setItem('meowcenary.save.v2',JSON.stringify({
+    version:4,settings:{muted:true,musicVolume:0,sfxVolume:0,reducedMotion:true},
+    progression:{scrap:0,unlocks:[`character:${id}`]},selectedCharacterId:id,
+    stages:{},achievements:{},achievementMetrics:{},characters:{},gunsmith:{builds:[],parts:{},fabricationSerials:{}},
+    equipment:{},equipmentLoadout:{},items:{},bosses:{},compendium:{},pendingAchievementReports:[],appliedGrantTransactions:{},grantTransactionFingerprints:{},
+  })),id);
+  await page.goto(`${origin}/?visual-test=1`);
+  await page.waitForFunction(()=>Boolean(globalThis.__MEOWCENARY_VISUAL_TEST__));
+  if (!await page.evaluate(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())) throw Error('Menu not settled');
+  await page.keyboard.down('Enter');
+  try {
+    if (!await page.evaluate(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.waitForPreparedGame())) throw Error('Game not prepared');
+  } finally { await page.keyboard.up('Enter'); }
+  await page.waitForFunction(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.focusPlayer());
+  if (!await page.evaluate(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.useAuthoredArenaArtReference())) throw Error('Authored-arena reference unavailable');
+  await page.evaluate(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.freeze());
+  const facts = await page.evaluate(async ({chunk,id,expected})=>{
+    const mod=await import(`/assets/${chunk}`),P=mod.r();
+    const game=P.Display.Canvas.CanvasPool.pool.map(row=>row.parent?.scene?.sys?.game??row.parent?.game??(row.parent?.scene?.getScene?row.parent:undefined)).find(g=>g?.scene?.getScene);
+    if (!game) throw Error('Existing live Phaser game not found');
+    const scene=game.scene.getScene('GameScene'),player=scene.player,view=player.view,sprite=view?.sprite;
+    if (!sprite||!view.update||!view.playOneShot) throw Error('Actual player SpriteView unavailable');
+    const selectedId=scene.getContext().selectedCharacterId;
+    if (selectedId!==id||scene.runState.characterId!==id) throw Error(`Wrong selected/run player: ${selectedId}/${scene.runState.characterId}`);
+    const actualPlayerId=scene.runState.characterId;
+    const held=(scene.systems??[]).map(system=>system.heldWeapon?.image).filter(Boolean);
+    for (const image of held) image.setVisible(false);
+    if ((scene.abilityPresentationSystem?.live?.size??0)!==0) throw Error('Ability VFX active');
+    scene.sys.pause();scene.physics.pause();game.anims.resumeAll();
+    const pose={x:sprite.x,y:sprite.y,facing:sprite.flipX?-1:1,alpha:1,moving:false};
+    const baseline={spriteX:sprite.x,spriteY:sprite.y,bodyX:player.sprite.x,bodyY:player.sprite.y,radius:player.sprite.body.radius,width:sprite.displayWidth,height:sprite.displayHeight};
+    if (Math.abs(baseline.width-43.4)>1e-8) throw Error(`Wrong production width: ${baseline.width}`);
+    const registered={};
+    for (const clip of ['idle','run','hurt','defeat']) {
+      const animation=game.anims.get(view.clips[clip]);
+      if (!animation) throw Error(`Registered clip missing: ${clip}`);
+      const frames=animation.frames.map(f=>Number(f.textureFrame));
+      const wanted=Array.from({length:expected[clip].end-expected[clip].start+1},(_,i)=>expected[clip].start+i);
+      if (JSON.stringify(frames)!==JSON.stringify(wanted)||animation.frameRate!==expected[clip].frameRate||animation.repeat!==expected[clip].repeat) throw Error(`Registered clip differs from data: ${clip}`);
+      registered[clip]={key:animation.key,frames,frameRate:animation.frameRate,repeat:animation.repeat,duration:animation.duration};
+    }
+    let elapsed=0,events=[],active='idle';
+    for (const type of ['animationstart','animationupdate','animationrepeat','animationcomplete']) sprite.on(type,(animation,frame)=>events.push({type,key:animation.key,frame:Number(frame.textureFrame),elapsedMs:elapsed,wallMs:performance.now()}));
+    function check() {
+      if(game.loop.running||!scene.sys.isPaused()||!scene.physics.world.isPaused)throw Error('Frozen execution planes resumed');
+      const now={spriteX:sprite.x,spriteY:sprite.y,bodyX:player.sprite.x,bodyY:player.sprite.y,radius:player.sprite.body.radius,width:sprite.displayWidth,height:sprite.displayHeight};
+      for (const key of Object.keys(baseline)) if(Math.abs(now[key]-baseline[key])>1e-8)throw Error(`Presentation changed physical/position invariant: ${key}`);
+      if(held.some(node=>node.visible)||(scene.abilityPresentationSystem?.live?.size??0)!==0)throw Error('Gear/VFX reappeared');
+    }
+    function render(){check();game.renderer.preRender();scene.sys.render(game.renderer);game.renderer.postRender();}
+    function state(){return{active,key:sprite.anims.currentAnim?.key,frame:Number(sprite.frame.name),playing:sprite.anims.isPlaying,elapsedMs:elapsed,events:events.slice(),...baseline};}
+    function begin(clip){
+      active=clip;events=[];
+      // Prime/restart idle exclusively through shared logical locomotion actions.
+      if(clip==='idle'){view.update({...pose,moving:true});view.update({...pose,moving:false});}
+      else if(clip==='run')view.update({...pose,moving:true});
+      else{view.update({...pose,moving:false});view.playOneShot(clip);}
+      render();return state();
+    }
+    function advance(delta){elapsed+=delta;sprite.preUpdate(elapsed,delta);render();return state();}
+    function probe(){view.update({...pose,moving:active==='defeat'});render();return state();}
+    globalThis.__ROSTER_CAPTURE__={begin,advance,state,probe};
+    render();
+    return {selectedId,actualPlayerId,body:baseline,registered,heldWeaponNodes:held.length,activeAbilityEffects:0,renderer:game.renderer.type,arena:globalThis.__MEOWCENARY_VISUAL_TEST__.arenaFramingDiagnostics()};
+  },{chunk:phaserName,id,expected:sources[id].expected});
+  return {facts,fulfilled:()=>fulfilled};
+}
+
+function validateClip(clip,result,registered) {
+  const events=result.events.filter(e=>e.key===registered.key);
+  const sequence=[];
+  for (const event of events.filter(e=>['animationstart','animationupdate'].includes(e.type))) if(sequence.at(-1)!==event.frame)sequence.push(event.frame);
+  const repeat=events.filter(e=>e.type==='animationrepeat').length;
+  const complete=events.filter(e=>e.type==='animationcomplete').length;
+  const wanted=registered.frames;
+  if(JSON.stringify(sequence.slice(0,wanted.length))!==JSON.stringify(wanted))throw Error(`${clip}: wrong sequence ${sequence}`);
+  if(clip==='idle'||clip==='run'){
+    if(repeat!==1||complete!==0||!result.playing)throw Error(`${clip}: expected one actual repeat and continued playback`);
+    if(!events.some(e=>e.type==='animationrepeat'&&e.frame===wanted[0]))throw Error(`${clip}: repeat did not return to first frame`);
+  }else if(complete!==1||repeat!==0)throw Error(`${clip}: expected one actual completion`);
+  return {sequence,repeatEvents:repeat,completeEvents:complete,events};
+}
+function finished(clip,state,key) {
+  return state.events.some(e=>e.key===key&&e.type===((clip==='idle'||clip==='run')?'animationrepeat':'animationcomplete'));
+}
+
+async function captureMode(browser,id,profile,mode) {
+  const {name,...options}=profile;
+  const directory=`${output}/${id}/${name}/${mode}`;
+  await mkdir(directory,{recursive:true});
+  const recording=mode==='realtime'&&videoProfiles.has(name);
+  const context=await browser.newContext({...options,colorScheme:'dark',...(recording?{recordVideo:{dir:directory,size:profile.viewport}}:{})});
+  const errors=[];let page,video,row={id,profile,mode,status:'running',sourceSha256:sources[id].sha256,clips:[],errors};
+  try {
+    page=await context.newPage();video=page.video();
+    const bootstrapResult=await bootstrap(page,id,sources[id].bytes,errors);
+    row.facts=bootstrapResult.facts;
+    const point=await page.evaluate(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.focusedActorScreenPoint());
+    const crop={x:Math.round(point.x)-48,y:Math.round(point.y)-48,width:96,height:96};
+    if(mode==='deterministic')await page.screenshot({path:`${directory}/viewport.png`,scale:'css'});
+    for (const clip of clips) {
+      const registered=row.facts.registered[clip];
+      const screenshots=[];
+      const budget=Math.ceil(registered.duration)+1000;
+      let result;
+      if(mode==='deterministic'){
+        await page.evaluate(clip=>globalThis.__ROSTER_CAPTURE__.begin(clip),clip);
+        let spent=0,seen=new Set();
+        do{
+          result=await page.evaluate(()=>globalThis.__ROSTER_CAPTURE__.advance(20));spent+=20;
+          for(const event of result.events.filter(e=>e.key===registered.key&&['animationstart','animationupdate'].includes(e.type))) {
+            if(!seen.has(event.frame)&&result.key===registered.key&&result.frame===event.frame){
+              const file=`${directory}/${clip}-${String(event.frame).padStart(2,'0')}.png`;
+              await page.screenshot({path:file,clip:crop,scale:'css'});screenshots.push({frame:event.frame,file,event});seen.add(event.frame);
+            }
+          }
+          if(spent>budget)throw Error(`${clip}: actual event deadline exceeded`);
+        }while(!finished(clip,result,registered.key));
+        if(screenshots.length!==registered.frames.length)throw Error(`${clip}: missed deterministic frame screenshot`);
+      }else{
+        result=await page.evaluate(async({clip,key,budget})=>{
+          const harness=globalThis.__ROSTER_CAPTURE__;harness.begin(clip);
+          let previous=performance.now(),started=previous,state;
+          do {
+            const time=await new Promise(resolve=>requestAnimationFrame(resolve));
+            state=harness.advance(time-previous);previous=time;
+            if(time-started>budget)throw Error(`${clip}: RAF deadline exceeded`);
+          }while(!state.events.some(e=>e.key===key&&e.type===((clip==='idle'||clip==='run')?'animationrepeat':'animationcomplete')));
+          return state;
+        },{clip,key:registered.key,budget});
+      }
+      const validation=validateClip(clip,result,registered);
+      let endBehavior;
+      if(clip==='hurt'||clip==='defeat'){
+        const initial=await page.evaluate(()=>globalThis.__ROSTER_CAPTURE__.probe());
+        if(clip==='hurt'&&initial.key!==row.facts.registered.idle.key)throw Error('Hurt did not return through SpriteView to locomotion');
+        if(clip==='defeat'&&(initial.key!==registered.key||initial.frame!==registered.frames.at(-1)||initial.playing))throw Error('Defeat did not hold its last frame');
+        const held=mode==='deterministic'
+          ? await page.evaluate(()=>{let state;for(let i=0;i<15;i++)state=globalThis.__ROSTER_CAPTURE__.advance(20);return state;})
+          : await page.evaluate(async()=>{const h=globalThis.__ROSTER_CAPTURE__;let t=performance.now(),start=t,state;do{const n=await new Promise(r=>requestAnimationFrame(r));state=h.advance(n-t);t=n;}while(t-start<300);return state;});
+        if(clip==='defeat'&&(held.frame!==registered.frames.at(-1)||held.key!==registered.key||held.playing))throw Error('Defeat last frame was not retained after a locomotion request');
+        if(clip==='hurt'&&held.key!==row.facts.registered.idle.key)throw Error('Hurt locomotion recovery lost');
+        endBehavior={type:clip==='hurt'?'returned-to-idle-locomotion':'held-defeat-last-despite-run-request',initial,after300ms:held};
+        if(mode==='deterministic')await page.screenshot({path:`${directory}/${clip}-end-behavior.png`,clip:crop,scale:'css'});
+      }
+      row.clips.push({clip,registered,...validation,screenshots,endBehavior});
+    }
+    row.fulfilled=bootstrapResult.fulfilled();
+    if(row.fulfilled!==1)throw Error(`Expected one PNG fulfillment; got ${row.fulfilled}`);
+    if(errors.length)throw Error(`Browser errors: ${errors.join('; ')}`);
+    row.status='pass';
+  }catch(error){row.status='fail';row.failure=String(error);throw error;}
+  finally{
+    await context.close();
+    if(video)row.video=await video.path();
+    metadata.rows.push(row);await saveManifest();
+    console.log(`${id} ${name} ${mode}: ${row.status}, ${row.clips.length}/4 clips, ${row.fulfilled??'?'} resource, ${errors.length} browser errors`);
+  }
+}
+
+const browser=await chromium.launch();
+try {
+  for(const id of selectedActors)for(const profile of selectedProfiles){
+    await captureMode(browser,id,profile,'deterministic');
+    await captureMode(browser,id,profile,'realtime');
+  }
+}finally{await browser.close();}

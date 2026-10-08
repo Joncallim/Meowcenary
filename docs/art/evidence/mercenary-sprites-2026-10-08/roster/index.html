@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mercenary animation evidence — 8 actor review</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111820;
+      --panel: #1d2834;
+      --panel-raised: #273646;
+      --line: #415366;
+      --text: #eef3f8;
+      --muted: #b4c1ce;
+      --accent: #e5b65b;
+      --good: #8bd2aa;
+      --warn: #f0cc83;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.5 system-ui, sans-serif;
+    }
+    main { max-width: 1500px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 64px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 8px; font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1.1; }
+    h2 { margin-bottom: 12px; font-size: 1.3rem; }
+    h3 { margin: 0; font-size: 1rem; }
+    a { color: #9fd5ff; }
+    .lead { color: var(--muted); max-width: 78ch; }
+    .banner, .panel, .clip { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+    .banner { padding: 14px 16px; margin: 22px 0; }
+    .banner strong { color: var(--warn); }
+    .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; padding: 16px; }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: .9rem; }
+    select { min-width: 190px; padding: 9px 32px 9px 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--text); background: #101820; font: inherit; }
+    .status { margin-left: auto; color: var(--muted); font-size: .9rem; }
+    .actor-summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px 18px; padding: 16px 18px 0; }
+    .actor-summary p { margin: 0; color: var(--muted); overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
+    .tag { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; color: var(--good); font-size: .8rem; }
+    .empty { padding: 18px; color: var(--muted); }
+    .clips { display: grid; gap: 18px; margin-top: 18px; }
+    .clip { overflow: hidden; }
+    .clip-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel-raised); }
+    .clip-meta { color: var(--muted); font-size: .88rem; }
+    .clip-links { display: flex; flex-wrap: wrap; gap: 12px; padding: 10px 16px 0; }
+    .recording { margin: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: #111923; }
+    .recording video { display: block; width: min(100%, 720px); max-height: 75vh; margin-top: 10px; background: #080c10; }
+    .event-list { margin: 8px 0 12px; color: var(--muted); font-size: .85rem; }
+    .frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 12px; padding: 14px; }
+    figure { min-width: 0; margin: 0; padding: 10px; border: 1px solid #354658; border-radius: 9px; background: #111923; }
+    figcaption { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: var(--muted); font-size: .82rem; }
+    .views { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: start; gap: 12px; }
+    .actual-wrap { width: 96px; height: 96px; display: grid; place-items: center; background: #0b1016; outline: 1px solid #415366; }
+    .actual { display: block; width: 96px; height: 96px; image-rendering: pixelated; }
+    .enlarged-wrap { min-height: 96px; overflow: auto; display: flex; align-items: flex-start; justify-content: flex-start; background-color: #0b1016; background-image: linear-gradient(45deg,#17212c 25%,transparent 25%),linear-gradient(-45deg,#17212c 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#17212c 75%),linear-gradient(-45deg,transparent 75%,#17212c 75%); background-size: 16px 16px; background-position: 0 0,0 8px,8px -8px,-8px 0; }
+    .enlarged { display: block; width: 288px; height: 288px; image-rendering: pixelated; image-rendering: crisp-edges; }
+    details { margin-top: 22px; }
+    details summary { cursor: pointer; color: var(--accent); }
+    pre { overflow: auto; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: #0d131a; color: #d8e1ea; font-size: .8rem; }
+    .footnote { margin-top: 20px; color: var(--muted); font-size: .9rem; }
+    .source-chain { margin: 12px 18px 18px; padding: 12px; border: 1px solid #354658; border-radius: 9px; color: var(--muted); }
+    .source-chain summary { color: var(--accent); }
+    .source-chain ul { padding-left: 22px; }
+    .source-chain li { margin: 5px 0; overflow-wrap: anywhere; }
+    .roster-motion { margin: 22px 0; padding: 16px; }
+    .roster-motion img { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
+    @media (max-width: 580px) {
+      main { padding-top: 20px; }
+      .status { width: 100%; margin-left: 0; }
+      .views { grid-template-columns: 96px minmax(0, 1fr); }
+      .actual-wrap, .actual { width: 96px; height: 96px; }
+      .enlarged { width: 288px; height: 288px; }
+      .frames { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Mercenary animation review</h1>
+  <p class="lead">Eight authored 48×48 actors, shown through the registered Phaser animation clips. Select an actor and viewport, then inspect every captured frame at its 96×96 CSS-pixel crop and at 3× enlargement.</p>
+
+  <div class="banner">
+    <strong>Evidence only; no visual approval is implied.</strong>
+    This fixture freezes the authored arena and game loop, then advances the real actor Sprite and renderer. It is presentation evidence, not live-combat, device, accessibility, performance, or deployment validation. Brass Boar’s V3 direction is owner-approved; its native sprite and animation remain unapproved. The other seven entries show existing runtime candidates and do not create new owner acceptance. Captures use integration `00bf2de9`; the proposed Boar V3 source is pinned to `f4fbfa2f`; baseline main `2865e28f` retains the earlier Lynx defeat crop, and #227 CI is red.
+  </div>
+
+  <section class="panel controls" aria-label="Review selection">
+    <label>Mercenary<select id="actor"></select></label>
+    <label>Viewport<select id="profile"></select></label>
+    <label>Capture<select id="mode"></select></label>
+    <div id="status" class="status" aria-live="polite">Loading evidence…</div>
+  </section>
+
+  <section class="panel" id="summary" aria-live="polite"></section>
+  <section class="clips" id="clips" aria-live="polite"></section>
+  <section class="panel roster-motion" id="roster-motion" hidden>
+    <h2>Roster loop preview</h2>
+    <p class="lead">A convenience playback made from the captured phone crops. Individual registered clip frames above remain the review evidence.</p>
+    <img src="./roster-animation.gif" alt="Animated phone crop sequence for the eight Mercenaries">
+  </section>
+
+  <section class="panel" style="margin-top:22px;padding:16px">
+    <h2>Design direction references</h2>
+    <p>These are design-direction references; they do not mark any runtime actor as owner-approved.</p>
+    <ul>
+      <li>Scrap Tabby and Bolt Hound: <a href="../../../concepts/epic-13/final-actor-direction.png">Epic 13 final actor direction board</a>.</li>
+      <li>Volt Lynx: <a href="../../../../../assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png">canonical Lynx direction</a> · <a href="https://www.figma.com/design/LHpXaKqFKksfF2uismDws5/Meowcenary?node-id=113-2">Figma node 113:2</a>.</li>
+      <li>Brass Boar, Ember Cougar, Scrap Weasel, Rattle Raptor, and Piston Ram: <a href="../../../../../assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png">canonical roster board</a> (columns 1–5) · <a href="https://www.figma.com/design/LHpXaKqFKksfF2uismDws5/Meowcenary?node-id=91-2">Figma node 91:2</a> / <a href="https://www.figma.com/design/LHpXaKqFKksfF2uismDws5/Meowcenary?node-id=92-2">92:2</a>.</li>
+    </ul>
+    <p>Tabby and Hound point to the recorded final-actor-direction image; no separate Figma node is claimed for those two here.</p>
+  </section>
+
+  <details>
+    <summary>Capture provenance and registered clip facts</summary>
+    <pre id="provenance">Loading…</pre>
+  </details>
+
+  <p class="footnote">The full native sources, runtime exports, canonical reference paths, and SHA-256 values are catalogued in <a href="source-inventory.json">source-inventory.json</a>. The evidence manifest and frame images are expected beside this page using actor/profile/mode relative paths.</p>
+</main>
+<script>
+(() => {
+  const actorSelect = document.querySelector('#actor');
+  const profileSelect = document.querySelector('#profile');
+  const modeSelect = document.querySelector('#mode');
+  const status = document.querySelector('#status');
+  const summary = document.querySelector('#summary');
+  const clips = document.querySelector('#clips');
+  const provenance = document.querySelector('#provenance');
+  const labels = {
+    'scrap-tabby': 'Scrap Tabby', 'bolt-hound': 'Bolt Hound', 'volt-lynx': 'Volt Lynx',
+    'brass-boar': 'Brass Boar', 'ember-cougar': 'Ember Cougar', 'scrap-weasel': 'Scrap Weasel',
+    'rattle-raptor': 'Rattle Raptor', 'piston-ram': 'Piston Ram'
+  };
+  const clipOrder = ['idle', 'run', 'hurt', 'defeat'];
+  let manifest = null;
+  let inventory = null;
+
+  function addOptions(select, entries, selected) {
+    select.replaceChildren();
+    for (const [value, label] of entries) {
+      const option = document.createElement('option'); option.value = value; option.textContent = label;
+      select.append(option);
+    }
+    if (selected && [...select.options].some(o => o.value === selected)) select.value = selected;
+  }
+  function selectedRow() {
+    return manifest.rows.find(r => r.id === actorSelect.value && r.profile.name === profileSelect.value && r.mode === modeSelect.value);
+  }
+  function relativeEvidencePath(file, actor, profile, mode) {
+    if (!file) return '';
+    const marker = '/roster-full-animation-evidence/';
+    const markerAt = file.indexOf(marker);
+    if (markerAt >= 0) return file.slice(markerAt + marker.length);
+    if (/^(https?:|data:|blob:)/i.test(file) || file.startsWith('/')) return file;
+    const relative = file.replace(/^\.\//, '');
+    if (relative.startsWith(`${actor}/`)) return relative;
+    return `${actor}/${profile}/${mode}/${relative}`;
+  }
+  function evidenceHref(entry, row, clip) {
+    if (typeof entry === 'string') return relativeEvidencePath(entry, row.id, row.profile.name, row.mode);
+    if (!entry) return '';
+    const path = entry.file || entry.path || entry.src || entry.href;
+    return path ? relativeEvidencePath(path, row.id, row.profile.name, row.mode) : '';
+  }
+  function inventoryActor(id) {
+    if (!inventory) return null;
+    const root = inventory.actors || inventory.characters || inventory.sources || inventory;
+    if (Array.isArray(root)) return root.find(actor => actor.id === id) || null;
+    return root[id] || null;
+  }
+  function repoPath(path) { return path ? `../../../../../${String(path).replace(/^\/+/, '')}` : ''; }
+  function text(el, value) { el.textContent = value == null ? '' : String(value); }
+  function make(tag, cls, value) {
+    const el = document.createElement(tag); if (cls) el.className = cls; if (value != null) el.textContent = value; return el;
+  }
+  function appendOptionalVideos(host, row, clip) {
+    const clipVideos = Array.isArray(clip.videos) ? clip.videos : Object.values(clip.videos || {});
+    const candidates = [clip.video, clip.rafVideo, clip.realtimeVideo, ...clipVideos, row.videos?.[clip.clip], manifest.videos?.[row.id]?.[row.profile.name]?.[clip.clip]].filter(Boolean);
+    const links = [...new Set(candidates.map(v => evidenceHref(v, row, clip)).filter(Boolean))];
+    if (!links.length) return;
+    const wrap = make('div', 'clip-links');
+    for (const href of links) {
+      const link = make('a', '', 'Open real RAF playback video'); link.href = href; link.target = '_blank'; link.rel = 'noopener';
+      wrap.append(link);
+    }
+    host.append(wrap);
+  }
+  function appendRecording(host, row, videoRecord) {
+    const src = evidenceHref(videoRecord, row, null);
+    if (!src) return false;
+    const panel = make('section', 'recording');
+    panel.append(make('h3', '', 'Real-time RAF playback'));
+    panel.append(make('p', 'clip-meta', 'Full viewport recording from registered clip playback; captured animation events are listed with each clip below.'));
+    const video = document.createElement('video');
+    video.src = src; video.controls = true; video.muted = true; video.playsInline = true; video.preload = 'metadata';
+    video.setAttribute('aria-label', `${labels[row.id] || row.id} full real-time animation recording`);
+    panel.append(video); host.append(panel); return true;
+  }
+  function render() {
+    if (!manifest) return;
+    const actor = actorSelect.value;
+    const profile = profileSelect.value;
+    const rowOptions = manifest.rows.filter(r => r.id === actor && r.profile.name === profile);
+    addOptions(modeSelect, rowOptions.map(r => [r.mode, r.mode === 'raf' || r.mode === 'realtime' ? 'Real RAF capture' : `Deterministic (${r.mode})`]), modeSelect.value);
+    const row = selectedRow();
+    const source = manifest.sources?.[actor] || {};
+    const inventoryEntry = inventoryActor(actor);
+    summary.replaceChildren();
+    const head = make('div', 'actor-summary');
+    head.append(make('h2', '', labels[actor] || actor));
+    const state = make('span', 'tag', actor === 'brass-boar' ? 'direction approved · native art pending review' : 'existing runtime art · no new approval inferred');
+    head.append(state);
+    const sourceLine = make('p', '');
+    const sourceHash = source.sha256 || source.hash || inventoryEntry?.runtime?.sha256 || inventoryEntry?.export?.sha256;
+    sourceLine.textContent = sourceHash ? `Source/export SHA-256: ${sourceHash}` : 'Source hash: pending in source inventory';
+    head.append(sourceLine);
+    const inventoryLine = make('p', '');
+    if (inventoryEntry) inventoryLine.textContent = `${inventoryEntry.nativeCanvas?.join('×') || '48×48'} native · ${inventoryEntry.frameCount || '16'} frames · ${inventoryEntry.runtimeBinding || 'runtime binding recorded'}`;
+    else inventoryLine.textContent = 'Builder/PXO/export/reference paths and hashes: see source-inventory.json.';
+    head.append(inventoryLine);
+    summary.append(head);
+    if (inventoryEntry) {
+      const sourceDetails = document.createElement('details'); sourceDetails.className = 'source-chain';
+      sourceDetails.append(make('summary', '', 'Editable source, runtime export, and reference provenance'));
+      const list = document.createElement('ul');
+      const authority = inventoryEntry.authority;
+      if (authority?.reference?.path) {
+        const li = document.createElement('li');
+        const link = make('a', '', authority.reference.path); link.href = repoPath(authority.reference.path); li.append(link);
+        li.append(document.createTextNode(` · ${authority.state || 'reference'} · SHA-256 ${authority.reference.sha256 || 'not recorded'}`));
+        if (authority.figmaNodes?.length) li.append(document.createTextNode(` · Figma ${authority.figmaNodes.join(', ')}`));
+        list.append(li);
+      }
+      for (const source of inventoryEntry.sources || []) {
+        const li = document.createElement('li');
+        const link = make('a', '', source.path); link.href = repoPath(source.path); li.append(link);
+        li.append(document.createTextNode(` · SHA-256 ${source.sha256 || 'not recorded'}`)); list.append(li);
+      }
+      if (inventoryEntry.notes) list.append(make('li', '', inventoryEntry.notes));
+      sourceDetails.append(list); summary.append(sourceDetails);
+    }
+    clips.replaceChildren();
+    if (!row) {
+      const empty = make('p', 'empty', `No captured row for ${labels[actor] || actor} at ${profile} yet. The actor/profile remains selectable as the eight-mercenary run fills in.`);
+      clips.append(empty);
+      status.textContent = `${manifest.rows.length} capture row${manifest.rows.length === 1 ? '' : 's'} loaded; this selection is pending.`;
+      provenance.textContent = JSON.stringify({implementation: manifest.implementation, reviewHead: manifest.reviewHead, actor, profile, source: source, inventory: inventoryEntry || null}, null, 2);
+      return;
+    }
+    const fulfilled = row.status || 'capture recorded';
+    status.textContent = `capture ${fulfilled} (not visual approval) · ${row.clips.length} clips · ${row.profile.viewport.width}×${row.profile.viewport.height}${row.profile.deviceScaleFactor > 1 ? ` @ DPR ${row.profile.deviceScaleFactor}` : ''}`;
+    const realTimeRow = /raf|real.?time|live/i.test(row.mode)
+      ? row
+      : manifest.rows.find(candidate => candidate.id === row.id && candidate.profile.name === row.profile.name && /raf|real.?time|live/i.test(candidate.mode));
+    const hasRecording = appendRecording(clips, realTimeRow || row, realTimeRow?.video || (realTimeRow ? realTimeRow.videos?.full : null) || row.video);
+    const realtimeOnly = /raf|real.?time|live/i.test(row.mode) && row.clips.every(c => !(c.screenshots || []).length);
+    for (const clipName of clipOrder) {
+      const clip = row.clips.find(c => c.clip === clipName);
+      if (!clip) continue;
+      const section = make('article', 'clip');
+      const clipHead = make('div', 'clip-head');
+      clipHead.append(make('h3', '', clipName[0].toUpperCase() + clipName.slice(1)));
+      const reg = clip.registered || {};
+      const sequence = clip.sequence || reg.frames || [];
+      const timing = `${reg.frameRate || '—'} fps · ${reg.repeat === -1 ? 'loops' : 'one-shot'} · ${Math.round(reg.duration || 0)} ms · frames ${sequence.join(' → ')}`;
+      clipHead.append(make('span', 'clip-meta', timing));
+      section.append(clipHead);
+      appendOptionalVideos(section, row, clip);
+      if (realtimeOnly && clip.events?.length) {
+        const eventText = clip.events.map(event => `${event.type}${Number.isFinite(event.frame) ? ` f${event.frame}` : ''}${Number.isFinite(event.elapsedMs) ? ` @ ${event.elapsedMs}ms` : ''}`).join(' · ');
+        section.append(make('p', 'event-list', `Animation events: ${eventText}`));
+      }
+      const frameGrid = make('div', 'frames');
+      const shots = clip.screenshots || [];
+      for (const shot of shots) {
+        const src = evidenceHref(shot, row, clip);
+        const fig = document.createElement('figure');
+        const cap = document.createElement('figcaption');
+        const frameNumber = Number.isFinite(shot.frame) ? shot.frame : '—';
+        const event = shot.event?.type || '';
+        cap.append(make('span', '', `frame ${frameNumber}`), make('span', '', event));
+        fig.append(cap);
+        if (!src) { fig.append(make('p', 'empty', 'Missing image path in evidence manifest.')); frameGrid.append(fig); continue; }
+        const views = make('div', 'views');
+        const actualWrap = make('div', 'actual-wrap');
+        const actual = make('img', 'actual'); actual.src = src; actual.alt = `${labels[actor]} ${clipName} frame ${frameNumber}, 96 by 96 actual-size crop`; actual.loading = 'lazy';
+        actualWrap.append(actual);
+        const enlargedWrap = make('div', 'enlarged-wrap');
+        const enlarged = make('img', 'enlarged'); enlarged.src = src; enlarged.alt = ''; enlarged.setAttribute('aria-hidden', 'true'); enlarged.loading = 'lazy';
+        enlargedWrap.append(enlarged);
+        views.append(actualWrap, enlargedWrap); fig.append(views); frameGrid.append(fig);
+      }
+      if (!shots.length) {
+        const note = realtimeOnly
+          ? (hasRecording ? 'Realtime-only row: the full viewport video and registered animation events are shown above; there are no per-frame PNG crops in this row.' : 'Realtime-only row: registered animation events are shown above; this row contains no PNG crops or viewport video.')
+          : 'No frame captures were recorded for this clip.';
+        frameGrid.append(make('p', 'empty', note));
+      }
+      section.append(frameGrid);
+      clips.append(section);
+    }
+    provenance.textContent = JSON.stringify({implementation: manifest.implementation, reviewHead: manifest.reviewHead, method: manifest.method, limitations: manifest.limitations, actor, profile, mode: row.mode, source, inventory: inventoryEntry || null, row: {status: row.status, sourceSha256: row.sourceSha256, facts: row.facts, clips: row.clips.map(c => ({clip: c.clip, registered: c.registered, sequence: c.sequence, repeatEvents: c.repeatEvents, completeEvents: c.completeEvents, endBehavior: c.endBehavior}))}}, null, 2);
+  }
+  async function load() {
+    try {
+      const [m, inv] = await Promise.all([
+        fetch('./manifest.json', {cache: 'no-store'}).then(r => { if (!r.ok) throw new Error(`manifest.json: HTTP ${r.status}`); return r.json(); }),
+        fetch('./source-inventory.json', {cache: 'no-store'}).then(r => r.ok ? r.json() : null).catch(() => null)
+      ]);
+      manifest = m; inventory = inv;
+      const actors = manifest.selectedActors || [...new Set(manifest.rows.map(r => r.id))];
+      const profiles = manifest.selectedProfiles || [...new Set(manifest.rows.map(r => r.profile.name))];
+      addOptions(actorSelect, actors.map(id => [id, labels[id] || id]), actors.includes('scrap-tabby') ? 'scrap-tabby' : actors[0]);
+      addOptions(profileSelect, profiles.map(p => [p, p]), profiles[0]);
+      fetch('./roster-animation.gif', {method: 'HEAD'}).then(r => { if (r.ok) document.querySelector('#roster-motion').hidden = false; }).catch(() => {});
+      actorSelect.addEventListener('change', render); profileSelect.addEventListener('change', render); modeSelect.addEventListener('change', render);
+      render();
+    } catch (error) {
+      status.textContent = 'Evidence could not be loaded.';
+      summary.replaceChildren(make('p', 'empty', `${error.message}. Serve this folder over HTTP; local file URLs block fetch.`));
+      clips.replaceChildren();
+      provenance.textContent = error.stack || error.message;
+    }
+  }
+  load();
+})();
+</script>
+</body>
+</html>

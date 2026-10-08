@@ -1,0 +1,62 @@
+[
+  {
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "actorProfileSelections": 48,
+    "modes": 2,
+    "status": "pass",
+    "errors": []
+  },
+  {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "actorProfileSelections": 48,
+    "modes": 2,
+    "status": "pass",
+    "errors": []
+  },
+  {
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "actorProfileSelections": 48,
+    "modes": 2,
+    "status": "pass",
+    "errors": []
+  },
+  {
+    "viewport": {
+      "width": 1114,
+      "height": 720
+    },
+    "actorProfileSelections": 48,
+    "modes": 2,
+    "status": "pass",
+    "errors": []
+  },
+  {
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "actorProfileSelections": 48,
+    "modes": 2,
+    "status": "pass",
+    "errors": []
+  },
+  {
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "actorProfileSelections": 48,
+    "modes": 2,
+    "status": "pass",
+    "errors": []
+  }
+]

@@ -1,0 +1,369 @@
+{
+  "main": "2865e28f46b046b743283b8c1bcf7fc7ef2936a3",
+  "runtimeFixture": "00bf2de9bbc6e2c61d4a5a4a55a3c55cceb0fde2",
+  "sourceRevision": "f4fbfa2f3e8ee7e2cdb4d49704c7701b0cb34e2d",
+  "notes": "Lynx uses unmerged #227 frame-border correction; main still has the crop. Boar is proposed V3. No owner approval inferred from format or test results.",
+  "actors": [
+    {
+      "id": "scrap-tabby",
+      "state": "CANDIDATE",
+      "shipApproved": false,
+      "authority": {
+        "state": "RECORDED DESIGN REFERENCE",
+        "figmaNodes": [],
+        "reference": {
+          "path": "docs/art/concepts/epic-13/final-actor-direction.png",
+          "sha256": "3382d1f5854f3090d3989bd4b974059233949273d468d877d5ea4ff499bce977"
+        }
+      },
+      "nativeCanvas": [
+        48,
+        48
+      ],
+      "frameCount": 16,
+      "sources": [
+        {
+          "path": "docs/art/scripts/build-scrap-tabby.lua",
+          "sha256": "d03e9e5fba2c9a95b30a9afce112e7698946a101ead0cc5c84c35a17ee68e705"
+        },
+        {
+          "path": "assets-src/characters/scrap-tabby/source/scrap-tabby-native-raster.lua",
+          "sha256": "e11cf25761a53ad231e108bc8d6223edc346414c7c5ee2d4b302bdeb46f34818"
+        },
+        {
+          "path": "assets-src/characters/scrap-tabby/source/scrap-tabby.pxo",
+          "sha256": "1cc3041e9e47dfb574708e5623e839e7b04555525e71103f161e89a31373482c"
+        },
+        {
+          "path": "public/assets/characters/scrap-tabby/scrap-tabby.png",
+          "sha256": "3f124391c3cb9d1a5c6b85209f83121d0678260508f2a717f480e5a5eb40e275"
+        },
+        {
+          "path": "public/assets/characters/scrap-tabby/scrap-tabby.json",
+          "sha256": "543c814e19c9271f205ccfa91c5d2206f1bf906f7128432eac40510fa0f6e4ce"
+        }
+      ],
+      "runtimeBinding": "character:scrap-tabby",
+      "physicalResource": "resource:character-scrap-tabby",
+      "notes": "Existing native runtime candidate; visual approval is not conferred by this packet."
+    },
+    {
+      "id": "bolt-hound",
+      "state": "CANDIDATE",
+      "shipApproved": false,
+      "authority": {
+        "state": "RECORDED DESIGN REFERENCE",
+        "figmaNodes": [],
+        "reference": {
+          "path": "docs/art/concepts/epic-13/final-actor-direction.png",
+          "sha256": "3382d1f5854f3090d3989bd4b974059233949273d468d877d5ea4ff499bce977"
+        }
+      },
+      "nativeCanvas": [
+        48,
+        48
+      ],
+      "frameCount": 16,
+      "sources": [
+        {
+          "path": "docs/art/scripts/build-bolt-hound.lua",
+          "sha256": "8d02d8bc92ae0a5b9aabb21972f68c67c4f5ebc4a79c1b85c7671a6603772c08"
+        },
+        {
+          "path": "assets-src/characters/bolt-hound/source/bolt-hound-native-raster.lua",
+          "sha256": "470b98691c92bcf70c256ad9f54cd7341f703a9c1623fc85a31c8e69c762b3a8"
+        },
+        {
+          "path": "assets-src/characters/bolt-hound/source/bolt-hound.pxo",
+          "sha256": "f70f8877ba3d4bdce794ad46d552138f2b4b09cd2ca353002b72f58195ce2ffc"
+        },
+        {
+          "path": "public/assets/characters/bolt-hound/bolt-hound.png",
+          "sha256": "d5c3d4d11ce023ac9c9c5b445a439e4a56e28cddfb5f6f0a7dae6795f8f5e435"
+        },
+        {
+          "path": "public/assets/characters/bolt-hound/bolt-hound.json",
+          "sha256": "c415470104f07eaf02b36af439d6fd4e01b993a07092635d84f0c68d332b1026"
+        }
+      ],
+      "runtimeBinding": "character:bolt-hound",
+      "physicalResource": "resource:character-bolt-hound",
+      "notes": "Existing native runtime candidate; visual approval is not conferred by this packet."
+    },
+    {
+      "id": "volt-lynx",
+      "state": "CANDIDATE",
+      "shipApproved": false,
+      "authority": {
+        "state": "CANONICAL",
+        "figmaNodes": [
+          "113:2"
+        ],
+        "reference": {
+          "path": "assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png",
+          "sha256": "ab84b83f729bdce701a50d50751bc04a1081dd3dd6b263127dfba50973aa5701"
+        }
+      },
+      "nativeCanvas": [
+        48,
+        48
+      ],
+      "frameCount": 16,
+      "sources": [
+        {
+          "path": "docs/art/scripts/build-volt-lynx.lua",
+          "sha256": "0d572b46c3765da3fd5934d9180cd6098ab714f7091f6fe8bc27165cbfc83f98"
+        },
+        {
+          "path": "assets-src/characters/volt-lynx/source/volt-lynx-native-raster.lua",
+          "sha256": "7acdd103b309470f0e9273b685c80402338bcef662bdf838fa2235b94b0a1efe"
+        },
+        {
+          "path": "assets-src/characters/volt-lynx/source/volt-lynx.pxo",
+          "sha256": "6860a1dbbe08854a2d1e2febaeb708ae09489ef2c9b699407218a90878726d46"
+        },
+        {
+          "path": "public/assets/characters/volt-lynx/volt-lynx.png",
+          "sha256": "04ff2e4902581f673df5901a2dd1fa72c3fcc4c9a6216a8aa4873809f52eb825"
+        },
+        {
+          "path": "public/assets/characters/volt-lynx/volt-lynx.json",
+          "sha256": "41d16672d05fd11bdc756cf016efcac1567f160a1b35e0e72eb889112e35b75c"
+        }
+      ],
+      "runtimeBinding": "character:volt-lynx",
+      "physicalResource": "resource:character-volt-lynx",
+      "notes": "Existing native runtime candidate; visual approval is not conferred by this packet."
+    },
+    {
+      "id": "brass-boar",
+      "state": "CANDIDATE",
+      "shipApproved": false,
+      "authority": {
+        "state": "CANONICAL",
+        "figmaNodes": [
+          "91:2",
+          "92:2"
+        ],
+        "reference": {
+          "path": "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png",
+          "sha256": "25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729"
+        }
+      },
+      "nativeCanvas": [
+        48,
+        48
+      ],
+      "frameCount": 16,
+      "sources": [
+        {
+          "path": "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/brass-boar-native-raster.lua",
+          "sha256": "5f6ac1623449d768eb51f69d8420e2c9a1dc9c77dac41f64968f34f9c3bf4664"
+        },
+        {
+          "path": "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/brass-boar.pxo",
+          "sha256": "7f4a50157c7ebc958bd49a85033d6d59e9c264718e1c1e63beca64309ed86d4c"
+        },
+        {
+          "path": "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/brass-boar.png",
+          "sha256": "11b86d27724a6729118371fbae9f95bf75de81d7fc9e81296b922e1ffb716652"
+        },
+        {
+          "path": "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/brass-boar.json",
+          "sha256": "58c78c1c2b61c1872c9d3c731d779eb5d9eaf83958d1081ac158f097d5a8c5e5"
+        },
+        {
+          "path": "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/source-manifest.json",
+          "sha256": "1843505d90a489e76536acdb8e59fefd9fcf6872bf9a5aecbe6dae5d8a398bbe"
+        }
+      ],
+      "runtimeBinding": "character:brass-boar",
+      "physicalResource": "resource:character-brass-boar",
+      "notes": "Proposed native V3, large identity direction approved only; request override, no production binding."
+    },
+    {
+      "id": "ember-cougar",
+      "state": "CANDIDATE",
+      "shipApproved": false,
+      "authority": {
+        "state": "CANONICAL",
+        "figmaNodes": [
+          "91:2",
+          "92:2"
+        ],
+        "reference": {
+          "path": "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png",
+          "sha256": "25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729"
+        }
+      },
+      "nativeCanvas": [
+        48,
+        48
+      ],
+      "frameCount": 16,
+      "sources": [
+        {
+          "path": "docs/art/scripts/build-ember-cougar.lua",
+          "sha256": "8d9bd7e9589f469ffac26fda2b27b736efb188229d0af48b2f120f2a15cabb15"
+        },
+        {
+          "path": "assets-src/characters/ember-cougar/source/ember-cougar-native-raster.lua",
+          "sha256": "854b72906ff829b6b3d9b28670b2284badf9b8ab6d12e65f634d656b8ad0bb02"
+        },
+        {
+          "path": "assets-src/characters/ember-cougar/source/ember-cougar.pxo",
+          "sha256": "295d34e294b261f435e341cf1e368f0aac5b47ef8c4f654295a4f98f26557357"
+        },
+        {
+          "path": "public/assets/characters/ember-cougar/ember-cougar.png",
+          "sha256": "2f3fbdde2625bb6829669ed3431a1a4200581635b04ee8288519fcbf2d5b5d4f"
+        },
+        {
+          "path": "public/assets/characters/ember-cougar/ember-cougar.json",
+          "sha256": "e9e90ed38ab5fcbd642463f61c9ce08b4089f9f65e7b58a39d3866ebd14b3e94"
+        }
+      ],
+      "runtimeBinding": "character:ember-cougar",
+      "physicalResource": "resource:character-ember-cougar",
+      "notes": "Existing native runtime candidate; visual approval is not conferred by this packet."
+    },
+    {
+      "id": "scrap-weasel",
+      "state": "CANDIDATE",
+      "shipApproved": false,
+      "authority": {
+        "state": "CANONICAL",
+        "figmaNodes": [
+          "91:2",
+          "92:2"
+        ],
+        "reference": {
+          "path": "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png",
+          "sha256": "25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729"
+        }
+      },
+      "nativeCanvas": [
+        48,
+        48
+      ],
+      "frameCount": 16,
+      "sources": [
+        {
+          "path": "docs/art/scripts/build-scrap-weasel.lua",
+          "sha256": "33e1bb0d776984eceafeb95903540c0f2de9853263f42557a94c2ca8d926465d"
+        },
+        {
+          "path": "assets-src/characters/scrap-weasel/source/scrap-weasel-native-raster.lua",
+          "sha256": "1435f9cd93be009296696228b6e51b35eec1248f1ef060613db9b0aee5cea0ed"
+        },
+        {
+          "path": "assets-src/characters/scrap-weasel/source/scrap-weasel.pxo",
+          "sha256": "61dca801bb50529d04936c7135385d5df345c84c8b5fea93a33bacebddefea61"
+        },
+        {
+          "path": "public/assets/characters/scrap-weasel/scrap-weasel.png",
+          "sha256": "56227c4e5774b90257e3ec418f1067f45458af0c1d07b0dd19b2103055ed12d9"
+        },
+        {
+          "path": "public/assets/characters/scrap-weasel/scrap-weasel.json",
+          "sha256": "9ef89f5ca7a5cf21d7115237ec311ceba1b47db58ba85bf2b195f396050905c8"
+        }
+      ],
+      "runtimeBinding": "character:scrap-weasel",
+      "physicalResource": "resource:character-scrap-weasel",
+      "notes": "Existing native runtime candidate; visual approval is not conferred by this packet."
+    },
+    {
+      "id": "rattle-raptor",
+      "state": "CANDIDATE",
+      "shipApproved": false,
+      "authority": {
+        "state": "CANONICAL",
+        "figmaNodes": [
+          "91:2",
+          "92:2"
+        ],
+        "reference": {
+          "path": "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png",
+          "sha256": "25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729"
+        }
+      },
+      "nativeCanvas": [
+        48,
+        48
+      ],
+      "frameCount": 16,
+      "sources": [
+        {
+          "path": "docs/art/scripts/build-rattle-raptor.lua",
+          "sha256": "0eb52d0ed9f821cf79218e22b69ac169af65fe00c0b37d6f93893c097c7d0066"
+        },
+        {
+          "path": "assets-src/characters/rattle-raptor/source/rattle-raptor-native-raster.lua",
+          "sha256": "8d317164386366eba08b51b50af0cb7f95664bbc87e48bcd67b34c3cc9f72a3a"
+        },
+        {
+          "path": "assets-src/characters/rattle-raptor/source/rattle-raptor.pxo",
+          "sha256": "27e088404ea61f290900c662df6a10e2367e06ec6fe140d2d766f7d2f11484b0"
+        },
+        {
+          "path": "public/assets/characters/rattle-raptor/rattle-raptor.png",
+          "sha256": "bf5e415e353c472a886bd6ab2df5fa93cccc81231e5c7a93603e29817029cf22"
+        },
+        {
+          "path": "public/assets/characters/rattle-raptor/rattle-raptor.json",
+          "sha256": "c9ad2f1a72ab4bbacfaae633a02288945a71bdac375bdc29b5abd55df7f5a202"
+        }
+      ],
+      "runtimeBinding": "character:rattle-raptor",
+      "physicalResource": "resource:character-rattle-raptor",
+      "notes": "Existing native runtime candidate; visual approval is not conferred by this packet."
+    },
+    {
+      "id": "piston-ram",
+      "state": "CANDIDATE",
+      "shipApproved": false,
+      "authority": {
+        "state": "CANONICAL",
+        "figmaNodes": [
+          "91:2",
+          "92:2"
+        ],
+        "reference": {
+          "path": "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png",
+          "sha256": "25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729"
+        }
+      },
+      "nativeCanvas": [
+        48,
+        48
+      ],
+      "frameCount": 16,
+      "sources": [
+        {
+          "path": "docs/art/scripts/build-piston-ram.lua",
+          "sha256": "348fa0aee617007a16738be8c05d1f19f5d93a632118ec5ad199ecb4f1f9eb97"
+        },
+        {
+          "path": "assets-src/characters/piston-ram/source/piston-ram-native-raster.lua",
+          "sha256": "049c005e55472f5b83b80de83cd5f8cc68609414af723ac5855eedb9e31e449e"
+        },
+        {
+          "path": "assets-src/characters/piston-ram/source/piston-ram.pxo",
+          "sha256": "435e1f203bfd593b7e834a732d7e9f326fe36bb12ec4e35b166854f1708c9527"
+        },
+        {
+          "path": "public/assets/characters/piston-ram/piston-ram.png",
+          "sha256": "0549b47341027a4adfc237a1d62370c72d41e64f6fad6cb8027a4bc927bf28cd"
+        },
+        {
+          "path": "public/assets/characters/piston-ram/piston-ram.json",
+          "sha256": "5d0c70ec0f99e6db9bfff6c0ba31e1d9bb0d14ccc8d416f0864d6a989df79d0c"
+        }
+      ],
+      "runtimeBinding": "character:piston-ram",
+      "physicalResource": "resource:character-piston-ram",
+      "notes": "Existing native runtime candidate; visual approval is not conferred by this packet."
+    }
+  ]
+}
