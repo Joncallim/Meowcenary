@@ -1,0 +1,17 @@
+{
+  "status": "CANDIDATE",
+  "directionApproved": true,
+  "shipApproved": false,
+  "frameCount": 1,
+  "files": {
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-idle/brass-boar-idle-native.pxo": "ac68fb5139e277af69c44c879daf3547b3fafd83918822c9711fae3a434ca318",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-idle/brass-boar-idle-native.png": "fd367d2876c0868c95384514e747b8ca3cac05fb8363f9b136c70617671d23be",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-idle/review-overview.png": "4c17800d99cc5a135504634060c2f4364e5637c02f392233830304c8e81ec203",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-idle/brass-boar-idle-native.rgba": "7e72eb226496c50261221a0c18db6d3a414bdc6b94080d63a9b3c27d9edbe98d",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-idle/export-idle-preview.mjs": "2a8467ec8f5885b0cee673b9abe13e2878ceffe8c65f0b0d819e8f423935b52f",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-idle/package-idle-preview.py": "ebb0c4e26ca3b1f38e8388ff2cebe928ee71689266e5ca6b7cc21399f0f7a4ff",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-idle/README.md": "97d8e13a7af9cdb62251e1234e7d9e025d80d0c67068828da1adf20633828b6b",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-idle/brass-boar-idle-native-raster.lua": "541550e436c4a46e4fd5a18558fabc1dd0b871c6a6cd19449ffc30579d3752b7",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-idle/review.html": "8b167ba6dfdde1cca6b524e09e33abdfb931a88f77defb5c92908f5407a93387"
+  }
+}

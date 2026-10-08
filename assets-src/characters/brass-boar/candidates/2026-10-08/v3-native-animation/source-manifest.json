@@ -1,0 +1,36 @@
+{
+  "status": "CANDIDATE",
+  "directionApproved": true,
+  "shipApproved": false,
+  "ownerDirectionApproval": {
+    "date": "2026-10-08",
+    "feedback": "yeah this direction is fine",
+    "scope": "large identity direction only"
+  },
+  "baselineMain": "2865e28f46b046b743283b8c1bcf7fc7ef2936a3",
+  "runtimeFixture": "00bf2de9bbc6e2c61d4a5a4a55a3c55cceb0fde2",
+  "canonicalReference": {
+    "file": "LHpXaKqFKksfF2uismDws5",
+    "nodes": [
+      "91:2",
+      "92:2"
+    ],
+    "sha256": "25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729"
+  },
+  "nativeCanvas": [
+    48,
+    48
+  ],
+  "frameCount": 16,
+  "files": {
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/independent-qa.md": "eb975569d9bfc49002bdbfb06c1e2c99a0d374b3c187b937ef2d5ab25c7298ee",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/brass-boar.pxo": "7f4a50157c7ebc958bd49a85033d6d59e9c264718e1c1e63beca64309ed86d4c",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/brass-boar-native-raster.lua": "5f6ac1623449d768eb51f69d8420e2c9a1dc9c77dac41f64968f34f9c3bf4664",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/brass-boar.png": "11b86d27724a6729118371fbae9f95bf75de81d7fc9e81296b922e1ffb716652",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/animation-overview.png": "b1269bf4f442f1050a64b80bab9baf1e76a9e87950df35df2d6f97271faf399f",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/README.md": "2d437120ebb6711650b3ab9b0ec948424416702f4f65e435d840c511cd37e050",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/brass-boar.json": "58c78c1c2b61c1872c9d3c731d779eb5d9eaf83958d1081ac158f097d5a8c5e5",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/review.html": "5905601106dec1f7761075aeaf0b8a0293448f8ebc29a9b2c1bba63ee626f84d",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v3-native-animation/animation-review.html": "7378092c92dee93bab3870f80362ba99188077459dce339792405f06ff5cb260"
+  }
+}

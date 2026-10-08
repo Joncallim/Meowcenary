@@ -1,0 +1,77 @@
+import { chromium } from '/home/jon/projects/meowcenary/node_modules/playwright/index.mjs';
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+const base = '/home/jon/projects/meowcenary-evidence/resume-2026-10-08';
+const repo = '/home/jon/projects/meowcenary-worktrees/meowcenary-mercenary-sprite-fidelity';
+const output = `${base}/browser-art-review-v3`;
+await mkdir(output, {recursive:true});
+const phaserName = (await readdir(`${repo}/dist/assets`)).find(name => /^phaser-.*\.js$/.test(name));
+const pngs = {
+ 'brass-boar-before': `${repo}/public/assets/characters/brass-boar/brass-boar.png`,
+ 'brass-boar-candidate-v3': `${base}/boar-native/v3-animation-fixture/public/assets/characters/brass-boar/brass-boar.png`,
+};
+const profiles = [
+ {name:'phone-360x640',viewport:{width:360,height:640},hasTouch:true,isMobile:true,deviceScaleFactor:1},
+ {name:'phone-390x844-dpr3',viewport:{width:390,height:844},hasTouch:true,isMobile:true,deviceScaleFactor:3},
+ {name:'tablet-768x1024',viewport:{width:768,height:1024},hasTouch:true,isMobile:true,deviceScaleFactor:1},
+ {name:'foldable-1114x720-dpr2',viewport:{width:1114,height:720},hasTouch:true,isMobile:true,deviceScaleFactor:2},
+ {name:'desktop-1280x720',viewport:{width:1280,height:720},deviceScaleFactor:1},
+ {name:'desktop-1920x1080',viewport:{width:1920,height:1080},deviceScaleFactor:1},
+];
+const rows=[];
+const browser=await chromium.launch();
+try {
+ for (const profile of profiles) for (const [variant,file] of Object.entries(pngs)) {
+  const id=variant.startsWith('volt')?'volt-lynx':'brass-boar';
+  const bytes=await readFile(file);
+  const {name,...options}=profile;
+  const ctx=await browser.newContext({...options,colorScheme:'dark'});
+  const page=await ctx.newPage();
+  const errors=[];page.on('pageerror',e=>errors.push(String(e)));
+  let fulfilled=0;
+  await page.route(`**/assets/characters/${id}/${id}.png`, async route=>{fulfilled++;await route.fulfill({contentType:'image/png',body:bytes});});
+  await page.addInitScript(id=>localStorage.setItem('meowcenary.save.v2',JSON.stringify({
+   version:4,settings:{muted:true,musicVolume:0,sfxVolume:0,reducedMotion:true},progression:{scrap:0,unlocks:[`character:${id}`]},selectedCharacterId:id,
+   stages:{},achievements:{},achievementMetrics:{},characters:{},gunsmith:{builds:[],parts:{},fabricationSerials:{}},equipment:{},equipmentLoadout:{},items:{},bosses:{},compendium:{},pendingAchievementReports:[],appliedGrantTransactions:{},grantTransactionFingerprints:{},
+  })),id);
+  await page.goto('http://127.0.0.1:4175/?visual-test=1');
+  await page.waitForFunction(()=>Boolean(globalThis.__MEOWCENARY_VISUAL_TEST__));
+  if(!await page.evaluate(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())) throw Error('menu not settled');
+  await page.keyboard.down('Enter');
+  try {if(!await page.evaluate(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.waitForPreparedGame())) throw Error('game not prepared');}
+  finally {await page.keyboard.up('Enter');}
+  await page.waitForFunction(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.focusPlayer());
+  if(!await page.evaluate(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.useAuthoredArenaArtReference())) throw Error('framing fixture missing');
+  await page.evaluate(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.freeze());
+  const points=await page.evaluate(()=>globalThis.__MEOWCENARY_VISUAL_TEST__.focusedActorScreenPoint());
+  const clip={x:Math.round(points.x)-48,y:Math.round(points.y)-48,width:96,height:96};
+  const views=[];
+  for (const [pose,frame] of [['idle',0],['run',6],['hurt',10],['defeat',15]]) {
+   const facts=await page.evaluate(async ({chunk,frame})=>{
+    const mod=await import(`/assets/${chunk}`);const P=mod.r();
+    const pool=P.Display.Canvas.CanvasPool.pool;
+    const game=pool.map(row=>row.parent?.scene?.sys?.game??row.parent?.game??(row.parent?.scene?.getScene?row.parent:undefined)).find(game=>game?.scene?.getScene);
+    if(!game)throw Error('no live game owner in existing Phaser canvas pool');
+    const scene=game.scene.getScene('GameScene'),view=scene.player.view;
+    function hiddenCount(nodes){if(nodes.some(node=>node.visible))throw Error('held weapon still visible');return nodes.length;}
+    if(!view?.sprite)throw Error('production actor missing');
+    // Only this explicitly paused art fixture is posed. Production scaling,
+    // camera, texture/frame binding and physics remain intact. Hide the held
+    // weapon so the naked-base identity cannot be masked by shooting art.
+    const heldWeaponNodes=(scene.systems??[]).map(system=>system.heldWeapon?.image).filter(Boolean);
+    for(const image of heldWeaponNodes)image.setVisible(false);
+    view.sprite.anims.stop();view.sprite.setFrame(frame).setAlpha(1).clearTint();
+    game.renderer.preRender();scene.sys.render(game.renderer);game.renderer.postRender();
+    return {frame:view.sprite.frame.name,texture:view.sprite.texture.key,width:view.sprite.displayWidth,height:view.sprite.displayHeight,renderer:game.renderer.type,heldWeaponNodes:hiddenCount(heldWeaponNodes),activeAbilityEffects:scene.abilityPresentationSystem?.live?.size??0,bounds:globalThis.__MEOWCENARY_VISUAL_TEST__.arenaFramingDiagnostics()};
+   },{chunk:phaserName,frame});
+   await page.screenshot({path:`${output}/${variant}-${name}-${pose}.png`,clip,scale:'css'});
+   if(pose==='idle')await page.screenshot({path:`${output}/${variant}-${name}-viewport.png`,scale:'css'});
+   views.push({pose,...facts});
+  }
+  if(fulfilled!==1)throw Error(`expected one actor resource fulfillment; got ${fulfilled}`);
+  rows.push({variant,profile,sha256:createHash('sha256').update(bytes).digest('hex'),fulfilled,errors,views});
+  await ctx.close();
+  await writeFile(`${output}/manifest.json`,JSON.stringify({implementation:'00bf2de9bbc6e2c61d4a5a4a55a3c55cceb0fde2',method:'Existing production actor, paused art-reference fixture, local texture request fulfilled with exact candidate/baseline PNG. CSS-pixel screenshots; DPR recorded. No gear/ability VFX. Frame pose and held-weapon visibility are fixture-only. No runtime files or screenshot baselines modified.',rows},null,2));
+  console.log(`${name} ${variant} ${fulfilled} resource, ${views.length} poses, ${errors.length} errors`);
+ }
+} finally {await browser.close();}
