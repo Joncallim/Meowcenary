@@ -51,3 +51,44 @@ outside this targeted asynchronous-ACK contract.
 Full repository and exact-head hosted acceptance are recorded on the PR/issue;
 this initial record does not claim those gates passed before they finish. #201
 remains the iterative ledger. Sprite polish and draft #208 are untouched.
+
+## Hosted browser deadline reconciliation
+
+[Hosted run 37799571553](https://github.com/Joncallim/Meowcenary/actions/runs/37799571553)
+on `8239d190d5b5eb4773f15b2cf008cb436753eff1` passed every earlier gate but
+finished the browser matrix at **367 passed / 64 scoped skips / 1 failure**.
+The unchanged 1920×1080 Gunsmith combined cancellation/failed-save/warm-return
+journey exceeded its default 30-second test budget, matching the previously
+observed #227 failure. This is a cumulative journey deadline, not a reproduced
+persistence or loader assertion failure.
+
+Both hosted screenshots and the saved facts were inspected: the failure message
+was presented, Heavy stayed fitted and Compact stayed stored; the timeout
+capture had already returned from the failed preview to the current assembled
+weapon. The later warm-return assertions were not completed and are not claimed
+as passed. No screenshot golden is replaced or promoted by this correction.
+
+Following #220's bounded-journey precedent, preview cancellation now owns one
+independent test with the original unchanged-save, semantic-focus and zero-write
+assertions. The second test keeps **failed commit → cancel → real Back → warm
+return** contiguous, with a fresh copy of the same fixture. A first two-test draft accidentally
+introduced a second cold scroll: two-CPU probes measured foldable ready at
+5.594s and preview at 26.607s, versus the original second preview's already
+revealed position. Real keyboard reveal reduced foldable warm return to
+20.895s, but desktop still spent 11.764s on cold preparation and reached failure
+assertions at 29.467s before recovery could begin.
+
+The final independent recovery test therefore prepares its actual original
+warm checkpoint in a default-budget `beforeAll`, copying every project context
+option as the established Upgrade chooser helper does. Preparation performs the
+same asserted real launch/resource readiness and keyboard reveal, with no
+candidate and zero writes. Its single test performs pointer/touch preview,
+failed keyboard commit, screenshot/facts, cancellation, Back and warm re-entry
+continuously under the unchanged default test budget. It is independent of the
+cold cancellation test and its result. The owned context closes in `afterAll`;
+after-failure screenshots remain available. Touch-only scrolling remains in the
+cold cancellation journey. No temporary timing logs enter the final test.
+Every original assertion, command gesture, failure screenshot and durable
+comparison remains; the pre-fault zero-write assertion is additive. Budgets, polling bounds, retries, screenshots, thresholds,
+project coverage and scoped skips are unchanged. Full final-head validation is
+reported on the PR/issue after it finishes.

@@ -1,5 +1,5 @@
 import { writeFile } from 'node:fs/promises';
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 
 type Button = { key?: string; text: string; visible: boolean; interactive: boolean;
   bounds: { x: number; y: number; width: number; height: number } };
@@ -239,7 +239,10 @@ async function resetStorage(page: Page, fail: boolean) {
     { fail, attempts: 0, writes: 0 }), fail);
 }
 const storage = (page: Page) => page.evaluate(() => ({ ...(globalThis as Fixture).__loadoutStorage }));
-test('Gunsmith preview cancellation and failed commit retain stored ownership through warm return', async ({ page }, testInfo) => {
+// Cancellation is a separate bounded journey. Keep failed commit -> cancel ->
+// real Back -> warm return together below: that causal chain owns stale-state
+// coverage. Each journey retains the default budget and real input gestures.
+test('Gunsmith pointer preview cancellation retains stored ownership and restores semantic focus', async ({ page }, testInfo) => {
   await storageFixture(page); await open(page, 'gunsmith');
   const initial = await read(page); await resetStorage(page, false);
   await activateByPointerScroll(page, 'gunsmith-part:compact', testInfo);
@@ -247,25 +250,56 @@ test('Gunsmith preview cancellation and failed commit retain stored ownership th
   expect((await read(page)).saved).toBe(initial.saved);
   expect((await read(page)).diagnostic.focusedKey).toBe('gunsmith-part:compact');
   expect(await storage(page)).toMatchObject({ attempts: 0, writes: 0 });
-  await activate(page, 'gunsmith-part:compact', testInfo);
-  await resetStorage(page, true); await pulse(page, 'Enter');
-  await expect.poll(async () => (await read(page)).diagnostic.copy.join('\n')).toContain('Could not save that Gunsmith change');
-  expect((await read(page)).saved).toBe(initial.saved);
-  expect(await storage(page)).toMatchObject({ attempts: 1, writes: 0 });
-  await evidence(page, testInfo, 'replacement-save-failure');
-  await resetStorage(page, false);
-  // Real Back cancels the preview before leaving the screen; warm re-entry
-  // cannot carry a discarded candidate into an unrelated confirmation.
-  await pulse(page, 'Escape');
-  expect((await read(page)).saved).toBe(initial.saved);
-  await pulse(page, 'Escape');
-  await expect.poll(async () => (await read(page)).diagnostic.panel).toBe('loadout');
-  const link = (await read(page)).diagnostic.buttons.find(row => row.text === 'Gunsmith')!;
-  expect(link).toBeDefined();
-  await activate(page, link.key!, testInfo);
-  await expect.poll(async () => (await read(page)).diagnostic.panel).toBe('gunsmith');
-  expect((await read(page)).diagnostic.buttons.some(row => row.key === 'gunsmith-commit')).toBe(false);
-  expect((await read(page)).saved).toBe(initial.saved);
+});
+// This recovery starts from the warm, Compact-focused checkpoint inherited
+// from cancellation in the former combined test. Preparation owns its ordinary
+// hook budget; the complete failed-save/recovery chain owns the test budget.
+// One fresh context and one test keep this independent of other test results.
+test.describe('Gunsmith recovery from its prepared warm checkpoint', () => {
+  let context: BrowserContext | undefined;
+  let page: Page;
+  test.beforeAll(async ({ browser }, testInfo) => {
+    const { contextOptions, baseURL, colorScheme, viewport, hasTouch, isMobile, deviceScaleFactor } = testInfo.project.use;
+    context = await browser.newContext({ ...contextOptions, baseURL, colorScheme, viewport, hasTouch, isMobile, deviceScaleFactor });
+    page = await context.newPage();
+    await storageFixture(page); await open(page, 'gunsmith');
+    await resetStorage(page, false);
+    // Real keyboard focus restores the already-revealed precondition, then
+    // the test selects through the original touch/pointer command.
+    await focus(page, 'gunsmith-part:compact');
+    expect((await read(page)).diagnostic.buttons.some(row => row.key === 'gunsmith-commit')).toBe(false);
+    expect(await storage(page)).toMatchObject({ attempts: 0, writes: 0 });
+  });
+  test.afterEach(async ({}, testInfo) => {
+    if (testInfo.status === testInfo.expectedStatus || !page || page.isClosed()) return;
+    const path = testInfo.outputPath('test-failed-1.png');
+    await page.screenshot({ path });
+    await testInfo.attach('screenshot', { path, contentType: 'image/png' });
+  });
+  test.afterAll(async () => { await context?.close(); });
+  test('Gunsmith failed commit retains stored ownership through cancellation and warm return', async ({}, testInfo) => {
+    const initial = await read(page);
+    await activate(page, 'gunsmith-part:compact', testInfo);
+    expect(await storage(page)).toMatchObject({ attempts: 0, writes: 0 });
+    await resetStorage(page, true); await pulse(page, 'Enter');
+    await expect.poll(async () => (await read(page)).diagnostic.copy.join('\n')).toContain('Could not save that Gunsmith change');
+    expect((await read(page)).saved).toBe(initial.saved);
+    expect(await storage(page)).toMatchObject({ attempts: 1, writes: 0 });
+    await evidence(page, testInfo, 'replacement-save-failure');
+    await resetStorage(page, false);
+    // Real Back cancels the preview before leaving the screen; warm re-entry
+    // cannot carry a discarded candidate into an unrelated confirmation.
+    await pulse(page, 'Escape');
+    expect((await read(page)).saved).toBe(initial.saved);
+    await pulse(page, 'Escape');
+    await expect.poll(async () => (await read(page)).diagnostic.panel).toBe('loadout');
+    const link = (await read(page)).diagnostic.buttons.find(row => row.text === 'Gunsmith')!;
+    expect(link).toBeDefined();
+    await activate(page, link.key!, testInfo);
+    await expect.poll(async () => (await read(page)).diagnostic.panel).toBe('gunsmith');
+    expect((await read(page)).diagnostic.buttons.some(row => row.key === 'gunsmith-commit')).toBe(false);
+    expect((await read(page)).saved).toBe(initial.saved);
+  });
 });
 test('Gunsmith Parts selection and fabrication cancellation spend nothing before explicit confirmation', async ({ page }, testInfo) => {
   await storageFixture(page); await open(page, 'gunsmith'); await resetStorage(page, false);
