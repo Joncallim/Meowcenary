@@ -175,6 +175,8 @@ export type MetaUpgradeMaxLevels = Readonly<Record<string, number>>;
 export const CURRENT_SAVE_VERSION = 4;
 
 export interface StorageAdapter {
+  /** Stable same-realm backing-store identity for asynchronous context writes. */
+  readonly writeOwnershipScope?: object;
   getItem(key: string): string | null;
   setItem(key: string, value: string): boolean;
   removeItem(key: string): boolean;
@@ -832,7 +834,12 @@ export function sanitizeProgressionV4(raw: unknown): ProgressionStateV4 {
 
 // ── SaveManager ──────────────────────────────────────────────────────
 
+// Context replacement revokes asynchronous writers without reading storage.
+// Separate adapters may share one backing-store identity; keys remain isolated.
+const contextWriteOwners = new WeakMap<object, Map<string, symbol>>();
+
 export class SaveManager {
+  private readonly writeOwnershipScope: object;
   private writeProtected = false;
   private committedSnapshot?: SaveData;
 
@@ -840,7 +847,9 @@ export class SaveManager {
     private readonly storage: StorageAdapter,
     private readonly key: string = RuntimeConfig.storageKey,
     private readonly maxLevels: MetaUpgradeMaxLevels = {},
-  ) {}
+  ) {
+    this.writeOwnershipScope = storage.writeOwnershipScope ?? storage;
+  }
 
   load(): SaveData {
     try {
@@ -900,6 +909,24 @@ export class SaveManager {
     return this.committedSnapshot;
   }
 
+  /** A fresh context supersedes earlier asynchronous writers for this store/key. */
+  claimContextOwnership(): symbol {
+    let owners = contextWriteOwners.get(this.writeOwnershipScope);
+    if (!owners) {
+      owners = new Map();
+      contextWriteOwners.set(this.writeOwnershipScope, owners);
+    }
+    const owner = Symbol('save-context-owner');
+    owners.set(this.key, owner);
+    return owner;
+  }
+
+  /** Preserve synchronous durability/publication, rejecting a replaced context. */
+  commitIfOwned(data: SaveData, owner: symbol): SaveData | undefined {
+    if (contextWriteOwners.get(this.writeOwnershipScope)?.get(this.key) !== owner) return undefined;
+    return this.commit(data);
+  }
+
   /** V3-aware save per architecture §4.6. */
   saveV3(data: SaveData): boolean {
     return this.save(data);
@@ -917,10 +944,12 @@ export class SaveManager {
 }
 
 export class LocalStorageAdapter implements StorageAdapter {
+  readonly writeOwnershipScope: object;
   private readonly localStorageRef: Storage | null;
 
   constructor(localStorageRef?: Storage) {
     this.localStorageRef = localStorageRef ?? getBrowserLocalStorage();
+    this.writeOwnershipScope = this.localStorageRef ?? this;
   }
 
   getItem(key: string): string | null {

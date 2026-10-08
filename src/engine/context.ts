@@ -191,6 +191,7 @@ export interface CreateGameContextOptions {
 }
 
 export function createGameContext(options: CreateGameContextOptions): GameContext {
+  const writeOwner = options.save.claimContextOwnership();
   let current = options.save.load();
   const stages = options.stages ?? new StageRegistryCtor(options.data);
   const knownEquipmentIds = new Set((options.data.equipment ?? []).map((equipment) => equipment.id));
@@ -360,6 +361,15 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   let selectedStageId = normalStageTargetId();
   let stageSelectionRevision = 1;
   const achievementPlatform = options.achievementPlatform ?? noopAchievementAdapter;
+  const acknowledgeAchievement = (achievementId: string): void => {
+    if (!current.pendingAchievementReports.includes(achievementId)) return;
+    const pending = current.pendingAchievementReports.filter((id) => id !== achievementId);
+    const candidate = freezeSaveV4({ ...current, pendingAchievementReports: Object.freeze(pending) });
+    // A replaced context must not overwrite its successor's whole save. A
+    // failed acknowledgement stays in the outbox for the active/next context.
+    const committed = options.save.commitIfOwned(candidate, writeOwner);
+    if (committed) current = committed;
+  };
 
   /** After a meta mutation, if the currently-selected character is no longer
    *  selectable (e.g. its unlock was removed), silently reset to the default.
@@ -692,11 +702,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         if (!progress) continue;
         void Promise.resolve()
           .then(() => achievementPlatform.report(achievementId, progress))
-          .then(() => {
-            const pending = current.pendingAchievementReports.filter((id) => id !== achievementId);
-            const saved = freezeSaveV4({ ...current, pendingAchievementReports: Object.freeze(pending) });
-            if (options.save.save(saved)) current = saved;
-          })
+          .then(() => acknowledgeAchievement(achievementId))
           .catch(() => undefined);
       }
       return Object.freeze({
@@ -856,11 +862,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       }
       void Promise.resolve()
         .then(() => achievementPlatform.report(definitionId, progress))
-        .then(() => {
-          const remaining = current.pendingAchievementReports.filter((id) => id !== definitionId);
-          const saved = freezeSaveV4({ ...current, pendingAchievementReports: Object.freeze(remaining) });
-          if (options.save.save(saved)) current = saved;
-        })
+        .then(() => acknowledgeAchievement(definitionId))
         .catch(() => undefined);
     },
     resetProgression() {

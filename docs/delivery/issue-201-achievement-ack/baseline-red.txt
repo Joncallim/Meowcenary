@@ -1,0 +1,27 @@
+ ❯ tests/achievementAcknowledgement.test.ts (15 tests | 9 failed) 71ms
+   × Achievement mirror acknowledgement ownership > rejects an obsolete retry ACK (separate SaveManager) 25ms
+   × Achievement mirror acknowledgement ownership > rejects an obsolete terminal ACK (separate SaveManager) 9ms
+   × Achievement mirror acknowledgement ownership > rejects an obsolete retry ACK (shared SaveManager) 5ms
+   × Achievement mirror acknowledgement ownership > rejects an obsolete terminal ACK (shared SaveManager) 5ms
+   × Achievement mirror acknowledgement ownership > revokes the old ACK before the replacement context makes any write 3ms
+   × Achievement mirror acknowledgement ownership > shares ownership across browser adapter wrappers over the same Storage 4ms
+   ✓ Achievement mirror acknowledgement ownership > preserves active-context mutations and clears only the successful report, without storage reads 2ms
+   ✓ Achievement mirror acknowledgement ownership > keeps a failed ACK durable and private, then retries successfully in the next context 2ms
+   × Achievement mirror acknowledgement ownership > does not repaint or rewrite an active reset when its old report completes 4ms
+   × Achievement mirror acknowledgement ownership > rejects a stale ACK without attempting a failing write, then the current owner retries 3ms
+   ✓ Achievement mirror acknowledgement ownership > retains the outbox after a platform throw 1ms
+   ✓ Achievement mirror acknowledgement ownership > retains the outbox after a platform reject 1ms
+   ✓ Achievement mirror acknowledgement ownership > does not revoke unrelated ownership across a different key 2ms
+   ✓ Achievement mirror acknowledgement ownership > does not revoke unrelated ownership across a different store 3ms
+   × Achievement mirror acknowledgement ownership > rejects reported save success without a canonical durable write 2ms
+ FAIL  tests/achievementAcknowledgement.test.ts > Achievement mirror acknowledgement ownership > rejects an obsolete retry ACK (separate SaveManager)
+ FAIL  tests/achievementAcknowledgement.test.ts > Achievement mirror acknowledgement ownership > rejects an obsolete terminal ACK (separate SaveManager)
+ FAIL  tests/achievementAcknowledgement.test.ts > Achievement mirror acknowledgement ownership > rejects an obsolete retry ACK (shared SaveManager)
+ FAIL  tests/achievementAcknowledgement.test.ts > Achievement mirror acknowledgement ownership > rejects an obsolete terminal ACK (shared SaveManager)
+ FAIL  tests/achievementAcknowledgement.test.ts > Achievement mirror acknowledgement ownership > revokes the old ACK before the replacement context makes any write
+ FAIL  tests/achievementAcknowledgement.test.ts > Achievement mirror acknowledgement ownership > shares ownership across browser adapter wrappers over the same Storage
+ FAIL  tests/achievementAcknowledgement.test.ts > Achievement mirror acknowledgement ownership > does not repaint or rewrite an active reset when its old report completes
+ FAIL  tests/achievementAcknowledgement.test.ts > Achievement mirror acknowledgement ownership > rejects a stale ACK without attempting a failing write, then the current owner retries
+ FAIL  tests/achievementAcknowledgement.test.ts > Achievement mirror acknowledgement ownership > rejects reported save success without a canonical durable write
+ Test Files  1 failed (1)
+      Tests  9 failed | 6 passed (15)

@@ -128,11 +128,19 @@ Game Center / Google Play Games will implement the existing achievement adapter,
 with reviewed ID mappings, authentication failure and idempotent retry evidence.
 Local completion/rewards remain authoritative and independent of mirror success.
 The existing durable report outbox is the starting point, not a second progression
-system. Current report-settlement callbacks clear their outbox entry through the
-captured context/save owner; they have no context-generation revocation check.
-Context recreation with an in-flight report therefore needs explicit adversarial
-reconciliation before adding a native lifecycle consumer. Late reports must not
-affect a newly replaced context or regrant rewards.
+system. Report acknowledgements now use a SaveManager context-ownership token:
+creating a replacement GameContext revokes earlier asynchronous acknowledgement
+writes for the same in-process backing store and save key. Browser adapter
+wrappers over the same Storage share that ownership scope. A rejected or failed
+acknowledgement remains retryable; local completion/rewards stay authoritative.
+See [the focused #201 regressions](../../tests/achievementAcknowledgement.test.ts).
+
+This guard does not coordinate browser tabs/processes, provide asynchronous
+native durability, or retire obsolete scenes/input consumers. A native lifecycle
+consumer must explicitly stop those consumers and preserve a stable storage
+ownership scope, then verify its actual suspend/recreation and SDK callbacks.
+Late reports must not affect a replaced context or regrant rewards. Native
+integration still requires independent persistence and lifecycle acceptance.
 
 Signing, distribution, store requirements and any future IAP decision belong to
 an explicitly authorized packaging/product tranche. No store/IAP/account SDK,
