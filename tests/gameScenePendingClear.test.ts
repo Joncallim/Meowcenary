@@ -12,10 +12,15 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import './__mocks__/phaser';
+import { MockArc, MockBody, MockGameObject } from './__mocks__/phaser';
 import { GameScene } from '../src/scenes/GameScene';
+import { createEventBus } from '../src/engine/eventBus';
+import { createRng } from '../src/engine/rng';
 import { createRunState } from '../src/gameplay/runState';
 import { createStageRuntime } from '../src/gameplay/stage/stageRuntime';
+import { applyXp } from '../src/gameplay/xp';
+import { UpgradeSystem } from '../src/systems/UpgradeSystem';
+import { UpgradeChooserController } from '../src/ui/upgradeChooserController';
 
 import { HudController } from '../src/ui/hud';
 import { ControlsView } from '../src/ui/controls';
@@ -145,6 +150,137 @@ function createHarness(options: {
 }
 
 describe('#164 GameScene pending-clear update ordering', () => {
+  it('keeps physics paused from final chooser confirmation through capture of a pulse-completed objective', async () => {
+    const { DropSystem } = await import('../src/systems/DropSystem');
+    const { scene, systemsUpdateSpy, playerUpdateSpy } = createHarness({ timeMs: 30_000 });
+    const run = scene.runState;
+    const bus = createEventBus();
+    scene.getContext = () => ({ bus });
+    const runtime = createStageRuntime({
+      stageId: 'stage:pulse-clear-proof',
+      objective: { definition: { type: 'collect', itemId: 'drop:scrap', count: 1 } },
+      encounter: {}, reward: { firstClearScrap: 0, grants: [] },
+    } as any);
+    runtime.tick(0, run.timeMs);
+    scene.stageRuntime = runtime;
+    scene.installAuthoritativeFactListeners({ bus });
+    // Use the same synchronous physics resolver as the production run event
+    // listeners. Chooser commands do not wait for GameScene.update().
+    const paused = bus.on('run:paused', () => scene.syncPhysicsPause(run));
+    const resumed = bus.on('run:resumed', () => scene.syncPhysicsPause(run));
+    const upgrades = new UpgradeSystem({
+      runState: run, bus, rng: createRng(1),
+      definitions: [{
+        id: 'pulse-clear-speed', name: 'Pulse Clear Speed', rarity: 'common', target: 'player',
+        description: 'One chooser option.', maxStacks: 10,
+        effects: [{ stat: 'moveSpeed', op: 'add', value: 1 }],
+        presentation: { category: 'mobility', iconArtId: 'upgrade-icon:pulse-clear-speed' },
+      }],
+    });
+    let select!: (offerId: number, choiceIndex: number) => boolean;
+    const chooser = new UpgradeChooserController(bus, upgrades, {
+      render: (_offer, command) => { select = command; },
+      setEnabled: vi.fn(), clear: vi.fn(), destroy: vi.fn(),
+      focusPrevious: () => false, focusNext: () => false, confirmFocused: () => false,
+    });
+    scene.player.sprite = new MockArc(0, 0);
+    scene.add = { circle: () => new MockArc(0, 0) };
+    scene.physics.add = {
+      existing: (sprite: MockGameObject) => { sprite.body = new MockBody(sprite); },
+      overlap: () => ({ destroy: () => undefined }),
+    };
+    const drops = new DropSystem({
+      scene, ctx: { bus } as any, runState: run, player: scene.player,
+      dropGroup: { add: () => undefined } as any,
+      lootTables: { lootTableById: (id) => id === 'clear-xp'
+        ? { id, entries: [{ kind: 'xp', amount: 7, weight: 1 }] } : undefined },
+      weaponRegistry: { weaponById: () => undefined, createWeaponInstance: () => { throw new Error('unused'); } },
+      rng: createRng(1), dropRadius: 4, magnetSpeed: 450, basePickupRadius: 10,
+    });
+    scene.dropSystem = drops;
+    const settle = vi.spyOn(drops, 'settlePendingClearLoot');
+    scene.pauseController = { snapshot: () => ({ panel: 'closed' }) };
+    try {
+      drops.spawnDrop(1, 0, { kind: 'xp', amount: run.xpToNext });
+      drops.spawnDrop(2, 0, { kind: 'scrap', amount: 1 });
+      // A nearby chest survives the consumable-only pulse. It must be settled
+      // with level events suppressed after extraction captures the boundary.
+      const chest = drops.spawnDrop(0, 0, { kind: 'chest', amount: 0, tableId: 'clear-xp' });
+      expect(drops.collectNearbyConsumables(10)).toBe(2);
+      expect(run.status).toBe('paused');
+      expect(run.pauseReason).toBe('levelUp');
+      expect(runtime.state.status).toBe('objective-complete');
+      expect(runtime.pendingClear).toBeUndefined();
+      expect(scene.physicsPausedByRun).toBe(true);
+      scene.update(0, 16);
+      expect(runtime.pendingClear).toBeUndefined();
+      expect(settle).not.toHaveBeenCalled();
+      systemsUpdateSpy.mockClear(); playerUpdateSpy.mockClear();
+
+      // Invoke the rendered card's real controller command outside the scene
+      // update, as touch/pointer and number-key chooser submissions do.
+      expect(select(chooser.currentOfferId!, 0)).toBe(true);
+      expect(upgrades.pendingCount).toBe(0);
+      expect(run.status).toBe('active');
+      expect(runtime.pendingClear).toBeUndefined();
+      expect(scene.physics.world.resume).not.toHaveBeenCalled();
+      expect(scene.physicsPausedByRun).toBe(true);
+
+      scene.update(0, 16);
+      expect(runtime.pendingClear?.timeMs).toBe(30_000);
+      expect(settle).toHaveBeenCalledOnce();
+      expect(chest.active).toBe(false);
+      expect(run.level).toBe(3);
+      expect(upgrades.pendingCount).toBe(0);
+      expect(run.status).toBe('active');
+      expect(run.timeMs).toBe(30_000);
+      expect(systemsUpdateSpy).not.toHaveBeenCalled();
+      expect(playerUpdateSpy).not.toHaveBeenCalled();
+      expect(scene.physics.world.resume).not.toHaveBeenCalled();
+      expect(scene.controlsView.setExtractionState).toHaveBeenCalledWith(true);
+      scene.routeAction('confirm');
+      expect(runtime.state.status).toBe('won');
+      expect(run.status).toBe('won');
+      expect(scene.terminalStageId).toBe('stage:pulse-clear-proof');
+    } finally {
+      paused(); resumed(); chooser.destroy(); upgrades.destroy(); drops.destroy();
+      for (const unsubscribe of scene.unsubscribers) unsubscribe();
+    }
+  });
+
+  it('resumes physics on final chooser confirmation while the objective remains incomplete', () => {
+    const { scene } = createHarness();
+    const run = scene.runState;
+    const bus = createEventBus();
+    const paused = bus.on('run:paused', () => scene.syncPhysicsPause(run));
+    const resumed = bus.on('run:resumed', () => scene.syncPhysicsPause(run));
+    const upgrades = new UpgradeSystem({
+      runState: run, bus, rng: createRng(1),
+      definitions: [{
+        id: 'incomplete-clear-speed', name: 'Incomplete Clear Speed', rarity: 'common', target: 'player',
+        description: 'One chooser option.', maxStacks: 10,
+        effects: [{ stat: 'moveSpeed', op: 'add', value: 1 }],
+        presentation: { category: 'mobility', iconArtId: 'upgrade-icon:incomplete-clear-speed' },
+      }],
+    });
+    try {
+      applyXp(run, run.xpToNext, bus);
+      expect(run.status).toBe('paused');
+      expect(scene.physicsPausedByRun).toBe(true);
+      expect(scene.stageRuntime.state.status).toBe('active');
+
+      expect(upgrades.chooseCard(upgrades.currentOfferId!, 'incomplete-clear-speed')).toBe(true);
+
+      expect(upgrades.pendingCount).toBe(0);
+      expect(run.status).toBe('active');
+      expect(scene.stageRuntime.pendingClear).toBeUndefined();
+      expect(scene.physics.world.resume).toHaveBeenCalledOnce();
+      expect(scene.physicsPausedByRun).toBe(false);
+    } finally {
+      paused(); resumed(); upgrades.destroy();
+    }
+  });
+
   it('defers portrait-unblock physics resume until the scene-owned update boundary', () => {
     const { scene } = createHarness();
     scene.orientationBlocked = true;

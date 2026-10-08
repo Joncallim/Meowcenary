@@ -40,6 +40,30 @@ admission, global pending-clear settlement, save schema, tuning, RNG ownership
 and presentation remain on their existing paths. Independent QA checked those
 boundaries and found no material defect or scope leakage.
 
+## Objective completion during the chooser
+
+Adversarial integration of the repaired pulse found a related scene-owned gap:
+XP opens a level-up chooser; later Scrap completes a collect objective while
+paused. The direct card command used by touch/number-key confirmation resumes
+the run before the next scene update has captured `pendingClear`. The old
+physics resolver checked pending clear but not the already-completed objective,
+so it resumed Arcade in that window. Damage is already guarded; ordinary loot
+overlap was not, and could award a retained chest before frozen settlement.
+
+The regression uses real DropSystem, UpgradeSystem, chooser controller, event
+bus and StageRuntime with the GameScene update harness. It fails on the prior
+candidate at the premature physics-resume assertion. The smallest correction
+keeps physics paused for `objective-complete` until normal scene capture. The
+same test then proves pending-clear capture, frozen chest settlement without
+another chooser, unchanged completion time, and successful extraction. This
+is an automated boundary reproduction; actual device incidence is unverified.
+Against `bb74d855d892b9f0eea7017fe5fa1ba4aafea4b6`, the scene test file
+reported **1 RED / 17 passing controls**, recorded in
+[physics-boundary-red.txt](physics-boundary-red.txt). The final focused run
+reported **191 passing tests across seven files**, including the incomplete
+objective's ordinary-resume control, in
+[candidate-final-focused.txt](candidate-final-focused.txt).
+
 ## Regression coverage and remaining acceptance
 
 Coverage includes multiple queued levels, scaled XP and face-value facts, honest
