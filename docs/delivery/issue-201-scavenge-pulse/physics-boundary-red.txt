@@ -1,0 +1,64 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-scavenge-pulse
+
+ ❯ tests/gameScenePendingClear.test.ts (18 tests | 1 failed) 27ms
+   × #164 GameScene pending-clear update ordering > keeps physics paused from final chooser confirmation through capture of a pulse-completed objective 12ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received: 
+
+  1st spy call:
+
+    Array []
+
+
+Number of calls: 1
+
+   ✓ #164 GameScene pending-clear update ordering > resumes physics on final chooser confirmation while the objective remains incomplete 1ms
+   ✓ #164 GameScene pending-clear update ordering > defers portrait-unblock physics resume until the scene-owned update boundary 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 1: HUD update during pendingClear > updates HudController when pendingClear is active 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 1: HUD update during pendingClear > does NOT update simulation systems when pendingClear is active 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 2: Clock freezes during pendingClear > does not advance runState.timeMs during pendingClear 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 2: Clock freezes during pendingClear > advances runState.timeMs normally when no pendingClear 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 3: Normal active run updates everything > updates player, simulation systems, and HUD each frame 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 3: Normal active run updates everything > does not double-update HudController (once per frame) 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 4: Completion transition frame > captures completion time exactly once on the transition frame 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 4: Completion transition frame > retries frozen completion loot when a pause-menu merge frees rack capacity 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 4: Completion transition frame > pauses immediately when a simulation system completes the objective later in the frame 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 4: Completion transition frame > settles frozen loot exactly once when pending clear originated in physics 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 4: Completion transition frame > advances the frozen run clock through a survive completion frame 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 4: Completion transition frame > does not advance a survive objective or run clock while paused 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 5: Pause round trip > preserves pendingClear after pause/resume cycle 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 6: Stale HUD regression invariant > describeObjective never returns 19/20 after objective completion 1ms
+   ✓ #164 GameScene pending-clear update ordering > RED 7: Weapon/XP coincidence regression > completes objective with active drops and scheduled reward without apparent freeze 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/gameScenePendingClear.test.ts > #164 GameScene pending-clear update ordering > keeps physics paused from final chooser confirmation through capture of a pulse-completed objective
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received: 
+
+  1st spy call:
+
+    Array []
+
+
+Number of calls: 1
+
+ ❯ tests/gameScenePendingClear.test.ts:226:46
+    224|       expect(run.status).toBe('active');
+    225|       expect(runtime.pendingClear).toBeUndefined();
+    226|       expect(scene.physics.world.resume).not.toHaveBeenCalled();
+       |                                              ^
+    227|       expect(scene.physicsPausedByRun).toBe(true);
+    228| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 17 passed (18)
+   Start at  03:02:01
+   Duration  1.14s (transform 710ms, setup 0ms, collect 939ms, tests 27ms, environment 0ms, prepare 47ms)
+

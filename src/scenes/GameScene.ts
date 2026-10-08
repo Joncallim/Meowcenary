@@ -1554,6 +1554,7 @@ export class GameScene extends Phaser.Scene {
     const shouldPause = this.orientationBlocked
       || this.orientationResumePending
       || runState.status !== 'active'
+      || this.stageRuntime?.state.status === 'objective-complete'
       || this.stageRuntime?.pendingClear !== undefined;
     if (shouldPause && !this.physicsPausedByRun) {
       this.physics.world.pause();

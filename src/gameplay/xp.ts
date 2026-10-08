@@ -11,7 +11,33 @@ export function xpToNext(level: number): number {
 }
 
 export function applyXp(runState: RunState, amount: number, bus?: EventBus): number {
-  if (runState.status !== 'active' || !Number.isFinite(amount) || amount <= 0) {
+  if (runState.status !== 'active') return 0;
+  return awardXp(runState, amount, bus);
+}
+
+/** A pulse admitted while active may finish its synchronous grants through
+ * its level-up pause. The grant capability expires when the callback exits;
+ * ordinary XP grants remain active-only. */
+export function withActivatedXpPulse<T>(
+  runState: RunState,
+  bus: EventBus,
+  collect: (grantXp: (amount: number) => number) => T,
+): T | undefined {
+  if (runState.status !== 'active') return undefined;
+  let open = true;
+  try {
+    return collect((amount) => {
+      if (!open || (runState.status !== 'active'
+        && !(runState.status === 'paused' && runState.pauseReason === 'levelUp'))) return 0;
+      return awardXp(runState, amount, bus);
+    });
+  } finally {
+    open = false;
+  }
+}
+
+function awardXp(runState: RunState, amount: number, bus?: EventBus): number {
+  if (!Number.isFinite(amount) || amount <= 0) {
     return 0;
   }
 
