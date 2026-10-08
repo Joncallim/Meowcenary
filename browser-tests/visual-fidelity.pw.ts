@@ -430,7 +430,9 @@ test('Forge Warden art reference keeps its approved furnace-gantry silhouette', 
   await expectCenteredActor(page, 'forge-warden-gameplay-actor.png');
 });
 
-test('every Mercenary actor retains its approved runtime silhouette', async ({ page }, testInfo) => {
+// These recorded implementation baselines detect drift. Product-owner visual
+// approval against the canonical direction remains a separate #191 gate.
+test('every Mercenary actor retains its recorded runtime silhouette', async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   test.skip(testInfo.project.name !== 'desktop-1280x720');
   const characterIds = [

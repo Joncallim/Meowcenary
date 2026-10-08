@@ -22,20 +22,21 @@ and small motion studies. These requirements instantiate
 `docs/art/alpha-3-art-production-briefs.md` §3.3 rather than introducing a new
 direction.
 
-## Selection
+## CANONICAL direction
 
 `volt-lynx-direction-a-selected.png`
 
 - strongest upright, long-limbed silhouette;
 - high ear tufts and compact sensor harness remain legible without color;
 - closest to the 48×48 biped animation contract;
-- selected only as construction reference for the deterministic builder and
-  editable Pixelorama source.
+- canonical identity/anatomy direction, confirmed against Figma file
+  `LHpXaKqFKksfF2uismDws5`, node `113:2`, on 2026-10-08; the native runtime
+  implementation remains **CANDIDATE** until owner runtime approval.
 
 SHA-256:
 `ab84b83f729bdce701a50d50751bc04a1081dd3dd6b263127dfba50973aa5701`
 
-## Rejections
+## DEPRECATED — DO NOT SHIP
 
 `volt-lynx-direction-b-rejected.png`
 
@@ -55,7 +56,9 @@ SHA-256:
 
 ## Production boundary
 
-No generated pixels are copied directly into the runtime sheet. The accepted
-silhouette is rebuilt in `docs/art/scripts/build-volt-lynx.lua`; that builder
-produces the committed `.pxo` source and the normal export pipeline produces
-the runtime PNG/JSON.
+The runtime sheet is native-grid authored art. The builder
+`docs/art/scripts/build-volt-lynx.lua` restores the checked-in native raster
+losslessly into the committed `.pxo`; the normal exporter produces the runtime
+PNG/JSON. It does not reconstruct anatomy from geometric primitives or make
+the runtime candidate authoritative. **ARCHIVE — PROVENANCE ONLY** material
+may be retained for history but cannot supersede the canonical direction.
