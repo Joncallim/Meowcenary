@@ -1,0 +1,32 @@
+{
+  "status": "CANDIDATE",
+  "shipApproved": false,
+  "baselineMain": "2865e28f46b046b743283b8c1bcf7fc7ef2936a3",
+  "runtimeFixture": "00bf2de9bbc6e2c61d4a5a4a55a3c55cceb0fde2",
+  "canonicalReference": {
+    "file": "LHpXaKqFKksfF2uismDws5",
+    "nodes": [
+      "91:2",
+      "92:2"
+    ],
+    "path": "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png",
+    "sha256": "25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729"
+  },
+  "files": {
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/candidate-run.gif": "1223b7d6ed5997113c22b160164a422de9dff2fd6cba1ef270b748f6f96754bb",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/candidate-hurt.gif": "9c85d2a2d2cfdd24881716ffedfe4c5d9abcf3c26794227df5c82f4c7ad91d25",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/brass-boar.pxo": "b1eff0e043952bc59f407344a77a1e1d9cac075a8c25e46606757b071e0507b9",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/candidate-idle.gif": "bf01d465b5ddc17c7db4b85fd641591137ec55f1da1eec999492d93a4ffb1a60",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/review-overview.png": "bc2f9e17e0d26e353b7c8e0d82ad621009cc1cfd0b082d698041c4e888ad4f39",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/brass-boar-native-raster.lua": "ce9277f235500401ab91d5983bfbdbc7c6a8213964643e8ab7b7c385f3e77b0b",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/candidate-43px-sample.png": "5c16cbcc974d71006962760c0dea1d025f2c603e44fa0443434bbdef6a51dc7a",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/brass-boar.png": "feda43809d33b44bee4a0b0bd4e2e865ec262303f613dbc9fdbeab0b8302a47c",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/brass-boar.json": "58c78c1c2b61c1872c9d3c731d779eb5d9eaf83958d1081ac158f097d5a8c5e5",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/candidate-defeat.gif": "f71e060391607918e33ca5514f270c506f073dde315be4964ba348aab8d27bb2",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/review.html": "0ee24aace42f18594e9100328fbef915e5dc1e847afb7ff64ef0907a5c3fe56a",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/candidate-sixteen-contact.png": "55d28c89cf077732eb845fb9c2e91d5c6c0722cc3699f4e830d7bbd10563a4e2",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/v2/independent-qa.md": "feaf68a25a36a97a7c772f35fd4af59b30e27b4d6789707aa04b0845c829ac8a"
+  },
+  "revision": "V2",
+  "supersedesReviewOnly": "V1, preserved in parent directory"
+}
