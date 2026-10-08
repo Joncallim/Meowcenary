@@ -1,6 +1,10 @@
 # Brass Boar V3 idle identity preview — 2026-10-08
 
-**CANDIDATE — identity/pose review only. Not approved for shipping.**
+**CANDIDATE — owner-approved identity direction; not approved for shipping.**
+
+Owner confirmed on 2026-10-08: “yeah this direction is fine”. This approves
+the visual direction only. The production sprite, native-scale identity,
+animation and shipping acceptance remain separate gates.
 
 Generated from the canonical first figure in Figma file
 `LHpXaKqFKksfF2uismDws5`, nodes `91:2` / `92:2`, after the owner explicitly

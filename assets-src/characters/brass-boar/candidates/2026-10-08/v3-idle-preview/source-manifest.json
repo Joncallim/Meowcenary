@@ -15,5 +15,11 @@
   },
   "files": {
     "assets-src/characters/brass-boar/candidates/2026-10-08/v3-idle-preview/brass-boar-idle-identity-preview.png": "78c43b8b0fde0ca95fb1639ba8cae904fa6536d20f5920af044cd63a0fef4fc5"
+  },
+  "directionApproved": true,
+  "ownerDirectionApproval": {
+    "date": "2026-10-08",
+    "feedback": "yeah this direction is fine",
+    "scope": "identity/visual direction only; native sprite, animation, actual-scale and ship approval remain outstanding"
   }
 }
