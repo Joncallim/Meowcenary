@@ -1,0 +1,28 @@
+{
+  "status": "CANDIDATE",
+  "shipApproved": false,
+  "baselineMain": "2865e28f46b046b743283b8c1bcf7fc7ef2936a3",
+  "runtimeFixture": "00bf2de9bbc6e2c61d4a5a4a55a3c55cceb0fde2",
+  "canonicalReference": {
+    "file": "LHpXaKqFKksfF2uismDws5",
+    "nodes": [
+      "91:2",
+      "92:2"
+    ],
+    "path": "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png",
+    "sha256": "25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729"
+  },
+  "files": {
+    "assets-src/characters/brass-boar/candidates/2026-10-08/candidate-run.gif": "5ee9730647e009e96bc3f06bb5027a853efaa5685a39033ac845e3a327f40b4a",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/candidate-hurt.gif": "b55dc25aafdef75b3f2875f7461dedf8c344c78d07dda9bdc6e667fa6a11c6f8",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/brass-boar.pxo": "c240f3900b86068218a80bb52079422f7605de9d7ec6aa6154be7f56294a637d",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/candidate-idle.gif": "b5672c53cf4deff617f1278d9595aeaa644989f7aed87f89ddc21ea2706a558a",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/review-overview.png": "04b4ace430d3123526c94754843c4fe223921a13591222574b806fd826b26a76",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/brass-boar-native-raster.lua": "da36f381e3d35ec80cd46e47460c134d9da029927b7897e6c84df3c2ae0694e7",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/brass-boar.png": "a873e7d1aa726a55340da7ba438e3037f86a8d0b08e2eaf5e0e42005732b6b30",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/brass-boar.json": "58c78c1c2b61c1872c9d3c731d779eb5d9eaf83958d1081ac158f097d5a8c5e5",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/candidate-defeat.gif": "3e8cc795d027616042b21b02823ccc51dca790bd3fb6428a87fd5e2c6843abad",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/review.html": "b23c6e7538e44008b890f997111cf0b0ec35fb815b5bd35f5cac3233246f2db8",
+    "assets-src/characters/brass-boar/candidates/2026-10-08/candidate-sixteen-contact.png": "79e88d2dd5148731e07aa894b2463c404c674bc19e1758018c89f237c5f5316d"
+  }
+}

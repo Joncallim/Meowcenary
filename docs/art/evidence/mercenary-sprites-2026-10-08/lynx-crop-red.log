@@ -1,0 +1,46 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-mercenary-sprite-fidelity
+
+ ❯ tests/characterArtDistinctness.test.ts (9 tests | 1 failed | 8 skipped) 27ms
+   ↓ Volt Lynx production-art distinction > keeps every shipped character sheet in parity with visible editable-source layers
+   ↓ Volt Lynx production-art distinction > keeps the shipped Lynx silhouette materially different from Scrap Tabby at native actor scale
+   ↓ Volt Lynx production-art distinction > keeps every Mercenary pair distinct in black silhouette and grayscale at native actor scale
+   ↓ Volt Lynx production-art distinction > keeps every gameplay Mercenary readable at the authored native scale with real pose breadth
+   ↓ Volt Lynx production-art distinction > keeps production Mercenary clips inside the native canvas and gives idle and hurt visible motion
+   × Volt Lynx production-art distinction > keeps all eight Mercenaries clear of every source-frame border 26ms
+     → volt-lynx frame 16 meets the source-frame border: expected [ 1968, 2016, 2064 ] to deeply equal []
+   ↓ Volt Lynx production-art distinction > keeps distinct logical and physical resources under the character-specific run closure
+   ↓ Volt Lynx production-art distinction > finishes defeat in a visibly lower forward-settled silhouette
+   ↓ Volt Lynx production-art distinction > exports only visible PXO layers, keeping editor guides out of runtime art
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/characterArtDistinctness.test.ts > Volt Lynx production-art distinction > keeps all eight Mercenaries clear of every source-frame border
+AssertionError: volt-lynx frame 16 meets the source-frame border: expected [ 1968, 2016, 2064 ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   1968,
++   2016,
++   2064,
++ ]
+
+ ❯ tests/characterArtDistinctness.test.ts:260:80
+    258|           return x === 0 || x === 47 || y === 0 || y === 47;
+    259|         });
+    260|         expect(edge, `${id} frame ${frame + 1} meets the source-frame …
+       |                                                                                ^
+    261|       }
+    262|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  11:18:54
+   Duration  704ms (transform 297ms, setup 0ms, collect 369ms, tests 27ms, environment 0ms, prepare 102ms)
+
