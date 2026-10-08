@@ -1,7 +1,9 @@
 # Brass Boar native candidate — 2026-10-08
 
 **CANDIDATE V1, preserved for provenance. Not approved for shipping or screenshot-baseline promotion.**
-The latest review candidate is [V2](v2/README.md); V1 is not the current promotion proposal.
+[V2](v2/README.md) was explicitly rejected by the owner on 2026-10-08 and is
+**DEPRECATED — DO NOT SHIP**. V1 remains unapproved and is not a fallback
+promotion proposal. No Brass Boar replacement is currently approved.
 No production binding uses this directory. Current runtime pixels remain
 unchanged by this packet. Review [review.html](review.html), or the static
 [overview](review-overview.png), against the canonical first figure of Figma

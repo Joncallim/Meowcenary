@@ -1,6 +1,13 @@
-# Brass Boar native candidate V2 — 2026-10-08
+# Brass Boar V2 — rejected 2026-10-08
 
-**CANDIDATE. Not approved for shipping or screenshot-baseline promotion.**
+**DEPRECATED — DO NOT SHIP. Explicitly rejected by the owner on 2026-10-08.**
+
+Owner feedback: “I reject this - it doesn't even look like a boar lol”.
+The low side-profile silhouette, blunt muzzle and indistinct tusks fail the
+canonical upright Boar identity. This packet is retained as rejected provenance;
+it is not a promotion proposal. Native source, PXO, PNG and browser captures
+remain byte-identical. The static overview is a historical pre-rejection capture;
+its former CANDIDATE badge is superseded by this recorded rejection.
 No production binding uses this directory. Current runtime pixels remain
 unchanged by this packet. Review [review.html](review.html), or the static
 [overview](review-overview.png), against the canonical first figure of Figma
@@ -14,7 +21,7 @@ used in an isolated copy of the existing directory layout to package them.
 To reproduce, create an isolated checkout of the recorded fixture SHA, copy
 these candidate Lua/PXO/PNG/JSON files over that checkout's matching Boar
 source/export paths, then run the existing builder source/parity and art gates.
-Do not perform this promotion in production before recorded owner approval.
+Do not promote this rejected packet into production or screenshot baselines.
 
 Two enlarged ImageGen pose explorations were rejected as native production
 masters: their fine detail did not satisfy the 48px-grid requirement. They
@@ -38,10 +45,9 @@ hashes live in `docs/art/evidence/mercenary-sprites-2026-10-08/v2/`.
 
 **Revised presentation:** muted brass plate and cream tusks are separated;
 angular ears, bristled shoulder and four distinct native breathing poses are
-present. This supersedes V1 for review, while preserving the earlier packet.
+present. V2 previously superseded V1 for review; neither packet has shipping approval.
 The canonical three-quarter face, shell dents and collapse still require
 owner judgement at actual game scale.
 No screenshot golden has been updated, and #191/#174/#175/#167 remain open.
-If rejected, move this packet to **DEPRECATED — DO NOT SHIP** while retaining
-its provenance. It cannot supersede **CANONICAL** direction; exploration is
+This rejected packet cannot supersede **CANONICAL** direction; exploration is
 **ARCHIVE — PROVENANCE ONLY**.

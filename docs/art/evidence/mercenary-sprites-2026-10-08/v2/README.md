@@ -1,6 +1,9 @@
 # Brass Boar V2 browser review evidence
 
-CANDIDATE only; no production binding or screenshot goldens changed.
+**DEPRECATED — DO NOT SHIP. Owner rejected V2 on 2026-10-08.**
+These are unchanged historical captures of the rejected candidate. Any CANDIDATE
+labels in capture files describe their state at capture time, not current authority.
+No production binding or screenshot goldens changed.
 The exact PNG, native source and editable PXO are pinned by the sibling V2
 source manifest under assets-src/characters/brass-boar/candidates/2026-10-08/v2/.
 
@@ -15,4 +18,4 @@ not physical-device acceptance or a gameplay performance benchmark.
 
 The capture record is provenance with machine-local paths; it is not a portable
 CI runner. Native candidate source/export tests and independent visual judgment
-are separate gates. Owner approval under #191 is still pending.
+are separate gates. Owner rejection under #191 supersedes the former pending approval request.
