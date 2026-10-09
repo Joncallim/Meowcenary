@@ -8,6 +8,8 @@ Live cloud-browser capture was 1180×757 DPR1, fresh Scrap Tabby profile. Large 
 
 ## Required fixes
 
+The owner's further density objection is now concretely designed in [COMPACT-GRID-SPEC.md](COMPACT-GRID-SPEC.md) and its three rendered examples. The default is a compact responsive comparison grid, not a full-width giant card for every candidate. Keep full inspection separate and selected context stable; use the spec's explicit column/media/target budgets, safe-area handling, domain-derived benefit and no-scroll-jump tests.
+
 ### Gunsmith Build composition
 
 Compact the family selector, Build/Workshop/Parts navigation and scope/status area so the meaningful assembled weapon, selected slot and candidate/consequence area coexist wherever the approved layout intends. Keep active-family and “activates when acquired” semantics. Do not remove mechanical states merely because a focused Figma fixture omits them. Preserve large correctly framed art without letting one image push the entire engineering context below the fold.

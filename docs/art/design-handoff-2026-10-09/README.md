@@ -20,6 +20,7 @@ Read this index and only the bounded packet you are implementing. Preserve the b
 
 ## Visual deliverables
 
+- [Compact comparison-grid specification](COMPACT-GRID-SPEC.md): replaces one-card-at-a-time default browsing with responsive density and stable selected context. [Wide Equipment](review/equipment-comparison-grid-wide.png), [phone Equipment](review/equipment-comparison-grid-phone.png), and [Gunsmith merge workspace](review/gunsmith-merge-comparison-grid.png) are reviewed visual proposals, not implemented runtime fixes.
 - [Ability brief/state layout](review/ability-layout.png): uses existing committed portrait/icon art; authored layout, not a runtime screenshot.
 - [Directional review at small sizes](review/direction-review.png): canonical Tabby/Hound comparison, limitations shown on-image; not an approval-ready production sheet.
 - [Pickup family exploration](art/pickup-family-exploration.png): real generated artwork reference; native16/20 authoring/export still required.

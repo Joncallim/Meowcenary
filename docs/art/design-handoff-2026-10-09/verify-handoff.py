@@ -19,6 +19,9 @@ for entry in manifest:
     checked.append({'file': entry['file'], 'dimensions': [width, height], 'sha256': entry['sha256']})
 
 for relative in ['review/ability-layout.png', 'review/direction-review.png',
+                 'review/equipment-comparison-grid-wide.png',
+                 'review/equipment-comparison-grid-phone.png',
+                 'review/gunsmith-merge-comparison-grid.png',
                  'audit/Meowcenary-live-vs-Figma.png']:
     data = (ROOT / relative).read_bytes()
     assert data[:8] == b'\x89PNG\r\n\x1a\n', relative
