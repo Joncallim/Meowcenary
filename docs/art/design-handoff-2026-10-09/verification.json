@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "checkedExplorationAssets": [
+    {
+      "file": "art/composition-study-v2.png",
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "sha256": "d263857c5ed801ea3cb61ee8b8ee5945d29312c232f29fa682f235b49622574e"
+    },
+    {
+      "file": "art/hound-direction-study-v2.png",
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "sha256": "c1c6b55a7ccbec4a00feb7ccdf761463f6990c83c8086257f76838d68b867c08"
+    },
+    {
+      "file": "art/pickup-family-exploration.png",
+      "dimensions": [
+        1448,
+        1086
+      ],
+      "sha256": "8c1ffb097f2fb035a4d89fba2de7a538a57b0a0a348c2e64d82d82aba1facb0f"
+    },
+    {
+      "file": "art/tabby-direction-study-v1.png",
+      "dimensions": [
+        1447,
+        1087
+      ],
+      "sha256": "6c9fddffe055e4005bb3f8e9e849193094e901185311e937128c8fd1dbedb380"
+    }
+  ],
+  "boundary": "File integrity and package gating only. No native-pixel, runtime, device, or owner-approval claim."
+}
