@@ -17,7 +17,7 @@ Validated achievement definitions + canonical Save V4 facts
 
 The ten existing achievement IDs, conditions, targets and rewards remain. Historical completed/retired entries remain terminal. New rows reuse the existing condition/grant vocabulary and approved semantic badge atlas; badges may be shared by a goal family. No save schema, stage content, currency source, RNG stream, input route, or resource-loading change is required.
 
-The current 22-row candidate adds campaign coverage, mercenary breadth and specialization, timed Contract coverage, simultaneous weapon engineering, hybrid traits, and high-tier equipment. The mastery rows are deliberately optional accomplishments; no existing mercenary, equipment or part is moved behind a new gate.
+The current 27-row candidate adds campaign coverage, mercenary breadth and specialization, timed Contract coverage, simultaneous weapon engineering, hybrid traits, and high-tier equipment. Five goals follow the authoritative optional post-Warden ladder: Nest Breaker (hunt 8 summoners), Crossfire Salvage (collect 32 Scrap), Shatterline (70 kills), Pressure Test (survive 120 seconds), and an explicit all-four finale. Each rung grants 50 Scrap; the finale grants 150. They use existing stage-cleared conditions and canonical saved completions. The mastery rows are deliberately optional accomplishments; no existing mercenary, equipment or part is moved behind a new gate.
 
 ## Derived facts
 
