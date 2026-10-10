@@ -4,7 +4,9 @@
     "name": "First Blood",
     "description": "Defeat your first enemy.",
     "kind": "standard",
-    "presentation": { "iconArtId": "achievement-icon:first-kill" },
+    "presentation": {
+      "iconArtId": "achievement-icon:first-kill"
+    },
     "target": 1,
     "metricId": "metric:enemies-defeated",
     "rewards": [
@@ -21,7 +23,9 @@
     "name": "Scrap Squad",
     "description": "Defeat 25 enemies.",
     "kind": "incremental",
-    "presentation": { "iconArtId": "achievement-icon:kill-milestone-25" },
+    "presentation": {
+      "iconArtId": "achievement-icon:kill-milestone-25"
+    },
     "target": 25,
     "metricId": "metric:enemies-defeated"
   },
@@ -30,7 +34,9 @@
     "name": "Junkyard Veteran",
     "description": "Defeat 100 enemies.",
     "kind": "incremental",
-    "presentation": { "iconArtId": "achievement-icon:kill-milestone-100" },
+    "presentation": {
+      "iconArtId": "achievement-icon:kill-milestone-100"
+    },
     "target": 100,
     "metricId": "metric:enemies-defeated",
     "rewards": []
@@ -40,7 +46,9 @@
     "name": "Forge Initiate",
     "description": "Merge two weapons for the first time.",
     "kind": "standard",
-    "presentation": { "iconArtId": "achievement-icon:first-merge" },
+    "presentation": {
+      "iconArtId": "achievement-icon:first-merge"
+    },
     "target": 1,
     "metricId": "metric:merges-performed",
     "rewards": [
@@ -57,7 +65,9 @@
     "name": "Crusher Down",
     "description": "Defeat the Scrap Crusher boss.",
     "kind": "standard",
-    "presentation": { "iconArtId": "achievement-icon:boss-crusher" },
+    "presentation": {
+      "iconArtId": "achievement-icon:boss-crusher"
+    },
     "target": 1,
     "condition": {
       "type": "boss-defeated",
@@ -77,7 +87,9 @@
     "name": "Junkyard Champion",
     "description": "Clear all five contracts of the Junkyard chapter.",
     "kind": "standard",
-    "presentation": { "iconArtId": "achievement-icon:chapter-junkyard" },
+    "presentation": {
+      "iconArtId": "achievement-icon:chapter-junkyard"
+    },
     "target": 1,
     "condition": {
       "type": "all",
@@ -118,7 +130,9 @@
     "name": "First Victory",
     "description": "Win your first Contract.",
     "kind": "standard",
-    "presentation": { "iconArtId": "achievement-icon:first-victory" },
+    "presentation": {
+      "iconArtId": "achievement-icon:first-victory"
+    },
     "target": 1,
     "metricId": "metric:runs-completed",
     "rewards": [
@@ -135,7 +149,9 @@
     "name": "Tabby Mastery",
     "description": "Reach mastery tier 1 with Scrap Tabby.",
     "kind": "mastery",
-    "presentation": { "iconArtId": "achievement-icon:mastery-scrap-tabby" },
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
     "target": 1,
     "condition": {
       "type": "mastery-reached",
@@ -156,7 +172,9 @@
     "name": "Scrap Tycoon",
     "description": "Bank 10,000 total scrap from contracts.",
     "kind": "incremental",
-    "presentation": { "iconArtId": "achievement-icon:scrap-tycoon" },
+    "presentation": {
+      "iconArtId": "achievement-icon:scrap-tycoon"
+    },
     "target": 10000,
     "metricId": "metric:scrap-banked",
     "hidden": true
@@ -166,12 +184,586 @@
     "name": "Warden Down",
     "description": "Defeat the Forge Warden.",
     "kind": "standard",
-    "presentation": { "iconArtId": "achievement-icon:boss-forge" },
+    "presentation": {
+      "iconArtId": "achievement-icon:boss-forge"
+    },
     "target": 1,
     "condition": {
       "type": "boss-defeated",
       "bossId": "boss-forge"
     },
     "rewards": []
+  },
+  {
+    "id": "achievement:veteran-scrap-tabby",
+    "name": "Scrap Tabby Veteran",
+    "description": "Win 5 Contracts as Scrap Tabby (mastery tier 5).",
+    "kind": "mastery",
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
+    "target": 1,
+    "condition": {
+      "type": "mastery-reached",
+      "subjectId": "scrap-tabby",
+      "tier": 5
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 100
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:veteran-bolt-hound",
+    "name": "Bolt Hound Veteran",
+    "description": "Win 5 Contracts as Bolt Hound (mastery tier 5).",
+    "kind": "mastery",
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
+    "target": 1,
+    "condition": {
+      "type": "mastery-reached",
+      "subjectId": "bolt-hound",
+      "tier": 5
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 100
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:veteran-volt-lynx",
+    "name": "Volt Lynx Veteran",
+    "description": "Win 5 Contracts as Volt Lynx (mastery tier 5).",
+    "kind": "mastery",
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
+    "target": 1,
+    "condition": {
+      "type": "mastery-reached",
+      "subjectId": "volt-lynx",
+      "tier": 5
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 100
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:veteran-brass-boar",
+    "name": "Brass Boar Veteran",
+    "description": "Win 5 Contracts as Brass Boar (mastery tier 5).",
+    "kind": "mastery",
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
+    "target": 1,
+    "condition": {
+      "type": "mastery-reached",
+      "subjectId": "brass-boar",
+      "tier": 5
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 100
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:veteran-ember-cougar",
+    "name": "Ember Cougar Veteran",
+    "description": "Win 5 Contracts as Ember Cougar (mastery tier 5).",
+    "kind": "mastery",
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
+    "target": 1,
+    "condition": {
+      "type": "mastery-reached",
+      "subjectId": "ember-cougar",
+      "tier": 5
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 100
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:veteran-scrap-weasel",
+    "name": "Scrap Weasel Veteran",
+    "description": "Win 5 Contracts as Scrap Weasel (mastery tier 5).",
+    "kind": "mastery",
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
+    "target": 1,
+    "condition": {
+      "type": "mastery-reached",
+      "subjectId": "scrap-weasel",
+      "tier": 5
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 100
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:veteran-rattle-raptor",
+    "name": "Rattle Raptor Veteran",
+    "description": "Win 5 Contracts as Rattle Raptor (mastery tier 5).",
+    "kind": "mastery",
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
+    "target": 1,
+    "condition": {
+      "type": "mastery-reached",
+      "subjectId": "rattle-raptor",
+      "tier": 5
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 100
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:veteran-piston-ram",
+    "name": "Piston Ram Veteran",
+    "description": "Win 5 Contracts as Piston Ram (mastery tier 5).",
+    "kind": "mastery",
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
+    "target": 1,
+    "condition": {
+      "type": "mastery-reached",
+      "subjectId": "piston-ram",
+      "tier": 5
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 100
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:roster-specialist",
+    "name": "Versatile Crew",
+    "description": "Reach mastery tier 2 with all eight mercenaries.",
+    "kind": "mastery",
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
+    "target": 1,
+    "condition": {
+      "type": "all",
+      "conditions": [
+        {
+          "type": "mastery-reached",
+          "subjectId": "scrap-tabby",
+          "tier": 2
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "bolt-hound",
+          "tier": 2
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "volt-lynx",
+          "tier": 2
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "brass-boar",
+          "tier": 2
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "ember-cougar",
+          "tier": 2
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "scrap-weasel",
+          "tier": 2
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "rattle-raptor",
+          "tier": 2
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "piston-ram",
+          "tier": 2
+        }
+      ]
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 200
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:roster-masters",
+    "name": "Veteran Company",
+    "description": "Reach mastery tier 5 with all eight mercenaries.",
+    "kind": "mastery",
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
+    "target": 1,
+    "condition": {
+      "type": "all",
+      "conditions": [
+        {
+          "type": "mastery-reached",
+          "subjectId": "scrap-tabby",
+          "tier": 5
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "bolt-hound",
+          "tier": 5
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "volt-lynx",
+          "tier": 5
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "brass-boar",
+          "tier": 5
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "ember-cougar",
+          "tier": 5
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "scrap-weasel",
+          "tier": 5
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "rattle-raptor",
+          "tier": 5
+        },
+        {
+          "type": "mastery-reached",
+          "subjectId": "piston-ram",
+          "tier": 5
+        }
+      ]
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 300
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:tabby-specialist",
+    "name": "Tabby Specialist",
+    "description": "Win 10 Contracts as Scrap Tabby (mastery tier 10).",
+    "kind": "mastery",
+    "presentation": {
+      "iconArtId": "achievement-icon:mastery-scrap-tabby"
+    },
+    "target": 1,
+    "condition": {
+      "type": "mastery-reached",
+      "subjectId": "scrap-tabby",
+      "tier": 10
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 150
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:chapter-forge",
+    "name": "Forge Champion",
+    "description": "Clear every Forge chapter Contract.",
+    "kind": "standard",
+    "presentation": {
+      "iconArtId": "achievement-icon:boss-forge"
+    },
+    "target": 1,
+    "condition": {
+      "type": "all",
+      "conditions": [
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-01"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-02"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-03"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-04"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-06"
+        }
+      ]
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 200
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:campaign-surveyor",
+    "name": "Campaign Surveyor",
+    "description": "Clear all ten campaign Contracts.",
+    "kind": "standard",
+    "presentation": {
+      "iconArtId": "achievement-icon:chapter-junkyard"
+    },
+    "target": 1,
+    "condition": {
+      "type": "all",
+      "conditions": [
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-01"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-02"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-03"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-04"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-05"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-01"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-02"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-03"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-04"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-06"
+        }
+      ]
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 250
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:quick-clear",
+    "name": "Decisive Victory",
+    "description": "Clear a Contract in 3 minutes or less.",
+    "kind": "standard",
+    "presentation": {
+      "iconArtId": "achievement-icon:first-victory"
+    },
+    "target": 1,
+    "metricId": "metric:contracts-cleared-under-180s",
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 50
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:quick-clear-five",
+    "name": "Rapid Response",
+    "description": "Clear 5 different Contracts in 3 minutes or less.",
+    "kind": "incremental",
+    "presentation": {
+      "iconArtId": "achievement-icon:first-victory"
+    },
+    "target": 5,
+    "metricId": "metric:contracts-cleared-under-180s",
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 150
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:engineered-family",
+    "name": "Field Engineer",
+    "description": "Fit at least 3 different non-trait parts to one weapon family.",
+    "kind": "standard",
+    "presentation": {
+      "iconArtId": "achievement-icon:first-merge"
+    },
+    "target": 1,
+    "metricId": "metric:engineered-families",
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 75
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:engineered-arsenal",
+    "name": "Full Workshop",
+    "description": "Fit at least 3 different non-trait parts to each of the 3 weapon families at once.",
+    "kind": "incremental",
+    "presentation": {
+      "iconArtId": "achievement-icon:first-merge"
+    },
+    "target": 3,
+    "metricId": "metric:engineered-families",
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 150
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:equipment-capstone",
+    "name": "Fully Reinforced",
+    "description": "Own 4 different pieces of tier 4 equipment.",
+    "kind": "incremental",
+    "presentation": {
+      "iconArtId": "achievement-icon:boss-crusher"
+    },
+    "target": 4,
+    "metricId": "metric:equipment-tier-4",
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 200
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:hybrid-engineer",
+    "name": "Hybrid Engineer",
+    "description": "Engineer one weapon build with 2 different active traits at once. Combine trait cores and trait-bearing parts.",
+    "kind": "incremental",
+    "target": 2,
+    "metricId": "metric:engineered-traits",
+    "presentation": {
+      "iconArtId": "achievement-icon:first-merge"
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 75
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:triple-threat",
+    "name": "Triple Threat",
+    "description": "Engineer one weapon build with 3 different active traits at once. Combine trait cores and trait-bearing parts.",
+    "kind": "incremental",
+    "target": 3,
+    "metricId": "metric:engineered-traits",
+    "presentation": {
+      "iconArtId": "achievement-icon:first-merge"
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 150
+        }
+      }
+    ]
   }
 ]

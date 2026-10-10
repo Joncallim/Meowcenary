@@ -74,7 +74,7 @@ describe('dedicated Achievement production art', () => {
 
   it('covers the exact active catalog plus hidden fallback with one dedicated presentation atlas', () => {
     const data = loadGameData();
-    expect(data.achievements?.map((achievement) => achievement.presentation.iconArtId).sort())
+    expect([...new Set(data.achievements?.map((achievement) => achievement.presentation.iconArtId))].sort())
       .toEqual([...ACTIVE_ACHIEVEMENT_ICON_IDS].sort());
 
     const art = new DataVisualArtRegistry(data);

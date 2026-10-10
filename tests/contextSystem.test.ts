@@ -375,8 +375,8 @@ describe('GameContext persistence boundary', () => {
     expect(context.completeStage('stage:junkyard-02', 1)).toBe(true);
     expect(context.completeStage('stage:junkyard-03', 1)).toBe(true);
     expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(true);
-    // The Stage 2/3 first-clear rewards survive the equipment purchase.
-    expect(context.saveData.progression.scrap).toBe(105);
+    // Stage 2/3 rewards and the reconciled fast-clear milestone survive the purchase.
+    expect(context.saveData.progression.scrap).toBe(155);
     expect(context.saveData.equipment['owned:helmet'].tier).toBe(2);
     expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(false);
     expect(context.commitEquipmentUpgrade('owned:helmet', 2, 3, 1)).toBe(false);

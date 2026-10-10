@@ -8,6 +8,15 @@ import { describeProgressionCondition } from './progressionPresentation';
 import { resolveEquipmentComparison, resolveEquipmentLoadoutPresentation, type EquipmentComparison, type EquipmentLoadoutPresentation, type EquipmentPreviewCommand } from './equipmentPresentation';
 export interface EquipmentSnapshot {
     readonly presentation: EquipmentLoadoutPresentation;
+    readonly acquisition: readonly {
+        readonly equipmentId: string;
+        readonly setId: string;
+        readonly name: string;
+        readonly slot: string;
+        readonly owned: boolean;
+        readonly available: boolean;
+        readonly summary: string;
+    }[];
     readonly selectedSlot: EquipmentSlot;
     readonly selectedInstanceId?: string;
     readonly selectedBlueprintId?: string;
@@ -99,6 +108,19 @@ export class EquipmentController {
                 effectSummary: Object.freeze(effects.map((effect) => effect.text)),
             })];
         });
+        const acquisition = this.registry.all().map((piece) => {
+            const set = this.registry.setById(piece.setId)!;
+            const available = evaluateCondition(set.unlock, facts);
+            const owned = ownedDefinitionIds.has(piece.id);
+            const requirement = set.unlock.type === 'always' ? '' : `${describeProgressionCondition(set.unlock, this.context.data)}. `;
+            const rewards = (this.context.data.stages ?? []).flatMap((stage) => {
+                const reward = this.context.data.rewardProfiles?.find((row) => row.id === stage.rewardProfileId);
+                return reward?.grants?.some((grant) => grant.type === 'grant-equipment-instance' && grant.equipmentId === piece.id)
+                    ? [`Owned piece on first clear: ${stage.name}.`] : [];
+            });
+            return Object.freeze({ equipmentId: piece.id, setId: set.id, name: piece.name, slot: piece.slot, owned, available,
+                summary: `${owned ? 'Owned' : available ? 'Blueprint available; not owned' : 'Blueprint locked'}. ${requirement}Fabricate for ${set.pieceFabricationCost} Scrap.${rewards.length ? ' ' + rewards.join(' ') : ''}` });
+        });
         const activeSets = presentation.sets.filter((set) => set.equippedCount > 0).map((set) => {
             const thresholds = set.thresholds.filter((threshold) => threshold.active);
             return Object.freeze({ name: set.name, emblemArtId: set.emblemArtId, pieces: set.equippedCount,
@@ -111,6 +133,7 @@ export class EquipmentController {
             this.registry.equipmentById(item.equipmentId) ? [] : [Object.freeze({ instanceId, equipmentId: item.equipmentId })]);
         return Object.freeze({ presentation, selectedSlot: this.selectedSlot, selectedInstanceId, selectedBlueprintId,
             comparison: selectedInstanceId === undefined ? undefined : this.preview({ kind: 'equip', instanceId: selectedInstanceId }),
+            acquisition: Object.freeze(acquisition),
             equipped, owned: Object.freeze(owned), blueprints: Object.freeze(blueprints),
             activeSets: Object.freeze(activeSets), unavailable: Object.freeze(unavailable),
         });
