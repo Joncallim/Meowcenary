@@ -32,7 +32,7 @@ type Seam = {
   captureArenaReadability(): Promise<Readability | undefined>;
   summaryMenuTarget(): Readonly<{ x: number; y: number }> | undefined;
   showRunSummary(outcome: 'won' | 'lost'): boolean;
-  runStartBriefDiagnostics(): { visible: boolean; status: string; timeMs: number } | undefined;
+  runStartBriefDiagnostics(): { visible: boolean; status: string; timeMs: number; buttons: Rect[] } | undefined;
 };
 declare global { var __MEOWCENARY_VISUAL_TEST__: Seam | undefined; }
 
