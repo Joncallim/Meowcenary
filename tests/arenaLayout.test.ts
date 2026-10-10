@@ -7,6 +7,13 @@ import { reseedRunRequest } from '../src/gameplay/runRequest';
 const data = loadGameData();
 const seeds = [1, 2, 3, 42, 0xffff_ffff];
 describe('one bounded seeded arena layout', () => {
+  it('pins the visually reviewed normal seed cohort hashes', () => {
+    const expected = [
+      ['ae44285f', 'b342fc26', 'afb23350', '5f59a2fb', 'd00b1912'],
+      ['82d43fac', '1b1d4d71', 'c6aee4d1', '1bd2d018', '6d287fb8'],
+    ];
+    expect(data.arenas.map(arena => seeds.map(seed => resolveArenaLayout(arena, seed, data.contentVersion).hash))).toEqual(expected);
+  });
   for (const arena of data.arenas) {
     it(`${arena.id}: authored baseline connects start, boss and gates`, () => {
       expect(validateArenaLayoutGeometry(arena, true)).toEqual({ valid: true });
@@ -66,6 +73,15 @@ describe('one bounded seeded arena layout', () => {
     const arena = data.arenas[0]!;
     expect(() => validateArenaCatalog([{ ...arena, generation: { ...arena.generation, obstacleIds: ['missing'] } }])).toThrow('obstacleIds');
     expect(() => validateArenaCatalog([{ ...arena, generation: { ...arena.generation, extraObstacles: { min: 2, max: 100 } } }])).toThrow('max');
+  });
+  it('rejects an empty generated decoration palette at catalog load', () => {
+    const arena = data.arenas[0]!;
+    expect(() => validateArenaCatalog([{ ...arena, visual: { ...arena.visual, decorations: [] } }])).toThrow('decoration palette');
+  });
+  it('rejects disconnected rectangular spawn regions', () => {
+    const arena = data.arenas[0]!;
+    const divided = { ...arena, generation: undefined, spawnRegions: [{ kind: 'rect' as const, x: 100, y: 100, w: 100, h: 100 }], obstacles: [{ id: 'wall', x: 0, y: 300, w: 768, h: 64 }] };
+    expect(validateArenaLayoutGeometry(divided)).toEqual({ valid: false, reason: 'unreachable-witness' });
   });
   it('terminal replay preserves identity while replacing exactly the seed', () => {
     expect(reseedRunRequest({ kind: 'stage', stageId: 'stage', characterId: 'cat', seed: 1 }, 2)).toEqual({ kind: 'stage', stageId: 'stage', characterId: 'cat', seed: 2 });

@@ -4683,6 +4683,24 @@ describe('MenuScene', () => {
     expect(harness.textContents()).toContain('Retry Loading Contract');
   });
 
+  it('preserves one prepared layout on load retry and abandons it on navigation', async () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as any;
+    harness.buttonByLabel('Play Contract')!.state.handlers['pointerup']!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(layout).toBeDefined();
+    harness.buttonByLabel('Retry Loading Contract')!.state.handlers['pointerup']!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    harness.buttonByLabel('Mercenary')!.state.handlers['pointerup']!();
+    expect(scene.capturedLaunch).toBeUndefined();
+    expect(scene.preparedArenaLayout).toBeUndefined();
+    expect(scene.runLaunchState).toBe('idle');
+  });
+
   it('places a wrapped Contract loading error above Retry without overlap at the narrow viewport', async () => {
     const harness = createHarness({ create: false });
     const scale = harness.menuScene.scale as unknown as { width: number; displaySize: { width: number } };

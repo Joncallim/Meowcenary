@@ -56,7 +56,7 @@ Forge's existing heat-grate footprint/art stays fixed and gains a data-authored
 cycle: 2400ms safe, 900ms warning, 1700ms damaging, 10 damage/sec when active.
 The grate is dim/cool while safe, pulses amber in warning, and becomes full-bright
 red when damaging. Exact active-duration integration preserves damage across
-frame boundaries. Simulation updates own elapsed time; pause/inactive player
+frame boundaries for stationary occupancy; position is sampled per simulation tick. Simulation updates own elapsed time; pause/inactive player
 stops the system. Safe connectivity always excludes hazards even while inactive,
 so a route never requires taking damage. No hazard-only asset substitutions.
 
@@ -73,3 +73,11 @@ These references support implementation semantics, not claims of benchmark
 playtesting. Desktop/mobile browser captures are simulated viewport evidence;
 physical-device/controller checks remain separate. Subjective map fun and visual
 readability require human playtesting beyond deterministic correctness tests.
+
+Design benchmark: [Funday's official Deep Rock Galactic: Survivor page](https://www.fundaygames.dk/deep-rock-galactic-survivor)
+places mining and environmental navigation alongside automatic shooting. This
+supports treating positioning around terrain as a player decision while attacks
+remain automatic; it is inspiration rather than a claim that Meowcenary now has
+mining/destructible terrain. The [official Deep Rock Galactic site](https://www.deeprockgalactic.com/)
+also presents different cave layouts as part of exploration. Both inspected
+2026-10-10. Our bounded two-arena solver deliberately keeps fixed theme anchors.

@@ -63,6 +63,21 @@ describe('HazardSystem', () => {
     expect(tileSprite.destroy).toHaveBeenCalledOnce();
   });
 
+  it('freezes a pulsing crossing window during pause and integrates warning boundaries', () => {
+    const player = makePlayer();
+    const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    runState.status = 'active';
+    const system = new HazardSystem({ scene: {} as never, runState, bus: createEventBus(), player: player as never,
+      hazards: [{ ...hazard, pulse: { safeMs: 2400, warningMs: 900, activeMs: 1700, offsetMs: 0 } }] });
+    system.update(3200);
+    expect(player.takeEnvironmentalDamage).not.toHaveBeenCalled();
+    runState.status = 'paused'; system.update(10000);
+    runState.status = 'active'; system.update(300);
+    expect(player.takeEnvironmentalDamage).toHaveBeenCalledWith(2);
+    system.destroy(); system.update(1000);
+    expect(player.takeEnvironmentalDamage).toHaveBeenCalledTimes(1);
+  });
+
   it('deals damage when player is inside a hazard', () => {
     const bus = createEventBus();
     const player = makePlayer({ x: 100, y: 100 });

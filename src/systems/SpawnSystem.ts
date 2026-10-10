@@ -103,7 +103,8 @@ export class SpawnSystem implements System {
       if (projectile.active) this.resolveProjectileContact(projectile, false);
       projectile.update(dtMs);
       const previous = this.previousProjectilePositions.get(projectile)!;
-      previous.x = projectile.x; previous.y = projectile.y;
+      previous.x = projectile.body.center?.x ?? projectile.x;
+      previous.y = projectile.body.center?.y ?? projectile.y;
     });
 
     const activeCounts = Object.create(null) as Record<string, number>;
@@ -152,6 +153,9 @@ export class SpawnSystem implements System {
     if (!projectile) return;
     const previous = this.previousProjectilePositions.get(projectile)!;
     previous.x = shot.x; previous.y = shot.y;
+    // Arcade body coordinates are authoritative during collision callbacks;
+    // synchronise pooled body position before spawn restores launch velocity.
+    projectile.body.reset(shot.x, shot.y);
     projectile.spawn(shot.x, shot.y, { x: shot.dirX, y: shot.dirY }, {
       speed: 210,
       damage: shot.damage,
@@ -169,8 +173,14 @@ export class SpawnSystem implements System {
   private resolveProjectileContact(projectile: Projectile, overlap: boolean): void {
     if (!this.canDamagePlayer()) return;
     const previous = this.previousProjectilePositions.get(projectile)!;
-    const impact = enemyProjectileImpact(previous.x, previous.y, projectile.x, projectile.y, 6,
-      this.player.x, this.player.y, this.player.bodyRadius, this.arena.obstacles);
+    const projectileCenter = projectile.body.center;
+    const playerCenter = (this.player.sprite.body as Phaser.Physics.Arcade.Body | undefined)?.center;
+    // Body.postUpdate has not copied current physics positions to sprites when
+    // overlap callbacks run. Sprite fallback is only for headless test hosts.
+    const impact = enemyProjectileImpact(previous.x, previous.y,
+      projectileCenter?.x ?? projectile.x, projectileCenter?.y ?? projectile.y, 6,
+      playerCenter?.x ?? this.player.x, playerCenter?.y ?? this.player.y,
+      this.player.bodyRadius, this.arena.obstacles);
     if (impact === 'cover') projectile.reset();
     else if (impact === 'player' || overlap) { this.player.takeDamage(projectile.damage); projectile.reset(); }
   }
