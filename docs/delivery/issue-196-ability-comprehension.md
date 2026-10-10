@@ -101,6 +101,24 @@ build identity, public metadata/assets and both release SHAs must be recorded on
 [#196](https://github.com/Joncallim/Meowcenary/issues/196) at release. Production
 may not be updated while any exact-head gate is red.
 
+## Maintained capture-runner compatibility
+
+The current performance Training and real Contract launch runners previously
+waited directly for active combat. The new required intro made both wait without
+issuing Start. A [RED regression](evidence/issue-196/performance-start-red.log)
+reproduces that stalled boundary for keyboard, pointer and touch, while retaining
+the historical already-active route. `scripts/performance-run-start.mjs` now
+waits for the rendered prepared intro, verifies its time-zero brief, samples
+neutral input and confirms with a real input gesture. Both maintained callers
+retain their active-run postconditions before measuring combat.
+
+Launch evidence labels `preparedStatus`; preparation duration ends at the first
+rendered intro, or active on historical builds. Automated confirmation and
+end-to-end active latency are separate fields. These changed presentation
+boundaries must not be represented as a performance improvement against older
+archives. No performance architecture, timeout, gameplay or diagnostic bypass
+was introduced. The helper regression is part of ordinary Vitest discovery.
+
 ## Remaining product gate
 
 Automated virtual gamepads, Chromium viewport/DPR/touch emulation and CDP

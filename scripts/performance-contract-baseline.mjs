@@ -2,6 +2,7 @@
 import { chromium } from '@playwright/test';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import { waitForPerformanceRunStart } from './performance-run-start.mjs';
 const args = process.argv.slice(2);
 const option = (key, fallback) => { const index = args.indexOf(key); return index < 0 ? fallback : args[index + 1]; };
 const base = option('--url', 'http://127.0.0.1:4261');
@@ -12,7 +13,7 @@ const measurementSHA = option('--expected-sha', primary.measurementSHA);
 assert.equal((await (await fetch(`${base}/build-meta.json`)).json()).commit, measurementSHA);
 await mkdir(out, { recursive: true });
 const result = { measurementSHA, fixtureSourceSHA: primary.measurementSHA,
- method: 'Fresh context, same baseline save, real Home Play Contract touch/pointer; end at POST_RENDER active prepared GameScene. Normal menu RNG seed is recorded, not overridden. No intervening panel warmup, combat fixture or progression settlement.', cohorts: [] };
+ method: 'Fresh context, same baseline save, real Home Play Contract touch/pointer. durationMs ends at POST_RENDER prepared intro, or prepared active on historical builds; preparedStatus identifies the boundary. Automated real Start is separate: automatedStartToActiveMs and endToEndActiveDurationMs are not comparable preparation improvements. Normal menu RNG seed is recorded, not overridden. No intervening panel warmup, combat fixture or progression settlement.', cohorts: [] };
 const browser = await chromium.launch();
 try {
  for (const profile of [...new Map(primary.cohorts.map(c => [c.profile.name, c.profile])).values()]) {
@@ -37,11 +38,15 @@ try {
    const { x, y, width, height } = target.bounds;
    if (profile.touch) await page.touchscreen.tap(x + width / 2, y + height / 2);
    else await page.mouse.click(x + width / 2, y + height / 2);
-   await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun?.status === 'active');
+   const launch = await waitForPerformanceRunStart(page, profile.touch ? 'touch' : 'mouse');
    const state = await page.evaluate(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot());
    assert.equal(state.run.training, false); assert.equal(state.run.status, 'active');
    assert(Number.isSafeInteger(state.run.seed)); assert.deepEqual(errors, []);
-   result.cohorts.push({ profile, repeat, durationMs: state.presentedRun.atMs - start,
+   result.cohorts.push({ profile, repeat, durationMs: launch.preparedRun.atMs - start, preparedStatus: launch.preparedRun.status,
+    ...(launch.startCommandAtMs === undefined ? {} : {
+     automatedStartToActiveMs: state.presentedRun.atMs - launch.startCommandAtMs,
+     endToEndActiveDurationMs: state.presentedRun.atMs - start,
+    }),
     observedDurationMs: await page.evaluate(start => performance.now() - start, start), errors, state });
    await context.close();
   }

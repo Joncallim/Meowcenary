@@ -5,6 +5,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import assert from 'node:assert/strict';
+import { waitForPerformanceRunStart } from './performance-run-start.mjs';
 const args = process.argv.slice(2);
 const option = (name, fallback) => { const index = args.indexOf(name); return index < 0 ? fallback : args[index + 1]; };
 const base = option('--url', 'http://127.0.0.1:4261');
@@ -38,6 +39,7 @@ const result = { baselineSHA: '26f46fb5398c7eb769fe1bffa5ed60f80f20eea5', measur
     action: 'real keyboard focus + Enter; ready latency ends at recorded POST_RENDER, observedDurationMs also includes release/polling',
     gunsmith: 'actual Pistol -> configured SMG -> Pistol build switches, then occupied receiver replacement; durable selected ID and fit asserted',
     combat: 'real Training/resource/spawn/physics/weapon path; fixed run/fixture seeds; fixture grants60s invulnerability; no progression writes',
+    launch: 'durationMs ends at POST_RENDER prepared intro, or prepared active on historical builds; preparedStatus identifies this semantic boundary. Automated real Start is separate: automatedStartToActiveMs and endToEndActiveDurationMs are not comparable preparation improvements.',
     result: 'existing dedicated terminal-presentation fixture + real keyboard return; not durable reward acceptance',
     rawFrames: 'Phaser raw loop cadence; gameplay frame samples are separately labelled smoothed simulation delta',
     limitations: ['Headless Chromium/Linux; GPU backend unverified, not physical Android/iOS.', 'CPU4x is emulation, not a calibrated phone.',
@@ -97,9 +99,13 @@ async function inputAction(page, name, key = 'Enter') {
 async function launch(page, name, seed) {
   const started = await page.evaluate(() => { globalThis.__MEOWCENARY_PERFORMANCE__.resetMeasurement(); return performance.now(); });
   assert.equal(await page.evaluate(seed => globalThis.__MEOWCENARY_VISUAL_TEST__.startPerformanceTraining(seed), seed), true);
-  await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun?.status === 'active');
+  const launch = await waitForPerformanceRunStart(page);
   const state = await snapshot(page); assert.equal(state.run.seed, seed); assert.equal(state.run.training, true);
-  return { name, durationMs: state.presentedRun.atMs - started, observedDurationMs: await page.evaluate(start => performance.now() - start, started), state: compact(state) };
+  return { name, durationMs: launch.preparedRun.atMs - started, preparedStatus: launch.preparedRun.status,
+    ...(launch.startCommandAtMs === undefined ? {} : {
+      automatedStartToActiveMs: state.presentedRun.atMs - launch.startCommandAtMs,
+      endToEndActiveDurationMs: state.presentedRun.atMs - started,
+    }), observedDurationMs: await page.evaluate(start => performance.now() - start, started), state: compact(state) };
 }
 async function terminalReturn(page, name) {
   assert.equal(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__.showRunSummary('lost')), true);
