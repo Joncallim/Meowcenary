@@ -28,13 +28,13 @@ function setup(){
 const cases=(['equipment','gunsmith'] as const).flatMap(kind=>(['throw','null','stale'] as const).flatMap(mode=>(['publication','later save'] as const).map(phase=>({kind,mode,phase}))));
 describe('201 independent canonical commit boundary',()=>{
  it.each(cases)('$kind $mode readback preserves career during $phase',({kind,mode,phase})=>{
-  const {ctx,storage}=setup();storage.mode=mode;
+  const {ctx,storage}=setup();const initialScrap=ctx.saveData.progression.scrap;storage.mode=mode;
   const result=kind==='equipment'?ctx.updateEquipment(({equipment})=>({equipment,loadout:{helmet:'helmet'}})):ctx.updateGunsmith(s=>({...s,builds:[{id:'build:pistol',name:'Sidearm',baseWeaponFamily:'pistol',fitted:{},traitParts:[]}],selectedBuildId:'build:pistol'}));
   expect(result.persisted).toBe(true);storage.mode='normal';
-  expect(JSON.parse(storage.getItem('review201')!).progression.scrap).toBe(999);
+  expect(JSON.parse(storage.getItem('review201')!).progression.scrap).toBe(initialScrap);
   if(phase==='later save')ctx.updateSettings({muted:!ctx.settings.muted});
   const actual=phase==='later save'?JSON.parse(storage.getItem('review201')!):ctx.saveData;
-  expect(actual.progression.scrap).toBe(999);
+  expect(actual.progression.scrap).toBe(initialScrap);
   expect(actual.stages['stage:junkyard-01']).toEqual({completed:true,bestTimeMs:12345});
   expect(actual.achievements['achievement:review201']).toEqual({completed:true,progress:4,completedAt:12345});
   expect(actual.equipment.helmet.tier).toBe(1);

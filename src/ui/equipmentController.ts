@@ -119,7 +119,7 @@ export class EquipmentController {
                     ? [`Owned piece on first clear: ${stage.name}.`] : [];
             });
             return Object.freeze({ equipmentId: piece.id, setId: set.id, name: piece.name, slot: piece.slot, owned, available,
-                summary: `${owned ? 'Owned' : available ? 'Blueprint available; not owned' : 'Blueprint locked'}. ${requirement}Fabricate for ${set.pieceFabricationCost} Scrap.${rewards.length ? ' ' + rewards.join(' ') : ''}` });
+                summary: `${owned ? `Owned. Blueprint cost: ${set.pieceFabricationCost} Scrap. No additional copy can be fabricated.` : `${available ? 'Blueprint available; not owned' : 'Blueprint locked'}. ${requirement}Fabricate for ${set.pieceFabricationCost} Scrap.`}${rewards.length ? ' ' + rewards.join(' ') : ''}` });
         });
         const activeSets = presentation.sets.filter((set) => set.equippedCount > 0).map((set) => {
             const thresholds = set.thresholds.filter((threshold) => threshold.active);
