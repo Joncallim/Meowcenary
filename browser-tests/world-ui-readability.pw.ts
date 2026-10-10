@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
+import { dismissRunStartBrief } from './run-start-helpers';
 
 type Rect = { x: number; y: number; width: number; height: number };
 type Framing = {
@@ -49,6 +50,7 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
   } finally {
     await page.keyboard.up('Enter');
   }
+  await dismissRunStartBrief(page, 'keyboard');
   mark('prepared game');
   const initial = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
   expect(initial).toBeDefined();
@@ -149,6 +151,7 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
       await page.keyboard.up('Enter');
     }
     await inputFrame();
+    await dismissRunStartBrief(page, 'keyboard');
     mark('launch complete');
   };
   const plateCount = () => page.evaluate(() => {

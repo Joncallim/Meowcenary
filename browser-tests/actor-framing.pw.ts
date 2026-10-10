@@ -1,5 +1,6 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
+import { dismissRunStartBrief } from './run-start-helpers';
 
 type Rect = { x: number; y: number; width: number; height: number };
 type Diagnostic = {
@@ -43,6 +44,7 @@ async function enterPreparedGame(page: Page): Promise<void> {
   } finally {
     await page.keyboard.up('Enter');
   }
+  await dismissRunStartBrief(page, 'keyboard');
 }
 
 function expectedScroll(target: number, viewportSize: number, start: number, extent: number, zoom: number): number {
