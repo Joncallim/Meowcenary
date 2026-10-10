@@ -1585,7 +1585,7 @@ function checkArena(row: unknown): string[] {
     const e: string[] = [];
     if (!isRecord(generation)) e.push('required object');
     else {
-      rejectUnknownFields(generation, new Set(['obstacleIds', 'extraObstacles', 'zones']), e);
+      rejectUnknownFields(generation, new Set(['obstacleIds', 'extraObstacles', 'zones', 'families']), e);
       const ids = readOwnField(generation, 'obstacleIds');
       const obstacles = readOwnField(row, 'obstacles');
       if (!Array.isArray(ids) || ids.length < 1 || ids.length > 5 || new Set(ids).size !== ids.length || ids.some(id => typeof id !== 'string' || !Array.isArray(obstacles) || !obstacles.some(o => isRecord(o) && o.id === id))) e.push('obstacleIds: expected unique authored obstacle references');
@@ -1595,6 +1595,35 @@ function checkArena(row: unknown): string[] {
         rejectUnknownFields(extra, new Set(['min', 'max']), e);
         requireIntegerInRange(extra, 'min', 2, 3, e); requireIntegerInRange(extra, 'max', 2, 3, e);
         if (typeof extra.min === 'number' && typeof extra.max === 'number' && (extra.min > extra.max || (Array.isArray(obstacles) && obstacles.length + extra.max > 5))) e.push('extraObstacles: exceeds total obstacle budget');
+      }
+      const families = readOwnField(generation, 'families');
+      if (families !== undefined) {
+        if (!Array.isArray(families) || families.length < 1 || families.length > 8) e.push('families: expected 1–8 families');
+        else {
+          const seen = new Set<unknown>();
+          for (const family of families) {
+            if (!isRecord(family)) { e.push('families: expected object'); continue; }
+            rejectUnknownFields(family, new Set(['id', 'assemblies']), e);
+            requireString(family, 'id', e);
+            if (seen.has(family.id)) e.push('families: duplicate id');
+            seen.add(family.id);
+            const assemblies = readOwnField(family, 'assemblies');
+            if (!Array.isArray(assemblies) || assemblies.length < 1 || assemblies.length > 12) { e.push('families.assemblies: expected 1–12 assemblies'); continue; }
+            let modules = 0;
+            for (const assembly of assemblies) {
+              if (!isRecord(assembly)) { e.push('families.assemblies: expected object'); continue; }
+              rejectUnknownFields(assembly, new Set(['x', 'y', 'columns', 'rows']), e);
+              for (const key of ['x', 'y']) {
+                const value = readOwnField(assembly, key);
+                if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) e.push(`families.assemblies.${key}: expected finite nonnegative number`);
+              }
+              requireIntegerInRange(assembly, 'columns', 1, 8, e);
+              requireIntegerInRange(assembly, 'rows', 1, 8, e);
+              modules += Number(assembly.columns) * Number(assembly.rows);
+            }
+            if (!Number.isFinite(modules) || modules < 16 || modules > 26) e.push('families: expected 16–26 modules');
+          }
+        }
       }
       const zones = readOwnField(generation, 'zones');
       if (!Array.isArray(zones) || zones.length < 1 || zones.length > 16) e.push('zones: expected 1–16 zones');

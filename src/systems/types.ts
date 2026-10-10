@@ -635,7 +635,13 @@ export interface HazardDefinition {
   readonly damagePerSecond: number;
 }
 
+export interface ArenaGenerationFamily {
+  readonly id: string;
+  readonly assemblies: readonly { readonly x: number; readonly y: number; readonly columns: number; readonly rows: number }[];
+}
+
 export interface ArenaGenerationProfile {
+  readonly families?: readonly ArenaGenerationFamily[];
   readonly obstacleIds: readonly string[];
   readonly extraObstacles: { readonly min: number; readonly max: number };
   readonly zones: readonly { readonly id: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }[];
