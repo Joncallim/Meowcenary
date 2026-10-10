@@ -66,27 +66,67 @@ class FakeAudioCache {
 class FakeSound {
   readonly key: string;
   isPlaying = false;
+  isPaused = false;
+  pendingRemove = false;
+  destroyCalls = 0;
+  private readonly listeners = new Map<string, Set<() => void>>();
   volume = 1;
   mute = false;
   readonly playCalls: Array<Record<string, unknown>> = [];
 
-  constructor(key: string, private readonly log?: string[]) {
+  constructor(key: string, private readonly log?: string[], private readonly onPlay?: (config: Record<string, unknown>) => void) {
     this.key = key;
   }
 
-  play(config?: Record<string, unknown>): this {
+  on(event: string, listener: () => void): this {
+    const listeners = this.listeners.get(event) ?? new Set();
+    listeners.add(listener);
+    this.listeners.set(event, listeners);
+    return this;
+  }
+
+  off(event: string, listener: () => void): this {
+    this.listeners.get(event)?.delete(listener);
+    return this;
+  }
+
+  callbacks(event: string): Array<() => void> {
+    return [...(this.listeners.get(event) ?? [])];
+  }
+
+  emit(event: string): void {
+    for (const listener of this.callbacks(event)) listener();
+  }
+
+  complete(): void {
+    this.isPlaying = false;
+    this.emit('complete');
+  }
+
+  destroy(): void {
+    if (this.pendingRemove) return;
+    this.destroyCalls += 1;
+    this.stop(); // Phaser stops first, emits destroy, then sets pendingRemove.
+    this.emit('destroy');
+    this.listeners.clear();
+    this.pendingRemove = true;
+  }
+
+  play(config?: Record<string, unknown>): boolean {
     this.isPlaying = true;
     // Phaser applies the play config to the sound instance; the fake mirrors
     // that so volume/mute state reflects the last play call.
     if (typeof config?.volume === 'number') this.volume = config.volume;
     if (typeof config?.mute === 'boolean') this.mute = config.mute;
     this.playCalls.push(config ?? {});
-    return this;
+    this.onPlay?.(config ?? {});
+    return true;
   }
 
   stop(): this {
     this.isPlaying = false;
     this.log?.push('stop');
+    this.emit('stop');
     return this;
   }
 
@@ -107,6 +147,7 @@ class FakeSoundManager {
   stopAllCalls = 0;
   readonly playedSfx: Array<{ key: string; config: Record<string, unknown> }> = [];
   readonly added: FakeSound[] = [];
+  readonly retained: FakeSound[] = [];
   private readonly listeners = new Map<string, Array<(...args: unknown[]) => void>>();
 
   constructor(private readonly log?: string[]) {}
@@ -138,15 +179,35 @@ class FakeSoundManager {
   }
 
   play(key: string, config?: Record<string, unknown>): boolean {
-    this.playedSfx.push({ key, config: config ?? {} });
-    this.log?.push(`play:${key}`);
-    return true;
+    const sound = this.add(key);
+    sound.on('complete', () => sound.destroy());
+    return sound.play(config);
   }
 
   add(key: string): FakeSound {
-    const sound = new FakeSound(key, this.log);
+    const sound = new FakeSound(key, this.log, (config) => {
+      if (!config.loop) {
+        this.playedSfx.push({ key, config });
+        this.log?.push(`play:${key}`);
+      }
+    });
     this.added.push(sound);
+    this.retained.push(sound);
     return sound;
+  }
+
+  remove(sound: FakeSound): boolean {
+    const index = this.retained.indexOf(sound);
+    if (index < 0) return false;
+    sound.destroy();
+    this.retained.splice(index, 1);
+    return true;
+  }
+
+  tick(): void {
+    for (let i = this.retained.length - 1; i >= 0; i -= 1) {
+      if (this.retained[i].pendingRemove) this.retained.splice(i, 1);
+    }
   }
 
   unlock(): void {
@@ -433,19 +494,18 @@ describe('AudioManager music', () => {
     expect(sound.added[3].isPlaying).toBe(false);
   });
 
-  it('clamps a non-finite music volume before the fade ramp', () => {
+  it('does not read non-finite external volume back into the owned fade envelope', () => {
     for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
       const { audio, sound } = createHarness();
 
       audio.playMusic('music-run');
       const music = sound.added[0];
-      // A rogue MusicLoop instance (the manager does not control its
-      // volume): the value must never leak into the fade ramp.
+      // External instance mutation cannot overwrite the manager's envelope.
       music.volume = value;
 
       audio.stopMusic(300);
-      audio.update(150); // t = 1/2 → fromVolume * 0.5, never NaN
-      expect(music.volume).toBe(0);
+      audio.update(150); // t = 1/2 → user gain * envelope, never NaN
+      expect(music.volume).toBeCloseTo(0.35);
 
       audio.update(150);
       expect(music.isPlaying).toBe(false);
@@ -531,7 +591,7 @@ describe('AudioManager settings', () => {
     expect(music.mute).toBe(true);
   });
 
-  it('applies mute mid-fade but never fights the volume ramp', () => {
+  it('applies mute and current user gain mid-fade', () => {
     const { audio, sound } = createHarness();
 
     audio.playMusic('music-run');
@@ -541,7 +601,7 @@ describe('AudioManager settings', () => {
     audio.applySettings({ ...SETTINGS, muted: true, musicVolume: 0.3 });
 
     expect(music.mute).toBe(true);
-    expect(music.volume).toBe(0.7); // the fade owns the volume
+    expect(music.volume).toBe(0.3); // user gain composes with the envelope
 
     audio.update(600); // fade completes
     audio.playMusic('music-menu'); // the next loop uses the new settings
@@ -565,7 +625,7 @@ describe('AudioManager settings', () => {
     expect(sound.playedSfx[0].config.volume).toBe(1);
 
     audio.playMusic('music-run');
-    expect(sound.added[0].playCalls[0].volume).toBe(0);
+    expect(sound.added.find((voice) => voice.key === 'music-run')?.playCalls[0].volume).toBe(0);
   });
 
   it('clamps non-finite volume settings to 0', () => {
@@ -577,7 +637,7 @@ describe('AudioManager settings', () => {
       expect(sound.playedSfx[0].config.volume).toBe(0);
 
       audio.playMusic('music-run');
-      expect(sound.added[0].playCalls[0].volume).toBe(0);
+      expect(sound.added.find((voice) => voice.key === 'music-run')?.playCalls[0].volume).toBe(0);
     }
   });
 });
@@ -739,5 +799,192 @@ describe('AudioManager unlock and destroy', () => {
 
     audio.destroy(); // idempotent
     expect(sound.stopAllCalls).toBe(0);
+  });
+});
+
+
+describe('AudioManager owned voice lifecycle (#237)', () => {
+  it('applies live SFX gain to active family/tier voices and retires tails on mute', () => {
+    const { audio, bus, sound } = createHarness(FAMILY_MAP, undefined, WEAPON_FEEL);
+    bus.emit('weapon:fired', { ...WEAPON_FIRED, tier: 2 });
+    const voice = sound.added[0];
+    audio.applySettings({ ...SETTINGS, sfxVolume: 0.4 });
+    expect(voice.volume).toBeCloseTo(0.3);
+    bus.emit('settings:changed', { settings: { ...SETTINGS, muted: true } });
+    expect(voice.isPlaying).toBe(false);
+    expect(voice.destroyCalls).toBe(1);
+    audio.applySettings(SETTINGS);
+    expect(voice.isPlaying).toBe(false);
+    expect(voice.playCalls).toHaveLength(1);
+  });
+
+  it.each([0, 600])('cancels deferred music when stopped with fade %s', (fadeMs) => {
+    const { audio, sound } = createHarness();
+    sound.locked = true;
+    audio.playMusic('music-run');
+    audio.stopMusic(fadeMs);
+    sound.locked = false;
+    sound.emit('unlocked');
+    expect(sound.added).toHaveLength(0);
+  });
+
+  it('lets the current loop supersede a different deferred music request', () => {
+    const { audio, sound } = createHarness();
+    audio.playMusic('music-menu');
+    sound.locked = true;
+    audio.playMusic('music-run');
+    audio.playMusic('music-menu');
+    sound.locked = false;
+    sound.emit('unlocked');
+    expect(sound.added).toHaveLength(1);
+    expect(sound.added[0].isPlaying).toBe(true);
+  });
+
+  it('clamps live active-SFX gain without losing an amplifying tier multiplier', () => {
+    const { audio, sound } = createHarness();
+    audio.play('sfx-ui-confirm', 2);
+    const voice = sound.added[0];
+    expect(voice.volume).toBe(1);
+    audio.applySettings({ ...SETTINGS, sfxVolume: 0.2 });
+    expect(voice.volume).toBe(0.4);
+    audio.applySettings({ ...SETTINGS, sfxVolume: Number.NaN });
+    expect(voice.volume).toBe(0);
+  });
+
+  it('cancels deferred run music and drops its stinger on a locked terminal event', () => {
+    const { audio, bus, sound } = createHarness();
+    sound.locked = true;
+    audio.playMusic('music-run');
+    bus.emit('run:won', RUN_WON);
+    sound.locked = false;
+    sound.emit('unlocked');
+    expect(sound.added).toHaveLength(0);
+    audio.playMusic('music-menu');
+    expect(sound.added.map((voice) => voice.key)).toEqual(['music-menu']);
+  });
+
+  it('releases replaced/faded loops and all active voices at teardown', () => {
+    const { audio, sound } = createHarness();
+    for (let i = 0; i < 30; i += 1) {
+      audio.playMusic('music-menu');
+      audio.playMusic('music-run');
+      audio.stopMusic(600);
+      audio.update(300);
+      audio.playMusic('music-run'); // Retry supersedes an active fade.
+      sound.tick();
+      expect(sound.retained).toHaveLength(1);
+    }
+    audio.stopMusic(600);
+    audio.update(600);
+    sound.tick();
+    expect(sound.retained).toHaveLength(0);
+    audio.playMusic('music-menu');
+    audio.play('sfx-ui-confirm');
+    audio.destroy();
+    audio.destroy();
+    sound.tick();
+    expect(sound.retained).toHaveLength(0);
+    expect(sound.added.every((voice) => voice.destroyCalls === 1)).toBe(true);
+    expect(sound.listenerCount('unlocked')).toBe(0);
+    expect(sound.stopAllCalls).toBe(0);
+  });
+
+  it('composes live music gain with the envelope, including zero gain and a repeated fade', () => {
+    const { audio, sound } = createHarness();
+    audio.playMusic('music-run');
+    const music = sound.added[0];
+    audio.stopMusic(600);
+    audio.update(300);
+    audio.applySettings({ ...SETTINGS, musicVolume: 0.2 });
+    expect(music.volume).toBeCloseTo(0.1);
+    audio.applySettings({ ...SETTINGS, musicVolume: 0 });
+    audio.stopMusic(300);
+    audio.update(150);
+    audio.applySettings({ ...SETTINGS, musicVolume: 0.8 });
+    expect(music.volume).toBeCloseTo(0.2);
+    audio.update(150);
+    expect(music.destroyCalls).toBe(1);
+  });
+
+  it('detaches completion/destroy handlers and ignores obsolete music completion', () => {
+    const { audio, sound } = createHarness();
+    audio.playMusic('music-run');
+    const first = sound.added[0];
+    const obsolete = first.callbacks('complete');
+    audio.playMusic('music-menu');
+    const current = sound.added[1];
+    for (const callback of obsolete) callback();
+    first.emit('complete');
+    audio.playMusic('music-menu');
+    expect(sound.added).toHaveLength(2);
+    expect(current.isPlaying).toBe(true);
+    expect(first.callbacks('complete')).toHaveLength(0);
+    expect(first.callbacks('destroy')).toHaveLength(0);
+    current.destroy(); // External/engine teardown must not recursively destroy.
+    expect(current.destroyCalls).toBe(1);
+    audio.playMusic('music-menu');
+    expect(sound.added).toHaveLength(3);
+  });
+
+  it('retires naturally completed SFX once and does not modify completed handles', () => {
+    const { audio, sound } = createHarness();
+    audio.play('sfx-ui-confirm');
+    const voice = sound.added[0];
+    const stale = voice.callbacks('complete');
+    voice.complete();
+    for (const callback of stale) callback();
+    audio.applySettings({ ...SETTINGS, sfxVolume: 0.1 });
+    audio.destroy();
+    expect(voice.volume).toBe(0.8);
+    expect(voice.destroyCalls).toBe(1);
+    expect(voice.callbacks('complete')).toHaveLength(0);
+    expect(voice.callbacks('destroy')).toHaveLength(0);
+  });
+
+  it('reaps HTML5 tag-hijacked or stopped sounds but preserves paused sounds', () => {
+    const { audio, sound } = createHarness();
+    audio.play('sfx-ui-confirm');
+    const voice = sound.added[0];
+    voice.isPlaying = false; // HTML5AudioSound.pickAudioTag resets the old voice without complete.
+    voice.isPaused = true;
+    audio.update(16);
+    expect(voice.destroyCalls).toBe(0);
+    voice.isPaused = false;
+    audio.update(16);
+    expect(voice.destroyCalls).toBe(1);
+  });
+
+  it.each(['false', 'throw'] as const)('releases failed %s playback without consuming SFX cooldown or latching music', (failure) => {
+    const { audio, bus, sound } = createHarness();
+    const add = sound.add.bind(sound);
+    const spy = vi.spyOn(sound, 'add').mockImplementation((key) => {
+      const voice = add(key);
+      vi.spyOn(voice, 'play').mockImplementation(() => {
+        if (failure === 'throw') throw new Error('Audio backend unavailable');
+        return false; // NoAudio or HTML5 tag exhaustion.
+      });
+      return voice;
+    });
+    expect(() => audio.play('sfx-weapon-fired')).not.toThrow();
+    expect(() => audio.playMusic('music-run')).not.toThrow();
+    expect(sound.retained).toHaveLength(0); // NoAudio has no update sweep.
+    expect(sound.added.every((voice) => voice.destroyCalls === 1)).toBe(true);
+    spy.mockRestore();
+    bus.emit('weapon:fired', WEAPON_FIRED); // same manager time; failed request consumed no cooldown.
+    audio.playMusic('music-run');
+    expect(sound.playedSfx).toHaveLength(1);
+    expect(sound.added.at(-1)?.isPlaying).toBe(true);
+  });
+
+  it('fails silently on add errors and permits an immediate retry', () => {
+    const { audio, bus, sound } = createHarness();
+    const spy = vi.spyOn(sound, 'add').mockImplementation(() => { throw new Error('Missing decoded buffer'); });
+    expect(() => audio.play('sfx-weapon-fired')).not.toThrow();
+    expect(() => audio.playMusic('music-run')).not.toThrow();
+    spy.mockRestore();
+    bus.emit('weapon:fired', WEAPON_FIRED);
+    audio.playMusic('music-run');
+    expect(sound.playedSfx).toHaveLength(1);
+    expect(sound.added.at(-1)?.isPlaying).toBe(true);
   });
 });
