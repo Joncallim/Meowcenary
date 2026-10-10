@@ -7,11 +7,16 @@
     "displayOrder": 1,
     "arenaId": "junkyard-lot",
     "assetBundleId": "bundle:core-junkyard",
-    "objective": { "type": "kill", "count": 25 },
+    "objective": {
+      "type": "kill",
+      "count": 25
+    },
     "encounterProfileId": "encounter:junkyard-first-scavenge",
     "difficultyProfileId": "difficulty:chapter-1-easy",
     "rewardProfileId": "reward:stage-01",
-    "unlock": { "type": "always" }
+    "unlock": {
+      "type": "always"
+    }
   },
   {
     "id": "stage:junkyard-02",
@@ -21,11 +26,18 @@
     "displayOrder": 2,
     "arenaId": "junkyard-lot",
     "assetBundleId": "bundle:core-junkyard",
-    "objective": { "type": "collect", "itemId": "drop:scrap", "count": 14 },
+    "objective": {
+      "type": "collect",
+      "itemId": "drop:scrap",
+      "count": 14
+    },
     "encounterProfileId": "encounter:junkyard-scrap-run",
     "difficultyProfileId": "difficulty:chapter-1-easy",
     "rewardProfileId": "reward:stage-02",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-01" }
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-01"
+    }
   },
   {
     "id": "stage:junkyard-03",
@@ -35,11 +47,17 @@
     "displayOrder": 3,
     "arenaId": "junkyard-lot",
     "assetBundleId": "bundle:core-junkyard",
-    "objective": { "type": "survive", "seconds": 120 },
+    "objective": {
+      "type": "survive",
+      "seconds": 120
+    },
     "encounterProfileId": "encounter:junkyard-rusher-ambush",
     "difficultyProfileId": "difficulty:chapter-1-medium",
     "rewardProfileId": "reward:stage-03",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-02" }
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-02"
+    }
   },
   {
     "id": "stage:junkyard-04",
@@ -49,11 +67,18 @@
     "displayOrder": 4,
     "arenaId": "junkyard-lot",
     "assetBundleId": "bundle:core-junkyard",
-    "objective": { "type": "kill", "count": 8, "enemyTag": "tank" },
+    "objective": {
+      "type": "kill",
+      "count": 8,
+      "enemyTag": "tank"
+    },
     "encounterProfileId": "encounter:junkyard-brute-force",
     "difficultyProfileId": "difficulty:chapter-1-hard",
     "rewardProfileId": "reward:stage-04",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-03" }
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-03"
+    }
   },
   {
     "id": "stage:junkyard-05",
@@ -63,12 +88,25 @@
     "displayOrder": 5,
     "arenaId": "junkyard-lot",
     "assetBundleId": "bundle:core-junkyard",
-    "objective": { "type": "defeat", "enemyId": "boss-crusher" },
+    "objective": {
+      "type": "defeat",
+      "enemyId": "boss-crusher"
+    },
     "encounterProfileId": "encounter:junkyard-crusher-boss",
     "difficultyProfileId": "difficulty:boss-crusher",
     "rewardProfileId": "reward:stage-05-boss",
     "bossId": "boss-crusher",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-04" }
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-04"
+    },
+    "openingDialogue": {
+      "speakerEnemyId": "boss-crusher",
+      "lines": [
+        "All that scrap, and you still think you're the weapon.",
+        "Come closer. I'll sort you with the rest."
+      ]
+    }
   },
   {
     "id": "stage:forge-01",
@@ -78,11 +116,18 @@
     "displayOrder": 1,
     "arenaId": "forge-foundry",
     "assetBundleId": "bundle:core-forge",
-    "objective": { "type": "collect", "itemId": "drop:scrap", "count": 18 },
+    "objective": {
+      "type": "collect",
+      "itemId": "drop:scrap",
+      "count": 18
+    },
     "encounterProfileId": "encounter:forge-hot-salvage",
     "difficultyProfileId": "difficulty:forge-medium",
     "rewardProfileId": "reward:forge-01",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-05" }
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-05"
+    }
   },
   {
     "id": "stage:forge-02",
@@ -92,11 +137,17 @@
     "displayOrder": 2,
     "arenaId": "forge-foundry",
     "assetBundleId": "bundle:core-forge",
-    "objective": { "type": "survive", "seconds": 120 },
+    "objective": {
+      "type": "survive",
+      "seconds": 120
+    },
     "encounterProfileId": "encounter:forge-smelter-rush",
     "difficultyProfileId": "difficulty:forge-medium",
     "rewardProfileId": "reward:forge-02",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:forge-01" }
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:forge-01"
+    }
   },
   {
     "id": "stage:forge-03",
@@ -106,11 +157,18 @@
     "displayOrder": 3,
     "arenaId": "forge-foundry",
     "assetBundleId": "bundle:core-forge",
-    "objective": { "type": "kill", "count": 10, "enemyTag": "shielded" },
+    "objective": {
+      "type": "kill",
+      "count": 10,
+      "enemyTag": "shielded"
+    },
     "encounterProfileId": "encounter:forge-steel-wall",
     "difficultyProfileId": "difficulty:forge-hard",
     "rewardProfileId": "reward:forge-03",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:forge-02" }
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:forge-02"
+    }
   },
   {
     "id": "stage:forge-04",
@@ -120,11 +178,18 @@
     "displayOrder": 4,
     "arenaId": "forge-foundry",
     "assetBundleId": "bundle:core-forge",
-    "objective": { "type": "kill", "count": 12, "enemyTag": "ranged" },
+    "objective": {
+      "type": "kill",
+      "count": 12,
+      "enemyTag": "ranged"
+    },
     "encounterProfileId": "encounter:forge-cut-the-feed",
     "difficultyProfileId": "difficulty:forge-hard",
     "rewardProfileId": "reward:forge-04",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:forge-03" }
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:forge-03"
+    }
   },
   {
     "id": "stage:junkyard-06",
@@ -134,11 +199,110 @@
     "displayOrder": 5,
     "arenaId": "forge-foundry",
     "assetBundleId": "bundle:core-forge",
-    "objective": { "type": "defeat", "enemyId": "boss-forge" },
+    "objective": {
+      "type": "defeat",
+      "enemyId": "boss-forge"
+    },
     "encounterProfileId": "encounter:forge-warden-boss",
     "difficultyProfileId": "difficulty:boss-forge",
     "rewardProfileId": "reward:stage-06-boss",
     "bossId": "boss-forge",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:forge-04" }
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:forge-04"
+    },
+    "openingDialogue": {
+      "speakerEnemyId": "boss-forge",
+      "lines": [
+        "You walked through my furnace carrying a little spark.",
+        "Let's see what survives the heat."
+      ]
+    }
+  },
+  {
+    "id": "stage:junkyard-nest-breaker",
+    "name": "Nest Breaker",
+    "chapterId": "chapter:junkyard",
+    "chapterIconArtId": "chapter-icon:junkyard",
+    "displayOrder": 6,
+    "arenaId": "junkyard-lot",
+    "assetBundleId": "bundle:core-junkyard",
+    "objective": {
+      "type": "kill",
+      "count": 8,
+      "enemyTag": "ranged"
+    },
+    "encounterProfileId": "encounter:junkyard-nest-breaker",
+    "difficultyProfileId": "difficulty:salvage-hunt",
+    "rewardProfileId": "reward:junkyard-nest-breaker",
+    "campaignRole": "optional",
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-06"
+    }
+  },
+  {
+    "id": "stage:junkyard-crossfire-salvage",
+    "name": "Crossfire Salvage",
+    "chapterId": "chapter:junkyard",
+    "chapterIconArtId": "chapter-icon:junkyard",
+    "displayOrder": 7,
+    "arenaId": "junkyard-lot",
+    "assetBundleId": "bundle:core-junkyard",
+    "objective": {
+      "type": "collect",
+      "itemId": "drop:scrap",
+      "count": 32
+    },
+    "encounterProfileId": "encounter:junkyard-crossfire-salvage",
+    "difficultyProfileId": "difficulty:salvage-crossfire",
+    "rewardProfileId": "reward:junkyard-crossfire-salvage",
+    "campaignRole": "optional",
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-nest-breaker"
+    }
+  },
+  {
+    "id": "stage:forge-shatterline",
+    "name": "Shatterline",
+    "chapterId": "chapter:forge",
+    "chapterIconArtId": "chapter-icon:forge",
+    "displayOrder": 6,
+    "arenaId": "forge-foundry",
+    "assetBundleId": "bundle:core-forge",
+    "objective": {
+      "type": "kill",
+      "count": 70
+    },
+    "encounterProfileId": "encounter:forge-shatterline",
+    "difficultyProfileId": "difficulty:forge-shatterline",
+    "rewardProfileId": "reward:forge-shatterline",
+    "campaignRole": "optional",
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-crossfire-salvage"
+    }
+  },
+  {
+    "id": "stage:forge-pressure-test",
+    "name": "Pressure Test",
+    "chapterId": "chapter:forge",
+    "chapterIconArtId": "chapter-icon:forge",
+    "displayOrder": 7,
+    "arenaId": "forge-foundry",
+    "assetBundleId": "bundle:core-forge",
+    "objective": {
+      "type": "survive",
+      "seconds": 120
+    },
+    "encounterProfileId": "encounter:forge-pressure-test",
+    "difficultyProfileId": "difficulty:forge-pressure-test",
+    "rewardProfileId": "reward:forge-pressure-test",
+    "campaignRole": "optional",
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:forge-shatterline"
+    }
   }
 ]

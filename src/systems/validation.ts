@@ -1,3 +1,4 @@
+import { assertStageOpeningReferences } from './validation/stages';
 /**
  * Game data validation module — ~3,000 lines of per-domain validators.
  *
@@ -704,6 +705,7 @@ export function validateGameData(raw: unknown): GameData {
   assertStageEncounterEnemyReferences(encounterProfiles, enemyIdSet);
   assertStageDefeatEnemyReferences(stages, enemyIdSet);
   assertBossStageSemantics(stages, encounterProfiles);
+  assertStageOpeningReferences(stages, enemies, visualArt);
   assertStageRewardLootTableReferences(rewardProfiles, lootTableIdSet);
   assertStageRewardGrantReferences(
     rewardProfiles,
@@ -1003,6 +1005,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertUpgradeArtReferences(upgrades, visualArt),
     () => assertAchievementArtReferences(catalogs.achievements as AchievementDefinition[], visualArt),
     () => assertStageChapterArtReferences(catalogs.stages as StageDefinition[], visualArt),
+    () => assertStageOpeningReferences(catalogs.stages as StageDefinition[], enemies, visualArt),
     () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, visualResources, arenas),
     () => assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt),
     () => validateGunsmithPartVisuals(catalogs['gun-parts'] as PartDefinition[], undefined, new Set(visualArt.bindings.map((binding) => binding.id))),

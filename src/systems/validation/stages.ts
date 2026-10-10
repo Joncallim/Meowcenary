@@ -94,6 +94,17 @@ export const checkStage: RowCheckFn = (row: unknown, _index: number): string[] =
     errors.push('bossId: must be a valid content ID when present');
   }
 
+  if (s.campaignRole !== undefined && s.campaignRole !== 'main' && s.campaignRole !== 'optional') errors.push('campaignRole: must be main or optional');
+  if (s.openingDialogue !== undefined) {
+    const opening = s.openingDialogue as Record<string, unknown>;
+    if (!opening || typeof opening !== 'object' || Array.isArray(opening)) errors.push('openingDialogue: must be an object');
+    else {
+      if (Object.keys(opening).some(key => key !== 'speakerEnemyId' && key !== 'lines')) errors.push('openingDialogue: unknown field');
+      if (typeof opening.speakerEnemyId !== 'string' || opening.speakerEnemyId !== s.bossId || (s.objective as Record<string, unknown>)?.type !== 'defeat' || (s.objective as Record<string, unknown>)?.enemyId !== opening.speakerEnemyId) errors.push('openingDialogue.speakerEnemyId: must match the defeat objective and boss');
+      if (!Array.isArray(opening.lines) || opening.lines.length < 1 || opening.lines.length > 2 || opening.lines.some(line => typeof line !== 'string' || !line.trim() || line !== line.trim() || [...line].length > 100 || /[\x00-\x1f<>]/u.test(line)) || (opening.lines as unknown[]).reduce<number>((n, line) => n + (typeof line === 'string' ? [...line].length : 0), 0) > 160) errors.push('openingDialogue.lines: expected 1–2 plain lines, at most 100 characters each and 160 total');
+    }
+  }
+
   // unlock condition
   if (!s.unlock || typeof s.unlock !== 'object') {
     errors.push('unlock: must be a condition object');
@@ -388,5 +399,14 @@ function collectConditionStageRefs(
     }
   } else if (ctype === 'not') {
     collectConditionStageRefs(cond.condition as Record<string, unknown>, stageIds, sourceStageId);
+  }
+}
+
+export function assertStageOpeningReferences(stages: readonly StageDefinition[], enemies: readonly { readonly id: string; readonly archetype: string }[], catalog: VisualArtCatalog): void {
+  for (const stage of stages) {
+    const opening = stage.openingDialogue; if (!opening) continue;
+    const enemy = enemies.find(row => row.id === opening.speakerEnemyId);
+    const binding = catalog.bindings.find(row => row.id === `enemy:${opening.speakerEnemyId}`);
+    if (enemy?.archetype !== 'boss' || binding?.kind !== 'enemy' || !binding.required) throw new Error(`stage.${stage.id}: opening requires a boss and required enemy art`);
   }
 }
