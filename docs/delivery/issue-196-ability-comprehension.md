@@ -21,7 +21,7 @@ player approval is claimed here.
 | HUD state | `src/systems/abilityPresentation.ts`, `src/ui/controls.ts`, `tests/controls.test.ts`, `browser-tests/ability-comprehension.pw.ts`. Fixed ability card reflects ability identity, cooldown/readiness and timed persistent duration; pause freezes the state. One-shot abilities enter cooldown immediately, so internal transient `active` resolution maps to HUD `cooling` intentionally. | Implementation/tests present; exact-head/release results pending. |
 | Distinct mechanical FX | `src/presentation/abilityEffectPresentation.ts`, `src/systems/abilityPresentation.ts`, `src/entities/Player.ts`, `src/entities/Enemy.ts`; `tests/abilityPresentation.test.ts`, `tests/abilityResolution.test.ts`, `browser-tests/ability-comprehension.pw.ts`. FX derive from mechanic kind and data radius; persistent and transient cues are distinct, reduced-motion silhouettes remain static, and effects stop on lifecycle transitions. | Implementation and focused coverage present; exact-head/release results pending. |
 | Pause, lifecycle and replay assumptions | `src/scenes/GameScene.ts`, `src/systems/abilityPresentation.ts`, `src/engine/eventBus.ts`; `tests/gameSceneAbilities.test.ts`, `tests/gameSceneIntro.test.ts`, `tests/eventBus.test.ts`, `tests/abilityPresentation.test.ts`, `browser-tests/ability-comprehension.pw.ts`. Intro freezes run time and combat; pause/terminal/foreground behavior freezes or disposes owned ability state without stale brief/FX. | Implementation and focused coverage present; exact-head/release results pending. |
-| Existing visual expectations | Preserve individual semantic ownership: Mercenary row = mechanical ability line; upgrade chooser = unchanged reference, with Start using a real pointer gesture to preserve its existing input modality; boss and forge gameplay = active `RUN` label, persistent HUD card/readiness glyph, and transient mechanic cue; phone HUD readability = long-hint wrap/clipping. Inspect each actual/expected/diff before updating only its owning expectation. | Fourteen localized goldens are individually reviewed in the committed manifest; no art or comprehension approval is implied. Chooser and summaries remain unchanged after preserving pointer-mode Start. |
+| Existing visual expectations | Preserve individual semantic ownership: Mercenary row = mechanical ability line; upgrade chooser = unchanged reference, with Start using a real pointer gesture to preserve its existing input modality; boss and forge gameplay = active `RUN` label, persistent HUD card/readiness glyph, and transient mechanic cue; phone HUD readability = long-hint wrap/clipping. Inspect each actual/expected/diff before updating only its owning expectation. | Fifteen localized goldens are individually reviewed in the committed manifest; no art or comprehension approval is implied. Chooser and summaries remain unchanged after preserving pointer-mode Start. |
 | Production and release gates | `npm run lint`, `npm run test`, `npm run build`, strict browser TypeScript, targeted comprehension browser matrix, and exact-head hosted checks. Report command, runtime, exact source SHA and observed case/pass/skip/fail counts. | **Pending integrator:** enter final exact-head SHA and complete gate results here before release. |
 | Human acceptance | Product owner reviews all eight briefings and actual-scale HUD/FX, including the 360px long-hint treatment; human playtest confirms clarity and fair presentation. Physical touch/controller/device coverage is recorded separately from emulated browser evidence. | **Pending human acceptance.** No automated test or packet intake is a substitute. |
 
@@ -36,13 +36,22 @@ repository under
 [the bounded committed dossier](evidence/issue-196/manifest.json). Full final captures are recorded on issue #196 at release.
 Those captures are review evidence, not product-owner approval.
 
-Fourteen existing golden expectations were individually reviewed and updated: six
+Fifteen existing golden expectations were individually reviewed and updated: six
 Mercenary upper/lower mechanical-copy rows and the three ordinary/two desktop boss/Forge teaching hints
 and READY glyphs, plus three exact-radius knockback FX/banner references. [The review manifest](evidence/issue-196/golden-review.json)
 records old/new hashes and dispositions; expected/actual/diff images remain in
 that directory. Actor crops, chooser, summaries and unrelated expectations
 remain unchanged. Real pointer Start preserves the existing art-reference input
 modality. No threshold, timeout, assertion, retry or scoped skip was weakened.
+
+The full development matrix caught one additional phone-only UI-audit
+Mercenary overview expectation retaining the old ability copy. Its actual,
+expected and diff were inspected independently before that single update.
+[Exact starting-main crop proof](evidence/issue-196/ui-audit-baseline-proof.json)
+confirms all three visible actors and weapon thumbnails match `a100e05`; the
+thumbnail discrepancy already existed relative to the older golden. The 2px
+scroll-thumb adjustment follows the extra wrapped mechanical line. No other
+UI-audit golden, screenshot threshold or art authority changed.
 
 The HUD initially failed to repaint its intro snapshot on `run:start`; a RED
 regression now verifies the existing event dirties the owning HudController at

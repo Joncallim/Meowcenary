@@ -85,6 +85,13 @@
       "oldSha256": "8a33c6d2512ded86d31b9497e667f2e615fedb82b305c5c6e54783292fc78bd8",
       "newSha256": "f47c716e7b2604c9265668403e23e8d5fcb007dfbb94496aadc1de6c5eb88231",
       "reason": "Individually inspected intended mechanic-kind knockback FX: exact authoritative90 boundary instead of animated undersized ring, four bounded outward arrows, mechanically derived nonblocking name/effect banner, teaching copy and READY glyph. Fixture now derives its geometry/copy from definition; no blank banner accepted. Existing actor/icon/HUD baseline differences independently reconciled; no asset changes or art approval."
+    },
+    {
+      "path": "browser-tests/ui-audit-capture.pw.ts-snapshots/menu-character-phone-390x844-linux.png",
+      "oldSha256": "16008d4949199b0d105cf0ad0e4d0c33f61acf994daf3b145e7b36aad5e75078",
+      "newSha256": "63a56732922b402b5d1d4c8cadabfa74f8a76215d6f18cfc21bc003f8d3ea5f3",
+      "reason": "Phone-only UI audit character overview: shared mechanically derived target/range, actual heal limit and cooldown. Independent actual/expected/diff inspection; 2px scroll thumb adjustment from added copy line. Fresh exact-a100 capture proves unchanged actor crops and current-main weapon thumbnails; old golden thumbnail lag is not issue196 art. No authority/asset change.",
+      "baselineProof": "ui-audit-baseline-proof.json"
     }
   ]
 }

@@ -147,7 +147,7 @@
     },
     {
       "path": "golden-review.json",
-      "sha256": "06dfaeb330c09703626f511ef334bb1644ad3a88ae047462ef615e30eb51e317"
+      "sha256": "6e6cc80dbaf3f73cdc8a2eec1ad2a0d939662a3c5dfd832e0f1763c5f0783b66"
     },
     {
       "path": "hud-hint-wrapping-red.txt",
@@ -404,6 +404,31 @@
     {
       "path": "phone-390x844/crowded-combat-overclock.png",
       "sha256": "672effbc56255860ccbe599e59138d779b265479d2c2a32bcd65ae99b657ce52"
+    },
+    {
+      "path": "ui-audit-character-phone-expected.png",
+      "sha256": "16008d4949199b0d105cf0ad0e4d0c33f61acf994daf3b145e7b36aad5e75078",
+      "origin": "Exact495b9cf fullmatrixfailure or exacta100 baseline capture; reviewed candidate evidence only."
+    },
+    {
+      "path": "ui-audit-character-phone-actual.png",
+      "sha256": "63a56732922b402b5d1d4c8cadabfa74f8a76215d6f18cfc21bc003f8d3ea5f3",
+      "origin": "Exact495b9cf fullmatrixfailure or exacta100 baseline capture; reviewed candidate evidence only."
+    },
+    {
+      "path": "ui-audit-character-phone-diff.png",
+      "sha256": "bec234a0c68f31940bd0672e9021c3e1ca6c45490ffb598012a2eaad3796723b",
+      "origin": "Exact495b9cf fullmatrixfailure or exacta100 baseline capture; reviewed candidate evidence only."
+    },
+    {
+      "path": "ui-audit-character-baseline-main.png",
+      "sha256": "e6f1bb54973df7a9bf5383a579615520aa5f7e89aab515b5ec1572b78fd0cb61",
+      "origin": "Exact495b9cf fullmatrixfailure or exacta100 baseline capture; reviewed candidate evidence only."
+    },
+    {
+      "path": "ui-audit-baseline-proof.json",
+      "sha256": "daa63d60e7d1fffcd49da84dcc3336af37d087752e8ce5707effb5b8b25afc25",
+      "origin": "Exact495b9cf fullmatrixfailure or exacta100 baseline capture; reviewed candidate evidence only."
     }
   ],
   "logNormalization": "Committed logs preserve diagnostic content with trailing whitespace/blank lines normalized for git diff checks; external original logs are unchanged."
