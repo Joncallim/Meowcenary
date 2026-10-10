@@ -17,13 +17,13 @@ Validated achievement definitions + canonical Save V4 facts
 
 The ten existing achievement IDs, conditions, targets and rewards remain. Historical completed/retired entries remain terminal. New rows reuse the existing condition/grant vocabulary and approved semantic badge atlas; badges may be shared by a goal family. No save schema, stage content, currency source, RNG stream, input route, or resource-loading change is required.
 
-The current 30-row candidate adds campaign coverage, mercenary breadth and specialization, timed Contract coverage, simultaneous weapon engineering, hybrid traits, and high-tier equipment. The mastery rows are deliberately optional accomplishments; no existing mercenary, equipment or part is moved behind a new gate.
+The current 22-row candidate adds campaign coverage, mercenary breadth and specialization, timed Contract coverage, simultaneous weapon engineering, hybrid traits, and high-tier equipment. The mastery rows are deliberately optional accomplishments; no existing mercenary, equipment or part is moved behind a new gate.
 
 ## Derived facts
 
 Four registered metric primitives read existing canonical snapshots:
 
-- `contracts-cleared-under-180s`: distinct current-catalog completed stages with positive best time at most 180,000 ms. Training and stale IDs do not count.
+- `contracts-cleared-under-180s`: distinct current-catalog completed non-survival stages with positive best time at most 180,000 ms. Training, fixed-duration survival, and stale IDs do not count.
 - `engineered-families`: distinct current weapon families with at least three distinct compatible non-trait part definitions fitted to a saved build. Multiple builds of one family count once.
 - `engineered-traits`: highest distinct effective trait count on a saved build, using the same `resolveBuildTraits` authority as runtime. Duplicate FIRE cores do not count twice.
 - `equipment-tier-4`: distinct current equipment definitions owned at tier 4.
@@ -36,7 +36,7 @@ Condition goals show useful read-model progress without adding state: a single m
 
 ## Acquisition presentation
 
-An achievement's explicit grants and catalog consumers are shown separately: a condition can open a character/blueprint path without granting an owned item. Gunsmith sources identify fabrication, direct owned-part rewards, and permission-only grants, including the prerequisite even after ownership. Hidden achievement sources remain hidden until earned. Equipment blueprint inspection shows availability, ownership, fabrication cost, and deterministic first-clear owned-piece alternatives. Existing commands retain all affordability/availability checks.
+An achievement's explicit grants and catalog consumers are shown separately: a condition can open a character/blueprint path without granting an owned item. Gunsmith sources identify fabrication, direct owned-part rewards, and permission-only grants, including the prerequisite even after ownership. Hidden achievement sources remain hidden until earned. Equipment blueprint inspection shows availability, ownership, fabrication cost, and deterministic first-clear owned-piece alternatives. Owned equipment describes blueprint cost as historical source information and explicitly states that another copy cannot be fabricated. Existing commands retain all affordability/availability checks.
 
 ## Product rationale and benchmark boundary
 
@@ -46,7 +46,7 @@ Primary sources checked 10 October 2026:
 - [Poncle Adventures FAQ](https://poncle.games/adventures-faq) separates adventure unlocks from main-game achievements. The useful lesson is that accomplishment and content availability need explicit semantics.
 - [Brotato's publisher Steam page](https://store.steampowered.com/app/1942280/Brotato/) describes traits/items producing distinct builds and a six-weapon loadout. The useful lesson is experimentation across builds rather than a single cumulative kill ladder.
 
-The 3-minute threshold, 5/10 mastery tiers, 2/3-trait goals, and reward amounts are **Meowcenary design targets**, not claims about those games or evidence that this build is fun. Automated correctness and screenshots cannot establish long-term enjoyment. Timed-goal challenge and the optional endgame Contract ladder need integrated playtesting with #234; fixed-duration survival stages need not qualify for every speed goal.
+The 3-minute threshold, 5/10 mastery tiers, 2/3-trait goals, and reward amounts are **Meowcenary design targets**, not claims about those games or evidence that this build is fun. Automated correctness and screenshots cannot establish long-term enjoyment. Timed-goal challenge and the optional endgame Contract ladder need integrated playtesting with #234; fixed-duration survival stages are excluded from speed goals.
 
 ## Acceptance boundaries
 

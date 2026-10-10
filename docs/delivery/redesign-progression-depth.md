@@ -4,7 +4,7 @@ Status: implemented and focused-tested; **not accepted**. Related #235. Baseline
 
 ## Implemented
 
-30 active achievements, preserving all ten existing definitions and rewards. New goals cover mastery across the roster, campaign exploration, distinct timed clears, simultaneous engineered families, effective hybrid traits, and upgraded equipment. Four registered derived metrics read existing facts; no save fields or duplicate counters. Workshop actions and milestone rewards share one durable candidate. Unlock permissions, fabrication, and owned-instance rewards now have separate copy.
+22 active achievements, preserving all ten existing definitions and rewards. New goals cover mastery across the roster, campaign exploration, distinct timed clears, simultaneous engineered families, effective hybrid traits, and upgraded equipment. Four registered derived metrics read existing facts; no save fields or duplicate counters. Workshop actions and milestone rewards share one durable candidate. Unlock permissions, fabrication, and owned-instance rewards now have separate copy.
 
 Architecture and sourced product rationale: [redesign-progression-depth.md](../architecture/redesign-progression-depth.md).
 
@@ -24,6 +24,16 @@ The CLI wrapper could not fetch its package in the network-restricted sandbox; t
 ## Independent review
 
 Read-only adversarial review found four P2 defects in the first candidate: skipped upgrade evaluation, stale simultaneous-loadout progress, blueprint source text omitted, and delayed platform mirror dispatch. All four were fixed; the new tests cover current-progress truth, atomic fourth-T4 upgrade with failed save/retry/reload, and mirror-after-persistence behavior. The copy mismatch between ordinary parts and trait cores was resolved by explicitly naming non-trait parts; distinct effective traits have separate goals using the combat resolver.
+
+## Product-review follow-up
+
+Fresh independent product review rejected full acceptance at `47d54ff`: owned gear suggested prohibited duplicate fabrication, mastery goals dominated the additions, survival speed goals overstated skill, and selected Parts/lifecycle evidence was missing. The first implementation-correctness review's four fixes do not close these product findings.
+
+Follow-up `51366ad` changes owned gear to historical blueprint cost and an explicit no-additional-copy statement, with real fabrication/reload/duplicate-rejection coverage. Timed goals now require non-survival Contracts. The two affected CI fixture suites pass 196 tests; depth/context/equipment suites pass 83. The preservation tests capture the canonical post-reconciliation baseline rather than hardcoding pre-reconciliation currency. Hosted CI at `47d54ff` passed art/content/lint and failed 18 stale expectations now corrected; final exact-head CI remains required.
+
+Selected Parts captures now cover locked, available, owned-and-fitted, and reward-only states. The detail heading was moved beside its source after inspection found keyboard/touch focus hid the title above the artwork. A seeded late-game browser save exercises the actual fourth-T4 upgrade button: cost 200, completion reward 200, one receipt, unchanged currency after reload. This is mutation/persistence evidence, not evidence of a played-through career. Phone and desktop artifacts are `*-part-*-detail.png`, `*-old-owned-equipment-detail.png`, `*-milestone-before-upgrade.png`, `*-milestone-earned.png`, `*-milestone-reloaded.png`, and `*-product-lifecycle.json` under `output/playwright/`.
+
+Eight unreleased per-mercenary tier-5 rows have been removed; roster-wide tier-2/tier-5 and Tabby specialization remain. This leaves 22 active goals before the five approved post-Warden goals are integrated from the contracts dependency. Removed candidate history remains load-safe through the existing historical-achievement behavior. The optional ladder remains pending that dependency. No full product acceptance is claimed.
 
 ## Remaining acceptance gates
 
