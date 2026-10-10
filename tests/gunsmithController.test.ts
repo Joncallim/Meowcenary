@@ -590,13 +590,13 @@ describe('GunsmithController durable commands', () => {
     });
     expect(catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
       state: 'fabricable', stateLabel: 'FABRICABLE • 60 Scrap', fabricationCost: 60,
-      affordable: false, canFabricate: false, fabricationActionLabel: 'Fabricate — 60 Scrap', sourceLabel: 'Fabricate for 60 Scrap',
+      affordable: false, canFabricate: false, fabricationActionLabel: 'Fabricate — 60 Scrap', sourceLabel: 'Blueprint: Available. Fabricate for 60 Scrap; creates one T1 part.',
     });
     expect(catalog.find((part) => part.partId === 'part:underbarrel-grenade')).toMatchObject({
-      state: 'reward-only', stateLabel: 'REWARD ONLY', sourceLabel: 'First clear: Cut the Feed',
+      state: 'reward-only', stateLabel: 'REWARD ONLY', sourceLabel: 'Owned part on first clear: Cut the Feed',
     });
     expect(catalog.find((part) => part.partId === 'part:trait-fire-mastered')).toMatchObject({
-      state: 'reward-only', sourceLabel: 'First clear: Forge Warden',
+      state: 'reward-only', sourceLabel: 'Owned part on first clear: Forge Warden',
     });
   });
 
@@ -646,7 +646,7 @@ describe('GunsmithController durable commands', () => {
 
     expect(controller.snapshot().catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
       state: 'locked', stateLabel: 'LOCKED', fabricationCost: 60,
-      affordable: false, sourceLabel: 'Fabricate for 60 Scrap', lockReason: 'Clear Scrap Run.',
+      affordable: false, sourceLabel: 'Blueprint: Clear Scrap Run. Fabricate for 60 Scrap; creates one T1 part.', lockReason: 'Clear Scrap Run.',
     });
   });
 

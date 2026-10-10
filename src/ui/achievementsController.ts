@@ -1,3 +1,4 @@
+import { isSnapshotAchievementMetric, metricExtractor } from '../systems/achievements';
 /**
  * Achievements controller — read-model + controller for the achievement
  * gallery UI. Follows the StageSelectionController pattern.
@@ -10,6 +11,7 @@
 import type { GameContext } from '../engine/context';
 import type { DataAchievementRegistry } from '../systems/achievements';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
+import { createConditionContext, evaluateCondition, type ProgressionCondition, type ConditionContext } from '../gameplay/conditionEvaluator';
 import { describeProgressionGrant } from './progressionPresentation';
 
 /** Never use an unrevealed achievement's own art as a lock glyph: the image
@@ -60,6 +62,7 @@ export class AchievementsController {
   snapshot(): AchievementsSnapshot {
     const { context } = this;
     const state = context.saveData.achievements;
+    const facts = createConditionContext(context.saveData.progression, context.saveData);
 
     const views = this.registry.all().map((definition): AchievementView => {
       const progress = state[definition.id];
@@ -81,7 +84,12 @@ export class AchievementsController {
         });
       }
 
-      const current = completed ? definition.target : (progress?.progress ?? 0);
+      const conditionProgress = definition.condition ? conditionSteps(definition.condition, facts) : undefined;
+      const target = conditionProgress?.target ?? definition.target;
+      const snapshotProgress = definition.metricId && isSnapshotAchievementMetric(definition.metricId)
+        ? metricExtractor(definition.metricId)?.({ metrics: context.saveData.achievementMetrics, gunsmith: context.saveData.gunsmith, equipment: context.saveData.equipment, catalog: context.data })
+        : undefined;
+      const current = completed ? target : (snapshotProgress ?? conditionProgress?.progress ?? progress?.progress ?? 0);
       const status: AchievementViewStatus = completed
         ? 'completed'
         : current > 0
@@ -92,13 +100,13 @@ export class AchievementsController {
         id: definition.id,
         name: definition.name,
         description: definition.description,
-        rewardSummary: describeRewards(definition.rewards ?? [], context.data),
+        rewardSummary: describeRewards(definition, context.data),
         iconArtId: definition.presentation.iconArtId,
         kind: definition.kind,
         hidden: definition.hidden === true,
         status,
-        progress: Math.min(current, definition.target),
-        target: definition.target,
+        progress: Math.min(current, target),
+        target,
         ...(completed && progress?.completedAt !== undefined ? { completedAt: progress.completedAt } : {}),
       });
     });
@@ -130,10 +138,25 @@ export class AchievementsController {
   }
 }
 
-function describeRewards(
-  rewards: readonly { readonly grant: import('../gameplay/grantProcessor').ProgressionGrant }[],
-  data: GameContext['data'],
-): string {
-  if (rewards.length === 0) return 'No persistent reward.';
-  return rewards.map(({ grant }) => describeProgressionGrant(grant, data, 'sentence')).join(' • ');
+/** Partial requirement progress is a read model over canonical facts, not a counter. */
+function conditionSteps(condition: ProgressionCondition, facts: ConditionContext): { progress: number; target: number } {
+  if (condition.type === 'mastery-reached') return { progress: Math.min(condition.tier, facts.characters[condition.subjectId]?.tier ?? 0), target: condition.tier };
+  if (condition.type === 'all') return { progress: condition.conditions.filter((child) => evaluateCondition(child, facts)).length, target: condition.conditions.length };
+  return { progress: evaluateCondition(condition, facts) ? 1 : 0, target: 1 };
+}
+
+function dependsOn(condition: ProgressionCondition | undefined, id: string): boolean {
+  if (!condition) return false;
+  if (condition.type === 'achievement-completed') return condition.achievementId === id;
+  if (condition.type === 'all' || condition.type === 'any') return condition.conditions.some((child) => dependsOn(child, id));
+  return false;
+}
+
+function describeRewards(definition: AchievementDefinition, data: GameContext['data']): string {
+  const labels = (definition.rewards ?? []).map(({ grant }) => describeProgressionGrant(grant, data, 'sentence'));
+  // Consuming catalog conditions are the availability authority. No duplicate grants.
+  for (const character of data.characters) if (dependsOn(character.unlock, definition.id)) labels.push(`Unlock path: ${character.name}`);
+  for (const part of data.gunParts ?? []) if (dependsOn(part.unlock, definition.id)) labels.push(`Blueprint path: ${part.name}`);
+  for (const set of data.equipmentSets ?? []) if (dependsOn(set.unlock, definition.id)) labels.push(`Blueprint path: ${set.name} Set`);
+  return labels.join(' • ') || 'Achievement badge; no item granted.';
 }
