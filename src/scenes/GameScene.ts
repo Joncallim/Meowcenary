@@ -56,6 +56,8 @@ import { WeaponSystem } from '../systems/WeaponSystem';
 import { UpgradeChooser } from '../ui/UpgradeChooser';
 import { resolveCharacterRunContribution } from '../gameplay/characterContribution';
 import { HudController, PhaserHudView, createHudSource } from '../ui/hud';
+import { RunStartAbilityBrief } from '../ui/runStartAbilityBrief';
+import { resolveAbilityEffectPresentation } from '../presentation/abilityEffectPresentation';
 import { ControlsView } from '../ui/controls';
 import { InventoryController } from '../ui/inventory';
 import { StageSelectionController } from '../ui/stageSelectionController';
@@ -81,7 +83,7 @@ import { HeldWeaponView } from '../entities/heldWeaponView';
 import { DefeatPresentationSystem } from '../systems/defeatPresentation';
 import { DataAchievementRegistry } from '../systems/achievements';
 import { DataAbilityRegistry } from '../systems/abilities';
-import { activateAbility, applyAbilityEffect, createAbilityState, expireAbilityEffect, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
+import { activateAbility, applyAbilityEffect, createAbilityState, resolveAbilityUiState, expireAbilityEffect, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
 import { applyEnemyDamage } from '../gameplay/enemyDamageResolver';
 import { AbilityPresentationSystem } from '../systems/abilityPresentation';
 import type { FocusDirection } from '../ui/focusList';
@@ -170,6 +172,8 @@ export class GameScene extends Phaser.Scene {
   private stagePlan?: ResolvedRunPlan;
   private stageRuntime?: StageRuntime;
   private enemyDefinitions?: DataEnemyRegistry;
+  private runStartBrief?: RunStartAbilityBrief;
+  private abilityActivationId = 0;
   private abilityDefinition?: AbilityDefinition;
   private abilityState: AbilityState = createAbilityState();
   private achievementToast?: { readonly text: string; readonly untilMs: number };
@@ -277,6 +281,7 @@ export class GameScene extends Phaser.Scene {
     this.abilityDefinition = character.abilityId === undefined
       ? undefined
       : new DataAbilityRegistry({ abilities: ctx.data.abilities ?? [] }).abilityById(character.abilityId);
+    if (character.abilityId !== undefined && !this.abilityDefinition) throw new Error('Selected Mercenary references a missing ability');
     this.abilityState = createAbilityState();
     const contribution = resolveCharacterRunContribution(character, weaponRegistry);
     const prepared = prepareRun({
@@ -384,7 +389,7 @@ export class GameScene extends Phaser.Scene {
       visualArt,
       ability: this.abilityDefinition === undefined ? undefined : {
         name: this.abilityDefinition.name,
-        description: this.abilityDefinition.description,
+        description: resolveAbilityEffectPresentation(this.abilityDefinition).detail,
         icon: (() => {
           const binding = visualArt.bindingById(this.abilityDefinition!.presentation.iconArtId);
           return binding === undefined ? undefined : {
@@ -718,7 +723,24 @@ export class GameScene extends Phaser.Scene {
     this.audioManager?.playMusic('music-run');
     this.installAudioUnlockListeners();
 
-    startRun(this.runState, ctx.bus);
+    this.inputController.quarantineUntilNeutral();
+    this.inputController.suspendGameplayPointer();
+    if (this.abilityDefinition) {
+      const portrait = visualArt.bindingById(character.presentation.portraitArtId);
+      const icon = visualArt.bindingById(this.abilityDefinition.presentation.iconArtId);
+      if (!portrait || !icon || !this.textures.exists(portrait.textureKey) || !this.textures.exists(icon.textureKey)) {
+        throw new Error('Selected run brief resources are not prepared');
+      }
+      const briefRun = this.runState;
+      this.runStartBrief = new RunStartAbilityBrief(this, Object.freeze({ mercenaryName: character.name, portrait, icon,
+        ability: resolveAbilityEffectPresentation(this.abilityDefinition) }),
+      () => this.inputController?.getInputMode() ?? 'pointer',
+      () => { if (this.runState === briefRun) this.beginRunFromBrief(); },
+      () => { if (this.runState === briefRun) this.returnFromBrief(); });
+    } else {
+      // Existing no-ability content retains its launch semantics.
+      startRun(this.runState, ctx.bus);
+    }
     // A run launched while the device is already rotated must begin frozen,
     // rather than getting one simulation frame before its first update gate.
     this.syncPhysicsPause(this.runState);
@@ -740,6 +762,9 @@ export class GameScene extends Phaser.Scene {
     this.performanceSeen = undefined;
     this.performanceSpawnSystem = undefined;
     this.performanceFixture = undefined;
+    this.runStartBrief?.destroy();
+    this.runStartBrief = undefined;
+    this.abilityActivationId = 0;
     this.terminalSettlement = undefined;
     this.terminalStageId = undefined;
     this.pendingAchievementFacts = {};
@@ -786,6 +811,7 @@ export class GameScene extends Phaser.Scene {
     // physics integration, after neutral input has been consumed.
     this.orientationResumePending = false;
     this.syncGameplayPointerOwnership();
+    this.runStartBrief?.refreshInputPresentation();
     this.pauseView?.refreshInputPresentation();
     this.runSummaryView?.refreshInputPresentation();
     this.upgradeChooser?.refreshInputPresentation();
@@ -809,7 +835,7 @@ export class GameScene extends Phaser.Scene {
     // Stop combat simulation and freeze the run clock during pendingClear
     // so an earned clear is never accidentally lost and the displayed
     // completion time remains coherent. Presentation continues below.
-    if (!isPendingClear) {
+    if (!isPendingClear && runState.status !== 'intro') {
       ownerStarted = performanceProbe?.now();
       tickRun(runState, delta);
       this.tickAbility(delta);
@@ -1022,6 +1048,8 @@ export class GameScene extends Phaser.Scene {
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.scale?.off?.(Phaser.Scale.Events.RESIZE, this.handleResponsiveCamera, this);
+    this.runStartBrief?.destroy();
+    this.runStartBrief = undefined;
     this.removeAudioUnlockListeners();
     this.unsubscribers.forEach((unsubscribe) => {
       unsubscribe();
@@ -1157,6 +1185,13 @@ export class GameScene extends Phaser.Scene {
     if (!runState) {
       return;
     }
+    if (runState.status === 'intro') {
+      if (action === 'confirm') this.runStartBrief?.confirmFocused();
+      else if (action === 'back') this.returnFromBrief();
+      else if (action === 'navUp' || action === 'navLeft') this.runStartBrief?.moveFocus('up');
+      else if (action === 'navDown' || action === 'navRight') this.runStartBrief?.moveFocus('down');
+      return;
+    }
     const direction: FocusDirection | undefined =
       action === 'navUp' ? 'up' : action === 'navDown' ? 'down' :
         action === 'navLeft' ? 'left' : action === 'navRight' ? 'right' : undefined;
@@ -1266,32 +1301,61 @@ export class GameScene extends Phaser.Scene {
     this.pauseView?.render(controller.snapshot());
   }
 
+  private beginRunFromBrief(): void {
+    const run = this.runState;
+    if (!run || run.status !== 'intro' || !this.runStartBrief || this.orientationBlocked || isPortraitOrientationBlocked()) return;
+    this.inputController?.quarantineUntilNeutral();
+    this.runStartBrief.destroy();
+    this.runStartBrief = undefined;
+    startRun(run, this.getContext().bus);
+    this.syncPhysicsPause(run);
+  }
+
+  private returnFromBrief(): void {
+    if (this.runState?.status !== 'intro' || !this.runStartBrief) return;
+    this.inputController?.quarantineUntilNeutral();
+    this.runStartBrief.destroy();this.runStartBrief=undefined;
+    this.scene.start(SceneKey.Menu, { quarantineInput: true });
+  }
+
   private activateCharacterAbility(): void {
     const definition = this.abilityDefinition;
     const runState = this.runState;
     const player = this.player;
-    if (!definition || !runState || !player || runState.status !== 'active') return;
+    if (!definition || !runState || !player || runState.status !== 'active'
+      || this.stageRuntime?.pendingClear !== undefined || this.stageRuntime?.state.status === 'objective-complete') return;
     const activation = activateAbility(this.abilityState, definition);
     if (!activation.fired) return;
     this.abilityState = activation.state;
     this.syncAbilityPresentation();
     const ctx = this.getContext();
-    ctx.bus.emit('ability:activated', {
+    const explanation = resolveAbilityEffectPresentation(definition);
+    const origin = Object.freeze({x:player.x,y:player.y});
+    const activationId = ++this.abilityActivationId;
+    ctx.bus.emit('ability:activated', Object.freeze({
       abilityId: definition.id,
       cue: definition.presentation.cue,
       x: player.x,
       y: player.y,
       durationMs: definition.durationMs,
-      radius: definition.presentation.radius,
+      mechanicKind: definition.effect.kind,
+      headline: explanation.headline, detail: explanation.detail,
+      radius: explanation.radius,
+      visualRadius: definition.presentation.visualRadius,
+      modifiers: definition.effect.kind === 'stat-burst' ? definition.effect.modifiers : undefined,
       color: definition.presentation.color,
-    });
-    applyAbilityEffect(definition, { player, stats: runState.stats, enemies: this.enemies,
+    }));
+    const resolution = applyAbilityEffect(definition, { player, stats: runState.stats, enemies: this.enemies,
       damageEnemy: (enemy, amount) => {
         // The enemies array is Enemy[], so the iterated element is always
         // an Enemy instance — cast is safe and avoids position-based lookup.
-        applyEnemyDamage(enemy as unknown as Enemy, amount, runState, ctx.bus);
+        return applyEnemyDamage(enemy as unknown as Enemy, amount, runState, ctx.bus).applied;
       },
-      collectNearbyConsumables: (radius) => this.dropSystem?.collectNearbyConsumables(radius) });
+      collectNearbyConsumables: (radius) => this.dropSystem?.collectNearbyConsumables(radius) ?? 0 });
+    ctx.bus.emit('ability:resolved', Object.freeze({abilityId:definition.id,activationId,name:definition.name,origin,resolution}));
+    // Scavenge can open the chooser synchronously. Publish its geometry once
+    // at resolution even when that command has just frozen simulation.
+    this.abilityPresentationSystem?.update(0, ctx.settings?.reducedMotion ?? false);
   }
 
   private tickAbility(deltaMs: number): void {
@@ -1306,19 +1370,11 @@ export class GameScene extends Phaser.Scene {
       expireAbilityEffect(definition, { stats: this.runState.stats });
       this.getContext().bus.emit('ability:ended', { abilityId: definition.id });
     }
-    const beforeSeconds = Math.ceil(before.cooldownRemainingMs / 1000);
-    const afterSeconds = Math.ceil(this.abilityState.cooldownRemainingMs / 1000);
-    if (before.phase !== this.abilityState.phase || beforeSeconds !== afterSeconds) this.syncAbilityPresentation();
+    this.syncAbilityPresentation();
   }
 
   private syncAbilityPresentation(): void {
-    // Instant abilities have no active-duration player state: their runtime
-    // transition is represented as active for one simulation tick, but the
-    // touch card must immediately communicate the usable cooldown.
-    const phase = this.abilityState.phase === 'active' && (this.abilityDefinition?.durationMs ?? 0) <= 0
-      ? 'cooling'
-      : this.abilityState.phase;
-    this.controlsView?.setAbilityPresentation(phase, this.abilityState.cooldownRemainingMs);
+    if (this.abilityDefinition) this.controlsView?.setAbilityUiState(resolveAbilityUiState(this.abilityState, this.abilityDefinition));
   }
 
   /** HUD-facing read model: only a live boss earns the dedicated encounter

@@ -58,6 +58,7 @@ export class HudController implements System {
     private readonly view: HudView,
   ) {
     this.unsubscribers.push(
+      bus.on('run:start', () => this.markDirty()),
       bus.on('player:damaged', () => this.markDirty()),
       bus.on('xp:gained', () => this.markDirty()),
       bus.on('level:up', () => this.markDirty()),

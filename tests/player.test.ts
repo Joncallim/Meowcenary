@@ -236,6 +236,19 @@ describe('Player', () => {
     },
   );
 
+  it('reports only HP actually restored, with zero for full HP and inactive/invalid healing', async () => {
+    const { player, runState } = await createHarness();
+    expect(player.heal(40)).toBe(0);
+    player.takeDamage(13);
+    expect(player.heal(40)).toBe(13);
+    expect(player.health).toBe(100);
+    expect(player.heal(40)).toBe(0);
+    expect(player.heal(NaN)).toBe(0);
+    expect(player.heal(-10)).toBe(0);
+    runState.status = 'paused';
+    expect(player.heal(40)).toBe(0);
+  });
+
   it('ignores non-finite damage without corrupting health or feedback', async () => {
     const { player, sprite } = await createHarness();
 

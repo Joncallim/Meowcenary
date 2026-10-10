@@ -1,5 +1,6 @@
+import type { Modifier } from '../gameplay/stats';
 import type { Settings } from '../systems/save';
-import type { AbilityPresentationCue } from '../gameplay/abilities';
+import type { AbilityEffect, AbilityResolution, AbilityPresentationCue } from '../gameplay/abilities';
 
 export interface GameEventMap {
   'run:start': { characterId: string; arenaId: string; seed: number };
@@ -33,7 +34,8 @@ export interface GameEventMap {
   'enemy:shield-blocked': { instanceId: number; enemyId: string; x: number; y: number };
   /** Post-persistence player feedback; achievement state remains save-owned. */
   'achievement:completed': { achievementId: string; name: string };
-  'ability:activated': { abilityId: string; cue: AbilityPresentationCue; x: number; y: number; durationMs: number; radius?: number; color: string };
+  'ability:activated': { abilityId: string; cue: AbilityPresentationCue; mechanicKind: AbilityEffect['kind']; headline?: string; detail?: string; modifiers?: readonly Readonly<Modifier>[]; x: number; y: number; durationMs: number; radius?: number; visualRadius?: number; color: string };
+  'ability:resolved': { readonly abilityId: string; readonly activationId: number; readonly name: string; readonly origin: Readonly<{x:number;y:number}>; readonly resolution: AbilityResolution };
   'ability:ended': { abilityId: string };
   'enemy:heavyStep': { x: number; y: number };
   // family/tier (Epic 17) are cosmetic-only duplicates of data WeaponSystem
@@ -92,7 +94,7 @@ export const GAME_EVENT_KEYS = [
   'player:damaged', 'player:died',
   'enemy:spawned', 'enemy:damaged', 'enemy:killed', 'enemy:dashed', 'enemy:dash-hit', 'enemy:ranged-shot', 'enemy:summon', 'enemy:boss-phase', 'enemy:shield-blocked', 'enemy:heavyStep',
   'achievement:completed',
-  'ability:activated', 'ability:ended',
+  'ability:activated', 'ability:resolved', 'ability:ended',
   'weapon:fired', 'projectile:hit',
   'xp:gained', 'level:up', 'card:offered', 'card:chosen', 'weapon:merged',
   'drop:collected',

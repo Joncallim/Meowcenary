@@ -20,19 +20,19 @@ function createMockEnemy(overrides: Record<string, unknown> = {}) {
     shielded: false,
   };
   Object.assign(enemy, overrides);
-  enemy.takeDamage = vi.fn((amount: number, source?: { x: number; y: number }) => {
+  enemy.takeDamageWithReceipt = vi.fn((amount: number, source?: { x: number; y: number }) => {
     const e = enemy as any;
-    if (e.state === 'dead' || !e.active) return false;
-    if (!Number.isFinite(amount) || amount <= 0) return false;
-    if (e.shielded && source) return false;
+    if (e.state === 'dead' || !e.active) return Object.freeze({applied: false, killed: false});
+    if (!Number.isFinite(amount) || amount <= 0) return Object.freeze({applied: false, killed: false});
+    if (e.shielded && source) return Object.freeze({applied: false, killed: false});
     const applied = Math.min(amount, e.health);
     e.health -= applied;
     if (e.health <= 0) {
       e.state = 'dead';
       e.active = false;
-      return true;
+      return Object.freeze({applied: true, killed: true});
     }
-    return false;
+    return Object.freeze({applied: true, killed: false});
   });
   return enemy as any;
 }
@@ -126,9 +126,8 @@ describe('applyEnemyDamage (universal lethal settlement)', () => {
   it('blocks damage when shield is active and source is provided', () => {
     const enemy = createMockEnemy({ health: 50, shielded: true });
     const result = applyEnemyDamage(enemy, 30, runState, bus, { x: 0, y: 0 });
-    // Hit connected with live target — shield blocked health loss but the
-    // resolver reports applied=true (the enemy was targetable).
-    expect(result.applied).toBe(true);
+    expect(result.applied).toBe(false);
+    expect(enemy.health).toBe(50);
     expect(result.killed).toBe(false);
     expect(runState.kills).toBe(0);
     expect(killedHandler).not.toHaveBeenCalled();
@@ -151,19 +150,18 @@ describe('applyEnemyDamage (universal lethal settlement)', () => {
     expect(runState.kills).toBe(0);
   });
 
-  it('reports non-finite damage as hit-connected but no kill', () => {
+  it('reports rejected non-finite damage as unapplied', () => {
     const enemy = createMockEnemy({ health: 100 });
     const result = applyEnemyDamage(enemy, NaN, runState, bus);
-    // Enemy.takeDamage rejects NaN, enemy is still active → applied=true
-    expect(result.applied).toBe(true);
+    expect(result.applied).toBe(false);
     expect(result.killed).toBe(false);
     expect(runState.kills).toBe(0);
   });
 
-  it('reports zero damage as hit-connected but no kill', () => {
+  it('reports rejected zero damage as unapplied', () => {
     const enemy = createMockEnemy({ health: 100 });
     const result = applyEnemyDamage(enemy, 0, runState, bus);
-    expect(result.applied).toBe(true);
+    expect(result.applied).toBe(false);
     expect(result.killed).toBe(false);
     expect(runState.kills).toBe(0);
   });

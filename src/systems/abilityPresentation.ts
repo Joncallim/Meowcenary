@@ -1,293 +1,237 @@
 import type Phaser from 'phaser';
-import type { EventBus } from '../engine/eventBus';
+import type { EventBus, GameEventMap } from '../engine/eventBus';
+import type { AbilityEffect } from '../gameplay/abilities';
+import type { ModifierStatKey } from '../gameplay/stats';
+import { resolveAbilityResolutionCopy } from '../presentation/abilityEffectPresentation';
+import { responsiveGameUiViewport, physicalToLogical } from '../ui/layout';
+import { createUiText } from '../ui/text';
+import { ThemeDepth, ThemeFont } from '../ui/theme';
 
+type Glyph = 'move' | 'rate' | 'damage' | 'pierce' | 'health' | 'armor' | 'range' | 'loot';
+const GLYPH_BIT: Readonly<Record<Glyph, number>> = { move: 1, rate: 2, damage: 4, pierce: 8, health: 16, armor: 32, range: 64, loot: 128 };
+const STAT_GLYPH: Readonly<Record<ModifierStatKey, Glyph>> = {
+  moveSpeed: 'move', attackSpeed: 'rate', damage: 'damage', pierce: 'pierce',
+  maxHealth: 'health', armor: 'armor', projectileSpeed: 'move', projectileCount: 'pierce',
+  range: 'range', critChance: 'damage', pickupRadius: 'loot', xpGain: 'loot', currencyGain: 'loot', spreadDeg: 'range',
+};
 interface LiveAbilityEffect {
-  cue: string;
-  color: number;
-  radius: number;
+  readonly abilityId: string;
+  readonly kind: AbilityEffect['kind'];
+  readonly color: number;
+  readonly radius: number;
+  readonly glyphMask: number;
+  readonly x: number;
+  readonly y: number;
   remaining: number;
   elapsed: number;
-  x: number;
-  y: number;
-  transient: boolean;
   rendered: boolean;
 }
 
-/** Bounded, gameplay-inert workshop-pixel feedback for authoritative ability facts. */
+/** Gameplay-inert, bounded feedback: two reusable display objects, one
+ * transient slot, one sustained slot, at most sixteen drawing primitives.
+ * Persistent lifetime comes only from ability:ended; no view ticks gameplay. */
 export class AbilityPresentationSystem {
   private readonly graphics: Phaser.GameObjects.Graphics;
+  private readonly banner: Phaser.GameObjects.Text;
   private readonly stop: Array<() => void> = [];
-  private readonly live = new Map<string, LiveAbilityEffect>();
+  private transient?: LiveAbilityEffect;
+  private persistent?: LiveAbilityEffect;
+  private bannerRemaining = 0;
+  private primitivesRemaining = 16;
+  private disposed = false;
 
-  constructor(scene: Phaser.Scene, bus: EventBus, private readonly player: { x: number; y: number }) {
+  constructor(private readonly scene: Phaser.Scene, bus: EventBus, private readonly player: { x: number; y: number }) {
     this.graphics = scene.add.graphics().setDepth(90);
-    this.stop.push(bus.on('ability:activated', (event) => {
-      const color = Number.parseInt(event.color.slice(1), 16);
-      // One live effect per ability is a hard allocation bound; one Graphics
-      // object is cleared and redrawn rather than spawning transient objects.
-      const transient = event.cue === 'shockwave' || event.cue === 'heat-ring'
-        || event.cue === 'loot-pulse' || event.cue === 'heal-burst';
-      this.live.set(event.abilityId, {
-        cue: event.cue,
-        color: Number.isFinite(color) ? color : 0xffffff,
-        radius: event.radius ?? 36,
-        // Instant gameplay abilities still need enough presentation time to
-        // read as an authored action rather than a single-frame debug ring.
-        remaining: transient ? Math.max(280, event.durationMs) : event.durationMs,
-        elapsed: 0,
-        x: event.x,
-        y: event.y,
-        transient,
-        rendered: false,
-      });
+    this.banner = createUiText(scene, 0, 0, '', {
+      color: '#f7f1d5', backgroundColor: '#081118', fontFamily: ThemeFont.family,
+      fontSize: '14px', align: 'center', maxLines: 2, padding: { x: 8, y: 4 },
+    }).setOrigin(0.5, 0).setDepth(ThemeDepth.transientHint).setScrollFactor(0).setVisible(false);
+    this.layoutBanner();
+    scene.scale.on('resize', this.layoutBanner, this);
+    this.stop.push(bus.on('ability:activated', event => this.activate(event)));
+    this.stop.push(bus.on('ability:resolved', event => {
+      this.showBanner(event.name, resolveAbilityResolutionCopy(event.resolution));
     }));
-    this.stop.push(bus.on('ability:ended', (event) => {
-      const effect = this.live.get(event.abilityId);
-      if (effect && !effect.transient) this.live.delete(event.abilityId);
+    this.stop.push(bus.on('ability:ended', event => {
+      if (this.persistent?.abilityId === event.abilityId) this.persistent = undefined;
     }));
   }
+
+  private activate(event: GameEventMap['ability:activated']): void {
+    const color = Number.parseInt(event.color.slice(1), 16);
+    let glyphMask = 0;
+    if (event.mechanicKind === 'stat-burst') {
+      for (const modifier of event.modifiers ?? []) glyphMask |= GLYPH_BIT[STAT_GLYPH[modifier.stat]];
+    }
+    const sustained = event.mechanicKind === 'stat-burst' || event.mechanicKind === 'invulnerable';
+    const effect: LiveAbilityEffect = {
+      abilityId: event.abilityId, kind: event.mechanicKind,
+      color: Number.isFinite(color) ? color : 0xffffff,
+      radius: sustained || event.mechanicKind === 'heal' ? event.visualRadius ?? 36 : event.radius ?? 0,
+      glyphMask, remaining: Math.max(280, event.durationMs), elapsed: 0,
+      x: event.x, y: event.y, rendered: false,
+    };
+    if (sustained) this.persistent = effect;
+    else this.transient = effect;
+    this.showBanner(event.headline ?? '', event.detail ?? '');
+  }
+
+  private showBanner(name: string, detail: string): void {
+    this.banner.setText(`${name}\n${detail}`).setVisible(true);
+    this.bannerRemaining = 1800;
+  }
+
+  private readonly layoutBanner = (): void => {
+    if (this.disposed) return;
+    const viewport = responsiveGameUiViewport(this.scene.scale.width, this.scene.scale.height);
+    this.banner.setPosition((viewport.originX ?? 0) + viewport.canvasWidth / 2,
+      (viewport.originY ?? 0) + physicalToLogical(94, viewport));
+    this.banner.setFontSize(physicalToLogical(ThemeFont.bodyMin, viewport));
+    this.banner.setWordWrapWidth(viewport.canvasWidth - physicalToLogical(48, viewport), true);
+  };
 
   update(deltaMs: number, reducedMotion: boolean): void {
+    if (this.disposed) return;
+    const dt = Number.isFinite(deltaMs) && deltaMs > 0 ? deltaMs : 0;
     this.graphics.clear();
-    for (const [id, effect] of this.live) {
-      if (effect.transient && effect.rendered && effect.remaining <= 0) {
-        this.live.delete(id);
-        continue;
-      }
-      const life = reducedMotion ? 0.7 : Math.min(1, effect.elapsed / 260);
-      const pulse = reducedMotion ? 0 : Math.sin(effect.elapsed / 90) * 0.08;
-      const radius = effect.transient
-        ? effect.radius * (reducedMotion ? 0.78 : 0.58 + life * 0.62)
-        : effect.radius * (1 + pulse);
-      const x = effect.transient ? effect.x : this.player.x;
-      const y = effect.transient ? effect.y : this.player.y;
-      const strongAlpha = reducedMotion ? 0.95 : effect.transient ? 0.92 - life * 0.24 : 0.78;
-      const softAlpha = reducedMotion ? 0.16 : effect.transient ? 0.2 - life * 0.08 : 0.12;
-
-      this.graphics.fillStyle(effect.color, softAlpha);
-      this.graphics.fillCircle(x, y, Math.max(5, radius * 0.34));
-      this.graphics.fillStyle(effect.color, Math.min(0.82, strongAlpha));
-      this.drawAccentFills(effect.cue, x, y, radius, reducedMotion);
-      this.graphics.lineStyle(3, 0x0a0f14, Math.min(0.8, strongAlpha));
-      this.drawCue(effect.cue, x + 1, y + 1, radius, reducedMotion);
-      this.graphics.lineStyle(2, effect.color, strongAlpha);
-      this.drawCue(effect.cue, x, y, radius, reducedMotion);
-      this.graphics.lineStyle(1, this.mixWithWhite(effect.color), Math.min(0.92, strongAlpha));
-      this.drawHighlights(effect.cue, x, y, radius);
-
-      effect.rendered = true;
-      if (deltaMs > 0) {
-        effect.elapsed += deltaMs;
-        if (effect.transient) effect.remaining -= deltaMs;
-      }
+    this.primitivesRemaining = 16;
+    if (this.transient) {
+      if (this.transient.rendered && this.transient.remaining <= 0) this.transient = undefined;
+      else this.draw(this.transient, false, dt, reducedMotion);
+    }
+    // Always reserve the mechanical boundary first, even if synthetic facts
+    // overlap a large sustained modifier group. No cosmetic cue can hide it.
+    if (this.persistent) this.draw(this.persistent, true, dt, reducedMotion);
+    if (this.bannerRemaining > 0) {
+      this.bannerRemaining = Math.max(0, this.bannerRemaining - dt);
+      if (this.bannerRemaining === 0) this.banner.setVisible(false);
     }
   }
 
-  private drawAccentFills(cue: string, x: number, y: number, radius: number, reducedMotion: boolean): void {
-    const count = reducedMotion ? 4 : 8;
-    if (cue === 'shockwave' || cue === 'heat-ring') {
-      for (let index = 0; index < count; index += 1) {
-        // Shock shards sit between the outlined radial ticks, creating a
-        // legible burst instead of four accidental X-shaped markers.
-        const angle = index * Math.PI * 2 / count;
-        const tangentX = Math.cos(angle + Math.PI / 2) * radius * 0.09;
-        const tangentY = Math.sin(angle + Math.PI / 2) * radius * 0.09;
-        const baseX = x + Math.cos(angle) * radius * 0.9;
-        const baseY = y + Math.sin(angle) * radius * 0.9;
-        const length = cue === 'heat-ring' ? 1.22 : 1.12;
-        this.graphics.fillTriangle(
-          baseX - tangentX, baseY - tangentY,
-          x + Math.cos(angle) * radius * length, y + Math.sin(angle) * radius * length,
-          baseX + tangentX, baseY + tangentY,
-        );
-      }
-      return;
-    }
-    if (cue === 'loot-pulse' || cue === 'heal-burst' || cue === 'shield-aura' || cue === 'overclock-aura') {
-      const nodes = cue === 'shield-aura' ? 6 : cue === 'overclock-aura' ? 8 : 4;
-      for (let index = 0; index < nodes; index += 1) {
-        const angle = -Math.PI / 2 + index * Math.PI * 2 / nodes;
-        this.graphics.fillCircle(
-          x + Math.cos(angle) * radius * 0.82,
-          y + Math.sin(angle) * radius * 0.82,
-          Math.max(2, radius * (cue === 'loot-pulse' ? 0.08 : 0.06)),
-        );
-      }
-      return;
-    }
-    if (cue === 'speed-trail') {
-      this.graphics.fillTriangle(x + radius * 0.88, y, x + radius * 0.42, y - radius * 0.24,
-        x + radius * 0.42, y + radius * 0.24);
-    } else if (cue === 'precision-mark') {
-      this.graphics.fillCircle(x, y, Math.max(2, radius * 0.1));
-    }
-  }
-
-  private drawCue(cue: string, x: number, y: number, radius: number, reducedMotion: boolean): void {
-    switch (cue) {
-      case 'shockwave':
-        this.graphics.strokeCircle(x, y, radius);
-        this.graphics.strokeCircle(x, y, radius * 0.72);
-        this.drawRadialTicks(x, y, radius * 0.8, radius * 1.12, 4, Math.PI / 4);
+  private draw(effect: LiveAbilityEffect, sustained: boolean, dt: number, reducedMotion: boolean): void {
+    const x = sustained ? this.player.x : effect.x;
+    const y = sustained ? this.player.y : effect.y;
+    const r = effect.radius;
+    this.graphics.lineStyle(2, effect.color, 0.95);
+    switch (effect.kind) {
+      case 'knockback':
+        // The outer boundary never animates or shifts: it is effect.radius.
+        this.circle(x, y, r);
+        this.circle(x, y, r * (reducedMotion ? 0.62 : 0.35 + Math.min(1, effect.elapsed / 280) * 0.5));
+        this.radialArrows(x, y, r, false);
         break;
-      case 'heat-ring':
-        this.graphics.strokeCircle(x, y, radius);
-        this.drawHeatTongues(x, y, radius, reducedMotion ? 4 : 8);
+      case 'elemental-burst':
+        this.circle(x, y, r);
+        for (let index = 0; index < 4; index += 1) {
+          const angle = index * Math.PI / 2;
+          this.line(x + Math.cos(angle) * r * 0.72, y + Math.sin(angle) * r * 0.72,
+            x + Math.cos(angle) * r * 0.94, y + Math.sin(angle) * r * 0.94);
+        }
         break;
       case 'loot-pulse':
-        this.graphics.strokeCircle(x, y, radius);
-        this.graphics.strokeCircle(x, y, radius * 0.82);
-        this.drawInwardChevron(x - radius, y, x - radius * 0.45, y, radius * 0.12);
-        this.drawInwardChevron(x + radius, y, x + radius * 0.45, y, radius * 0.12);
-        this.drawInwardChevron(x, y - radius, x, y - radius * 0.45, radius * 0.12);
-        this.drawInwardChevron(x, y + radius, x, y + radius * 0.45, radius * 0.12);
+        this.circle(x, y, r);
+        this.radialArrows(x, y, r, true);
         break;
-      case 'heal-burst':
-        this.graphics.strokeCircle(x, y, radius);
-        this.drawRepairSpark(x, y - radius * 0.62, radius * 0.16);
-        this.drawRepairSpark(x + radius * 0.62, y, radius * 0.16);
-        this.drawRepairSpark(x, y + radius * 0.62, radius * 0.16);
-        this.drawRepairSpark(x - radius * 0.62, y, radius * 0.16);
+      case 'heal':
+        this.circle(x, y, 18);
+        this.cross(x, y, 9);
         break;
-      case 'speed-trail':
-        this.graphics.lineBetween(x - radius, y - radius * 0.38, x + radius * 0.18, y - radius * 0.38);
-        this.graphics.lineBetween(x - radius * 1.15, y, x + radius * 0.4, y);
-        this.graphics.lineBetween(x - radius, y + radius * 0.38, x + radius * 0.18, y + radius * 0.38);
-        this.drawInwardChevron(x + radius * 0.42, y, x + radius * 0.85, y, radius * 0.24);
+      case 'invulnerable':
+        this.hex(x, y, r);
+        this.circle(x, y, r * 0.65);
         break;
-      case 'overclock-aura':
-        this.graphics.strokeCircle(x, y, radius);
-        this.graphics.strokeCircle(x, y, radius * 0.58);
-        this.drawRadialTicks(x, y, radius * 0.68, radius * 1.02, 8, Math.PI / 8);
+      case 'stat-burst': {
+        // Up to three semantic symbols, selected once at activation. No
+        // ability IDs, entities, new display objects or per-frame arrays.
+        let drawn = 0;
+        for (let bit = 1; bit <= 128 && drawn < 3; bit *= 2) {
+          if ((effect.glyphMask & bit) === 0) continue;
+          this.statGlyph(bit, x - r + drawn * r, y - r * 0.8, 9);
+          drawn += 1;
+        }
+        this.circle(x, y, r * 0.65);
         break;
-      case 'shield-aura':
-        this.graphics.strokeCircle(x, y, radius * 0.96);
-        this.graphics.strokeCircle(x, y, radius * 0.62);
-        this.drawHex(x, y, radius);
-        break;
-      case 'precision-mark':
-        this.drawDiamond(x, y, radius * 0.58);
-        this.drawCornerBrackets(x, y, radius);
-        this.graphics.lineBetween(x - radius * 0.92, y, x - radius * 0.58, y);
-        this.graphics.lineBetween(x + radius * 0.58, y, x + radius * 0.92, y);
-        break;
+      }
+      default: {
+        const unsupported: never = effect.kind;
+        throw new Error(`Unsupported ability presentation: ${String(unsupported)}`);
+      }
+    }
+    effect.rendered = true;
+    effect.elapsed += dt;
+    if (!sustained) effect.remaining -= dt;
+  }
+
+  private radialArrows(x: number, y: number, radius: number, inward: boolean): void {
+    for (let index = 0; index < 4; index += 1) {
+      const angle = index * Math.PI / 2;
+      const base = radius * (inward ? 0.82 : 0.62);
+      const tip = radius * (inward ? 0.48 : 0.92);
+      const tx = Math.cos(angle + Math.PI / 2) * radius * 0.10;
+      const ty = Math.sin(angle + Math.PI / 2) * radius * 0.10;
+      this.triangle(x + Math.cos(angle) * base - tx, y + Math.sin(angle) * base - ty,
+        x + Math.cos(angle) * tip, y + Math.sin(angle) * tip,
+        x + Math.cos(angle) * base + tx, y + Math.sin(angle) * base + ty);
     }
   }
 
-  private drawHighlights(cue: string, x: number, y: number, radius: number): void {
-    switch (cue) {
-      case 'shockwave':
-        this.graphics.strokeCircle(x, y, radius * 0.86);
-        this.drawRadialTicks(x, y, radius * 0.92, radius * 1.05, 4, 0);
+  private statGlyph(bit: number, x: number, y: number, r: number): void {
+    switch (bit) {
+      case 1: // movement: fixed wing/arrow, also legible with reduced motion
+        this.line(x - r, y - r, x, y); this.line(x, y, x - r, y + r);
+        this.line(x, y - r, x + r, y); this.line(x + r, y, x, y + r);
         break;
-      case 'heat-ring':
-        this.graphics.strokeCircle(x, y, radius * 0.76);
+      case 2: // fire rate: gear hub and cadence spokes
+        this.circle(x, y, r * 0.55);
+        for (let index = 0; index < 4; index += 1) {
+          const angle = index * Math.PI / 2;
+          this.line(x + Math.cos(angle) * r * 0.65, y + Math.sin(angle) * r * 0.65,
+            x + Math.cos(angle) * r, y + Math.sin(angle) * r);
+        }
         break;
-      case 'loot-pulse':
-        this.drawDiamond(x, y, radius * 0.18);
+      case 4: // damage: pointed impact mark
+        this.triangle(x, y - r, x + r, y + r, x - r, y + r);
+        this.line(x, y - r * 0.3, x, y + r * 0.5);
         break;
-      case 'heal-burst':
-        this.drawRepairSpark(x, y, radius * 0.28);
+      case 8: // pierce: projectile crossing a target
+        this.line(x - r, y, x + r, y);
+        this.line(x, y - r, x, y + r);
+        this.line(x + r * 0.5, y - r * 0.5, x + r, y);
         break;
-      case 'speed-trail':
-        this.graphics.lineBetween(x - radius * 0.58, y, x + radius * 0.46, y);
-        break;
-      case 'overclock-aura':
-        this.graphics.strokeCircle(x, y, radius * 0.78);
-        break;
-      case 'shield-aura':
-        this.drawHex(x, y, radius * 0.78);
-        break;
-      case 'precision-mark':
-        this.drawDiamond(x, y, radius * 0.28);
-        break;
+      case 16: this.cross(x, y, r); break;
+      case 32: this.hex(x, y, r); break;
+      case 64: this.circle(x, y, r); this.line(x - r, y, x + r, y); break;
+      case 128: this.triangle(x - r, y - r, x, y + r, x + r, y - r); break;
     }
   }
 
-  private mixWithWhite(color: number): number {
-    const red = (color >> 16) & 0xff;
-    const green = (color >> 8) & 0xff;
-    const blue = color & 0xff;
-    return ((red + ((255 - red) >> 1)) << 16)
-      | ((green + ((255 - green) >> 1)) << 8)
-      | (blue + ((255 - blue) >> 1));
+  private cross(x: number, y: number, r: number): void {
+    this.line(x - r, y, x + r, y); this.line(x, y - r, x, y + r);
   }
-
-  private drawRadialTicks(x: number, y: number, inner: number, outer: number, count: number, offset: number): void {
-    for (let index = 0; index < count; index += 1) {
-      const angle = offset + index * Math.PI * 2 / count;
-      this.graphics.lineBetween(
-        x + Math.cos(angle) * inner,
-        y + Math.sin(angle) * inner,
-        x + Math.cos(angle) * outer,
-        y + Math.sin(angle) * outer,
-      );
-    }
-  }
-
-  private drawHeatTongues(x: number, y: number, radius: number, count: number): void {
-    for (let index = 0; index < count; index += 1) {
-      const angle = index * Math.PI * 2 / count;
-      const tangentX = Math.cos(angle + Math.PI / 2) * radius * 0.12;
-      const tangentY = Math.sin(angle + Math.PI / 2) * radius * 0.12;
-      const baseX = x + Math.cos(angle) * radius * 0.86;
-      const baseY = y + Math.sin(angle) * radius * 0.86;
-      this.graphics.strokeTriangle(
-        baseX - tangentX, baseY - tangentY,
-        x + Math.cos(angle) * radius * 1.2, y + Math.sin(angle) * radius * 1.2,
-        baseX + tangentX, baseY + tangentY,
-      );
-    }
-  }
-
-  private drawInwardChevron(fromX: number, fromY: number, toX: number, toY: number, size: number): void {
-    const angle = Math.atan2(toY - fromY, toX - fromX);
-    const sideX = Math.cos(angle + Math.PI / 2) * size;
-    const sideY = Math.sin(angle + Math.PI / 2) * size;
-    this.graphics.lineBetween(fromX, fromY, toX, toY);
-    this.graphics.lineBetween(toX, toY, toX - Math.cos(angle) * size + sideX, toY - Math.sin(angle) * size + sideY);
-    this.graphics.lineBetween(toX, toY, toX - Math.cos(angle) * size - sideX, toY - Math.sin(angle) * size - sideY);
-  }
-
-  private drawRepairSpark(x: number, y: number, size: number): void {
-    this.graphics.lineBetween(x - size, y, x + size, y);
-    this.graphics.lineBetween(x, y - size, x, y + size);
-  }
-
-  private drawHex(x: number, y: number, radius: number): void {
+  private hex(x: number, y: number, r: number): void {
     for (let index = 0; index < 6; index += 1) {
       const a = -Math.PI / 2 + index * Math.PI / 3;
-      const b = -Math.PI / 2 + (index + 1) * Math.PI / 3;
-      this.graphics.lineBetween(x + Math.cos(a) * radius, y + Math.sin(a) * radius,
-        x + Math.cos(b) * radius, y + Math.sin(b) * radius);
+      const b = a + Math.PI / 3;
+      this.line(x + Math.cos(a) * r, y + Math.sin(a) * r, x + Math.cos(b) * r, y + Math.sin(b) * r);
     }
   }
-
-  private drawDiamond(x: number, y: number, radius: number): void {
-    this.graphics.lineBetween(x, y - radius, x + radius, y);
-    this.graphics.lineBetween(x + radius, y, x, y + radius);
-    this.graphics.lineBetween(x, y + radius, x - radius, y);
-    this.graphics.lineBetween(x - radius, y, x, y - radius);
+  private circle(x: number, y: number, r: number): void {
+    if (this.primitivesRemaining-- > 0) this.graphics.strokeCircle(x, y, r);
   }
-
-  private drawCornerBrackets(x: number, y: number, radius: number): void {
-    const short = radius * 0.28;
-    // Avoid allocating iterator arrays in the per-frame presentation path.
-    for (let horizontalIndex = 0; horizontalIndex < 2; horizontalIndex += 1) {
-      const horizontal = horizontalIndex === 0 ? -1 : 1;
-      for (let verticalIndex = 0; verticalIndex < 2; verticalIndex += 1) {
-        const vertical = verticalIndex === 0 ? -1 : 1;
-        const cornerX = x + horizontal * radius;
-        const cornerY = y + vertical * radius;
-        this.graphics.lineBetween(cornerX, cornerY, cornerX - horizontal * short, cornerY);
-        this.graphics.lineBetween(cornerX, cornerY, cornerX, cornerY - vertical * short);
-      }
-    }
+  private line(x: number, y: number, toX: number, toY: number): void {
+    if (this.primitivesRemaining-- > 0) this.graphics.lineBetween(x, y, toX, toY);
+  }
+  private triangle(x: number, y: number, bx: number, by: number, cx: number, cy: number): void {
+    if (this.primitivesRemaining-- > 0) this.graphics.strokeTriangle(x, y, bx, by, cx, cy);
   }
 
   destroy(): void {
-    this.stop.splice(0).forEach((stop) => stop());
-    this.live.clear();
-    this.graphics.destroy();
+    if (this.disposed) return;
+    this.disposed = true;
+    for (const stop of this.stop) stop();
+    this.stop.length = 0;
+    this.scene.scale.off('resize', this.layoutBanner, this);
+    this.transient = undefined; this.persistent = undefined;
+    this.graphics.destroy(); this.banner.destroy();
   }
 }

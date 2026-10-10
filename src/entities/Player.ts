@@ -215,9 +215,11 @@ export class Player {
 
   /** Active abilities use the same authoritative health/invulnerability state
    * as combat; they do not bypass run lifecycle checks. */
-  heal(amount: number): void {
-    if (this.runState.status !== 'active' || !Number.isFinite(amount) || amount <= 0) return;
+  heal(amount: number): number {
+    if (this.runState.status !== 'active' || !Number.isFinite(amount) || amount <= 0) return 0;
+    const before = this.health;
     this.health = Math.min(this.maxHealth, this.health + amount);
+    return this.health - before;
   }
 
   grantInvulnerability(durationMs: number): void {

@@ -1,3 +1,4 @@
+import { resolveAbilityEffectPresentation } from '../presentation/abilityEffectPresentation';
 import type { GameContext, SelectCharacterFailureReason } from '../engine/context';
 import { canSelectCharacter } from '../gameplay/characterSelection';
 import { createConditionContext, type ProgressionCondition } from '../gameplay/conditionEvaluator';
@@ -74,7 +75,7 @@ export class CharacterSelectionController {
       name: character.name,
       description: character.description,
       ...(character.abilityId !== undefined && abilities.get(character.abilityId) !== undefined
-        ? { abilityName: abilities.get(character.abilityId)!.name, abilityDescription: abilities.get(character.abilityId)!.description, abilityIconArtId: abilities.get(character.abilityId)!.presentation.iconArtId }
+        ? { abilityName: abilities.get(character.abilityId)!.name, abilityDescription: (() => { const copy = resolveAbilityEffectPresentation(abilities.get(character.abilityId)!); return `${copy.detail} ${copy.cooldownLabel}`; })(), abilityIconArtId: abilities.get(character.abilityId)!.presentation.iconArtId }
         : {}),
       baseStatsSummary: `${character.baseStats.maxHealth} health • ${character.baseStats.moveSpeed} speed`,
       passiveSummary: character.passives.map((passive) => `${passive.name}: ${passive.description}`).join(' • ') || 'No passive.',

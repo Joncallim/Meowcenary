@@ -5,6 +5,7 @@ import type { InputController, InputMode, InputPresentationSnapshot } from '../s
 import { edgeMargin, pointerToRootLocal, physicalToLogical, GAMEPLAY_ZOOM, responsiveGameUiViewport, responsiveUiViewport, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { createUiText } from './text';
+import type { AbilityUiState } from '../gameplay/abilities';
 import type { VisualArtLookup } from '../systems/visualArt';
 import { createUiVisualChrome, type UiVisualChrome } from './visualChrome';
 import { WorldUiReadability, type WorldUiBounds, type WorldUiCamera, type WorldUiPaint } from './worldUiReadability';
@@ -42,8 +43,6 @@ export interface AbilityControlDefinition {
   };
 }
 
-export type AbilityControlPhase = 'ready' | 'active' | 'cooling';
-
 const ABILITY_CARD_WIDTH_PX = 120;
 const ABILITY_CARD_HEIGHT_PX = 60;
 
@@ -66,8 +65,12 @@ export class ControlsView {
   private hintText!: Phaser.GameObjects.Text;
   private pauseButton!: Phaser.GameObjects.Rectangle;
   private readonly ability?: AbilityControlDefinition;
-  private abilityPhase: AbilityControlPhase = 'ready';
-  private abilityCooldownSeconds = 0;
+  private abilityUiState: AbilityUiState = Object.freeze({ phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0, readiness: 1, activeProgress: 0 });
+  private abilityVisibleSeconds = 0;
+  private abilityStateGlyph?: Phaser.GameObjects.Text;
+  private abilityProgressTrack?: Phaser.GameObjects.Rectangle;
+  private abilityActiveBand?: Phaser.GameObjects.Rectangle;
+  private abilityCooldownBand?: Phaser.GameObjects.Rectangle;
   private abilityButton?: Phaser.GameObjects.Rectangle;
   private abilityIcon?: Phaser.GameObjects.Image;
   private abilityNameText?: Phaser.GameObjects.Text;
@@ -170,6 +173,7 @@ export class ControlsView {
         fontSize: `${fontSize}px`,
       },
     );
+    this.hintText.setWordWrapWidth(viewport.canvasWidth - physicalToLogical(32, viewport));
     this.hintText.setOrigin(0.5);
     this.hintText.setDepth(ThemeDepth.transientHint);
     this.hintText.setScrollFactor(0);
@@ -208,6 +212,10 @@ export class ControlsView {
       ...(this.abilityIcon ? [this.abilityIcon] : []),
       ...(this.abilityNameText ? [this.abilityNameText] : []),
       ...(this.abilityStateText ? [this.abilityStateText] : []),
+      ...(this.abilityStateGlyph ? [this.abilityStateGlyph] : []),
+      ...(this.abilityProgressTrack ? [this.abilityProgressTrack] : []),
+      ...(this.abilityActiveBand ? [this.abilityActiveBand] : []),
+      ...(this.abilityCooldownBand ? [this.abilityCooldownBand] : []),
       ...this.pauseGlyphBars,
       ...(this.pauseArt ? [this.pauseArt] : []),
     ]);
@@ -254,38 +262,53 @@ export class ControlsView {
       fontSize: `${physicalToLogical(12, viewport)}px`, fontStyle: '700', align: 'center',
     });
     this.abilityNameText.setOrigin(0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
-    this.abilityStateText = createUiText(scene, copyX, y + height * 0.20, abilityStateCopy(this.abilityPhase, this.abilityCooldownSeconds), {
+    this.abilityStateText = createUiText(scene, copyX, y + height * 0.20, abilityStateCopy(this.abilityUiState.phase, this.abilityVisibleSeconds), {
       color: '#f7f1d5', fontFamily: ThemeFont.family,
       fontSize: `${physicalToLogical(11, viewport)}px`, fontStyle: '700', align: 'center',
     });
     this.abilityStateText.setOrigin(0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
+    this.abilityStateGlyph = createUiText(scene, x + width / 2 - physicalToLogical(9, viewport), y - height / 2 + physicalToLogical(8, viewport), '○', {
+      color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${physicalToLogical(12, viewport)}px`, fontStyle: '700',
+    }).setOrigin(0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
+    const barWidth = width - physicalToLogical(12, viewport);
+    const barHeight = physicalToLogical(3, viewport);
+    const left = x - barWidth / 2;
+    const activeY = y - height / 2 + physicalToLogical(4, viewport);
+    const cooldownY = y + height / 2 - physicalToLogical(4, viewport);
+    this.abilityProgressTrack = scene.add.rectangle(left, cooldownY, barWidth, barHeight, ThemeColor.surface, 1)
+      .setOrigin(0, 0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
+    this.abilityActiveBand = scene.add.rectangle(left, activeY, barWidth, barHeight, ThemeColor.gold, 1)
+      .setOrigin(0, 0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
+    this.abilityCooldownBand = scene.add.rectangle(left, cooldownY, barWidth, barHeight, ThemeColor.cream, 1)
+      .setOrigin(0, 0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
     this.applyAbilityVisualState();
   }
 
-  /**
-   * Update only when the card's visible state changes.  `cooldownRemainingMs`
-   * is intentionally converted with the same ceiling semantics used by the
-   * ability runtime, so 6.1 seconds displays as 7s rather than pretending a
-   * use is ready early.
-   */
-  setAbilityPresentation(phase: AbilityControlPhase, cooldownRemainingMs: number): void {
+  /** Gameplay pushes immutable simulation snapshots. This view never ticks
+   * active duration or cooldown; only visible seconds and progress repaint. */
+  setAbilityUiState(state: AbilityUiState): void {
     if (this.disposed || !this.ability) return;
-    const safePhase: AbilityControlPhase = phase === 'active' || phase === 'cooling' ? phase : 'ready';
-    const seconds = safePhase === 'cooling'
-      ? Math.max(0, Math.ceil(Math.max(0, Number.isFinite(cooldownRemainingMs) ? cooldownRemainingMs : 0) / 1000))
-      : 0;
-    if (safePhase === this.abilityPhase && seconds === this.abilityCooldownSeconds) return;
-    this.abilityPhase = safePhase;
-    this.abilityCooldownSeconds = seconds;
+    const remaining = state.phase === 'active' ? state.activeRemainingMs : state.cooldownRemainingMs;
+    const seconds = state.phase === 'ready' ? 0 : Math.max(0, Math.ceil(remaining / 1000));
+    if (state.phase === this.abilityUiState.phase && seconds === this.abilityVisibleSeconds
+      && state.readiness === this.abilityUiState.readiness && state.activeProgress === this.abilityUiState.activeProgress) return;
+    this.abilityUiState = state;
+    this.abilityVisibleSeconds = seconds;
     this.applyAbilityVisualState();
   }
 
   private applyAbilityVisualState(): void {
     if (!this.abilityButton || !this.abilityStateText) return;
-    const cooling = this.abilityPhase === 'cooling';
+    const phase = this.abilityUiState.phase;
+    const cooling = phase === 'cooling';
     this.abilityButton.setFillStyle(ThemeColor.primary, cooling ? 0.38 : 0.78);
-    this.abilityStateText.setText(abilityStateCopy(this.abilityPhase, this.abilityCooldownSeconds));
+    this.abilityButton.setStrokeStyle(physicalToLogical(phase === 'ready' ? 2 : 1, this.viewport), ThemeColor.cream, phase === 'ready' ? 1 : 0.65);
+    this.abilityStateText.setText(abilityStateCopy(phase, this.abilityVisibleSeconds));
     this.abilityStateText.setAlpha(cooling ? 0.76 : 1);
+    this.abilityStateGlyph?.setText(phase === 'ready' ? '○' : phase === 'active' ? '◆' : '▰');
+    this.abilityActiveBand?.setVisible(phase === 'active').setScale(this.abilityUiState.activeProgress, 1);
+    this.abilityProgressTrack?.setVisible(cooling);
+    this.abilityCooldownBand?.setVisible(cooling).setScale(this.abilityUiState.readiness, 1);
   }
 
   private buildExtractionControls(
@@ -468,6 +491,14 @@ export class ControlsView {
     this.abilityIcon?.destroy();
     this.abilityNameText?.destroy();
     this.abilityStateText?.destroy();
+    this.abilityStateGlyph?.destroy();
+    this.abilityProgressTrack?.destroy();
+    this.abilityActiveBand?.destroy();
+    this.abilityCooldownBand?.destroy();
+    this.abilityStateGlyph = undefined;
+    this.abilityProgressTrack = undefined;
+    this.abilityActiveBand = undefined;
+    this.abilityCooldownBand = undefined;
     this.abilityButton = undefined;
     this.abilityIcon = undefined;
     this.abilityNameText = undefined;
@@ -609,9 +640,9 @@ function abilityTeachingCopy(ability: AbilityControlDefinition): string {
   return `${containedAbilityName(ability.name).toUpperCase()} — ${ability.description}`;
 }
 
-function abilityStateCopy(phase: AbilityControlPhase, cooldownSeconds: number): string {
-  if (phase === 'active') return 'ACTIVE';
-  if (phase === 'cooling') return `${Math.max(0, cooldownSeconds)}s`;
+function abilityStateCopy(phase: AbilityUiState['phase'], remainingSeconds: number): string {
+  if (phase === 'active') return `ACTIVE ${remainingSeconds}s`;
+  if (phase === 'cooling') return `WAIT ${remainingSeconds}s`;
   return 'READY';
 }
 

@@ -130,6 +130,7 @@ interface TestHarness {
     scrapValue: number;
     definition: { id: string; xpValue: number; scrapValue: number; lootTableId?: string };
     takeDamage: ReturnType<typeof vi.fn>;
+    takeDamageWithReceipt(amount:number,source?:Readonly<{x:number;y:number}>):{applied:boolean;killed:boolean};
   };
   enemies: TestHarness['enemy'][];
   overlap?: (projectileObject: unknown, enemyObject: unknown) => void;
@@ -199,6 +200,11 @@ describe('WeaponSystem', () => {
         lootTableId: dustMite.lootTableId,
       },
       health: dustMite.health,
+      takeDamageWithReceipt(this: TestHarness['enemy'], amount:number, source?:Readonly<{x:number;y:number}>) {
+        const before=this.health;
+        const killed=this.takeDamage(amount,source);
+        return {applied:this.health<before,killed};
+      },
       takeDamage: vi.fn((amount: number) => {
         // Faithful to Enemy.takeDamage (Epic 11 §7): the payload reports the
         // health actually removed — capped at the enemy's remaining health —

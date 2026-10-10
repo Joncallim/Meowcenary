@@ -79,6 +79,7 @@ function createFakeScene() {
         return api;
       },
       setFontSize(size: number) { state.fontSize = size; return api; },
+      setWordWrapWidth(width: number) { state.wordWrapWidth = width; return api; },
       setOrigin(x = 0.5, y = x) { state.originX = x; state.originY = y; return api; },
       setScrollFactor(x: number, y: number = x) {
         state.scrollFactorX = x;

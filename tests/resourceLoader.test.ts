@@ -10,6 +10,7 @@ import {
 } from '../src/systems/resourceLoader';
 import type { VisualTextureResource } from '../src/systems/types';
 import { loadGameData } from '../src/systems/validation';
+import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
 describe('Resource Loader', () => {
   const mockResources: VisualTextureResource[] = [
@@ -183,7 +184,8 @@ describe('Resource Loader', () => {
     const ids = new Set(resources.map((resource) => resource.id));
     expect(ids).toContain('resource:character-scrap-tabby');
     expect(ids).toContain('resource:mercenary-identity-icons');
-    expect(ids).not.toContain('resource:mercenary-portraits');
+    // The selected logical portrait closes through its shared physical atlas.
+    expect(ids).toContain('resource:mercenary-portraits');
     // Terminal Achievement tiles are part of the run journey. Their one
     // bounded atlas must be ready even when the player never visited Career.
     expect(ids).toContain('resource:achievement-icons');
@@ -195,5 +197,21 @@ describe('Resource Loader', () => {
     expect(ids).toContain('resource:weapon-held-pistol-t1');
     expect(ids).toContain('resource:projectile-pistol');
     expect(ids).toContain('resource:drop-xp-mote');
+  });
+
+  it('closes every selected Mercenary over its own portrait and Ability icon without other actors', () => {
+    const data = loadGameData();
+    const art = new DataVisualArtRegistry(data);
+    const arena = data.arenas.find((candidate) => candidate.id === 'junkyard-lot')!;
+    for (const character of data.characters) {
+      const resources = resolveRunPhysicalResources({ data, characterId: character.id, arena, encounterEnemyIds: [] });
+      const keys = new Set(resources.map((resource) => resource.textureKey));
+      const ability = data.abilities!.find((candidate) => candidate.id === character.abilityId)!;
+      expect(keys.has(art.bindingById(character.presentation.portraitArtId)!.textureKey)).toBe(true);
+      expect(keys.has(art.bindingById(ability.presentation.iconArtId)!.textureKey)).toBe(true);
+      for (const other of data.characters.filter((candidate) => candidate.id !== character.id)) {
+        expect(keys.has(art.bindingById(`character:${other.id}`)!.textureKey)).toBe(false);
+      }
+    }
   });
 });

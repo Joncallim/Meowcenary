@@ -251,7 +251,7 @@ export class MenuScene extends Phaser.Scene {
     super(SceneKey.Menu);
   }
 
-  create(data?: { readonly initialPanel?: import('../ui/menus').MenuPanel; readonly replayRequest?: ComposedRunRequest; readonly isTraining?: boolean }): void {
+  create(data?: { readonly initialPanel?: import('../ui/menus').MenuPanel; readonly replayRequest?: ComposedRunRequest; readonly isTraining?: boolean; readonly quarantineInput?: boolean }): void {
     // Phaser reuses this Scene instance after Game. Loading is transient and
     // must never leave a newly activated Menu permanently inert.
     this.resetMenuTextureLoadQueue();
@@ -281,6 +281,9 @@ export class MenuScene extends Phaser.Scene {
     this.controller = new MainMenuController(ctx);
 
     this.inputController = new InputController(this);
+    // A departing intro's Confirm belongs to its old surface. The new
+    // controller must also consume that held edge before Home can launch.
+    if (data?.quarantineInput) this.inputController.quarantineUntilNeutral();
     this.inputController.onAction('back', () => this.handleBack());
     this.inputController.onAction('navUp', () => this.handleNavMove(-1));
     this.inputController.onAction('navDown', () => this.handleNavMove(1));

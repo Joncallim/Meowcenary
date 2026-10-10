@@ -24,8 +24,8 @@ describe('GAME_EVENT_KEYS', () => {
     }
   });
 
-  it('has the pinned 36-key contract (compile-time exhaustiveness typechecks)', () => {
-    expect(GAME_EVENT_KEYS).toHaveLength(36);
+  it('has the pinned 37-key contract (compile-time exhaustiveness typechecks)', () => {
+    expect(GAME_EVENT_KEYS).toHaveLength(37);
   });
 });
 

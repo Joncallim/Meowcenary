@@ -178,10 +178,11 @@ export class Enemy implements EnemyInstance {
     return this.sprite.body as Phaser.Physics.Arcade.Body;
   }
 
-  applyKnockback(x: number, y: number): void {
-    if (!this.active || this.state === 'dead' || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  applyKnockback(x: number, y: number): boolean {
+    if (!this.active || this.state === 'dead' || !Number.isFinite(x) || !Number.isFinite(y)) return false;
     this.pendingKnockback = { x, y };
     this.body.setVelocity(x, y);
+    return true;
   }
 
   update(player: Player, dtMs: number): void {
@@ -273,14 +274,20 @@ export class Enemy implements EnemyInstance {
     this.syncPresentation(this.state === 'attacking', player);
   }
 
+  /** Compatibility seam: true means this hit killed, as before. */
   takeDamage(amount: number, source?: Readonly<Vec2>): boolean {
+    return this.takeDamageWithReceipt(amount, source).killed;
+  }
+
+  /** The single health/shield mutation owner also reports actual success. */
+  takeDamageWithReceipt(amount: number, source?: Readonly<Vec2>): Readonly<{ applied: boolean; killed: boolean }> {
     if (this.state === 'dead' || !this.active || !Number.isFinite(amount) || amount <= 0) {
-      return false;
+      return Object.freeze({ applied: false, killed: false });
     }
 
     if (this.blocksIncomingDamage(source)) {
       this.bus.emit('enemy:shield-blocked', { instanceId: this.instanceId, enemyId: this.defId, x: this.x, y: this.y });
-      return false;
+      return Object.freeze({ applied: false, killed: false });
     }
 
     const x = this.x;
@@ -308,7 +315,7 @@ export class Enemy implements EnemyInstance {
     });
 
     if (!killed) {
-      return false;
+      return Object.freeze({ applied: true, killed: false });
     }
 
     if (this.definition.splitOnDeath) {
@@ -323,7 +330,7 @@ export class Enemy implements EnemyInstance {
     }
 
     this.destroy();
-    return true;
+    return Object.freeze({ applied: true, killed: true });
   }
 
   destroy(): void {

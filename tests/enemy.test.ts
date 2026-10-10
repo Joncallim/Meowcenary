@@ -136,6 +136,20 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     expect(enemy.active).toBe(true);
   });
 
+  it('returns immutable actual damage receipts with boolean kill compatibility', async () => {
+    const { enemy } = await createEnemy();
+    const receipt = enemy.takeDamageWithReceipt(3);
+    expect(receipt).toEqual({ applied: true, killed: false });
+    expect(Object.isFrozen(receipt)).toBe(true);
+    expect(enemy.health).toBe(7);
+    expect(enemy.takeDamageWithReceipt(NaN)).toEqual({ applied: false, killed: false });
+    expect(enemy.takeDamage(2)).toBe(false);
+    expect(enemy.health).toBe(5);
+    expect(enemy.takeDamageWithReceipt(5)).toEqual({ applied: true, killed: true });
+    expect(enemy.takeDamageWithReceipt(5)).toEqual({ applied: false, killed: false });
+    expect(enemy.takeDamage(5)).toBe(false);
+  });
+
   it('preserves Scrap Burst knockback through the following steering update', async () => {
     const { enemy, sprite } = await createEnemy();
     const definition: AbilityDefinition = {
@@ -145,15 +159,15 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       cooldownMs: 9_000,
       durationMs: 400,
       effect: { kind: 'knockback', radius: 90, power: 260 },
-      presentation: { cue: 'shockwave', color: '#facc15', radius: 90, iconArtId: 'ability-icon:scrap-burst' },
+      presentation: { cue: 'shockwave', color: '#facc15', iconArtId: 'ability-icon:scrap-burst' },
     };
 
     applyAbilityEffect(definition, {
-      player: { x: 0, y: 0, heal: vi.fn(), grantInvulnerability: vi.fn() },
+      player: { x: 0, y: 0, heal: vi.fn(() => 0), grantInvulnerability: vi.fn() },
       stats: { add: vi.fn(), remove: vi.fn() },
       enemies: [enemy],
-      damageEnemy: vi.fn(),
-      collectNearbyConsumables: vi.fn(),
+      damageEnemy: vi.fn(() => false),
+      collectNearbyConsumables: vi.fn(() => 0),
     });
 
     // The scene updates enemies after activating the ability, before the next
@@ -980,8 +994,13 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     expect(enemy.takeDamage(5, { x: 100, y: 20 })).toBe(false);
     expect(enemy.health).toBe(20);
     expect(blocked).toHaveBeenCalledOnce();
+    expect(enemy.takeDamageWithReceipt(5, { x: 100, y: 20 })).toEqual({applied: false, killed: false});
+    expect(enemy.health).toBe(20);
     expect(enemy.takeDamage(5, { x: -100, y: 20 })).toBe(false);
     expect(enemy.health).toBe(15);
+    // Area abilities preserve their existing no-source shield semantics.
+    expect(enemy.takeDamageWithReceipt(2)).toEqual({applied: true, killed: false});
+    expect(enemy.health).toBe(13);
   });
 
   it('emits accepted damage and transitions lethal damage to dead exactly once', async () => {
