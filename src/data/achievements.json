@@ -581,5 +581,132 @@
         }
       }
     ]
+  },
+  {
+    "id": "achievement:postgame-nest-breaker",
+    "name": "Nest Breaker",
+    "description": "Defeat 8 summoners in the optional Nest Breaker Contract.",
+    "kind": "standard",
+    "presentation": {
+      "iconArtId": "achievement-icon:chapter-junkyard"
+    },
+    "target": 1,
+    "condition": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-nest-breaker"
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 50
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:postgame-crossfire-salvage",
+    "name": "Crossfire Courier",
+    "description": "Collect 32 Scrap in the optional Crossfire Salvage Contract.",
+    "kind": "standard",
+    "presentation": {
+      "iconArtId": "achievement-icon:chapter-junkyard"
+    },
+    "target": 1,
+    "condition": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-crossfire-salvage"
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 50
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:postgame-shatterline",
+    "name": "Shatterline Specialist",
+    "description": "Defeat 70 enemies in the optional Shatterline Contract.",
+    "kind": "standard",
+    "presentation": {
+      "iconArtId": "achievement-icon:boss-forge"
+    },
+    "target": 1,
+    "condition": {
+      "type": "stage-cleared",
+      "stageId": "stage:forge-shatterline"
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 50
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:postgame-pressure-test",
+    "name": "Pressure Proven",
+    "description": "Survive 120 seconds in the optional Pressure Test Contract.",
+    "kind": "standard",
+    "presentation": {
+      "iconArtId": "achievement-icon:boss-forge"
+    },
+    "target": 1,
+    "condition": {
+      "type": "stage-cleared",
+      "stageId": "stage:forge-pressure-test"
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 50
+        }
+      }
+    ]
+  },
+  {
+    "id": "achievement:postgame-complete",
+    "name": "Beyond the Warden",
+    "description": "Clear all 4 optional post-Warden Contracts: Nest Breaker, Crossfire Salvage, Shatterline, and Pressure Test.",
+    "kind": "standard",
+    "presentation": {
+      "iconArtId": "achievement-icon:boss-forge"
+    },
+    "target": 1,
+    "condition": {
+      "type": "all",
+      "conditions": [
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-nest-breaker"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-crossfire-salvage"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-shatterline"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-pressure-test"
+        }
+      ]
+    },
+    "rewards": [
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 150
+        }
+      }
+    ]
   }
 ]

@@ -119,6 +119,28 @@ describe('long-term achievement facts and atomic workshop rewards', () => {
     expect(context.saveData.achievements['achievement:veteran-scrap-tabby']).toEqual({ completed: true, progress: 1 });
     expect(context.saveData.progression.scrap).toBe(75); // Tabby tier 1 reconciles; First Blood does not replay.
   });
+  it('uses authoritative optional-stage clears for the ladder and grants its finale only once', () => {
+    const stageIds = ['stage:junkyard-nest-breaker', 'stage:junkyard-crossfire-salvage', 'stage:forge-shatterline', 'stage:forge-pressure-test'];
+    const initial = createDefaultSaveV4();
+    const { context, storage, reload, data } = harness({ ...initial, stages: Object.fromEntries(stageIds.slice(0, 3).map((id) => [id, { completed: true }])) });
+    const row = new AchievementsController(context, new DataAchievementRegistry({ achievements: data.achievements })).snapshot().achievements.find((a) => a.id === 'achievement:postgame-complete');
+    expect(row).toMatchObject({ progress: 3, target: 4, status: 'in-progress' });
+    expect(context.saveData.progression.scrap).toBe(150);
+    expect(context.saveData.achievements['achievement:postgame-pressure-test']?.completed).not.toBe(true);
+    const allCleared = { ...context.saveData, stages: { ...context.saveData.stages, [stageIds[3]]: { completed: true, bestTimeMs: 120000 } } };
+    storage.setItem('depth', JSON.stringify(allCleared));
+    storage.succeeds = false;
+    const rejected = reload();
+    expect(rejected.saveData.progression.scrap).toBe(150);
+    expect(rejected.saveData.achievements['achievement:postgame-complete']?.completed).not.toBe(true);
+    storage.succeeds = true;
+    const earned = reload();
+    expect(earned.saveData.progression.scrap).toBe(350);
+    expect(earned.saveData.appliedGrantTransactions['achievement:postgame-complete:completion']).toBe(true);
+    expect(earned.saveData.achievements['achievement:quick-clear']?.completed).not.toBe(true);
+    expect(reload().saveData.progression.scrap).toBe(350);
+    expect(earned.saveData.achievements['achievement:chapter-junkyard']?.completed).not.toBe(true);
+  });
   it('accepts a second data-only engineering goal and never revokes its earned milestone', () => {
     const data = structuredClone(loadGameData());
     const definition: AchievementDefinition = { id: 'achievement:second-engineering-fixture', name: 'Two families', description: 'Engineer two families.', kind: 'incremental', target: 2, metricId: 'metric:engineered-families', presentation: { iconArtId: 'achievement-icon:first-merge' } };
