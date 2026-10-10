@@ -58,7 +58,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const hero = equipment.presentation.sets.find(set => set.emblemArtId === emblem)
       ?? equipment.presentation.sets.find(set => set.equippedCount > 0);
     return JSON.stringify([snapshot.notice, scrap, equipment.selectedSlot,
-      this.equipmentSetBrowserOpen, hero, equipment.presentation, equipment.blueprints, equipment.unavailable,
+      this.equipmentSetBrowserOpen, hero, equipment.presentation, equipment.blueprints, equipment.acquisition, equipment.unavailable,
       snapshot.stage.stages.find(stage => stage.selected)?.menuBackdropArtId]);
   }
 
@@ -112,11 +112,12 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       this.environment.controls.addLoadoutArt(root, left + 12 + this.equipmentMediaExtent() / 2, y + row.height / 2, item.iconArtId, this.equipmentMediaExtent(), this.equipmentMediaExtent(), this.environment.controls.buttonIndex(row));
       y += row.height + 8;
     }
+    for (const route of equipment.acquisition.filter((row) => row.slot === equipment.selectedSlot && !row.available && !row.owned)) put(`${route.name}: ${route.summary}`);
     if (!selectedSlot.candidates.length) put(`No stored ${selectedSlot.label.toLowerCase()} pieces. Choose a blueprint to fabricate.`);
     const blueprints = equipment.blueprints.filter((piece) => piece.slot === equipment.selectedSlot);
     if (blueprints.length) put('AVAILABLE BLUEPRINTS');
     for (const blueprint of blueprints) {
-      const row = this.button(root, left, y, `${blueprint.name}\nFABRICABLE • ${blueprint.fabricationCost} Scrap`, Math.max(hitTarget, this.equipmentMediaExtent() + 24), () => {
+      const row = this.button(root, left, y, `${blueprint.name}\nBLUEPRINT • NOT OWNED • ${blueprint.fabricationCost} Scrap`, Math.max(hitTarget, this.equipmentMediaExtent() + 24), () => {
         this.environment.controls.focusNext(`equipment-blueprint-detail:${blueprint.equipmentId}`, true);
         this.environment.onSnapshot(this.commands.selectEquipmentBlueprint(blueprint.equipmentId), 'equipment-selection');
       }, 'ui:confirm', contentWidth, undefined, 48, this.equipmentMediaExtent() + 24, true, 'left');
@@ -147,9 +148,10 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const selected = selectedSlot.candidates.find((item) => item.instanceId === equipment.selectedInstanceId);
     const selectedBlueprint = blueprints.find((piece) => piece.equipmentId === equipment.selectedBlueprintId);
     if (selected) {
+      const source = equipment.acquisition.find((row) => row.equipmentId === selected.equipmentId)?.summary ?? '';
       const set = equipment.presentation.sets.find((row) => row.setId === selected.setId)!;
       const detail = this.equipmentInspection(root, left, y, contentWidth,
-        `${selected.name} • T${selected.tier}\n${selectedSlot.label} • ${set.name} Set • ${selected.state}`, selected.iconArtId);
+        `${selected.name} • T${selected.tier}\n${selectedSlot.label} • ${set.name} Set • ${selected.state}\n${source}`, selected.iconArtId);
       this.rememberLoadoutFocus(detail, `equipment-detail:${selected.instanceId}`);
       y += detail.height + 16;
       y = this.renderScopedLoadoutEffects(root, selected.effects, left, y, contentWidth, 22);
@@ -193,8 +195,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       if (upgrade.upgradeLockReason) put(`LOCKED • ${upgrade.upgradeLockReason}`, '#fbbf24');
       else if (selected.tier >= 4) put('Maximum Equipment tier');
     } else if (selectedBlueprint) {
+      const source = equipment.acquisition.find((row) => row.equipmentId === selectedBlueprint.equipmentId)?.summary ?? '';
       const detail = this.equipmentInspection(root, left, y, contentWidth,
-        `${selectedBlueprint.name}\n${selectedBlueprint.setName} Set • ${selectedSlot.label}\nFABRICABLE`, selectedBlueprint.iconArtId);
+        `${selectedBlueprint.name}\n${selectedBlueprint.setName} Set • ${selectedSlot.label}\n${source}`, selectedBlueprint.iconArtId);
       this.rememberLoadoutFocus(detail, `equipment-blueprint-detail:${selectedBlueprint.equipmentId}`);
       y += detail.height + 16;
       y = this.renderScopedLoadoutEffects(root, selectedBlueprint.effects, left, y, contentWidth, 22);

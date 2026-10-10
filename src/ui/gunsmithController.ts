@@ -1,3 +1,4 @@
+import { describeProgressionCondition } from './progressionPresentation';
 import type { GameContext } from '../engine/context';
 import {
   replacePartInBuild,
@@ -1223,33 +1224,26 @@ function catalogCandidateComparison(
 
 function acquisitionSourceLabel(partId: string, fabricationCost: number | undefined, context: GameContext): string {
   const labels: string[] = [];
-  if (fabricationCost !== undefined) labels.push(`Fabricate for ${fabricationCost} Scrap`);
+  const part = context.data.gunParts?.find((row) => row.id === partId);
+  if (fabricationCost !== undefined) {
+    const requirement = part?.unlock ? describeProgressionCondition(part.unlock, context.data) : 'Available';
+    labels.push(`Blueprint: ${requirement}. Fabricate for ${fabricationCost} Scrap; creates one T1 part.`);
+  }
   const rewardProfiles = new Map((context.data.rewardProfiles ?? []).map((reward) => [reward.id, reward] as const));
   for (const stage of context.data.stages ?? []) {
-    const reward = rewardProfiles.get(stage.rewardProfileId);
-    if (reward?.grants?.some((grant) => ('partId' in grant && grant.partId === partId))) labels.push(`First clear: ${stage.name}`);
+    const grants = rewardProfiles.get(stage.rewardProfileId)?.grants ?? [];
+    if (grants.some((grant) => grant.type === 'grant-part-instance' && grant.partId === partId)) labels.push(`Owned part on first clear: ${stage.name}`);
+    if (grants.some((grant) => grant.type === 'unlock-part' && grant.partId === partId)) labels.push(`Permission only on first clear: ${stage.name}`);
   }
   for (const achievement of context.data.achievements ?? []) {
-    if (achievement.rewards?.some(({ grant }) => ('partId' in grant && grant.partId === partId))) labels.push(`Achievement: ${achievement.name}`);
+    if (achievement.hidden && !context.saveData.achievements[achievement.id]?.completed) continue;
+    const grants = (achievement.rewards ?? []).map((reward) => reward.grant);
+    if (grants.some((grant) => grant.type === 'grant-part-instance' && grant.partId === partId)) labels.push(`Owned part from achievement: ${achievement.name}`);
+    if (grants.some((grant) => grant.type === 'unlock-part' && grant.partId === partId)) labels.push(`Permission only from achievement: ${achievement.name}`);
   }
-  return labels.join(' • ') || 'Earn from rewards';
+  return labels.join(' • ') || 'No acquisition route in the current catalog.';
 }
 
 function describeCondition(condition: ProgressionCondition, context: GameContext): string {
-  const stageName = (id: string): string => context.data.stages?.find((stage) => stage.id === id)?.name ?? id;
-  const achievementName = (id: string): string => context.data.achievements?.find((achievement) => achievement.id === id)?.name ?? id;
-  switch (condition.type) {
-    case 'always': return 'Available from the start.';
-    case 'stage-cleared': return `Clear ${stageName(condition.stageId)}.`;
-    case 'boss-defeated': return `Defeat ${context.data.enemies.find((enemy) => enemy.id === condition.bossId)?.name ?? condition.bossId.replace(/^enemy:/, '').replaceAll('-', ' ')}.`;
-    case 'achievement-completed': return `Complete ${achievementName(condition.achievementId)}.`;
-    case 'mastery-reached': return `Reach mastery tier ${condition.tier}.`;
-    case 'owns-content': return `Acquire ${condition.contentId.replace(/^[^:]+:/, '').replaceAll('-', ' ')}.`;
-    case 'scrap-total': return `Bank ${condition.threshold} Scrap.`;
-    case 'permanent-level': return `Reach permanent upgrade level ${condition.minLevel}.`;
-    case 'unlock-count': return `Unlock ${condition.minCount} items.`;
-    case 'all': return condition.conditions.map((child) => describeCondition(child, context)).join(' ');
-    case 'any': return condition.conditions.map((child) => describeCondition(child, context)).join(' Or ');
-    case 'not': return `Not: ${describeCondition(condition.condition, context)}`;
-  }
+  return `${describeProgressionCondition(condition, context.data)}.`;
 }

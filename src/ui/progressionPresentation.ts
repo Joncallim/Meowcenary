@@ -14,7 +14,7 @@ export function describeProgressionCondition(condition: ProgressionCondition, da
     case 'boss-defeated': return `Defeat ${catalogName(data.enemies, condition.bossId, 'boss')}`;
     case 'achievement-completed': return `Complete ${catalogName(data.achievements, condition.achievementId, 'achievement')}`;
     case 'mastery-reached': return `Reach ${characterName(data, condition.subjectId)} mastery tier ${condition.tier}`;
-    case 'owns-content': return `Own ${contentName(data, condition.contentId)}`;
+    case 'owns-content': return `Unlock permission for ${contentName(data, condition.contentId)}`;
     case 'scrap-total': return `Hold ${condition.threshold} Scrap`;
     case 'permanent-level': return `Reach ${catalogName(data.metaUpgrades, condition.upgradeId, 'upgrade')} level ${condition.minLevel}`;
     case 'unlock-count': return `Unlock ${condition.minCount} persistent rewards`;
@@ -34,8 +34,8 @@ export function describeProgressionGrant(
     case 'grant-scrap': return style === 'sentence' ? `+${grant.amount} scrap` : `${grant.amount} Scrap`;
     case 'unlock-stage': return prefix('Unlock', catalogName(data.stages, grant.stageId, 'Contract'));
     case 'unlock-character': return prefix('Unlock', characterName(data, grant.characterId));
-    case 'unlock-equipment': return prefix('Unlock', catalogName(data.equipment, grant.equipmentId, 'Equipment'));
-    case 'unlock-part': return prefix('Unlock', catalogName(data.gunParts, grant.partId, 'Part'));
+    case 'unlock-equipment': return prefix('Unlock', `${catalogName(data.equipment, grant.equipmentId, 'Equipment')} permission (no item)`);
+    case 'unlock-part': return prefix('Unlock', `${catalogName(data.gunParts, grant.partId, 'Part')} permission (no part)`);
     case 'unlock-trait': return prefix('Unlock', humanizeId(grant.traitId));
     case 'grant-part-instance': {
       const part = `${catalogName(data.gunParts, grant.partId, 'Part')} T${grant.tier ?? 1}`;
