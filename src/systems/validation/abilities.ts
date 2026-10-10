@@ -41,7 +41,8 @@ export const checkAbility: RowCheckFn = (row: unknown, _index: number): string[]
     if (typeof presentation.cue !== 'string' || !PRESENTATION_CUES.has(presentation.cue)) errors.push('presentation.cue: invalid registered cue');
     if (typeof presentation.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(presentation.color)) errors.push('presentation.color: must be a hex color');
     if (typeof presentation.iconArtId !== 'string' || presentation.iconArtId !== `ability-icon:${String(a.id).replace(/^ability:/, '')}`) errors.push('presentation.iconArtId: must exactly match the ability ID');
-    if (presentation.radius !== undefined && (typeof presentation.radius !== 'number' || presentation.radius <= 0)) errors.push('presentation.radius: must be positive when provided');
+    if ('radius' in presentation) errors.push('presentation.radius: gameplay geometry belongs only to effect.radius');
+    if (presentation.visualRadius !== undefined && (typeof presentation.visualRadius !== 'number' || !Number.isFinite(presentation.visualRadius) || presentation.visualRadius <= 0)) errors.push('presentation.visualRadius: must be positive and finite when provided');
   }
 
   const effect = a.effect as Record<string, unknown> | undefined;
@@ -53,14 +54,25 @@ export const checkAbility: RowCheckFn = (row: unknown, _index: number): string[]
     errors.push(`effect.kind: must be one of ${[...VALID_EFFECT_KINDS].join(', ')}`);
     return errors;
   }
+  if (presentation?.visualRadius !== undefined && ['knockback', 'elemental-burst', 'loot-pulse'].includes(effect.kind)) {
+    errors.push('presentation.visualRadius: decorative self geometry is not allowed on area effects');
+  }
+  const compatibleCues: Record<string, readonly string[]> = {
+    knockback: ['shockwave'], 'elemental-burst': ['heat-ring'], 'loot-pulse': ['loot-pulse'],
+    heal: ['heal-burst'], invulnerable: ['shield-aura'], 'stat-burst': ['overclock-aura', 'speed-trail', 'precision-mark'],
+  };
+  if (presentation && !compatibleCues[effect.kind].includes(String(presentation.cue))) errors.push('presentation.cue: must represent the effect kind');
+  if ((effect.kind === 'stat-burst' || effect.kind === 'invulnerable') && (typeof a.durationMs !== 'number' || a.durationMs <= 0)) {
+    errors.push('durationMs: sustained effects require a positive duration');
+  }
   switch (effect.kind) {
     case 'knockback':
-      if (typeof effect.radius !== 'number' || effect.radius <= 0) errors.push('effect.radius: must be positive');
-      if (typeof effect.power !== 'number' || effect.power <= 0) errors.push('effect.power: must be positive');
+      if (typeof effect.radius !== 'number' || !Number.isFinite(effect.radius) || effect.radius <= 0) errors.push('effect.radius: must be positive');
+      if (typeof effect.power !== 'number' || !Number.isFinite(effect.power) || effect.power <= 0) errors.push('effect.power: must be positive');
       break;
     case 'stat-burst': {
-      if (!Array.isArray(effect.modifiers)) {
-        errors.push('effect.modifiers: must be an array');
+      if (!Array.isArray(effect.modifiers) || effect.modifiers.length === 0) {
+        errors.push('effect.modifiers: must be a non-empty array');
         break;
       }
       effect.modifiers.forEach((m, i) => {
@@ -77,14 +89,14 @@ export const checkAbility: RowCheckFn = (row: unknown, _index: number): string[]
       break;
     }
     case 'heal':
-      if (typeof effect.amount !== 'number' || effect.amount <= 0) errors.push('effect.amount: must be positive');
+      if (typeof effect.amount !== 'number' || !Number.isFinite(effect.amount) || effect.amount <= 0) errors.push('effect.amount: must be positive');
       break;
     case 'elemental-burst':
-      if (typeof effect.radius !== 'number' || effect.radius <= 0) errors.push('effect.radius: must be positive');
-      if (typeof effect.power !== 'number' || effect.power <= 0) errors.push('effect.power: must be positive');
+      if (typeof effect.radius !== 'number' || !Number.isFinite(effect.radius) || effect.radius <= 0) errors.push('effect.radius: must be positive');
+      if (typeof effect.power !== 'number' || !Number.isFinite(effect.power) || effect.power <= 0) errors.push('effect.power: must be positive');
       break;
     case 'loot-pulse':
-      if (typeof effect.radius !== 'number' || effect.radius <= 0) errors.push('effect.radius: must be positive');
+      if (typeof effect.radius !== 'number' || !Number.isFinite(effect.radius) || effect.radius <= 0) errors.push('effect.radius: must be positive');
       break;
     default:
       break;

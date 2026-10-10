@@ -1,0 +1,89 @@
+{
+  "visible": false,
+  "status": "active",
+  "timeMs": 166.52666666666664,
+  "characterId": "bolt-hound",
+  "player": {
+    "x": 384,
+    "y": 672,
+    "health": 80
+  },
+  "enemies": 4,
+  "abilityState": {
+    "phase": "cooling",
+    "activeRemainingMs": 0,
+    "cooldownRemainingMs": 17950.040000000005
+  },
+  "abilityDefinition": {
+    "id": "ability:giga-chomp",
+    "name": "Giga Chomp",
+    "description": "Heal a large amount instantly.",
+    "cooldownMs": 18000,
+    "durationMs": 0,
+    "effect": {
+      "kind": "heal",
+      "amount": 40
+    },
+    "presentation": {
+      "cue": "heal-burst",
+      "color": "#4ade80",
+      "visualRadius": 42,
+      "iconArtId": "ability-icon:giga-chomp"
+    }
+  },
+  "buttons": [],
+  "inputMode": "keyboard",
+  "inputNeutral": false,
+  "orientationBlocked": false,
+  "abilityUiState": {
+    "phase": "cooling",
+    "activeRemainingMs": 0,
+    "cooldownRemainingMs": 17950.040000000005,
+    "readiness": 0.002775555555555309,
+    "activeProgress": 0
+  },
+  "abilityButton": {
+    "x": 216,
+    "y": 556,
+    "width": 120,
+    "height": 60
+  },
+  "controlsHint": {
+    "text": "GIGA CHOMP — Restore up to 40 HP.",
+    "x": 58.75,
+    "y": 509.875,
+    "width": 242.5,
+    "height": 16.25,
+    "visible": true
+  },
+  "abilityBanner": "Giga Chomp\n+13 HP",
+  "abilityFx": {
+    "transient": {
+      "abilityId": "ability:giga-chomp",
+      "kind": "heal",
+      "color": 4906624,
+      "radius": 42,
+      "glyphMask": 0,
+      "remaining": 230.03999999999996,
+      "elapsed": 49.96000000000002,
+      "x": 384,
+      "y": 672,
+      "rendered": true
+    }
+  },
+  "activationId": 1,
+  "latestResolution": {
+    "kind": "heal",
+    "requested": 40,
+    "applied": 13
+  },
+  "briefText": [],
+  "capture": {
+    "project": "phone-360x640",
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "devicePixelRatio": 1
+  }
+}

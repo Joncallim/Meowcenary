@@ -1,0 +1,92 @@
+{
+  "baselineSHA": "a100e053ce4e2bc48bc4b8844e7da5010d562096",
+  "candidateSHA": "495b9cf755ff0478db1a181887f08d7faa9775d4",
+  "goldenLastCommit": "dec6575",
+  "regions": {
+    "tabbyWeaponIcon": {
+      "box": [
+        339,
+        141,
+        374,
+        166
+      ],
+      "baselineEqualsCandidate": true,
+      "hashes": {
+        "baseline": "f121a1de6854a943b20d31e8573a0f1bf14a6332d7903af74b047142659f22e5",
+        "candidate": "f121a1de6854a943b20d31e8573a0f1bf14a6332d7903af74b047142659f22e5",
+        "expected": "58db8c2d796d9678bcbf17eee6ab915ee12941ea026d1b1b2951793fabee038e"
+      }
+    },
+    "houndWeaponIcon": {
+      "box": [
+        339,
+        391,
+        374,
+        416
+      ],
+      "baselineEqualsCandidate": true,
+      "hashes": {
+        "baseline": "6f61822732d500537b9fc903d2edd9c0a61f8d482ad262560f2b2c541b010d0d",
+        "candidate": "6f61822732d500537b9fc903d2edd9c0a61f8d482ad262560f2b2c541b010d0d",
+        "expected": "a8cd4120ba06db0d76fa6f8d7d6e6ed23becf1b711f78b6ad481a0f71235f0f5"
+      }
+    },
+    "lynxWeaponIcon": {
+      "box": [
+        339,
+        636,
+        374,
+        661
+      ],
+      "baselineEqualsCandidate": true,
+      "hashes": {
+        "baseline": "887e806771ed624c93c4ac29673acec6899211870c6d11821ed6750b7e8066ae",
+        "candidate": "887e806771ed624c93c4ac29673acec6899211870c6d11821ed6750b7e8066ae",
+        "expected": "c6b3194808c19c74c47e08f9c3144284c0e5293c7b10c4a7c7a2b295b4fe080c"
+      }
+    },
+    "tabbyActor": {
+      "box": [
+        14,
+        180,
+        139,
+        316
+      ],
+      "baselineEqualsCandidate": true,
+      "hashes": {
+        "baseline": "e631eed8956d6809a3ae361477e8a0bbecb2070ede8c97696f9882b3a76b4a15",
+        "candidate": "e631eed8956d6809a3ae361477e8a0bbecb2070ede8c97696f9882b3a76b4a15",
+        "expected": "e631eed8956d6809a3ae361477e8a0bbecb2070ede8c97696f9882b3a76b4a15"
+      }
+    },
+    "houndActor": {
+      "box": [
+        14,
+        427,
+        139,
+        563
+      ],
+      "baselineEqualsCandidate": true,
+      "hashes": {
+        "baseline": "22646fd07790bf6b524992334096aee4b44cb7a38a66a0403256cf4264479aab",
+        "candidate": "22646fd07790bf6b524992334096aee4b44cb7a38a66a0403256cf4264479aab",
+        "expected": "22646fd07790bf6b524992334096aee4b44cb7a38a66a0403256cf4264479aab"
+      }
+    },
+    "lynxActor": {
+      "box": [
+        14,
+        652,
+        139,
+        770
+      ],
+      "baselineEqualsCandidate": true,
+      "hashes": {
+        "baseline": "8b33a29eb5331cfc4e0a93093e128a52964d34f27e9dac7565bbc8020963028a",
+        "candidate": "8b33a29eb5331cfc4e0a93093e128a52964d34f27e9dac7565bbc8020963028a",
+        "expected": "8b33a29eb5331cfc4e0a93093e128a52964d34f27e9dac7565bbc8020963028a"
+      }
+    }
+  },
+  "comparison": "Exact RGBA crop byte SHA256 equality; baseline weapon thumbnails differ from older golden while all actor crops match."
+}

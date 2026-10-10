@@ -1,0 +1,178 @@
+{
+  "visible": true,
+  "status": "intro",
+  "timeMs": 0,
+  "characterId": "bolt-hound",
+  "player": {
+    "x": 384,
+    "y": 672,
+    "health": 80
+  },
+  "enemies": 0,
+  "abilityState": {
+    "phase": "ready",
+    "activeRemainingMs": 0,
+    "cooldownRemainingMs": 0
+  },
+  "abilityDefinition": {
+    "id": "ability:giga-chomp",
+    "name": "Giga Chomp",
+    "description": "Heal a large amount instantly.",
+    "cooldownMs": 18000,
+    "durationMs": 0,
+    "effect": {
+      "kind": "heal",
+      "amount": 40
+    },
+    "presentation": {
+      "cue": "heal-burst",
+      "color": "#4ade80",
+      "visualRadius": 42,
+      "iconArtId": "ability-icon:giga-chomp"
+    }
+  },
+  "model": {
+    "mercenaryName": "Bolt Hound",
+    "portrait": {
+      "id": "character-portrait:bolt-hound",
+      "kind": "portrait",
+      "required": true,
+      "display": {
+        "width": 150,
+        "height": 240
+      },
+      "resourceId": "resource:mercenary-portraits",
+      "frameKey": "character-portrait:bolt-hound",
+      "textureKey": "art-mercenary-portraits",
+      "url": "assets/characters/identity/mercenary-portraits-atlas.png",
+      "sampling": "linear",
+      "load": {
+        "type": "atlas"
+      }
+    },
+    "icon": {
+      "id": "ability-icon:giga-chomp",
+      "kind": "icon",
+      "required": true,
+      "display": {
+        "width": 48,
+        "height": 48
+      },
+      "resourceId": "resource:mercenary-identity-icons",
+      "frameKey": "ability-icon:giga-chomp",
+      "textureKey": "art-mercenary-identity-icons",
+      "url": "assets/characters/identity/mercenary-identity-icons-atlas.png",
+      "sampling": "linear",
+      "load": {
+        "type": "atlas"
+      }
+    },
+    "ability": {
+      "headline": "Giga Chomp",
+      "cooldownLabel": "Cooldown 18s.",
+      "detail": "Restore up to 40 HP.",
+      "targetKind": "self",
+      "statChips": []
+    }
+  },
+  "buttons": [
+    {
+      "x": 36,
+      "y": 432,
+      "width": 288,
+      "height": 44
+    },
+    {
+      "x": 36,
+      "y": 486,
+      "width": 288,
+      "height": 44
+    }
+  ],
+  "inputMode": "pointer",
+  "inputNeutral": true,
+  "orientationBlocked": false,
+  "abilityUiState": {
+    "phase": "ready",
+    "activeRemainingMs": 0,
+    "cooldownRemainingMs": 0,
+    "readiness": 1,
+    "activeProgress": 0
+  },
+  "abilityButton": {
+    "x": 216,
+    "y": 556,
+    "width": 120,
+    "height": 60
+  },
+  "controlsHint": {
+    "text": "GIGA CHOMP — Restore up to 40 HP.",
+    "x": 58.75,
+    "y": 509.875,
+    "width": 242.5,
+    "height": 16.25,
+    "visible": true
+  },
+  "abilityBanner": "",
+  "abilityFx": {},
+  "activationId": 0,
+  "briefText": [
+    {
+      "text": "Bolt Hound",
+      "x": 118,
+      "y": 126,
+      "width": 120,
+      "height": 26.25
+    },
+    {
+      "text": "Giga Chomp",
+      "x": 98,
+      "y": 206,
+      "width": 128.75,
+      "height": 26.25
+    },
+    {
+      "text": "Restore up to 40 HP.",
+      "x": 36,
+      "y": 268,
+      "width": 151.25,
+      "height": 16.25
+    },
+    {
+      "text": "Cooldown 18s.",
+      "x": 36,
+      "y": 342,
+      "width": 115,
+      "height": 16.25
+    },
+    {
+      "text": "Ability: Q / left face / tap card\nStart: Enter/Space / bottom face / tap",
+      "x": 36,
+      "y": 370,
+      "width": 266.25,
+      "height": 32.5
+    },
+    {
+      "text": "Start",
+      "x": 162.5,
+      "y": 445.875,
+      "width": 35,
+      "height": 16.25
+    },
+    {
+      "text": "Back to Menu",
+      "x": 131.25,
+      "y": 499.875,
+      "width": 97.5,
+      "height": 16.25
+    }
+  ],
+  "capture": {
+    "project": "phone-360x640",
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "devicePixelRatio": 1
+  }
+}

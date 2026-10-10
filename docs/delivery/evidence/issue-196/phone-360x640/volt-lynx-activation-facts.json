@@ -1,0 +1,103 @@
+{
+  "visible": false,
+  "status": "active",
+  "timeMs": 166.52666666666673,
+  "characterId": "volt-lynx",
+  "player": {
+    "x": 384,
+    "y": 672,
+    "health": 72
+  },
+  "enemies": 4,
+  "abilityState": {
+    "phase": "active",
+    "activeRemainingMs": 2450.0400000000004,
+    "cooldownRemainingMs": 9950.039999999999
+  },
+  "abilityDefinition": {
+    "id": "ability:adrenaline",
+    "name": "Adrenaline",
+    "description": "Move much faster for a brief burst.",
+    "cooldownMs": 10000,
+    "durationMs": 2500,
+    "effect": {
+      "kind": "stat-burst",
+      "modifiers": [
+        {
+          "stat": "moveSpeed",
+          "op": "mult",
+          "value": 1.4,
+          "sourceId": "ability:adrenaline"
+        }
+      ]
+    },
+    "presentation": {
+      "cue": "speed-trail",
+      "color": "#f97316",
+      "visualRadius": 28,
+      "iconArtId": "ability-icon:adrenaline"
+    }
+  },
+  "buttons": [],
+  "inputMode": "keyboard",
+  "inputNeutral": false,
+  "orientationBlocked": false,
+  "abilityUiState": {
+    "phase": "active",
+    "activeRemainingMs": 2450.0400000000004,
+    "cooldownRemainingMs": 9950.039999999999,
+    "readiness": 0.0049960000000001115,
+    "activeProgress": 0.9800160000000002
+  },
+  "abilityButton": {
+    "x": 216,
+    "y": 556,
+    "width": 120,
+    "height": 60
+  },
+  "controlsHint": {
+    "text": "ADRENALINE — Move 40% faster for 2.5s.",
+    "x": 43.125,
+    "y": 509.875,
+    "width": 273.75,
+    "height": 16.25,
+    "visible": true
+  },
+  "abilityBanner": "Adrenaline\n+40% movement speed 2.5s",
+  "abilityFx": {
+    "persistent": {
+      "abilityId": "ability:adrenaline",
+      "kind": "stat-burst",
+      "color": 16347926,
+      "radius": 28,
+      "glyphMask": 1,
+      "remaining": 2500,
+      "elapsed": 49.96000000000002,
+      "x": 384,
+      "y": 672,
+      "rendered": true
+    }
+  },
+  "activationId": 1,
+  "latestResolution": {
+    "kind": "stat-burst",
+    "durationMs": 2500,
+    "modifiers": [
+      {
+        "stat": "moveSpeed",
+        "op": "mult",
+        "value": 1.4,
+        "sourceId": "ability:adrenaline"
+      }
+    ]
+  },
+  "briefText": [],
+  "capture": {
+    "project": "phone-360x640",
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "devicePixelRatio": 1
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "baseline_commit": "a100e053ce4e2bc48bc4b8844e7da5010d562096",
+  "scope": "Read-only source/history review and offline full-capture crop comparison; no baseline browser execution or physical-device claims. Actor crop assertions remain unchanged and require browser execution after accepted full-scene refresh.",
+  "crop_parity": [
+    {
+      "profile": "phone-390x844",
+      "actual_full_capture": "/home/jon/projects/meowcenary-evidence/issue-196/visual-lower-reviewed-artifacts/visual-fidelity.pw.ts-fixe-0010a-he-Meowcenary-visual-system-phone-390x844/gameplay-actual.png",
+      "unchanged_actor_golden": "/home/jon/projects/meowcenary-worktrees/meowcenary-196-production/browser-tests/visual-fidelity.pw.ts-snapshots/ordinary-gameplay-actor-phone-390x844-linux.png",
+      "crop": {
+        "x": 182,
+        "y": 373,
+        "width": 96,
+        "height": 96
+      },
+      "pixel_exact": true,
+      "max_channel_difference": 0,
+      "total_channel_difference": 0,
+      "changed_rgb_channels": 0,
+      "rgb_channel_count": 27648
+    },
+    {
+      "profile": "foldable-1114x720",
+      "actual_full_capture": "/home/jon/projects/meowcenary-evidence/issue-196/visual-lower-reviewed-artifacts/visual-fidelity.pw.ts-fixe-0010a-he-Meowcenary-visual-system-foldable-1114x720/gameplay-actual.png",
+      "unchanged_actor_golden": "/home/jon/projects/meowcenary-worktrees/meowcenary-196-production/browser-tests/visual-fidelity.pw.ts-snapshots/ordinary-gameplay-actor-foldable-1114x720-linux.png",
+      "crop": {
+        "x": 828,
+        "y": 312,
+        "width": 96,
+        "height": 96
+      },
+      "pixel_exact": false,
+      "max_channel_difference": 1,
+      "total_channel_difference": 988,
+      "changed_rgb_channels": 988,
+      "rgb_channel_count": 27648
+    },
+    {
+      "profile": "desktop-1280x720",
+      "actual_full_capture": "/home/jon/projects/meowcenary-evidence/issue-196/visual-lower-reviewed-artifacts/visual-fidelity.pw.ts-fixe-0010a-he-Meowcenary-visual-system-desktop-1280x720/gameplay-actual.png",
+      "unchanged_actor_golden": "/home/jon/projects/meowcenary-worktrees/meowcenary-196-production/browser-tests/visual-fidelity.pw.ts-snapshots/ordinary-gameplay-actor-desktop-1280x720-linux.png",
+      "crop": {
+        "x": 912,
+        "y": 312,
+        "width": 96,
+        "height": 96
+      },
+      "pixel_exact": true,
+      "max_channel_difference": 0,
+      "total_channel_difference": 0,
+      "changed_rgb_channels": 0,
+      "rgb_channel_count": 27648
+    }
+  ],
+  "unchanged_source_paths": [
+    {
+      "path": "public/assets/enemies/dust-mite/dust-mite.png",
+      "baseline_blob": "2ba286c61f9050bfe86d1ec37829f9c8c15aec67",
+      "working_blob": "2ba286c61f9050bfe86d1ec37829f9c8c15aec67",
+      "working_diff": ""
+    },
+    {
+      "path": "public/assets/characters/identity/mercenary-identity-icons-atlas.png",
+      "baseline_blob": "cec4a0b28aac92b6a11a9966f399ab997e3c13c7",
+      "working_blob": "cec4a0b28aac92b6a11a9966f399ab997e3c13c7",
+      "working_diff": ""
+    },
+    {
+      "path": "public/assets/characters/identity/mercenary-identity-icons-atlas.json",
+      "baseline_blob": "d7bc635f77656e33bcaa0c2563d65a587e8d7318",
+      "working_blob": "d7bc635f77656e33bcaa0c2563d65a587e8d7318",
+      "working_diff": ""
+    },
+    {
+      "path": "src/entities/actorView.ts",
+      "baseline_blob": "977f750398ff2494ac323833d422148e2018b016",
+      "working_blob": "977f750398ff2494ac323833d422148e2018b016",
+      "working_diff": ""
+    },
+    {
+      "path": "src/data/visual-art.json",
+      "baseline_blob": "471210e6c8b597d0d4a8294bd4a3ea2da5be14fb",
+      "working_blob": "471210e6c8b597d0d4a8294bd4a3ea2da5be14fb",
+      "working_diff": ""
+    },
+    {
+      "path": "src/data/visual-resources.json",
+      "baseline_blob": "df8d6d4f74f91abdfc88dd85b3a9443210778a53",
+      "working_blob": "df8d6d4f74f91abdfc88dd85b3a9443210778a53",
+      "working_diff": ""
+    }
+  ],
+  "original_full_scene_golden_history": [
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-phone-390x844-linux.png",
+      "last_commit": "57796969869248dae50a9feee7c2d2249ab6a36d 2026-09-28 22:59:39 +0800 Polish menu cards and playable world art"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-foldable-1114x720-linux.png",
+      "last_commit": "57796969869248dae50a9feee7c2d2249ab6a36d 2026-09-28 22:59:39 +0800 Polish menu cards and playable world art"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-desktop-1280x720-linux.png",
+      "last_commit": "57796969869248dae50a9feee7c2d2249ab6a36d 2026-09-28 22:59:39 +0800 Polish menu cards and playable world art"
+    }
+  ],
+  "baseline_art_history": {
+    "dust_mite_sprite_last_change": "937b7a5057a089876c7d36372f6734c17027a513 2026-09-29 07:08:47 +0800 Remediate enemy and ability runtime fidelity",
+    "ability_icon_atlas_last_change": "5d2823a21299362b4888141695670ff3daed4ee5 2026-09-29 07:58:25 +0800 feat(art): cut approved loadout art into runtime",
+    "actor_visual_scale_enlargement": "324947ee36f5078eda4b16d6b7cf5bcf0277638e 2026-09-30 14:56:31 +0800 polish: keep menu scroll continuous and enlarge actors",
+    "hud_transparency_introduced": "77ab1490d8e589e0792594ed0dab70fd08adbd67 2026-09-30 19:59:42 +0800 fix: keep arena top visible beneath HUD",
+    "actor_crop_goldens_last_updated": "8a47e022685612eabcc690f6b1baa9fdd9e9e4a9 2026-09-30 16:51:30 +0800 fix: stabilize runtime fidelity acceptance"
+  },
+  "icon_selection_review": {
+    "stable_ability_id": "ability:scrap-burst",
+    "stable_icon_art_id": "ability-icon:scrap-burst",
+    "stable_resource_id": "resource:mercenary-identity-icons",
+    "stable_texture_key": "art-mercenary-identity-icons",
+    "stable_frame_key": "ability-icon:scrap-burst",
+    "inspected_source_paths": [
+      "src/data/abilities.json",
+      "src/data/visual-art.json",
+      "src/data/visual-resources.json",
+      "src/scenes/GameScene.ts",
+      "src/ui/controls.ts"
+    ],
+    "finding": "Issue196 changes derived ability hint, ready-state glyph/progress, and decorative radius field; the icon binding/frame selection and icon sizing code are unchanged. Atlas bytes match baseline a100."
+  },
+  "disposition": "Accept bounded full-scene golden refresh for pre-existing native enemy/icon art and HUD translucency plus intended issue196 ability copy/state glyph. Retain ordinary actor crop goldens and their original assertions. Phone/desktop offline crops are pixel-exact; foldable differs only by one RGB level."
+}

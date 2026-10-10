@@ -197,8 +197,9 @@ describe('createUiText', () => {
     // Native panel headers add two factory sites; section labels add one.
     // Upgrade card text shares one factory for four roles. Gunsmith now
     // shares copy/header helpers instead of ten repeated factory sites.
+    // Ability consequence banner and HUD state glyph add two factory sites.
     // Every actual site remains covered by the symbol-resolved bypass audit.
-    expect(migratedSites).toHaveLength(46);
+    expect(migratedSites).toHaveLength(48);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);

@@ -1,0 +1,102 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-196-production
+
+ ❯ tests/controls.test.ts (38 tests | 4 failed) 35ms
+   ✓ ControlsView virtual stick > sets the controls root to HUD depth instead of relying on child depths 4ms
+   ✓ ControlsView virtual stick > starts hidden and shows only during an active pointer gesture 1ms
+   ✓ ControlsView virtual stick > uses a compact 48 px visual stick while preserving the input intent range 1ms
+   ✓ ControlsView virtual stick > uses one injected anchored config for fixed base and shared radius intent 1ms
+   ✓ ControlsView zoomed GameScene stick (AM-2/AM-3) > authors the compact visual stick radius at 48/1.25 with no arc scale — ONE zoom compensation (M-02/AM-3) 1ms
+   ✓ ControlsView zoomed GameScene stick (AM-2/AM-3) > parents every control child under the zoomed UI root and records each child own scrollFactor 0 (AM-2/M-08) 1ms
+   ✓ ControlsView zoomed GameScene stick (AM-2/AM-3) > re-reads the zoomed viewport on resize and rebuilds the controls once 1ms
+   ✓ ControlsView hints > repositions the hint and rebuilds the pause target after rotation 1ms
+   ✓ ControlsView hints > rebuilds on an inset-only change instead of deduping equal dimensions 1ms
+   ✓ ControlsView hints > keeps the data-backed ability teaching line through the first mode change 1ms
+   ✓ ControlsView hints > keeps teaching copy through a pointer gesture 0ms
+   ✓ ControlsView hints > keeps teaching copy when gamepad input is first active 1ms
+   ✓ ControlsView hints > fades the hint once after the display duration with a tween 1ms
+   ✓ ControlsView hints > with reduced motion the hint disappears immediately without a tween 1ms
+   ✓ ControlsView hints > rereads the reduced-motion getter at fade time 1ms
+   ✓ ControlsView pause button > fades combined Pause icon paint on actor overlap while preserving foreground bars and the live target 2ms
+   ✓ ControlsView pause button > invokes the pause callback on pointer down 0ms
+   ✓ ControlsView pause button > destroy removes the listener and destroys every object 1ms
+   ✓ ControlsView pause button > renders exactly two non-interactive cream pause bars inside the unchanged target 1ms
+   ✓ ControlsView ability button > puts a fixed semantic ability card in the lower-right thumb zone while pause stays top-right 0ms
+   ✓ ControlsView ability button > retains a fixed lower-right card through every supported phone and desktop viewport 1ms
+   ✓ ControlsView ability button > keeps ability as UI ownership: a second-finger press fires once without ending the pinned movement drag 1ms
+   ✓ ControlsView ability button > rebuilds one lower-right ability target on resize and removes the stale hit target in extraction state 2ms
+   × ControlsView ability button > renders semantic identity and only updates when its visible cooldown second or phase changes 5ms
+     → view.setAbilityUiState is not a function
+   ✓ ControlsView ability button > renders the current ability identity for Scrap Burst 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Overclock 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Shield Flicker 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Giga Chomp 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Adrenaline 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Heat Vent 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Scavenge Pulse 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Precision Mark 0ms
+   ✓ ControlsView ability button > contains a synthetic long ability name in the fixed card and safely omits the card without an active ability 1ms
+   ✓ ControlsView lifecycle guards > update after destroy is a no-op 0ms
+   × preserves cooling state, hints and ability hit targets while overlapped and after restore 1ms
+     → view.setAbilityUiState is not a function
+   ✓ keeps the Pause glyph readable above an intersecting faded plate 0ms
+   × ControlsView authoritative ability snapshot > uses distinct non-colour shapes and separately positioned active/cooldown bands 1ms
+     → expected undefined to be defined
+   × ControlsView authoritative ability snapshot > never advances remaining time locally and preserves state through resize and extraction rebuild 0ms
+     → view.setAbilityUiState is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/controls.test.ts > ControlsView ability button > renders semantic identity and only updates when its visible cooldown second or phase changes
+TypeError: view.setAbilityUiState is not a function
+ ❯ tests/controls.test.ts:673:10
+    671|     expect(state.state.text).toBe('READY');
+    672|
+    673|     view.setAbilityUiState(Object.freeze({ phase: 'active', activeRema…
+       |          ^
+    674|     expect(state.state.text).toBe('ACTIVE 3s');
+    675|     view.setAbilityUiState(Object.freeze({ phase: 'cooling', activeRem…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/controls.test.ts > preserves cooling state, hints and ability hit targets while overlapped and after restore
+TypeError: view.setAbilityUiState is not a function
+ ❯ tests/controls.test.ts:726:8
+    724| it('preserves cooling state, hints and ability hit targets while overl…
+    725|   const { scene, view, onAbilityRequested } = createHarness();
+    726|   view.setAbilityUiState(Object.freeze({ phase: 'cooling', activeRemai…
+       |        ^
+    727|   const ability = scene.objects.find(object => object.state.interactiv…
+    728|   const state = scene.objects.find(object => object.state.alpha === 0.…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/controls.test.ts > ControlsView authoritative ability snapshot > uses distinct non-colour shapes and separately positioned active/cooldown bands
+AssertionError: expected undefined to be defined
+ ❯ tests/controls.test.ts:765:19
+    763|     const { scene, view } = createHarness({ readReducedMotion: () => t…
+    764|     const glyph = scene.objects.find(object => object.state.text === '…
+    765|     expect(glyph).toBeDefined();
+       |                   ^
+    766|     view.setAbilityUiState(active);
+    767|     expect(glyph.state.text).toBe('◆');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/controls.test.ts > ControlsView authoritative ability snapshot > never advances remaining time locally and preserves state through resize and extraction rebuild
+TypeError: view.setAbilityUiState is not a function
+ ❯ tests/controls.test.ts:780:10
+    778|   it('never advances remaining time locally and preserves state throug…
+    779|     const { scene, view } = createHarness();
+    780|     view.setAbilityUiState(active);
+       |          ^
+    781|     view.update(10000);
+    782|     expect(scene.objects.some(object => object.state.text === 'ACTIVE …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 34 passed (38)
+   Start at  16:36:40
+   Duration  524ms (transform 148ms, setup 0ms, collect 169ms, tests 35ms, environment 0ms, prepare 70ms)

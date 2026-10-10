@@ -1,0 +1,78 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-196-production
+
+ ❯ tests/controls.test.ts (40 tests | 2 failed) 50ms
+   ✓ ControlsView virtual stick > sets the controls root to HUD depth instead of relying on child depths 5ms
+   ✓ ControlsView virtual stick > starts hidden and shows only during an active pointer gesture 2ms
+   ✓ ControlsView virtual stick > uses a compact 48 px visual stick while preserving the input intent range 1ms
+   ✓ ControlsView virtual stick > uses one injected anchored config for fixed base and shared radius intent 2ms
+   ✓ ControlsView zoomed GameScene stick (AM-2/AM-3) > authors the compact visual stick radius at 48/1.25 with no arc scale — ONE zoom compensation (M-02/AM-3) 2ms
+   ✓ ControlsView zoomed GameScene stick (AM-2/AM-3) > parents every control child under the zoomed UI root and records each child own scrollFactor 0 (AM-2/M-08) 1ms
+   ✓ ControlsView zoomed GameScene stick (AM-2/AM-3) > re-reads the zoomed viewport on resize and rebuilds the controls once 1ms
+   ✓ ControlsView hints > repositions the hint and rebuilds the pause target after rotation 1ms
+   ✓ ControlsView hints > rebuilds on an inset-only change instead of deduping equal dimensions 1ms
+   ✓ ControlsView hints > keeps the data-backed ability teaching line through the first mode change 1ms
+   ✓ ControlsView hints > keeps teaching copy through a pointer gesture 1ms
+   ✓ ControlsView hints > keeps teaching copy when gamepad input is first active 2ms
+   ✓ ControlsView hints > fades the hint once after the display duration with a tween 2ms
+   ✓ ControlsView hints > with reduced motion the hint disappears immediately without a tween 1ms
+   ✓ ControlsView hints > rereads the reduced-motion getter at fade time 1ms
+   ✓ ControlsView pause button > fades combined Pause icon paint on actor overlap while preserving foreground bars and the live target 3ms
+   ✓ ControlsView pause button > invokes the pause callback on pointer down 1ms
+   ✓ ControlsView pause button > destroy removes the listener and destroys every object 1ms
+   ✓ ControlsView pause button > renders exactly two non-interactive cream pause bars inside the unchanged target 1ms
+   ✓ ControlsView ability button > puts a fixed semantic ability card in the lower-right thumb zone while pause stays top-right 1ms
+   ✓ ControlsView ability button > retains a fixed lower-right card through every supported phone and desktop viewport 4ms
+   ✓ ControlsView ability button > keeps ability as UI ownership: a second-finger press fires once without ending the pinned movement drag 1ms
+   ✓ ControlsView ability button > rebuilds one lower-right ability target on resize and removes the stale hit target in extraction state 1ms
+   ✓ ControlsView ability button > renders semantic identity and only updates when its visible cooldown second or phase changes 1ms
+   ✓ ControlsView ability button > renders the current ability identity for Scrap Burst 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Overclock 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Shield Flicker 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Giga Chomp 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Adrenaline 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Heat Vent 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Scavenge Pulse 0ms
+   ✓ ControlsView ability button > renders the current ability identity for Precision Mark 0ms
+   ✓ ControlsView ability button > contains a synthetic long ability name in the fixed card and safely omits the card without an active ability 1ms
+   ✓ ControlsView lifecycle guards > update after destroy is a no-op 0ms
+   ✓ preserves cooling state, hints and ability hit targets while overlapped and after restore 1ms
+   ✓ keeps the Pause glyph readable above an intersecting faded plate 0ms
+   ✓ ControlsView authoritative ability snapshot > uses distinct non-colour shapes and separately positioned active/cooldown bands 1ms
+   ✓ ControlsView authoritative ability snapshot > never advances remaining time locally and preserves state through resize and extraction rebuild 1ms
+   × contains mechanical teaching copy at 360px without overlapping the ability target 7ms
+     → expected -62.54999999999999 to be greater than or equal to 16
+   × contains mechanical teaching copy at 390px without overlapping the ability target 1ms
+     → expected -47.54999999999999 to be greater than or equal to 16
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/controls.test.ts > contains mechanical teaching copy at 360px without overlapping the ability target
+AssertionError: expected -62.54999999999999 to be greater than or equal to 16
+ ❯ tests/controls.test.ts:803:52
+    801|   const target = scene.objects.find(object => !object.state.destroyed …
+    802|   const hintWidth = Number(hint.state.width), hintHeight = Number(hint…
+    803|   expect((hint.x - hintWidth / 2) * GAMEPLAY_ZOOM).toBeGreaterThanOrEq…
+       |                                                    ^
+    804|   expect((hint.x + hintWidth / 2) * GAMEPLAY_ZOOM).toBeLessThanOrEqual…
+    805|   expect(hint.y + hintHeight / 2).toBeLessThan(Number(target.state.y) …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/controls.test.ts > contains mechanical teaching copy at 390px without overlapping the ability target
+AssertionError: expected -47.54999999999999 to be greater than or equal to 16
+ ❯ tests/controls.test.ts:803:52
+    801|   const target = scene.objects.find(object => !object.state.destroyed …
+    802|   const hintWidth = Number(hint.state.width), hintHeight = Number(hint…
+    803|   expect((hint.x - hintWidth / 2) * GAMEPLAY_ZOOM).toBeGreaterThanOrEq…
+       |                                                    ^
+    804|   expect((hint.x + hintWidth / 2) * GAMEPLAY_ZOOM).toBeLessThanOrEqual…
+    805|   expect(hint.y + hintHeight / 2).toBeLessThan(Number(target.state.y) …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 38 passed (40)
+   Start at  16:56:13
+   Duration  1.21s (transform 263ms, setup 0ms, collect 276ms, tests 50ms, environment 0ms, prepare 225ms)

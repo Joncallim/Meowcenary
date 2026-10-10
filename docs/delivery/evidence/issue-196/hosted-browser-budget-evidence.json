@@ -1,0 +1,54 @@
+{
+  "reviewedHead": "495b9cf755ff0478db1a181887f08d7faa9775d4",
+  "runtimeEquivalentHead": "086f18dd599b13242581fdb17006d3d034b59ab4",
+  "hostedRun": "https://github.com/Joncallim/Meowcenary/actions/runs/38042480462",
+  "result": {
+    "passed": 473,
+    "skipped": 64,
+    "failed": 3,
+    "browserDurationLabel": "1.5h"
+  },
+  "failures": [
+    {
+      "case": "phone-390x844 menu-character golden",
+      "disposition": "Resolved separately by exact-baseline crop reconciliation and isolated reference update."
+    },
+    {
+      "case": "desktop-1920x1080 resize / Back / relaunch",
+      "budgetMs": 30000,
+      "facts": {
+        "resized": {
+          "status": "intro",
+          "timeMs": 0,
+          "visible": true,
+          "activationId": 0,
+          "inputNeutral": true
+        },
+        "freshRelaunch": {
+          "status": "active",
+          "visible": false,
+          "activationId": 0,
+          "inputNeutral": true
+        }
+      },
+      "disposition": "All lifecycle assertions reached; retain facts and resized-brief screenshot, omit only duplicate final ordinary-HUD PNG."
+    },
+    {
+      "case": "desktop-1920x1080 stopped HUD during Menu resize",
+      "budgetMs": 30000,
+      "milestonesMs": {
+        "firstLaunchComplete": 11380,
+        "firstReturnReady": 14056,
+        "firstResizeComplete": 15370,
+        "secondLaunchComplete": 20791,
+        "secondReturnReady": 23480,
+        "secondResizeComplete": 24783,
+        "thirdLaunchComplete": 30145
+      },
+      "disposition": "Keep two real active runs, both summary/Menu returns, both resizes/save checks and three plate counts. Inspect final fully constructed HUD in explicitly asserted intro instead of unnecessary third Start."
+    }
+  ],
+  "independentReview": "Architecture/domain and QA reviewers confirmed deadline exhaustion and preservation of regression scope. No timeout, assertion, threshold, retry or skip relaxed.",
+  "localStressLimitation": "Single-CPU affinity reproduced the unchanged cumulative HUD deadline but is more constrained than hosted CI; it is not an improvement benchmark.",
+  "focusedCandidateEvidence": "Uncommitted test-only correction on 086f18d: all 12 cases across six profiles passed in 76.32s; final exact-head full gates/CI required."
+}

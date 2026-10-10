@@ -1,0 +1,22 @@
+{
+  "baseline": "a100e053ce4e2bc48bc4b8844e7da5010d562096",
+  "method": "Exact baseline/candidate resolver with deterministic blocked-live-target owner receipt",
+  "evidence": [
+    {
+      "version": "baseline",
+      "blockedLiveTarget": {
+        "applied": true,
+        "killed": false
+      },
+      "contractPass": false
+    },
+    {
+      "version": "candidate",
+      "blockedLiveTarget": {
+        "applied": false,
+        "killed": false
+      },
+      "contractPass": true
+    }
+  ]
+}

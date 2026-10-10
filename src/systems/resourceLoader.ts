@@ -237,6 +237,7 @@ export function resolveRunPhysicalResources(options: {
   addArt(`character:${options.characterId}`);
   const selectedCharacter = options.data.characters.find((character) => character.id === options.characterId);
   if (!selectedCharacter) throw new Error(`Run resource closure references missing character "${options.characterId}"`);
+  addArt(selectedCharacter.presentation.portraitArtId);
   if (selectedCharacter.abilityId) {
     const ability = options.data.abilities?.find((candidate) => candidate.id === selectedCharacter.abilityId);
     if (!ability) throw new Error(`Run resource closure references missing ability "${selectedCharacter.abilityId}"`);

@@ -1,0 +1,70 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-196-production
+
+ ❯ tests/gameSceneAbilities.test.ts (9 tests | 1 failed | 8 skipped) 7ms
+   ↓ GameScene character ability runtime bridge > rejects a stat burst whose cleanup source is not its ability identity
+   ↓ GameScene character ability runtime bridge > executes heal and invulnerability through the live player owner exactly once per cooldown
+   ↓ GameScene character ability runtime bridge > refreshes ability feedback when an active effect moves to cooling
+   ↓ GameScene character ability runtime bridge > refreshes cooldown feedback as the visible remaining second changes
+   ↓ GameScene character ability runtime bridge > does not advance ability durations or cooldowns behind paused, clear, or terminal UI
+   ↓ GameScene character ability runtime bridge > executes temporary stat abilities through RunState and removes their exact sources at expiry
+   ↓ GameScene character ability runtime bridge > executes nearby knockback and elemental damage against live enemy instances
+   × GameScene character ability runtime bridge > rejects new activations at completed-objective and pending-clear boundaries 6ms
+     → expected "spy" to not be called at all, but actually been called 2 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      40,
+    ]
+
+  2nd spy call:
+
+    Array [
+      40,
+    ]
+
+
+Number of calls: 2
+
+   ↓ GameScene character ability runtime bridge > executes Scavenge Pulse through the drop-system collection boundary
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/gameSceneAbilities.test.ts > GameScene character ability runtime bridge > rejects new activations at completed-objective and pending-clear boundaries
+AssertionError: expected "spy" to not be called at all, but actually been called 2 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      40,
+    ]
+
+  2nd spy call:
+
+    Array [
+      40,
+    ]
+
+
+Number of calls: 2
+
+ ❯ tests/gameSceneAbilities.test.ts:128:31
+    126|       t.scene.activateCharacterAbility();
+    127|     }
+    128|     expect(t.player.heal).not.toHaveBeenCalled();
+       |                               ^
+    129|   });
+    130|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  16:42:38
+   Duration  1.24s (transform 722ms, setup 0ms, collect 933ms, tests 7ms, environment 0ms, prepare 106ms)

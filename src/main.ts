@@ -11,6 +11,8 @@ import { installPortraitOrientationGuard, isPortraitOrientationBlocked } from '.
 import { responsiveScaleConfig } from './platform/gameScale';
 import { performanceProbe } from './platform/performanceProbe';
 import { collectDisplayObjects, type DisplayNode } from './platform/performanceDisplay';
+import type { EventBus, GameEventMap } from './engine/eventBus';
+import { resolveAbilityEffectPresentation } from './presentation/abilityEffectPresentation';
 import type { GameContext } from './engine/context';
 import type { ComposedRunRequest } from './gameplay/runRequest';
 import { responsiveArenaPresentationBounds } from './gameplay/responsiveArenaPresentation';
@@ -146,6 +148,10 @@ if (performanceProbe) {
 // never expose mutable scene internals in a deployed game.
 if (import.meta.env.VITE_VISUAL_TEST === '1'
     && new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') === '1') {
+  let abilityObservedRun: object | undefined;
+  let stopAbilityObservation: (() => void) | undefined;
+  let abilityResolution: GameEventMap['ability:resolved'] | undefined;
+  game.events.once(Phaser.Core.Events.DESTROY, () => { stopAbilityObservation?.(); abilityObservedRun=undefined; abilityResolution=undefined; });
   type UpgradeFixtureScene = Phaser.Scene & {
     runState?: RunState;
     upgradeSystem?: UpgradeSystem;
@@ -443,6 +449,63 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         game.events.once(Phaser.Core.Events.POST_STEP, sampled);
         game.events.once(Phaser.Core.Events.DESTROY, destroyed);
       }),
+      selectAbilityTestCharacter: (id:string): boolean => {
+        const menu=game.scene.getScene('MenuScene') as unknown as {getContext():GameContext};
+        if (!game.scene.isActive('MenuScene')) return false;
+        const ctx=menu.getContext();return ctx.selectCharacter(id,ctx.selectionRevision).ok;
+      },
+      prepareAbilityTestConsequences: (levelUp=false, crowded=false): boolean => {
+        const scene=game.scene.getScene('GameScene') as unknown as {
+          runState?:RunState; player?:{x:number;y:number;takeDamage(amount:number):void};
+          systems:Array<{spawnEncounterEnemy?(id:string,x:number,y:number):boolean}>;
+          dropSystem?:{spawnDrop(x:number,y:number,grant:{kind:'xp'|'scrap';amount:number}):unknown};
+        };
+        if (!scene.player || scene.runState?.status!=='active') return false;
+        scene.player.takeDamage(13);
+        const spawn=scene.systems.find(system=>typeof system.spawnEncounterEnemy==='function');
+        // Fixture uses normal closed encounter assets and normal entity/drop owners.
+        const count=crowded?32:4;
+        for(let index=0;index<count;index++) {
+          const angle=index*Math.PI*2/count;
+          spawn?.spawnEncounterEnemy?.('dust-mite',scene.player.x+(crowded?Math.cos(angle)*80:24+index*10),scene.player.y+(crowded?Math.sin(angle)*80:0));
+        }
+        scene.dropSystem?.spawnDrop(scene.player.x+48,scene.player.y,{kind:'xp',amount:levelUp?scene.runState.xpToNext:1});
+        scene.dropSystem?.spawnDrop(scene.player.x+52,scene.player.y,{kind:'scrap',amount:7});
+        return true;
+      },
+      runStartBriefDiagnostics: (): Record<string, unknown> | undefined => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          runState?: {status:string;timeMs:number;characterId:string}; player?:{x:number;y:number;health:number};
+          getContext():{bus:EventBus}; inputController?:{getInputMode():string;core:{isNeutral():boolean}};
+          orientationBlocked:boolean;enemies?:readonly unknown[]; abilityState?:unknown; abilityDefinition?:unknown;
+          controlsView?:{abilityUiState:unknown;abilityButton?:Phaser.GameObjects.Rectangle;hintText?:Phaser.GameObjects.Text};
+          abilityPresentationSystem?:{banner:Phaser.GameObjects.Text;persistent?:unknown;transient?:unknown};
+          runStartBrief?: {root?:Phaser.GameObjects.Container;model:unknown;buttons:Array<{target:Phaser.GameObjects.Rectangle}>}; cameras:Phaser.Cameras.Scene2D.CameraManager;
+        };
+        if (!game.scene.isActive('GameScene') || !scene.runState) return undefined;
+        if(abilityObservedRun!==scene.runState) {
+          stopAbilityObservation?.();abilityObservedRun=scene.runState;abilityResolution=undefined;
+          const run=scene.runState;
+          stopAbilityObservation=scene.getContext().bus.on('ability:resolved',event=>{if(scene.runState===run)abilityResolution=event;});
+        }
+        const camera=scene.cameras.main, rect=game.canvas.getBoundingClientRect();
+        const bounds=(target:Phaser.GameObjects.Rectangle|Phaser.GameObjects.Text)=>{
+          const matrix=Phaser.GameObjects.GetCalcMatrix(target,camera,target.parentContainer?.getWorldTransformMatrix()).calc;
+          const point=matrix.transformPoint(-target.displayOriginX,-target.displayOriginY);
+          return {x:rect.left+point.x*rect.width/game.scale.gameSize.width,y:rect.top+point.y*rect.height/game.scale.gameSize.height,
+            width:target.width*camera.zoom*rect.width/game.scale.gameSize.width,height:target.height*camera.zoom*rect.height/game.scale.gameSize.height};
+        };
+        const buttons=(scene.runStartBrief?.buttons??[]).map(({target})=>bounds(target));
+        const fx=scene.abilityPresentationSystem;
+        return {visible:!!scene.runStartBrief,status:scene.runState.status,timeMs:scene.runState.timeMs,
+          characterId:scene.runState.characterId,player:scene.player?{x:scene.player.x,y:scene.player.y,health:scene.player.health}:undefined,
+          enemies:scene.enemies?.length,abilityState:scene.abilityState,abilityDefinition:scene.abilityDefinition,model:scene.runStartBrief?.model,buttons,
+          inputMode:scene.inputController?.getInputMode(),inputNeutral:scene.inputController?.core.isNeutral(),orientationBlocked:scene.orientationBlocked,
+          abilityUiState:scene.controlsView?.abilityUiState,abilityButton:scene.controlsView?.abilityButton?bounds(scene.controlsView.abilityButton):undefined,
+          controlsHint:scene.controlsView?.hintText?{text:scene.controlsView.hintText.text,...bounds(scene.controlsView.hintText),visible:scene.controlsView.hintText.visible&&scene.controlsView.hintText.alpha>0}:undefined,
+          abilityBanner:fx?.banner.text,abilityFx:{persistent:fx?.persistent,transient:fx?.transient},activationId:abilityResolution?.activationId??0,latestResolution:abilityResolution?.resolution,
+          briefText:(scene.runStartBrief?.root?.list??[]).filter((o):o is Phaser.GameObjects.Text=>o instanceof Phaser.GameObjects.Text).map(o=>({text:o.text,...bounds(o)}))};
+      },
       waitForPreparedGame: async (): Promise<boolean> => {
         // Join the owning serialized loader rather than imposing a synthetic
         // launch-time performance limit. The caller's test budget still bounds
@@ -808,16 +871,18 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         const scene = game.scene.getScene('GameScene') as unknown as {
           player?: { x: number; y: number };
           abilityPresentationSystem?: { update(deltaMs: number, reducedMotion: boolean): void };
-          getContext?(): { bus: { emit(event: 'ability:activated', payload: {
-            abilityId: string; cue: string; x: number; y: number;
-            durationMs: number; color: string; radius: number;
-          }): void } };
+          getContext?(): GameContext;
         };
         if (!scene.player || !scene.abilityPresentationSystem || !scene.getContext) return false;
-        scene.getContext().bus.emit('ability:activated', {
-          abilityId: 'ability:visual-test', cue: 'shockwave',
+        const ctx = scene.getContext();
+        const definition = ctx.data.abilities?.find(ability => ability.effect.kind === 'knockback');
+        if (!definition || definition.effect.kind !== 'knockback') return false;
+        const explanation = resolveAbilityEffectPresentation(definition);
+        ctx.bus.emit('ability:activated', {
+          abilityId: 'ability:visual-test', cue: definition.presentation.cue, mechanicKind: definition.effect.kind,
+          headline: explanation.headline, detail: explanation.detail,
           x: scene.player.x, y: scene.player.y,
-          durationMs: 280, color: '#facc15', radius: 90,
+          durationMs: definition.durationMs, color: definition.presentation.color, radius: definition.effect.radius,
         });
         scene.abilityPresentationSystem.update(100, false);
         scene.abilityPresentationSystem.update(0, false);

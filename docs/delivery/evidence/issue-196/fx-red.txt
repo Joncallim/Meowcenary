@@ -1,0 +1,669 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-196-production
+
+ ❯ tests/abilityPresentation.test.ts (10 tests | 9 failed) 38ms
+   × AbilityPresentationSystem mechanical facts > keeps the exact outer knockback boundary in motion and reduced motion 15ms
+     → expected "spy" to be called with arguments: [ 4, 5, 137 ]
+
+Received:
+
+  1st spy call:
+
+  [
+-   4,
+    5,
+-   137,
++   6,
++   79.46,
+  ]
+
+  2nd spy call:
+
+  [
+-   4,
+    5,
+-   137,
++   6,
++   57.21119999999999,
+  ]
+
+  3rd spy call:
+
+  [
+    4,
+    5,
+-   137,
++   79.46,
+  ]
+
+  4th spy call:
+
+  [
+    4,
+    5,
+-   137,
++   57.21119999999999,
+  ]
+
+  5th spy call:
+
+  [
+    4,
+    5,
+-   137,
++   68.3356,
+  ]
+
+
+Number of calls: 5
+
+   × AbilityPresentationSystem mechanical facts > keeps the exact outer elemental-burst boundary in motion and reduced motion 3ms
+     → expected "spy" to be called with arguments: [ 4, 5, 137 ]
+
+Received:
+
+  1st spy call:
+
+  [
+-   4,
+    5,
+-   137,
++   6,
++   79.46,
+  ]
+
+  2nd spy call:
+
+  [
+-   4,
+    5,
+-   137,
++   6,
++   57.21119999999999,
+  ]
+
+  3rd spy call:
+
+  [
+    4,
+    5,
+-   137,
++   79.46,
+  ]
+
+  4th spy call:
+
+  [
+    4,
+    5,
+-   137,
++   57.21119999999999,
+  ]
+
+  5th spy call:
+
+  [
+    4,
+    5,
+-   137,
++   68.3356,
+  ]
+
+
+Number of calls: 5
+
+   × AbilityPresentationSystem mechanical facts > keeps the exact outer loot-pulse boundary in motion and reduced motion 2ms
+     → expected "spy" to be called with arguments: [ 4, 5, 137 ]
+
+Received:
+
+  1st spy call:
+
+  [
+-   4,
+    5,
+-   137,
++   6,
++   79.46,
+  ]
+
+  2nd spy call:
+
+  [
+-   4,
+    5,
+-   137,
++   6,
++   57.21119999999999,
+  ]
+
+  3rd spy call:
+
+  [
+    4,
+    5,
+-   137,
++   79.46,
+  ]
+
+  4th spy call:
+
+  [
+    4,
+    5,
+-   137,
++   57.21119999999999,
+  ]
+
+  5th spy call:
+
+  [
+    4,
+    5,
+-   137,
++   68.3356,
+  ]
+
+
+Number of calls: 5
+
+   × AbilityPresentationSystem mechanical facts > uses mechanic kind for a new content fixture despite an unrelated legacy cue 5ms
+     → expected "spy" to be called with arguments: [ -5, 5, 13, 5 ]
+
+Received:
+
+  1st spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   20.884446732574606,
++   21.884446732574602,
++   27.238225425604448,
++   28.238225425604444,
+  ]
+
+  2nd spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   -10.884446732574604,
++   21.884446732574606,
++   -17.238225425604444,
++   28.238225425604448,
+  ]
+
+  3rd spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   -10.88444673257461,
++   -9.884446732574604,
++   -17.23822542560445,
++   -16.238225425604444,
+  ]
+
+  4th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   20.884446732574602,
++   -9.88444673257461,
++   27.23822542560444,
++   -16.23822542560445,
+  ]
+
+  5th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   19.884446732574606,
++   20.884446732574602,
++   26.238225425604448,
++   27.238225425604444,
+  ]
+
+  6th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   -11.884446732574604,
++   20.884446732574606,
++   -18.238225425604444,
++   27.238225425604448,
+  ]
+
+  7th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   -11.88444673257461,
++   -10.884446732574604,
++   -18.23822542560445,
++   -17.238225425604444,
+  ]
+
+  8th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   19.884446732574602,
++   -10.88444673257461,
++   26.23822542560444,
++   -17.23822542560445,
+  ]
+
+  9th spy call:
+
+  [
+-   -5,
++   29.833600000000004,
+    5,
+-   13,
++   33.484,
+    5,
+  ]
+
+  10th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   4.000000000000002,
++   30.833600000000004,
++   4.000000000000002,
++   34.484,
+  ]
+
+  11th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   -21.833600000000004,
++   5.0000000000000036,
++   -25.484,
++   5.0000000000000036,
+  ]
+
+  12th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   3.999999999999995,
++   -20.833600000000004,
++   3.9999999999999947,
++   -24.484,
+  ]
+
+
+Number of calls: 12
+
+   × AbilityPresentationSystem mechanical facts > shows immediate name/effect and then actual capped heal and collected receipts 1ms
+     → expected "spy" to be called with arguments: [ Array(1) ]
+
+Number of calls: 0
+
+   × AbilityPresentationSystem mechanical facts > keeps a persistent shield on the player until the authoritative end, with no local expiry 2ms
+     → expected false to be true // Object.is equality
+   × AbilityPresentationSystem mechanical facts > renders speed, fire-rate, damage and pierce stat glyphs from modifier semantics 2ms
+     → expected 1 to be 4 // Object.is equality
+   × AbilityPresentationSystem mechanical facts > bounds repeated activations to one transient, one persistent and sixteen drawing primitives 2ms
+     → expected 682 to be less than or equal to 16
+   ✓ AbilityPresentationSystem mechanical facts > freezes transient lifetime at zero delta and keeps reduced-motion silhouettes static 3ms
+   × AbilityPresentationSystem mechanical facts > removes all objects and subscriptions on repeated destroy and ignores later facts 1ms
+     → expected "spy" to be called 1 times, but got 2 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/abilityPresentation.test.ts > AbilityPresentationSystem mechanical facts > keeps the exact outer knockback boundary in motion and reduced motion
+ FAIL  tests/abilityPresentation.test.ts > AbilityPresentationSystem mechanical facts > keeps the exact outer elemental-burst boundary in motion and reduced motion
+ FAIL  tests/abilityPresentation.test.ts > AbilityPresentationSystem mechanical facts > keeps the exact outer loot-pulse boundary in motion and reduced motion
+AssertionError: expected "spy" to be called with arguments: [ 4, 5, 137 ]
+
+Received:
+
+  1st spy call:
+
+  [
+-   4,
+    5,
+-   137,
++   6,
++   79.46,
+  ]
+
+  2nd spy call:
+
+  [
+-   4,
+    5,
+-   137,
++   6,
++   57.21119999999999,
+  ]
+
+  3rd spy call:
+
+  [
+    4,
+    5,
+-   137,
++   79.46,
+  ]
+
+  4th spy call:
+
+  [
+    4,
+    5,
+-   137,
++   57.21119999999999,
+  ]
+
+  5th spy call:
+
+  [
+    4,
+    5,
+-   137,
++   68.3356,
+  ]
+
+
+Number of calls: 5
+
+ ❯ tests/abilityPresentation.test.ts:45:39
+     43|         graphics.strokeCircle.mockClear();
+     44|         system.update(delta, reducedMotion);
+     45|         expect(graphics.strokeCircle).toHaveBeenCalledWith(4, 5, 137);
+       |                                       ^
+     46|         expect(graphics.strokeCircle.mock.calls.every(call => call[2] …
+     47|       }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  tests/abilityPresentation.test.ts > AbilityPresentationSystem mechanical facts > uses mechanic kind for a new content fixture despite an unrelated legacy cue
+AssertionError: expected "spy" to be called with arguments: [ -5, 5, 13, 5 ]
+
+Received:
+
+  1st spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   20.884446732574606,
++   21.884446732574602,
++   27.238225425604448,
++   28.238225425604444,
+  ]
+
+  2nd spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   -10.884446732574604,
++   21.884446732574606,
++   -17.238225425604444,
++   28.238225425604448,
+  ]
+
+  3rd spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   -10.88444673257461,
++   -9.884446732574604,
++   -17.23822542560445,
++   -16.238225425604444,
+  ]
+
+  4th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   20.884446732574602,
++   -9.88444673257461,
++   27.23822542560444,
++   -16.23822542560445,
+  ]
+
+  5th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   19.884446732574606,
++   20.884446732574602,
++   26.238225425604448,
++   27.238225425604444,
+  ]
+
+  6th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   -11.884446732574604,
++   20.884446732574606,
++   -18.238225425604444,
++   27.238225425604448,
+  ]
+
+  7th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   -11.88444673257461,
++   -10.884446732574604,
++   -18.23822542560445,
++   -17.238225425604444,
+  ]
+
+  8th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   19.884446732574602,
++   -10.88444673257461,
++   26.23822542560444,
++   -17.23822542560445,
+  ]
+
+  9th spy call:
+
+  [
+-   -5,
++   29.833600000000004,
+    5,
+-   13,
++   33.484,
+    5,
+  ]
+
+  10th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   4.000000000000002,
++   30.833600000000004,
++   4.000000000000002,
++   34.484,
+  ]
+
+  11th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   -21.833600000000004,
++   5.0000000000000036,
++   -25.484,
++   5.0000000000000036,
+  ]
+
+  12th spy call:
+
+  [
+-   -5,
+-   5,
+-   13,
+-   5,
++   3.999999999999995,
++   -20.833600000000004,
++   3.9999999999999947,
++   -24.484,
+  ]
+
+
+Number of calls: 12
+
+ ❯ tests/abilityPresentation.test.ts:56:34
+     54|     bus.emit('ability:activated', activation({ mechanicKind: 'heal', c…
+     55|     system.update(0, true);
+     56|     expect(graphics.lineBetween).toHaveBeenCalledWith(4 - 9, 5, 4 + 9,…
+       |                                  ^
+     57|     expect(graphics.strokeCircle.mock.calls.every(call => call[2] < 73…
+     58|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  tests/abilityPresentation.test.ts > AbilityPresentationSystem mechanical facts > shows immediate name/effect and then actual capped heal and collected receipts
+AssertionError: expected "spy" to be called with arguments: [ Array(1) ]
+
+Number of calls: 0
+
+ ❯ tests/abilityPresentation.test.ts:63:28
+     61|     const { system, bus, banner } = harness();
+     62|     bus.emit('ability:activated', activation({ mechanicKind: 'heal' })…
+     63|     expect(banner.setText).toHaveBeenCalledWith('Fixture Burst\nKnock …
+       |                            ^
+     64|     bus.emit('ability:resolved', { abilityId: 'fixture:new-content', a…
+     65|     expect(banner.setText).toHaveBeenLastCalledWith('Fixture Burst\n+7…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  tests/abilityPresentation.test.ts > AbilityPresentationSystem mechanical facts > keeps a persistent shield on the player until the authoritative end, with no local expiry
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/abilityPresentation.test.ts:81:89
+     79|     graphics.lineBetween.mockClear();
+     80|     system.update(0, true);
+     81|     expect(graphics.lineBetween.mock.calls.some(call => call[0] >= 4 &…
+       |                                                                                         ^
+     82|     bus.emit('ability:ended', { abilityId: 'fixture:new-content' });
+     83|     graphics.lineBetween.mockClear();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  tests/abilityPresentation.test.ts > AbilityPresentationSystem mechanical facts > renders speed, fire-rate, damage and pierce stat glyphs from modifier semantics
+AssertionError: expected 1 to be 4 // Object.is equality
+
+- Expected
++ Received
+
+- 4
++ 1
+
+ ❯ tests/abilityPresentation.test.ts:97:29
+     95|       system.destroy();
+     96|     }
+     97|     expect(signatures.size).toBe(4);
+       |                             ^
+     98|   });
+     99|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  tests/abilityPresentation.test.ts > AbilityPresentationSystem mechanical facts > bounds repeated activations to one transient, one persistent and sixteen drawing primitives
+AssertionError: expected 682 to be less than or equal to 16
+ ❯ tests/abilityPresentation.test.ts:108:38
+    106|     ] }));
+    107|     system.update(0, true);
+    108|     expect(primitiveCount(graphics)).toBeLessThanOrEqual(16);
+       |                                      ^
+    109|     expect(add.graphics).toHaveBeenCalledTimes(1);
+    110|     expect(add.text).toHaveBeenCalledTimes(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  tests/abilityPresentation.test.ts > AbilityPresentationSystem mechanical facts > removes all objects and subscriptions on repeated destroy and ignores later facts
+AssertionError: expected "spy" to be called 1 times, but got 2 times
+ ❯ tests/abilityPresentation.test.ts:132:30
+    130|     bus.emit('ability:activated', activation());
+    131|     system.update(16, false);
+    132|     expect(graphics.destroy).toHaveBeenCalledTimes(1);
+       |                              ^
+    133|     expect(banner.destroy).toHaveBeenCalledTimes(1);
+    134|     expect(banner.setText).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 1 passed (10)
+   Start at  16:34:25
+   Duration  706ms (transform 207ms, setup 0ms, collect 187ms, tests 38ms, environment 0ms, prepare 157ms)

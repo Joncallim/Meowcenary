@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
+import { dismissRunStartBrief } from './run-start-helpers';
 
 type Rect = { x: number; y: number; width: number; height: number };
 type TextRow = Rect & { role: string; text: string; visible: boolean; fontSize: number; physicalFontSize: number; physicalNaturalHeight: number; clipped: boolean; rasterScale: number };
@@ -59,6 +60,7 @@ async function launch(page: Page): Promise<void> {
   try {
     expect(await page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
   } finally { await page.keyboard.up('Enter'); }
+  await dismissRunStartBrief(page, 'keyboard');
   await frames(page);
 }
 

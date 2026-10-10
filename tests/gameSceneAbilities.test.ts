@@ -21,7 +21,7 @@ vi.mock('../src/engine/context', async (importOriginal) => {
 function activate(id: string) {
   const scene = new GameScene() as any;
   const stats = { add: vi.fn(), remove: vi.fn() };
-  const player = { x: 0, y: 0, heal: vi.fn(), grantInvulnerability: vi.fn() };
+  const player = { x: 0, y: 0, heal: vi.fn(() => 0), grantInvulnerability: vi.fn() };
   scene.abilityDefinition = abilities.get(id);
   scene.runState = { status: 'active', stats };
   scene.player = player;
@@ -39,12 +39,12 @@ describe('GameScene character ability runtime bridge', () => {
 
   it('executes heal and invulnerability through the live player owner exactly once per cooldown', () => {
     const heal = activate('ability:giga-chomp');
-    heal.scene.controlsView = { setAbilityPresentation: vi.fn() };
+    heal.scene.controlsView = { setAbilityUiState: vi.fn() };
     heal.player.heal.mockClear();
     heal.scene.abilityState = { phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0 };
     heal.scene.activateCharacterAbility();
     expect(heal.player.heal).toHaveBeenCalledWith(40);
-    expect(heal.scene.controlsView.setAbilityPresentation).toHaveBeenCalledWith('cooling', 18_000);
+    expect(heal.scene.controlsView.setAbilityUiState).toHaveBeenCalledWith(expect.objectContaining({phase:'cooling',cooldownRemainingMs:18_000,activeRemainingMs:0}));
     heal.scene.activateCharacterAbility();
     expect(heal.player.heal).toHaveBeenCalledTimes(1);
 
@@ -54,19 +54,19 @@ describe('GameScene character ability runtime bridge', () => {
 
   it('refreshes ability feedback when an active effect moves to cooling', () => {
     const adrenaline = activate('ability:adrenaline');
-    adrenaline.scene.controlsView = { setAbilityPresentation: vi.fn() };
+    adrenaline.scene.controlsView = { setAbilityUiState: vi.fn() };
     adrenaline.scene.tickAbility(2500);
-    expect(adrenaline.scene.controlsView.setAbilityPresentation).toHaveBeenCalledWith('cooling', expect.any(Number));
+    expect(adrenaline.scene.controlsView.setAbilityUiState).toHaveBeenCalledWith(expect.objectContaining({phase:'cooling',cooldownRemainingMs:expect.any(Number)}));
   });
 
   it('refreshes cooldown feedback as the visible remaining second changes', () => {
     const shield = activate('ability:shield-flicker');
-    shield.scene.controlsView = { setAbilityPresentation: vi.fn() };
+    shield.scene.controlsView = { setAbilityUiState: vi.fn() };
     shield.scene.tickAbility(1_000);
-    expect(shield.scene.controlsView.setAbilityPresentation).toHaveBeenCalledWith('active', 14_000);
-    shield.scene.controlsView.setAbilityPresentation.mockClear();
+    expect(shield.scene.controlsView.setAbilityUiState).toHaveBeenCalledWith(expect.objectContaining({phase:'active',cooldownRemainingMs:14_000,activeRemainingMs:200}));
+    shield.scene.controlsView.setAbilityUiState.mockClear();
     shield.scene.tickAbility(100);
-    expect(shield.scene.controlsView.setAbilityPresentation).not.toHaveBeenCalled();
+    expect(shield.scene.controlsView.setAbilityUiState).toHaveBeenCalledWith(expect.objectContaining({phase:'active',activeRemainingMs:100,cooldownRemainingMs:13900}));
   });
 
   it('does not advance ability durations or cooldowns behind paused, clear, or terminal UI', () => {
@@ -104,29 +104,42 @@ describe('GameScene character ability runtime bridge', () => {
 
   it('executes nearby knockback and elemental damage against live enemy instances', () => {
     const knockback = activate('ability:scrap-burst');
-    const pushed = { x: 30, y: 40, body: { setVelocity: vi.fn() }, takeDamage: vi.fn() };
+    const pushed = { active:true,state:'pursuing', x: 30, y: 40, body: { setVelocity: vi.fn() }, takeDamageWithReceipt: vi.fn(()=>({applied:true,killed:false})) };
     knockback.scene.abilityState = { phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0 };
     knockback.scene.enemies = [pushed];
     knockback.scene.activateCharacterAbility();
     expect(pushed.body.setVelocity).toHaveBeenCalledWith(156, 208);
 
     const fire = activate('ability:heat-vent');
-    const burned = { x: 10, y: 0, body: { setVelocity: vi.fn() }, takeDamage: vi.fn() };
+    const burned = { active:true,state:'pursuing', x: 10, y: 0, body: { setVelocity: vi.fn() }, takeDamageWithReceipt: vi.fn(()=>({applied:true,killed:false})) };
     fire.scene.abilityState = { phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0 };
     fire.scene.enemies = [burned];
     fire.scene.activateCharacterAbility();
     // applyEnemyDamage calls enemy.takeDamage internally
-    expect(burned.takeDamage).toHaveBeenCalledWith(90, undefined);
+    expect(burned.takeDamageWithReceipt).toHaveBeenCalledWith(90, undefined);
+  });
+
+  it('rejects new activations at completed-objective and pending-clear boundaries', () => {
+    const t=activate('ability:giga-chomp');t.player.heal.mockClear();
+    for(const runtime of [{state:{status:'objective-complete'}},{pendingClear:{}}]) {
+      t.scene.stageRuntime=runtime;t.scene.abilityState={phase:'ready',activeRemainingMs:0,cooldownRemainingMs:0};
+      t.scene.activateCharacterAbility();
+    }
+    expect(t.player.heal).not.toHaveBeenCalled();
   });
 
   it('executes Scavenge Pulse through the drop-system collection boundary', () => {
     const scene = new GameScene() as any;
-    const collectNearbyConsumables = vi.fn();
+    const collectNearbyConsumables = vi.fn(()=>{scene.runState.status='paused';scene.runState.pauseReason='levelUp';return 3;});
+    scene.abilityPresentationSystem={update:vi.fn()};
     scene.abilityDefinition = abilities.get('ability:scavenge-pulse');
     scene.runState = { status: 'active', stats: { add: vi.fn(), remove: vi.fn() } };
-    scene.player = { x: 0, y: 0, heal: vi.fn(), grantInvulnerability: vi.fn() };
+    scene.player = { x: 0, y: 0, heal: vi.fn(() => 0), grantInvulnerability: vi.fn() };
     scene.dropSystem = { collectNearbyConsumables };
     scene.activateCharacterAbility();
     expect(collectNearbyConsumables).toHaveBeenCalledWith(160);
+    expect(scene.abilityPresentationSystem.update).toHaveBeenCalledWith(0,false);
+    expect(scene.runState.pauseReason).toBe('levelUp');
+    expect(mockBus.emit).toHaveBeenCalledWith('ability:resolved',expect.objectContaining({resolution:{kind:'loot-pulse',radius:160,collected:3}}));
   });
 });

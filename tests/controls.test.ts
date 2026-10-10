@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MockInputPlugin, MockGamepad } from './__mocks__/phaser';
 import { InputController } from '../src/systems/input';
 import { ControlsView, type AbilityControlDefinition } from '../src/ui/controls';
+import type { AbilityUiState } from '../src/gameplay/abilities';
 import type { TouchStickConfig } from '../src/engine/config';
 import { logicalCanvasViewport, responsiveGameUiViewport, GAMEPLAY_ZOOM } from '../src/ui/layout';
 import { ThemeColor, ThemeDepth } from '../src/ui/theme';
@@ -32,6 +33,7 @@ function createFakeScene() {
       height,
       radius: 0,
       fontSize: 0,
+      wordWrapWidth: 0,
       originX: 0.5, originY: 0.5,
       scaleX: 1,
       scaleY: 1,
@@ -70,12 +72,15 @@ function createFakeScene() {
       setText(text: string) {
         state.text = text;
         if (Number(state.fontSize) > 0) {
-          state.width = text.length * Number(state.fontSize) * 0.55;
-          state.height = Number(state.fontSize) * 1.2;
+          const naturalWidth = text.length * Number(state.fontSize) * 0.55;
+          const wrap = Number(state.wordWrapWidth);
+          state.width = wrap > 0 ? Math.min(naturalWidth, wrap) : naturalWidth;
+          state.height = Number(state.fontSize) * 1.2 * (wrap > 0 ? Math.max(1, Math.ceil(naturalWidth / wrap)) : 1);
         }
         return api;
       },
       setFontSize(size: number) { state.fontSize = size; return api; },
+      setWordWrapWidth(width: number) { state.wordWrapWidth = width; return api.setText(String(state.text)); },
       setOrigin(x = 0.5, y = x) { state.originX = x; state.originY = y; return api; },
       setScrollFactor(x: number, y: number = x) {
         state.scrollFactorX = x;
@@ -669,15 +674,15 @@ describe('ControlsView ability button', () => {
     expect(name.state.text).toBe('Scrap Burst');
     expect(state.state.text).toBe('READY');
 
-    view.setAbilityPresentation('active', 0);
-    expect(state.state.text).toBe('ACTIVE');
-    view.setAbilityPresentation('cooling', 6100);
-    expect(state.state.text).toBe('7s');
-    view.setAbilityPresentation('cooling', 6001);
-    expect(state.state.text).toBe('7s');
-    view.setAbilityPresentation('cooling', 6000);
-    expect(state.state.text).toBe('6s');
-    view.setAbilityPresentation('ready', 0);
+    view.setAbilityUiState(Object.freeze({ phase: 'active', activeRemainingMs: 2500, cooldownRemainingMs: 8000, readiness: 0, activeProgress: 0.5 }));
+    expect(state.state.text).toBe('ACTIVE 3s');
+    view.setAbilityUiState(Object.freeze({ phase: 'cooling', activeRemainingMs: 0, cooldownRemainingMs: 6100, readiness: 0.3, activeProgress: 0 }));
+    expect(state.state.text).toBe('WAIT 7s');
+    view.setAbilityUiState(Object.freeze({ phase: 'cooling', activeRemainingMs: 0, cooldownRemainingMs: 6001, readiness: 0.3, activeProgress: 0 }));
+    expect(state.state.text).toBe('WAIT 7s');
+    view.setAbilityUiState(Object.freeze({ phase: 'cooling', activeRemainingMs: 0, cooldownRemainingMs: 6000, readiness: 0.3, activeProgress: 0 }));
+    expect(state.state.text).toBe('WAIT 6s');
+    view.setAbilityUiState(Object.freeze({ phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0, readiness: 1, activeProgress: 0 }));
     expect(state.state.text).toBe('READY');
     view.destroy();
   });
@@ -722,7 +727,7 @@ describe('ControlsView lifecycle guards', () => {
 
 it('preserves cooling state, hints and ability hit targets while overlapped and after restore', () => {
   const { scene, view, onAbilityRequested } = createHarness();
-  view.setAbilityPresentation('cooling', 6_100);
+  view.setAbilityUiState(Object.freeze({ phase: 'cooling', activeRemainingMs: 0, cooldownRemainingMs: 6100, readiness: 0.3, activeProgress: 0 }));
   const ability = scene.objects.find(object => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
   const state = scene.objects.find(object => object.state.alpha === 0.76)!;
   const hint = scene.objects.find(object => String(object.state.text).includes(scrapBurst.description))!;
@@ -751,5 +756,53 @@ it('keeps the Pause glyph readable above an intersecting faded plate', () => {
   view.updateWorldReadability(pause.getBounds(), { scrollX: 0, scrollY: 0 });
   expect(pause.state.alpha).toBe(0.10);
   for (const glyph of glyphs) expect(glyph.state.alpha).toBe(1);
+  view.destroy();
+});
+
+
+describe('ControlsView authoritative ability snapshot', () => {
+  const active: AbilityUiState = Object.freeze({ phase: 'active', activeRemainingMs: 1200, cooldownRemainingMs: 14000, readiness: 0, activeProgress: 0.4 });
+  const cooling: AbilityUiState = Object.freeze({ phase: 'cooling', activeRemainingMs: 0, cooldownRemainingMs: 1300, readiness: 0.7, activeProgress: 0 });
+  it('uses distinct non-colour shapes and separately positioned active/cooldown bands', () => {
+    const { scene, view } = createHarness({ readReducedMotion: () => true });
+    const glyph = scene.objects.find(object => object.state.text === '○')!;
+    expect(glyph).toBeDefined();
+    view.setAbilityUiState(active);
+    expect(glyph.state.text).toBe('◆');
+    const durationBand = scene.objects.find(object => object.state.fillColor === ThemeColor.gold && object.state.scaleX === 0.4)!;
+    expect(durationBand).toBeDefined();
+    view.setAbilityUiState(cooling);
+    expect(glyph.state.text).toBe('▰');
+    const cooldownBand = scene.objects.find(object => object.state.fillColor === ThemeColor.cream && object.state.scaleX === 0.7)!;
+    expect(cooldownBand).toBeDefined();
+    expect(durationBand.state.y).not.toBe(cooldownBand.state.y);
+    expect(durationBand.state.visible).toBe(false);
+    view.destroy();
+  });
+  it('never advances remaining time locally and preserves state through resize and extraction rebuild', () => {
+    const { scene, view } = createHarness();
+    view.setAbilityUiState(active);
+    view.update(10000);
+    expect(scene.objects.some(object => object.state.text === 'ACTIVE 2s')).toBe(true);
+    scene.resize(360, 640);
+    expect(scene.objects.some(object => !object.state.destroyed && object.state.text === 'ACTIVE 2s')).toBe(true);
+    view.setExtractionState(true); view.setExtractionState(false);
+    expect(scene.objects.some(object => !object.state.destroyed && object.state.text === 'ACTIVE 2s')).toBe(true);
+    view.destroy();
+  });
+});
+
+
+it.each([360, 390])('contains mechanical teaching copy at %spx without overlapping the ability target', width => {
+  const ability: AbilityControlDefinition = { name: 'Overclock', description: 'Gain 50% fire rate and 25% movement speed for 3.5s.' };
+  const { scene, view } = createHarness({ zoomed: true, ability });
+  scene.resize(width, 640);
+  const hint = scene.objects.find(object => !object.state.destroyed && String(object.state.text).includes(ability.description))!;
+  const target = scene.objects.find(object => !object.state.destroyed && object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+  const hintWidth = Number(hint.state.width), hintHeight = Number(hint.state.height);
+  expect((hint.x - hintWidth / 2) * GAMEPLAY_ZOOM).toBeGreaterThanOrEqual(16);
+  expect((hint.x + hintWidth / 2) * GAMEPLAY_ZOOM).toBeLessThanOrEqual(width - 16);
+  expect(hint.y + hintHeight / 2).toBeLessThan(Number(target.state.y) - Number(target.state.height) / 2);
+  expect(hintHeight).toBeGreaterThan(Number(hint.state.fontSize) * 1.2);
   view.destroy();
 });

@@ -1,0 +1,179 @@
+{
+  "visible": true,
+  "status": "intro",
+  "timeMs": 0,
+  "characterId": "scrap-tabby",
+  "player": {
+    "x": 384,
+    "y": 672,
+    "health": 100
+  },
+  "enemies": 0,
+  "abilityState": {
+    "phase": "ready",
+    "activeRemainingMs": 0,
+    "cooldownRemainingMs": 0
+  },
+  "abilityDefinition": {
+    "id": "ability:scrap-burst",
+    "name": "Scrap Burst",
+    "description": "Fire a burst that knocks enemies back.",
+    "cooldownMs": 9000,
+    "durationMs": 400,
+    "effect": {
+      "kind": "knockback",
+      "radius": 90,
+      "power": 260
+    },
+    "presentation": {
+      "cue": "shockwave",
+      "color": "#facc15",
+      "iconArtId": "ability-icon:scrap-burst"
+    }
+  },
+  "model": {
+    "mercenaryName": "Scrap Tabby",
+    "portrait": {
+      "id": "character-portrait:scrap-tabby",
+      "kind": "portrait",
+      "required": true,
+      "display": {
+        "width": 150,
+        "height": 240
+      },
+      "resourceId": "resource:mercenary-portraits",
+      "frameKey": "character-portrait:scrap-tabby",
+      "textureKey": "art-mercenary-portraits",
+      "url": "assets/characters/identity/mercenary-portraits-atlas.png",
+      "sampling": "linear",
+      "load": {
+        "type": "atlas"
+      }
+    },
+    "icon": {
+      "id": "ability-icon:scrap-burst",
+      "kind": "icon",
+      "required": true,
+      "display": {
+        "width": 48,
+        "height": 48
+      },
+      "resourceId": "resource:mercenary-identity-icons",
+      "frameKey": "ability-icon:scrap-burst",
+      "textureKey": "art-mercenary-identity-icons",
+      "url": "assets/characters/identity/mercenary-identity-icons-atlas.png",
+      "sampling": "linear",
+      "load": {
+        "type": "atlas"
+      }
+    },
+    "ability": {
+      "headline": "Scrap Burst",
+      "cooldownLabel": "Cooldown 9s.",
+      "detail": "Knock back enemies within 90 range.",
+      "targetKind": "self-area",
+      "radius": 90,
+      "statChips": []
+    }
+  },
+  "buttons": [
+    {
+      "x": 36,
+      "y": 442,
+      "width": 308,
+      "height": 44
+    },
+    {
+      "x": 36,
+      "y": 496,
+      "width": 308,
+      "height": 44
+    }
+  ],
+  "inputMode": "pointer",
+  "inputNeutral": true,
+  "orientationBlocked": false,
+  "abilityUiState": {
+    "phase": "ready",
+    "activeRemainingMs": 0,
+    "cooldownRemainingMs": 0,
+    "readiness": 1,
+    "activeProgress": 0
+  },
+  "abilityButton": {
+    "x": 236,
+    "y": 576,
+    "width": 120,
+    "height": 60
+  },
+  "controlsHint": {
+    "text": "SCRAP BURST — Knock back enemies within 90 range.",
+    "x": 33.125,
+    "y": 521.75,
+    "width": 313.75,
+    "height": 32.5,
+    "visible": true
+  },
+  "abilityBanner": "",
+  "abilityFx": {},
+  "activationId": 0,
+  "briefText": [
+    {
+      "text": "Scrap Tabby",
+      "x": 118,
+      "y": 136,
+      "width": 130,
+      "height": 26.25
+    },
+    {
+      "text": "Scrap Burst",
+      "x": 98,
+      "y": 216,
+      "width": 122.5,
+      "height": 26.25
+    },
+    {
+      "text": "Knock back enemies within 90 range.",
+      "x": 36,
+      "y": 278,
+      "width": 267.5,
+      "height": 16.25
+    },
+    {
+      "text": "Cooldown 9s.",
+      "x": 36,
+      "y": 352,
+      "width": 105,
+      "height": 16.25
+    },
+    {
+      "text": "Ability: Q / left face / tap card\nStart: Enter/Space / bottom face / tap",
+      "x": 36,
+      "y": 380,
+      "width": 266.25,
+      "height": 32.5
+    },
+    {
+      "text": "Start",
+      "x": 172.5,
+      "y": 455.875,
+      "width": 35,
+      "height": 16.25
+    },
+    {
+      "text": "Back to Menu",
+      "x": 141.25,
+      "y": 509.875,
+      "width": 97.5,
+      "height": 16.25
+    }
+  ],
+  "capture": {
+    "project": "phone-360x640",
+    "viewport": {
+      "width": 380,
+      "height": 660
+    },
+    "devicePixelRatio": 1
+  }
+}

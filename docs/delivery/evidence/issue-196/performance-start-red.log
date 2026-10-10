@@ -1,0 +1,34 @@
+RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-196-production
+
+ ❯ tests/performanceRunStart.test.mjs (4 tests | 3 failed) 11ms
+   ✓ performance launch compatibility > preserves historical active launch without a new input or timing endpoint 2ms
+   × performance launch compatibility > starts intro with neutral keyboard input and retains its preparation timestamp 6ms
+     → launch stalled: no Start input
+   × performance launch compatibility > starts intro with neutral mouse input and retains its preparation timestamp 1ms
+     → launch stalled: no Start input
+   × performance launch compatibility > starts intro with neutral touch input and retains its preparation timestamp 1ms
+     → launch stalled: no Start input
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/performanceRunStart.test.mjs > performance launch compatibility > starts intro with neutral keyboard input and retains its preparation timestamp
+ FAIL  tests/performanceRunStart.test.mjs > performance launch compatibility > starts intro with neutral mouse input and retains its preparation timestamp
+ FAIL  tests/performanceRunStart.test.mjs > performance launch compatibility > starts intro with neutral touch input and retains its preparation timestamp
+Error: launch stalled: no Start input
+ ❯ Object.waitForFunction tests/performanceRunStart.test.mjs:40:44
+     38|     evaluate,
+     39|     waitForFunction: async (callback) => {
+     40|       if (!await evaluate(callback)) throw new Error('launch stalled: …
+       |                                            ^
+     41|     },
+     42|     keyboard: { down, up },
+ ❯ waitForPerformanceRunStart scripts/performance-run-start.mjs:3:3
+ ❯ tests/performanceRunStart.test.mjs:60:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+   Start at  18:07:59
+   Duration  548ms (transform 36ms, setup 0ms, collect 19ms, tests 11ms, environment 0ms, prepare 116ms)

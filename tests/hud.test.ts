@@ -86,6 +86,15 @@ const eventPayloads = {
 } as const satisfies Partial<GameEventMap>;
 
 describe('HudController', () => {
+  it('repaints intro as active at run start without waiting for the first second', () => {
+    const source = createMutableSource({ status: 'intro', timeMs: 0 });
+    const { bus, controller, view } = createHarness(source);
+    controller.update(16);
+    source.snapshotValue.status = 'active';
+    bus.emit('run:start', { characterId: 'scrap-tabby', arenaId: 'junkyard', seed: 1 });
+    controller.update(16);
+    expect(view.renders.map(snapshot => snapshot.status)).toEqual(['intro', 'active']);
+  });
   it('updates world readability between unchanged HUD renders and stops after disposal', () => {
     const { controller, view } = createHarness();
     const readability = vi.fn();
@@ -375,6 +384,7 @@ describe('PhaserHudView', () => {
           }
           return api;
         },
+        setWordWrapWidth(width: number) { state.wordWrapWidth = width; return api; },
         setOrigin(x = 0.5, y = x) { state.originX = x; state.originY = y; return api; },
         setScrollFactor() { return api; },
         setDepth(depth: number) { return chain('depth', depth); },

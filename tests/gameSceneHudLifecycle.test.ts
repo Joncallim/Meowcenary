@@ -44,7 +44,7 @@ describe('GameScene HUD lifecycle', () => {
       scene.hudController = controller;
       controller.update(16);
       expect(view.render).toHaveBeenCalledTimes(1);
-      expect(liveSubscriptions.size).toBe(12);
+      expect(liveSubscriptions.size).toBe(13);
       scene.handleShutdown();
       expect(view.destroy).toHaveBeenCalledTimes(1);
       expect(scene.hudController).toBeUndefined();

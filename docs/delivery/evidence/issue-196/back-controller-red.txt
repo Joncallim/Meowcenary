@@ -1,0 +1,39 @@
+[WebServer] (node:3446143) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:3446261) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 1 test using 1 worker
+
+(node:3446299) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/1] [desktop-1280x720] › browser-tests/ability-comprehension.pw.ts:255:1 › Back controller Confirm stays quarantined across the new Menu input owner
+  1) [desktop-1280x720] › browser-tests/ability-comprehension.pw.ts:255:1 › Back controller Confirm stays quarantined across the new Menu input owner
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      259 |   const beforeSave = await save(page);
+      260 |   await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(0, true)); await frame(page, 8);
+    > 261 |   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.isSceneActive('MenuScene'))).toBe(true);
+          |                                                                                                                     ^
+      262 |   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(false);
+      263 |   expect(await save(page)).toBe(beforeSave);
+      264 |   await page.screenshot({ path: info.outputPath('back-held-controller-menu.png') });
+        at /home/jon/projects/meowcenary-worktrees/meowcenary-196-production/browser-tests/ability-comprehension.pw.ts:261:117
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../meowcenary-evidence/issue-196/back-controller-red-artifacts/ability-comprehension.pw.t-7a542-ss-the-new-Menu-input-owner-desktop-1280x720/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../meowcenary-evidence/issue-196/back-controller-red-artifacts/ability-comprehension.pw.t-7a542-ss-the-new-Menu-input-owner-desktop-1280x720/error-context.md
+
+
+  1 failed
+    [desktop-1280x720] › browser-tests/ability-comprehension.pw.ts:255:1 › Back controller Confirm stays quarantined across the new Menu input owner

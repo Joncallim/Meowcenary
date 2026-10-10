@@ -1,107 +1,139 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createEventBus } from '../src/engine/eventBus';
+import './__mocks__/phaser';
+import { createEventBus, type GameEventMap } from '../src/engine/eventBus';
 import { AbilityPresentationSystem } from '../src/systems/abilityPresentation';
 
 function harness() {
-  const strokeCircle = vi.fn();
-  const lineBetween = vi.fn();
-  const strokeTriangle = vi.fn();
   const graphics = {
-    setDepth: () => graphics,
-    clear: vi.fn(),
-    lineStyle: vi.fn(),
-    fillStyle: vi.fn(),
-    fillCircle: vi.fn(),
-    fillTriangle: vi.fn(),
-    strokeCircle,
-    lineBetween,
-    strokeTriangle,
-    destroy: vi.fn(),
+    setDepth: () => graphics, clear: vi.fn(), lineStyle: vi.fn(), fillStyle: vi.fn(),
+    fillCircle: vi.fn(), fillTriangle: vi.fn(), strokeCircle: vi.fn(),
+    lineBetween: vi.fn(), strokeTriangle: vi.fn(), destroy: vi.fn(),
   };
-  const scene = { add: { graphics: () => graphics } } as any;
+  const banner = {
+    setDepth: () => banner, setScrollFactor: () => banner, setOrigin: () => banner,
+    setVisible: vi.fn(() => banner), setText: vi.fn(() => banner), setPosition: vi.fn(() => banner),
+    setFontSize: vi.fn(() => banner), setWordWrapWidth: vi.fn(() => banner), destroy: vi.fn(),
+  };
+  const add = { graphics: vi.fn(() => graphics), text: vi.fn(() => banner) };
+  const scale = { width: 390, height: 844, on: vi.fn(), off: vi.fn() };
+  const scene = { add, scale } as any;
   const bus = createEventBus();
   const player = { x: 10, y: 20 };
-  return { system: new AbilityPresentationSystem(scene, bus, player), bus, player, strokeCircle, lineBetween, strokeTriangle, graphics };
+  return { system: new AbilityPresentationSystem(scene, bus, player), bus, player, graphics, banner, add, scale };
 }
 
-describe('AbilityPresentationSystem', () => {
-  it('gives a duration-zero gameplay burst a brief readable presentation without changing its authority', () => {
-    const { system, bus, strokeCircle } = harness();
-    bus.emit('ability:activated', { abilityId: 'ability:heal', cue: 'heal-burst', x: 4, y: 5, durationMs: 0, color: '#ffffff' });
-    bus.emit('ability:ended', { abilityId: 'ability:heal' });
-    system.update(16, false);
-    expect(strokeCircle).toHaveBeenCalledWith(4, 5, expect.any(Number));
-    system.update(264, false);
-    expect(strokeCircle).toHaveBeenCalledTimes(4);
-    system.update(16, false);
-    expect(strokeCircle).toHaveBeenCalledTimes(4);
-  });
+function activation(overrides: Partial<GameEventMap['ability:activated']> = {}): GameEventMap['ability:activated'] {
+  return { abilityId: 'fixture:new-content', mechanicKind: 'knockback', cue: 'shockwave',
+    x: 4, y: 5, radius: 73, durationMs: 500, color: '#ffffff',
+    headline: 'Fixture Burst', detail: 'Knock back nearby enemies within 73 range.', ...overrides };
+}
 
-  it('anchors radial cues at activation but lets sustained cues follow the player', () => {
-    const { system, bus, player, strokeCircle } = harness();
-    bus.emit('ability:activated', { abilityId: 'ability:ring', cue: 'heat-ring', x: 3, y: 4, durationMs: 800, color: '#ff0000' });
-    player.x = 40; player.y = 50;
-    system.update(16, false);
-    expect(strokeCircle).toHaveBeenCalledWith(3, 4, expect.any(Number));
-    strokeCircle.mockClear();
-    bus.emit('ability:activated', { abilityId: 'ability:aura', cue: 'shield-aura', x: 3, y: 4, durationMs: 800, color: '#ffffff' });
-    system.update(16, false);
-    expect(strokeCircle).toHaveBeenCalledWith(40, 50, expect.any(Number));
-  });
+function primitiveCount(graphics: ReturnType<typeof harness>['graphics']): number {
+  return graphics.strokeCircle.mock.calls.length + graphics.lineBetween.mock.calls.length
+    + graphics.fillTriangle.mock.calls.length + graphics.strokeTriangle.mock.calls.length + graphics.fillCircle.mock.calls.length;
+}
 
-  it('does not advance presentation time while its owner does not call update', () => {
-    const { system, bus, strokeCircle } = harness();
-    bus.emit('ability:activated', { abilityId: 'ability:aura', cue: 'shield-aura', x: 0, y: 0, durationMs: 100, color: '#ffffff' });
-    // Manual/level-up pause intentionally makes GameScene skip this call.
-    system.update(50, false);
-    system.update(50, false);
-    expect(strokeCircle).toHaveBeenCalledTimes(8); // outline + colour, two rings, two active frames
-  });
-
-  it('renders an activation on a frozen extraction frame without advancing it', () => {
-    const { system, bus, strokeCircle } = harness();
-    bus.emit('ability:activated', { abilityId: 'ability:heat', cue: 'heat-ring', x: 8, y: 9, durationMs: 100, color: '#ff0000' });
-    system.update(0, false);
-    system.update(100, false);
-    expect(strokeCircle).toHaveBeenCalledTimes(6); // outline, colour, and highlight remain visible on both frames
-  });
-
-  it('gives radial, heat, movement, shield, and mark cues distinct non-colour silhouettes', () => {
-    const signatures = new Set<string>();
-    for (const [abilityId, cue] of [
-      ['ability:scrap', 'shockwave'],
-      ['ability:heat', 'heat-ring'],
-      ['ability:loot', 'loot-pulse'],
-      ['ability:heal', 'heal-burst'],
-      ['ability:speed', 'speed-trail'],
-      ['ability:clock', 'overclock-aura'],
-      ['ability:shield', 'shield-aura'],
-      ['ability:mark', 'precision-mark'],
-    ] as const) {
-      const { system, bus, strokeCircle, lineBetween, strokeTriangle } = harness();
-      bus.emit('ability:activated', { abilityId, cue, x: 4, y: 5, durationMs: 500, color: '#ffffff' });
-      system.update(16, true);
-      signatures.add(`${strokeCircle.mock.calls.length}:${lineBetween.mock.calls.length}:${strokeTriangle.mock.calls.length}`);
+describe('AbilityPresentationSystem mechanical facts', () => {
+  it.each(['knockback', 'elemental-burst', 'loot-pulse'] as const)('keeps the exact outer %s boundary in motion and reduced motion', mechanicKind => {
+    for (const reducedMotion of [false, true]) {
+      const { system, bus, graphics, player } = harness();
+      bus.emit('ability:activated', activation({ mechanicKind, radius: 137 }));
+      player.x = 700; player.y = 800;
+      for (const delta of [0, 80, 90]) {
+        graphics.strokeCircle.mockClear();
+        system.update(delta, reducedMotion);
+        expect(graphics.strokeCircle).toHaveBeenCalledWith(4, 5, 137);
+        expect(graphics.strokeCircle.mock.calls.every(call => call[2] <= 137)).toBe(true);
+      }
       system.destroy();
     }
-    expect(signatures.size).toBe(8);
   });
 
-  it('uses a stable reduced-motion frame while animated effects visibly advance', () => {
-    const reduced = harness();
-    reduced.bus.emit('ability:activated', { abilityId: 'ability:ring', cue: 'shockwave', x: 4, y: 5, durationMs: 500, color: '#ffffff' });
-    reduced.system.update(80, true);
-    const reducedFirst = reduced.strokeCircle.mock.calls.at(-1)?.[2];
-    reduced.system.update(80, true);
-    const reducedSecond = reduced.strokeCircle.mock.calls.at(-1)?.[2];
-    expect(reducedSecond).toBe(reducedFirst);
+  it('uses mechanic kind for a new content fixture despite an unrelated legacy cue', () => {
+    const { system, bus, graphics } = harness();
+    bus.emit('ability:activated', activation({ mechanicKind: 'heal', cue: 'shockwave', radius: undefined, durationMs: 0 }));
+    system.update(0, true);
+    expect(graphics.lineBetween).toHaveBeenCalledWith(4 - 9, 5, 4 + 9, 5);
+    expect(graphics.strokeCircle.mock.calls.every(call => call[2] < 73)).toBe(true);
+  });
 
-    const animated = harness();
-    animated.bus.emit('ability:activated', { abilityId: 'ability:ring', cue: 'shockwave', x: 4, y: 5, durationMs: 500, color: '#ffffff' });
-    animated.system.update(80, false);
-    const animatedFirst = animated.strokeCircle.mock.calls.at(-1)?.[2];
-    animated.system.update(80, false);
-    const animatedSecond = animated.strokeCircle.mock.calls.at(-1)?.[2];
-    expect(animatedSecond).not.toBe(animatedFirst);
+  it('shows immediate name/effect and then actual capped heal and collected receipts', () => {
+    const { system, bus, banner } = harness();
+    bus.emit('ability:activated', activation({ mechanicKind: 'heal' }));
+    expect(banner.setText).toHaveBeenCalledWith('Fixture Burst\nKnock back nearby enemies within 73 range.');
+    bus.emit('ability:resolved', { abilityId: 'fixture:new-content', activationId: 1, name: 'Fixture Burst', origin: { x: 4, y: 5 }, resolution: { kind: 'heal', requested: 40, applied: 7 } });
+    expect(banner.setText).toHaveBeenLastCalledWith('Fixture Burst\n+7 HP');
+    bus.emit('ability:resolved', { abilityId: 'fixture:new-content', activationId: 2, name: 'Fixture Burst', origin: { x: 4, y: 5 }, resolution: { kind: 'heal', requested: 40, applied: 0 } });
+    expect(banner.setText).toHaveBeenLastCalledWith('Fixture Burst\n+0 HP');
+    bus.emit('ability:resolved', { abilityId: 'fixture:new-content', activationId: 3, name: 'Fixture Burst', origin: { x: 4, y: 5 }, resolution: { kind: 'loot-pulse', radius: 73, collected: 5 } });
+    expect(banner.setText).toHaveBeenLastCalledWith('Fixture Burst\nCollected 5');
+    system.destroy();
+  });
+
+  it('keeps a persistent shield on the player until the authoritative end, with no local expiry', () => {
+    const { system, bus, player, graphics } = harness();
+    bus.emit('ability:activated', activation({ mechanicKind: 'invulnerable', durationMs: 100, radius: undefined }));
+    player.x = 40; player.y = 50;
+    system.update(10000, true);
+    expect(graphics.lineBetween).toHaveBeenCalled();
+    graphics.lineBetween.mockClear();
+    system.update(0, true);
+    expect(graphics.lineBetween.mock.calls.some(call => call[0] >= 4 && call[0] <= 76)).toBe(true);
+    bus.emit('ability:ended', { abilityId: 'fixture:new-content' });
+    graphics.lineBetween.mockClear();
+    system.update(0, true);
+    expect(graphics.lineBetween).not.toHaveBeenCalled();
+  });
+
+  it('renders speed, fire-rate, damage and pierce stat glyphs from modifier semantics', () => {
+    const signatures = new Set<string>();
+    for (const stat of ['moveSpeed', 'attackSpeed', 'damage', 'pierce'] as const) {
+      const { system, bus, graphics } = harness();
+      bus.emit('ability:activated', activation({ mechanicKind: 'stat-burst', cue: 'shockwave', modifiers: [{ stat, op: 'add', value: 1, sourceId: 'fixture' }] }));
+      system.update(0, true);
+      signatures.add(JSON.stringify(graphics.lineBetween.mock.calls) + JSON.stringify(graphics.strokeCircle.mock.calls) + JSON.stringify(graphics.strokeTriangle.mock.calls));
+      system.destroy();
+    }
+    expect(signatures.size).toBe(4);
+  });
+
+  it('bounds repeated activations to one transient, one persistent and sixteen drawing primitives', () => {
+    const { system, bus, graphics, add } = harness();
+    for (let index = 0; index < 30; index += 1) bus.emit('ability:activated', activation({ abilityId: `fixture:${index}` }));
+    bus.emit('ability:activated', activation({ mechanicKind: 'stat-burst', modifiers: [
+      { stat: 'attackSpeed', op: 'mult', value: 1.5, sourceId: 'fixture' },
+      { stat: 'moveSpeed', op: 'mult', value: 1.25, sourceId: 'fixture' },
+    ] }));
+    system.update(0, true);
+    expect(primitiveCount(graphics)).toBeLessThanOrEqual(16);
+    expect(graphics.strokeCircle).toHaveBeenCalledWith(4, 5, 73);
+    expect(add.graphics).toHaveBeenCalledTimes(1);
+    expect(add.text).toHaveBeenCalledTimes(1);
+  });
+
+  it('freezes transient lifetime at zero delta and keeps reduced-motion silhouettes static', () => {
+    const { system, bus, graphics } = harness();
+    bus.emit('ability:activated', activation());
+    system.update(0, true);
+    const first = JSON.stringify(graphics.strokeCircle.mock.calls);
+    graphics.strokeCircle.mockClear();
+    system.update(0, true);
+    expect(JSON.stringify(graphics.strokeCircle.mock.calls)).toBe(first);
+    system.update(500, true);
+    graphics.strokeCircle.mockClear();
+    system.update(0, true);
+    expect(graphics.strokeCircle).not.toHaveBeenCalled();
+  });
+
+  it('removes all objects and subscriptions on repeated destroy and ignores later facts', () => {
+    const { system, bus, graphics, banner, scale } = harness();
+    system.destroy(); system.destroy();
+    bus.emit('ability:activated', activation());
+    system.update(16, false);
+    expect(graphics.clear).not.toHaveBeenCalled();
+    expect(graphics.destroy).toHaveBeenCalledTimes(1);
+    expect(banner.destroy).toHaveBeenCalledTimes(1);
+    expect(banner.setText).not.toHaveBeenCalled();
+    expect(scale.off).toHaveBeenCalledTimes(1);
   });
 });

@@ -19,6 +19,26 @@ import { loadGameData } from '../src/systems/validation';
 import { edgeMargin, minimumHitTarget, type LayoutEdge, type UiViewport } from '../src/ui/layout';
 import { FocusStroke } from '../src/ui/theme';
 
+describe('intro-return Menu input ownership', () => {
+  it('consumes held Confirm in the new controller until neutral, then accepts a fresh edge', () => {
+    const harness = createHarness({ create: false });
+    const pad = new MockGamepad();
+    harness.input.gamepad!.connect(pad);
+    pad.setButton(0, true);
+    const confirms: string[] = [];
+    harness.bus.on('ui:confirm', () => confirms.push('confirm'));
+    harness.menuScene.create({ quarantineInput: true });
+    harness.menuScene.update(0, 16);
+    harness.menuScene.update(16, 16);
+    expect(confirms).toEqual([]);
+    pad.setButton(0, false);
+    harness.menuScene.update(32, 16);
+    pad.setButton(0, true);
+    harness.menuScene.update(48, 16);
+    expect(confirms).toEqual(['confirm']);
+  });
+});
+
 interface FakeObjectState {
   kind: 'container' | 'text' | 'rect' | 'image';
   x: number;

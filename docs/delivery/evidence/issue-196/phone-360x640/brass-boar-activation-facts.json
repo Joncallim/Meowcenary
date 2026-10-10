@@ -1,0 +1,87 @@
+{
+  "visible": false,
+  "status": "active",
+  "timeMs": 166.61999999999995,
+  "characterId": "brass-boar",
+  "player": {
+    "x": 384,
+    "y": 672,
+    "health": 135.5
+  },
+  "enemies": 4,
+  "abilityState": {
+    "phase": "active",
+    "activeRemainingMs": 1150.0199999999998,
+    "cooldownRemainingMs": 14950.02
+  },
+  "abilityDefinition": {
+    "id": "ability:shield-flicker",
+    "name": "Shield Flicker",
+    "description": "Briefly become invulnerable.",
+    "cooldownMs": 15000,
+    "durationMs": 1200,
+    "effect": {
+      "kind": "invulnerable"
+    },
+    "presentation": {
+      "cue": "shield-aura",
+      "color": "#60a5fa",
+      "visualRadius": 38,
+      "iconArtId": "ability-icon:shield-flicker"
+    }
+  },
+  "buttons": [],
+  "inputMode": "keyboard",
+  "inputNeutral": false,
+  "orientationBlocked": false,
+  "abilityUiState": {
+    "phase": "active",
+    "activeRemainingMs": 1150.0199999999998,
+    "cooldownRemainingMs": 14950.02,
+    "readiness": 0.0033320000000000016,
+    "activeProgress": 0.9583499999999998
+  },
+  "abilityButton": {
+    "x": 216,
+    "y": 556,
+    "width": 120,
+    "height": 60
+  },
+  "controlsHint": {
+    "text": "SHIELD FLICKER — Become invulnerable for 1.2s.",
+    "x": 20.625,
+    "y": 509.875,
+    "width": 318.75,
+    "height": 16.25,
+    "visible": true
+  },
+  "abilityBanner": "Shield Flicker\nINVULNERABLE 1.2s",
+  "abilityFx": {
+    "persistent": {
+      "abilityId": "ability:shield-flicker",
+      "kind": "invulnerable",
+      "color": 6333946,
+      "radius": 38,
+      "glyphMask": 0,
+      "remaining": 1200,
+      "elapsed": 49.97999999999997,
+      "x": 384,
+      "y": 672,
+      "rendered": true
+    }
+  },
+  "activationId": 1,
+  "latestResolution": {
+    "kind": "invulnerable",
+    "durationMs": 1200
+  },
+  "briefText": [],
+  "capture": {
+    "project": "phone-360x640",
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "devicePixelRatio": 1
+  }
+}
