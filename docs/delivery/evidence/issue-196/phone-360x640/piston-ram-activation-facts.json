@@ -1,0 +1,115 @@
+{
+  "visible": false,
+  "status": "active",
+  "timeMs": 166.6666666666666,
+  "characterId": "piston-ram",
+  "player": {
+    "x": 384,
+    "y": 672,
+    "health": 92
+  },
+  "enemies": 4,
+  "abilityState": {
+    "phase": "active",
+    "activeRemainingMs": 3450.0000000000005,
+    "cooldownRemainingMs": 11950.000000000002
+  },
+  "abilityDefinition": {
+    "id": "ability:overclock",
+    "name": "Overclock",
+    "description": "Fire rate and move speed surge briefly.",
+    "cooldownMs": 12000,
+    "durationMs": 3500,
+    "effect": {
+      "kind": "stat-burst",
+      "modifiers": [
+        {
+          "stat": "attackSpeed",
+          "op": "mult",
+          "value": 1.5,
+          "sourceId": "ability:overclock"
+        },
+        {
+          "stat": "moveSpeed",
+          "op": "mult",
+          "value": 1.25,
+          "sourceId": "ability:overclock"
+        }
+      ]
+    },
+    "presentation": {
+      "cue": "overclock-aura",
+      "color": "#22d3ee",
+      "visualRadius": 34,
+      "iconArtId": "ability-icon:overclock"
+    }
+  },
+  "buttons": [],
+  "inputMode": "keyboard",
+  "inputNeutral": false,
+  "orientationBlocked": false,
+  "abilityUiState": {
+    "phase": "active",
+    "activeRemainingMs": 3450.0000000000005,
+    "cooldownRemainingMs": 11950.000000000002,
+    "readiness": 0.004166666666666541,
+    "activeProgress": 0.9857142857142859
+  },
+  "abilityButton": {
+    "x": 216,
+    "y": 556,
+    "width": 120,
+    "height": 60
+  },
+  "controlsHint": {
+    "text": "OVERCLOCK — Gain 50% fire rate and 25% movement speed for 3.5s.",
+    "x": 32.5,
+    "y": 501.75,
+    "width": 295,
+    "height": 32.5,
+    "visible": true
+  },
+  "abilityBanner": "Overclock\n+50% fire rate • +25% movement speed 3.5s",
+  "abilityFx": {
+    "persistent": {
+      "abilityId": "ability:overclock",
+      "kind": "stat-burst",
+      "color": 2282478,
+      "radius": 34,
+      "glyphMask": 3,
+      "remaining": 3500,
+      "elapsed": 49.99999999999999,
+      "x": 384,
+      "y": 672,
+      "rendered": true
+    }
+  },
+  "activationId": 1,
+  "latestResolution": {
+    "kind": "stat-burst",
+    "durationMs": 3500,
+    "modifiers": [
+      {
+        "stat": "attackSpeed",
+        "op": "mult",
+        "value": 1.5,
+        "sourceId": "ability:overclock"
+      },
+      {
+        "stat": "moveSpeed",
+        "op": "mult",
+        "value": 1.25,
+        "sourceId": "ability:overclock"
+      }
+    ]
+  },
+  "briefText": [],
+  "capture": {
+    "project": "phone-360x640",
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "devicePixelRatio": 1
+  }
+}

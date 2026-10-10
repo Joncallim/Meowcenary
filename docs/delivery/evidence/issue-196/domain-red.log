@@ -1,0 +1,126 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-196-production
+
+ ❯ tests/abilityResolution.test.ts (5 tests | 5 failed) 21ms
+   × authoritative ability resolution > reports actual clamped healing, including zero, as immutable facts 10ms
+     → expected undefined to deeply equal { kind: 'heal', requested: 40, …(1) }
+   × authoritative ability resolution > forwards the real admitted collection count 2ms
+     → expected undefined to deeply equal { kind: 'loot-pulse', …(2) }
+   × authoritative ability resolution > counts only live eligible successful damage and preserves no-source damage semantics 2ms
+     → expected undefined to deeply equal { kind: 'elemental-burst', …(2) }
+   × authoritative ability resolution > counts owner-approved knockback and leaves dead targets untouched 2ms
+     → expected undefined to deeply equal { kind: 'knockback', radius: 90, …(1) }
+   × authoritative ability resolution > rejects a second mechanical radius in presentation data 3ms
+     → expected [] to include 'presentation.radius: gameplay geometr…'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/abilityResolution.test.ts > authoritative ability resolution > reports actual clamped healing, including zero, as immutable facts
+AssertionError: expected undefined to deeply equal { kind: 'heal', requested: 40, …(1) }
+
+- Expected:
+{
+  "applied": 7,
+  "kind": "heal",
+  "requested": 40,
+}
+
++ Received:
+undefined
+
+ ❯ tests/abilityResolution.test.ts:15:20
+     13|   it('reports actual clamped healing, including zero, as immutable fac…
+     14|     const result = applyAbilityEffect(definition('giga-chomp'), runtim…
+     15|     expect(result).toEqual({ kind: 'heal', requested: 40, applied: 7 }…
+       |                    ^
+     16|     expect(Object.isFrozen(result)).toBe(true);
+     17|     expect(applyAbilityEffect(definition('giga-chomp'), runtime({playe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/abilityResolution.test.ts > authoritative ability resolution > forwards the real admitted collection count
+AssertionError: expected undefined to deeply equal { kind: 'loot-pulse', …(2) }
+
+- Expected:
+{
+  "collected": 3,
+  "kind": "loot-pulse",
+  "radius": 160,
+}
+
++ Received:
+undefined
+
+ ❯ tests/abilityResolution.test.ts:21:73
+     19|   });
+     20|   it('forwards the real admitted collection count', () => {
+     21|     expect(applyAbilityEffect(definition('scavenge-pulse'), runtime())…
+       |                                                                         ^
+     22|   });
+     23|   it('counts only live eligible successful damage and preserves no-sou…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/abilityResolution.test.ts > authoritative ability resolution > counts only live eligible successful damage and preserves no-source damage semantics
+AssertionError: expected undefined to deeply equal { kind: 'elemental-burst', …(2) }
+
+- Expected:
+{
+  "affected": 1,
+  "kind": "elemental-burst",
+  "radius": 110,
+}
+
++ Received:
+undefined
+
+ ❯ tests/abilityResolution.test.ts:32:8
+     30|     const damageEnemy = vi.fn((enemy) => enemy === enemies[0]);
+     31|     expect(applyAbilityEffect(definition('heat-vent'), runtime({enemie…
+     32|       .toEqual({kind: 'elemental-burst', radius: 110, affected: 1});
+       |        ^
+     33|     expect(damageEnemy.mock.calls).toEqual([[enemies[0], 90], [enemies…
+     34|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/abilityResolution.test.ts > authoritative ability resolution > counts owner-approved knockback and leaves dead targets untouched
+AssertionError: expected undefined to deeply equal { kind: 'knockback', radius: 90, …(1) }
+
+- Expected:
+{
+  "affected": 1,
+  "kind": "knockback",
+  "radius": 90,
+}
+
++ Received:
+undefined
+
+ ❯ tests/abilityResolution.test.ts:40:8
+     38|     const dead = {...yes, state: 'dead', applyKnockback: vi.fn(() => t…
+     39|     expect(applyAbilityEffect(definition('scrap-burst'), runtime({enem…
+     40|       .toEqual({kind: 'knockback', radius: 90, affected: 1});
+       |        ^
+     41|     expect(yes.applyKnockback).toHaveBeenCalledWith(156, 208);
+     42|     expect(dead.applyKnockback).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/abilityResolution.test.ts > authoritative ability resolution > rejects a second mechanical radius in presentation data
+AssertionError: expected [] to include 'presentation.radius: gameplay geometr…'
+ ❯ tests/abilityResolution.test.ts:47:8
+     45|     const ability = structuredClone(definition('heat-vent'));
+     46|     expect(checkAbility({...ability, presentation: {...ability.present…
+     47|       .toContain('presentation.radius: gameplay geometry belongs only …
+       |        ^
+     48|   });
+     49| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  16:33:28
+   Duration  900ms (transform 190ms, setup 0ms, collect 136ms, tests 21ms, environment 2ms, prepare 246ms)

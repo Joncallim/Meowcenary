@@ -1,0 +1,179 @@
+{
+  "visible": true,
+  "status": "intro",
+  "timeMs": 0,
+  "characterId": "ember-cougar",
+  "player": {
+    "x": 384,
+    "y": 672,
+    "health": 95
+  },
+  "enemies": 0,
+  "abilityState": {
+    "phase": "ready",
+    "activeRemainingMs": 0,
+    "cooldownRemainingMs": 0
+  },
+  "abilityDefinition": {
+    "id": "ability:heat-vent",
+    "name": "Heat Vent",
+    "description": "Deal a fiery burst of damage to nearby enemies.",
+    "cooldownMs": 11000,
+    "durationMs": 800,
+    "effect": {
+      "kind": "elemental-burst",
+      "radius": 110,
+      "power": 90
+    },
+    "presentation": {
+      "cue": "heat-ring",
+      "color": "#fb7185",
+      "iconArtId": "ability-icon:heat-vent"
+    }
+  },
+  "model": {
+    "mercenaryName": "Ember Cougar",
+    "portrait": {
+      "id": "character-portrait:ember-cougar",
+      "kind": "portrait",
+      "required": true,
+      "display": {
+        "width": 150,
+        "height": 240
+      },
+      "resourceId": "resource:mercenary-portraits",
+      "frameKey": "character-portrait:ember-cougar",
+      "textureKey": "art-mercenary-portraits",
+      "url": "assets/characters/identity/mercenary-portraits-atlas.png",
+      "sampling": "linear",
+      "load": {
+        "type": "atlas"
+      }
+    },
+    "icon": {
+      "id": "ability-icon:heat-vent",
+      "kind": "icon",
+      "required": true,
+      "display": {
+        "width": 48,
+        "height": 48
+      },
+      "resourceId": "resource:mercenary-identity-icons",
+      "frameKey": "ability-icon:heat-vent",
+      "textureKey": "art-mercenary-identity-icons",
+      "url": "assets/characters/identity/mercenary-identity-icons-atlas.png",
+      "sampling": "linear",
+      "load": {
+        "type": "atlas"
+      }
+    },
+    "ability": {
+      "headline": "Heat Vent",
+      "cooldownLabel": "Cooldown 11s.",
+      "detail": "Deal 90 damage to enemies within 110 range.",
+      "targetKind": "self-area",
+      "radius": 110,
+      "statChips": []
+    }
+  },
+  "buttons": [
+    {
+      "x": 36,
+      "y": 432,
+      "width": 288,
+      "height": 44
+    },
+    {
+      "x": 36,
+      "y": 486,
+      "width": 288,
+      "height": 44
+    }
+  ],
+  "inputMode": "pointer",
+  "inputNeutral": true,
+  "orientationBlocked": false,
+  "abilityUiState": {
+    "phase": "ready",
+    "activeRemainingMs": 0,
+    "cooldownRemainingMs": 0,
+    "readiness": 1,
+    "activeProgress": 0
+  },
+  "abilityButton": {
+    "x": 216,
+    "y": 556,
+    "width": 120,
+    "height": 60
+  },
+  "controlsHint": {
+    "text": "HEAT VENT — Deal 90 damage to enemies within 110 range.",
+    "x": 18.75,
+    "y": 501.75,
+    "width": 322.5,
+    "height": 32.5,
+    "visible": true
+  },
+  "abilityBanner": "",
+  "abilityFx": {},
+  "activationId": 0,
+  "briefText": [
+    {
+      "text": "Ember Cougar",
+      "x": 118,
+      "y": 126,
+      "width": 148.75,
+      "height": 26.25
+    },
+    {
+      "text": "Heat Vent",
+      "x": 98,
+      "y": 206,
+      "width": 105,
+      "height": 26.25
+    },
+    {
+      "text": "Deal 90 damage to enemies within 110 range.",
+      "x": 36,
+      "y": 268,
+      "width": 257.5,
+      "height": 32.5
+    },
+    {
+      "text": "Cooldown 11s.",
+      "x": 36,
+      "y": 342,
+      "width": 115,
+      "height": 16.25
+    },
+    {
+      "text": "Ability: Q / left face / tap card\nStart: Enter/Space / bottom face / tap",
+      "x": 36,
+      "y": 370,
+      "width": 266.25,
+      "height": 32.5
+    },
+    {
+      "text": "Start",
+      "x": 162.5,
+      "y": 445.875,
+      "width": 35,
+      "height": 16.25
+    },
+    {
+      "text": "Back to Menu",
+      "x": 131.25,
+      "y": 499.875,
+      "width": 97.5,
+      "height": 16.25
+    }
+  ],
+  "capture": {
+    "project": "phone-360x640",
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "devicePixelRatio": 1
+  }
+}

@@ -1,0 +1,200 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-196-production
+
+ ❯ tests/menuScene.test.ts (166 tests | 1 failed | 165 skipped) 93ms
+   × intro-return Menu input ownership > consumes held Confirm in the new controller until neutral, then accepts a fresh edge 92ms
+     → expected [ 'confirm' ] to deeply equal []
+   ↓ MenuScene > exposes the committed semantic focus key without running diagnostic or persistence work
+   ↓ MenuScene > resolves the lazy Equipment read model once per diagnostic and leaves other panels lazy
+   ↓ MenuScene > revokes old surface commands before controller mutation or UI events and retains panel-local browse state across visits
+   ↓ MenuScene > cleans a partially built mounted panel and recovers without retaining a live old surface
+   ↓ MenuScene > hydrates only the current Equipment mount after leaving, changing selection, returning and resizing during art load
+   ↓ MenuScene > handles late Loadout equipment art at the current mount boundary: current mount
+   ↓ MenuScene > handles late Loadout equipment art at the current mount boundary: returned and resized mount
+   ↓ MenuScene > handles late Loadout equipment art at the current mount boundary: authoritative save changed
+   ↓ MenuScene > handles late Loadout equipment art at the current mount boundary: scene shutdown
+   ↓ MenuScene > handles late Loadout equipment art at the current mount boundary: cached-only queued save change
+   ↓ MenuScene > handles late Loadout equipment art at the current mount boundary: loaded atlas missing expected frame
+   ↓ MenuScene > opens Equipment with four selectable slots and selects an item before any equip mutation
+   ↓ MenuScene > retains the Equipment shell, prefix and mask during candidate selection while revoking replaced detail commands
+   ↓ MenuScene > recomputes shorter Equipment detail extents without scroll drift or retained dead controls
+   ↓ MenuScene > fully rebuilds Equipment when selection changes the Set hero or retained inventory
+   ↓ MenuScene > recovers a failed local Equipment draw from the returned snapshot without repeating its command
+   ↓ MenuScene > aligns the independently bounded Loadout footer with its 1360px content lane on a wide safe viewport
+   ↓ MenuScene > keeps native inline gear, router and framed readiness geometry together at 360px and 390px without inventing fresh equipment
+   ↓ MenuScene > renders Browse Sets as an unframed native section while retaining its 44px focus and expansion interaction
+   ↓ MenuScene > dims disabled Fabricate chrome after an unframed section without dimming the neighboring Back control
+   ↓ MenuScene > keeps fresh Equipment truth empty, shows the catalog emblems before expansion and puts Back in the header after the full-width footer
+   ↓ MenuScene > anchors fresh Loadout in Mercenary and stock weapon facts before gear and routes its fixed action to the Contract list
+   ↓ MenuScene > requests the full native Equipment resource closure including empty ghosts, unequipped Set emblems and tier upgrade art
+   ↓ MenuScene > illustrates empty Equipment slots as subdued semantic ghosts without claiming ownership or painting Loadout overview ghosts
+   ↓ MenuScene > reveals all four larger Equipment slots in their two-column scroll grid at 360×640 and keeps fabrication fixed across scroll and repaint
+   ↓ MenuScene > keeps blueprint selection separate from fabrication and fabrication separate from equip
+   ↓ MenuScene > preserves selected-item semantic focus across repaint/resize and clamps removed selection to its slot
+   ↓ MenuScene > keeps a selected stored upgrade explicit and names the actual tier lock
+   ↓ MenuScene > uses real controller input to select a candidate without equipping and then commits its explicit action
+   ↓ MenuScene > routes keyboard and controller spatially through all four Equipment slots before Browse Sets and candidates
+   ↓ MenuScene > keeps the Equipment header above its larger slot grid and reveals each card clear of the fixed footer
+   ↓ MenuScene > reports the actual engineered family and controller-owned activation in the bounded readiness card
+   ↓ MenuScene > shows equipped scope and the engineered family with deduplicated traits in the shared Loadout overview
+   ↓ MenuScene > keeps every data-owned Gunsmith chassis reachable after creating a build
+   ↓ MenuScene > switches Gunsmith builds in place while updating family selection status once
+   ↓ MenuScene > replaces a Gunsmith part with one durable update while retaining the surface and revoking the old command
+   ↓ MenuScene > keeps repeated Gunsmith build updates bounded and returns scroll geometry to each state
+   ↓ MenuScene > recovers a failed local Gunsmith body draw without replaying the durable command
+   ↓ MenuScene > shows a save failure notice and rebuilds from the unchanged Gunsmith snapshot
+   ↓ MenuScene > creates a Gunsmith build once and leaves retryable fallback after its first presentation draw fails
+   ↓ MenuScene > keeps unavailable Gunsmith catalog rows inert when scrolling reveals them
+   ↓ MenuScene > keeps the focused Gunsmith part row fully inside the scroll viewport after a compact resize
+   ↓ MenuScene > uses the shared scroll region for a large Gunsmith inventory without paging controls
+   ↓ MenuScene > renders grouped workshop operations linearly for a repeatable-part inventory
+   ↓ MenuScene > keeps fabrication of a second merge copy actionable when the first copy is fitted
+   ↓ MenuScene > requires a visible two-step destructive Workshop confirmation with cancel and duplicate-confirm safety
+   ↓ MenuScene > focuses and reveals infusion confirmation from a large Workshop list
+   ↓ MenuScene > logical Back cancels a pending Workshop confirmation before leaving Gunsmith
+   ↓ MenuScene > keeps a 50-part Gunsmith list focusable and scroll-safe through acceptance viewports
+   ↓ MenuScene > discloses the displaced Part and mechanical comparison before a one-command replacement
+   ↓ MenuScene > groups owned hardware by canonical weapon slot and makes a cross-build move explicit
+   ↓ MenuScene > keeps an unavailable fitted Part visibly occupied until the recovery command clears it
+   ↓ MenuScene > renders both behavior emblems for a Part with two effective traits
+   ↓ MenuScene > uses the production scroll region for 20 Character, 25 Contract, 40 Achievement, and 50 Compendium rows
+   ↓ MenuScene > centres achievement copy vertically and reserves enough height for boss reward wrapping
+   ↓ MenuScene > cold-opens the Contract list with actor art only for the selected threat strip
+   ↓ MenuScene > waits for the cold Home art closure before a quick Play launch uses the scene loader
+   ↓ MenuScene > waits for run audio and rejects late completion after shutdown=false
+   ↓ MenuScene > waits for run audio and rejects late completion after shutdown=true
+   ↓ MenuScene > updates cached run preparation without rebuilding the Menu per resource progress
+   ↓ MenuScene > renders every Mercenary as one graphical row from controller-owned art identities
+   ↓ MenuScene > rerenders a still-current Mercenary panel after a partial lazy resource success
+   ↓ MenuScene > does not resurrect the Mercenary panel when its lazy closure completes after navigation
+   ↓ MenuScene > lazy-loads Compendium actor art, rerenders only the captured panel, and reuses cached resources
+   ↓ MenuScene > repaints the current panel when its queued art became cached by an overlapping prior-panel load
+   ↓ MenuScene > hydrates a drained same-panel closure once using the latest snapshot
+   ↓ MenuScene > publishes one latest-state hydration after distinct queued batches (middle failure: false)
+   ↓ MenuScene > publishes one latest-state hydration after distinct queued batches (middle failure: true)
+   ↓ MenuScene > settles a queued Compendium closure (empty)
+   ↓ MenuScene > settles a queued Compendium closure (cached-and-failed)
+   ↓ MenuScene > revokes the outer hydration after scene restart during its queued second load
+   ↓ MenuScene > serializes rapid Home and Mercenary art closures through the one scene loader
+   ↓ MenuScene > does not let an old scene-lifetime panel-art load clear, drain, or repaint restarted state
+   ↓ MenuScene > keeps shared-list focus deterministic across wheel/touch scrolling and resize
+   ↓ MenuScene > clips a long menu with one shared stencil owner and closes it on rebuild
+   ↓ MenuScene > reports the complete live menu copy through the shared clip container
+   ↓ MenuScene > preserves authored card and later modal paint order when grouping clip ownership
+   ↓ MenuScene > paints the launch modal above scrolling content in the genuine Training render
+   ↓ MenuScene > clips shared-list cards continuously while keeping clipped-off hit areas inert
+   ↓ MenuScene > rebuilds the Achievement focus grid across portrait and wide resize without losing its selected card
+   ↓ MenuScene > treats a touch drag as scrolling, resets its baseline, and never activates the dragged row
+   ↓ MenuScene > does not turn normal home-screen touch jitter into a second-tap requirement
+   ↓ MenuScene > projects injected top/bottom/side insets and keeps the hint and Back inside the safe rect
+   ↓ MenuScene > renders the home panel with all navigation buttons
+   ↓ MenuScene > uses the declared card width for sparse-menu actions instead of shrink-wrapping labels
+   ↓ MenuScene > renders a bounded narrow Home threat preview as enemy art rather than text
+   ↓ MenuScene > keeps the Contract hero and every 44px+ Home action inside all acceptance viewports
+   ↓ MenuScene > shows campaign completion as a replay frontier and never wraps the hero back to Next Contract
+   ↓ MenuScene > routes through one Loadout hub before Equipment or Gunsmith
+   ↓ MenuScene > groups Contract cards by chapter and keeps locked rows inert with player-facing requirements
+   ↓ MenuScene > keeps scroll headings and reward detail independent from prior focus-row ownership
+   ↓ MenuScene > lays out the complete selected-Contract threat roster as bounded enemy icons
+   ↓ MenuScene > includes a tall selected final-Contract detail block in the narrow shared-scroll extent
+   ↓ MenuScene > renders discovered Compendium entries with controller-owned actor art identities
+   ↓ MenuScene > keeps discovered Compendium copy inside the narrow safe edge after reserving its actor-art column
+   ↓ MenuScene > renders unlocked Equipment fabrication blueprints in the player-facing Equipment panel
+   ↓ MenuScene > keeps a populated Equipment summary inside the compact-landscape scroll surface
+   ↓ MenuScene > clicking the 'Mercenary' home button re-renders its panel
+   ↓ MenuScene > clicking the 'Career' home button re-renders its panel
+   ↓ MenuScene > clicking the 'Settings' home button re-renders its panel
+   ↓ MenuScene > navigates panels with keyboard focus and Esc returns home
+   ↓ MenuScene > navigates the illustrated Home card grid spatially instead of stepping sideways on Down
+   ↓ MenuScene > navigates compact-landscape Home as the roomy 4+3 gallery it renders
+   ↓ MenuScene > keeps every compact sparse-menu action clear of Back
+   ↓ MenuScene > navigates and confirms through the real gamepad with zero pointer-plugin calls (F9)
+   ↓ MenuScene > moves focus rings without rerasterizing unchanged labels and restores a changed palette
+   ↓ MenuScene > shows exactly one FocusStroke ring with exact width/color/alpha on the focused menu button; label color is never the focus signal (F4)
+   ↓ MenuScene > preserves the exact settings row through repeated same-panel confirms
+   ↓ MenuScene > preserves the exact character row through a same-panel selection
+   ↓ MenuScene > resets focus to the first target on genuine panel changes
+   ↓ MenuScene > gates nav and activate after a failed same-panel rebuild and resumes the exact command on retry (F1)
+   ↓ MenuScene > clears the stale hint when a render fails AFTER the hint is assigned (round-6)
+   ↓ MenuScene > registers the exact V4 focus-target order/count with exactly one FocusStroke ring (F6)
+   ↓ MenuScene > registers the exact V4 focus-target order/count with exactly one FocusStroke ring (F6)
+   ↓ MenuScene > registers the exact V4 focus-target order/count with exactly one FocusStroke ring (F6)
+   ↓ MenuScene > registers the exact V4 focus-target order/count with exactly one FocusStroke ring (F6)
+   ↓ MenuScene > registers the exact V4 focus-target order/count with exactly one FocusStroke ring (F6)
+   ↓ MenuScene > routes Career to Compendium as a real, reachable panel (F6)
+   ↓ MenuScene > reuses one resolved visual-art registry across Career achievement rerenders
+   ↓ MenuScene > loads the shared Achievement atlas lazily, rerenders after a cold load, and uses hidden/named frames when cached
+   ↓ MenuScene > loads Equipment atlas resources lazily, rerenders after a cold load, and uses atlas frames when cached
+   ↓ MenuScene > retains newly requested Equipment art while another closure is loading and hydrates the latest snapshot
+   ↓ MenuScene > closes shared Figma chrome for direct cold Gunsmith entry without visiting Equipment
+   ↓ MenuScene > does not retry an already attempted physical equipment resource while draining overlapping logical requests
+   ↓ MenuScene > does not retry an already attempted physical gunsmith resource while draining overlapping logical requests
+   ↓ MenuScene > does not retry an already attempted physical panel resource while draining overlapping logical requests
+   ↓ MenuScene > keeps failed panel resources owned through its own successful partial-art hydration
+   ↓ MenuScene > drains a new unique resource declared by hydration and publishes current save and selection (second resource fails: false)
+   ↓ MenuScene > drains a new unique resource declared by hydration and publishes current save and selection (second resource fails: true)
+   ↓ MenuScene > rerenders successfully loaded Equipment art when another requested icon fails
+   ↓ MenuScene > loads the Gunsmith atlas lazily and only rerenders the still-current panel after success
+   ↓ MenuScene > loads one native assembly atlas for the explicit chassis and exact fitted Part tiers
+   ↓ MenuScene > keeps Gunsmith text usable and does not rerender after a lazy atlas failure
+   ↓ MenuScene > rerenders Gunsmith when one resource succeeds during a partial lazy-load failure
+   ↓ MenuScene > loads the latest Gunsmith preview requested while another closure is in flight
+   ↓ MenuScene > resets interrupted Gunsmith presentation loading across scene reuse
+   ↓ MenuScene > starts a new scene-generation texture load when the prior loader never settles
+   ↓ MenuScene > registers settings panel targets in order and drives them through logical nav/confirm
+   ↓ MenuScene > switches the home hint exactly per input mode (F9)
+   ↓ MenuScene > returns home through the back button
+   ↓ MenuScene > shows the recovery fallback when render fails and Esc retries the home panel
+   ↓ MenuScene > shows a retryable loading error rather than entering a partially loaded game scene
+   ↓ MenuScene > places a wrapped Contract loading error above Retry without overlap at the narrow viewport
+   ↓ MenuScene audio lifecycle > selects the menu music loop exactly once during create
+   ↓ MenuScene audio lifecycle > forwards update delta to the audio manager
+   ↓ MenuScene audio lifecycle > unlocks once on the first pointer gesture and cross-removes the action subscription
+   ↓ MenuScene audio lifecycle > unlocks once on the first logical action and cross-removes the pointer listener
+   ↓ MenuScene audio lifecycle > removes the unlock pair on shutdown before any gesture
+   ↓ MenuScene audio lifecycle > clears the hint reference on shutdown so refresh cannot touch destroyed text (round-9)
+   ↓ MenuScene audio lifecycle > never accumulates unlock listeners across create/shutdown visits
+   ↓ MenuScene audio lifecycle > tolerates a missing audio registry entry and stays silent
+   ↓ MenuScene UI command events > emits exactly one ui:navigate when focus actually moves
+   ↓ MenuScene UI command events > emits nothing when a focus move does not change the index
+   ↓ MenuScene UI command events > polled held key emits one nav edge; core nav auto-repeat is time-gated (D3)
+   ↓ MenuScene UI command events > emits exactly one ui:confirm on a pointer-activated button
+   ↓ MenuScene UI command events > rejects a second keyboard confirm while the first Contract launch is loading
+   ↓ MenuScene UI command events > emits ui:confirm for the panel button and ui:back for Back, never a second confirm
+   ↓ MenuScene UI command events > emits exactly one ui:back from Esc
+   ↓ MenuScene UI command events > emits nothing on pointer hover
+   ↓ Menu transition input boundary > does not deliver same-poll navigation into the panel opened by Confirm
+   ↓ Menu transition input boundary > does not deliver same-poll navigation into Home after Back
+   ↓ Menu transition input boundary > quarantines sampled keyboard navigation after a pointer Confirm opens a panel
+   ↓ Menu transition input boundary > quarantines sampled gamepad navigation after a pointer Back returns Home
+   ↓ Menu transition input boundary > leaves disabled pointer rows inert and does not quarantine their sampled navigation
+   ↓ Menu transition input boundary > leaves pointer rows without a callback inert
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/menuScene.test.ts > intro-return Menu input ownership > consumes held Confirm in the new controller until neutral, then accepts a fresh edge
+AssertionError: expected [ 'confirm' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "confirm",
++ ]
+
+ ❯ tests/menuScene.test.ts:33:22
+     31|     harness.menuScene.update(0, 16);
+     32|     harness.menuScene.update(16, 16);
+     33|     expect(confirms).toEqual([]);
+       |                      ^
+     34|     pad.setButton(0, false);
+     35|     harness.menuScene.update(32, 16);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 165 skipped (166)
+   Start at  17:05:25
+   Duration  1.39s (transform 744ms, setup 0ms, collect 966ms, tests 93ms, environment 0ms, prepare 66ms)

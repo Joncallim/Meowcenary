@@ -1,0 +1,88 @@
+{
+  "visible": false,
+  "status": "active",
+  "timeMs": 166.6666666666666,
+  "characterId": "scrap-weasel",
+  "player": {
+    "x": 384,
+    "y": 672,
+    "health": 77
+  },
+  "enemies": 4,
+  "abilityState": {
+    "phase": "active",
+    "activeRemainingMs": 249.99999999999997,
+    "cooldownRemainingMs": 7949.999999999999
+  },
+  "abilityDefinition": {
+    "id": "ability:scavenge-pulse",
+    "name": "Scavenge Pulse",
+    "description": "Pull all nearby scrap and XP to you.",
+    "cooldownMs": 8000,
+    "durationMs": 300,
+    "effect": {
+      "kind": "loot-pulse",
+      "radius": 160
+    },
+    "presentation": {
+      "cue": "loot-pulse",
+      "color": "#a78bfa",
+      "iconArtId": "ability-icon:scavenge-pulse"
+    }
+  },
+  "buttons": [],
+  "inputMode": "keyboard",
+  "inputNeutral": false,
+  "orientationBlocked": false,
+  "abilityUiState": {
+    "phase": "cooling",
+    "activeRemainingMs": 0,
+    "cooldownRemainingMs": 7949.999999999999,
+    "readiness": 0.006250000000000089,
+    "activeProgress": 0
+  },
+  "abilityButton": {
+    "x": 216,
+    "y": 556,
+    "width": 120,
+    "height": 60
+  },
+  "controlsHint": {
+    "text": "SCAVENGE PULSE — Collect nearby Scrap and XP within 160 range.",
+    "x": 25.625,
+    "y": 501.75,
+    "width": 308.75,
+    "height": 32.5,
+    "visible": true
+  },
+  "abilityBanner": "Scavenge Pulse\nCollected 2",
+  "abilityFx": {
+    "transient": {
+      "abilityId": "ability:scavenge-pulse",
+      "kind": "loot-pulse",
+      "color": 10980346,
+      "radius": 160,
+      "glyphMask": 0,
+      "remaining": 249.99999999999997,
+      "elapsed": 49.99999999999999,
+      "x": 384,
+      "y": 672,
+      "rendered": true
+    }
+  },
+  "activationId": 1,
+  "latestResolution": {
+    "kind": "loot-pulse",
+    "radius": 160,
+    "collected": 2
+  },
+  "briefText": [],
+  "capture": {
+    "project": "phone-360x640",
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "devicePixelRatio": 1
+  }
+}

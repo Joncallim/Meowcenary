@@ -1,0 +1,68 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-196-production
+
+ ❯ tests/hud.test.ts (34 tests | 1 failed) 47ms
+   × HudController > repaints intro as active at run start without waiting for the first second 9ms
+     → expected [ 'intro' ] to deeply equal [ 'intro', 'active' ]
+   ✓ HudController > updates world readability between unchanged HUD renders and stops after disposal 1ms
+   ✓ HudController > renders on the first update 0ms
+   ✓ HudController > renders only when the whole second changes unless an event marks it dirty 0ms
+   ✓ HudController > marks dirty and re-renders after player:damaged 0ms
+   ✓ HudController > marks dirty and re-renders after xp:gained 0ms
+   ✓ HudController > marks dirty and re-renders after level:up 0ms
+   ✓ HudController > marks dirty and re-renders after currency:changed 0ms
+   ✓ HudController > marks dirty and re-renders after enemy:killed 0ms
+   ✓ HudController > marks dirty and re-renders after run:paused 0ms
+   ✓ HudController > marks dirty and re-renders after run:resumed 0ms
+   ✓ HudController > marks dirty and re-renders after run:won 0ms
+   ✓ HudController > marks dirty and re-renders after run:lost 0ms
+   ✓ HudController > duplicate events do not rebuild unnecessarily 0ms
+   ✓ HudController > does not re-render when the render key is unchanged 0ms
+   ✓ HudController > does not compete with the dedicated ability card for routine HUD feedback 0ms
+   ✓ HudController > renders the authoritative global kill count on enemy:killed without waiting for a clock tick 0ms
+   ✓ HudController > unsubscribes all event listeners on destroy 0ms
+   ✓ HudController > destroys the view exactly once and update after destroy is a no-op 0ms
+   ✓ createHudSource > does not expose weapon inventory in the HUD snapshot 0ms
+   ✓ createHudSource > does not make HUD merge readiness depend on the authoritative rack 0ms
+   ✓ createHudSource > reflects current run state on every snapshot 0ms
+   ✓ PhaserHudView > renders without throwing and clamps non-finite values to safe bar scales 16ms
+   ✓ PhaserHudView > keeps the compact run panel aligned and separates its two stat rows 1ms
+   ✓ PhaserHudView > renders a distinct boss meter only while a live boss is supplied 1ms
+   ✓ PhaserHudView > projects the zoomed GameScene backing across the whole HUD viewport instead of root-local canvas coordinates 1ms
+   ✓ PhaserHudView > covers independently measured HUD and pause bounds before the playfield at 390x844 4ms
+   ✓ PhaserHudView > covers independently measured HUD and pause bounds before the playfield at 393x852 1ms
+   ✓ PhaserHudView > covers independently measured HUD and pause bounds before the playfield at 1280x800 1ms
+   ✓ PhaserHudView > covers independently measured HUD and pause bounds before the playfield at 844x390 1ms
+   ✓ PhaserHudView > never renders a rack strip label or interactive rack target at any rack count 2ms
+   ✓ PhaserHudView > destroys its container and children 0ms
+   ✓ PhaserHudView > rebuilds the HUD after a wide resize with no rack target or label and no inventory command 1ms
+   ✓ PhaserHudView > fades opaque meters while retaining intersecting HUD foreground copy 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/hud.test.ts > HudController > repaints intro as active at run start without waiting for the first second
+AssertionError: expected [ 'intro' ] to deeply equal [ 'intro', 'active' ]
+
+- Expected
++ Received
+
+  [
+    "intro",
+-   "active",
+  ]
+
+ ❯ tests/hud.test.ts:96:59
+     94|     bus.emit('run:start', {});
+     95|     controller.update(16);
+     96|     expect(view.renders.map(snapshot => snapshot.status)).toEqual(['in…
+       |                                                           ^
+     97|   });
+     98|   it('updates world readability between unchanged HUD renders and stop…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 33 passed (34)
+   Start at  17:28:38
+   Duration  603ms (transform 188ms, setup 0ms, collect 204ms, tests 47ms, environment 0ms, prepare 111ms)

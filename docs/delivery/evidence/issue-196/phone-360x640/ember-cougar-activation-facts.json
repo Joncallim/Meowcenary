@@ -1,0 +1,89 @@
+{
+  "visible": false,
+  "status": "active",
+  "timeMs": 166.6666666666666,
+  "characterId": "ember-cougar",
+  "player": {
+    "x": 384,
+    "y": 672,
+    "health": 82
+  },
+  "enemies": 0,
+  "abilityState": {
+    "phase": "active",
+    "activeRemainingMs": 750.0000000000001,
+    "cooldownRemainingMs": 10950.000000000002
+  },
+  "abilityDefinition": {
+    "id": "ability:heat-vent",
+    "name": "Heat Vent",
+    "description": "Deal a fiery burst of damage to nearby enemies.",
+    "cooldownMs": 11000,
+    "durationMs": 800,
+    "effect": {
+      "kind": "elemental-burst",
+      "radius": 110,
+      "power": 90
+    },
+    "presentation": {
+      "cue": "heat-ring",
+      "color": "#fb7185",
+      "iconArtId": "ability-icon:heat-vent"
+    }
+  },
+  "buttons": [],
+  "inputMode": "keyboard",
+  "inputNeutral": false,
+  "orientationBlocked": false,
+  "abilityUiState": {
+    "phase": "cooling",
+    "activeRemainingMs": 0,
+    "cooldownRemainingMs": 10950.000000000002,
+    "readiness": 0.004545454545454408,
+    "activeProgress": 0
+  },
+  "abilityButton": {
+    "x": 216,
+    "y": 556,
+    "width": 120,
+    "height": 60
+  },
+  "controlsHint": {
+    "text": "HEAT VENT — Deal 90 damage to enemies within 110 range.",
+    "x": 18.75,
+    "y": 501.75,
+    "width": 322.5,
+    "height": 32.5,
+    "visible": true
+  },
+  "abilityBanner": "Heat Vent\nHit 4",
+  "abilityFx": {
+    "transient": {
+      "abilityId": "ability:heat-vent",
+      "kind": "elemental-burst",
+      "color": 16478597,
+      "radius": 110,
+      "glyphMask": 0,
+      "remaining": 750.0000000000001,
+      "elapsed": 49.99999999999999,
+      "x": 384,
+      "y": 672,
+      "rendered": true
+    }
+  },
+  "activationId": 1,
+  "latestResolution": {
+    "kind": "elemental-burst",
+    "radius": 110,
+    "affected": 4
+  },
+  "briefText": [],
+  "capture": {
+    "project": "phone-360x640",
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "devicePixelRatio": 1
+  }
+}

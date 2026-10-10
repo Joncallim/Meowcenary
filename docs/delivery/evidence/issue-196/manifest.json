@@ -1,0 +1,410 @@
+{
+  "origin": "Development captures from baseline a100 plus this uncommitted issue196 tranche; final exact-head gates and production evidence are recorded on issue196 at release. Screenshots are candidate evidence, not owner approval.",
+  "files": [
+    {
+      "path": "ability-effect-desktop-1280x720-actual.png",
+      "sha256": "f47c716e7b2604c9265668403e23e8d5fcb007dfbb94496aadc1de6c5eb88231"
+    },
+    {
+      "path": "ability-effect-desktop-1280x720-diff.png",
+      "sha256": "a19acbb569415afc1802e60e6f23515ed4a4fd783b903fc236871cefd4dd8ea2"
+    },
+    {
+      "path": "ability-effect-desktop-1280x720-expected.png",
+      "sha256": "8a33c6d2512ded86d31b9497e667f2e615fedb82b305c5c6e54783292fc78bd8"
+    },
+    {
+      "path": "ability-effect-foldable-1114x720-actual.png",
+      "sha256": "dab5913c8b82aabdbcddd655c42b11e109b80fe677cc6bb037d8b85e7e86e901"
+    },
+    {
+      "path": "ability-effect-foldable-1114x720-diff.png",
+      "sha256": "d1dc7c43744711f6eb55e902c505c50c8581dd9b0623834e25e28f6c4b2f9ca3"
+    },
+    {
+      "path": "ability-effect-foldable-1114x720-expected.png",
+      "sha256": "104ea8db3937c45bb598a859620ac89523e7a5c7a93e44c24805cf3bb0ac42b5"
+    },
+    {
+      "path": "ability-effect-phone-390x844-actual.png",
+      "sha256": "0e96800a94a33797086ddddb2d32eef0d72280d8031d8c14b2dd31b6ab4b4299"
+    },
+    {
+      "path": "ability-effect-phone-390x844-diff.png",
+      "sha256": "d8ffc078a1ae5f83310e7e12f78c209899b0ff9be4a0a3c64dd7c49142f88e8d"
+    },
+    {
+      "path": "ability-effect-phone-390x844-expected.png",
+      "sha256": "d621654522c0454a266847849351bffe05bf8f688191e5419118bffcde0cb51e"
+    },
+    {
+      "path": "back-controller-red.txt",
+      "sha256": "76bb269bc76b86f5ed28eefb4a49f192220fe6833951e48ad5700967542cbfd1"
+    },
+    {
+      "path": "boss-gameplay-desktop-1280x720-actual.png",
+      "sha256": "bcc902266d82983e841529e146c15e0bfae0b0f0e2e9bb56ebc97cf6b87e3674"
+    },
+    {
+      "path": "boss-gameplay-desktop-1280x720-diff.png",
+      "sha256": "f5023683037b0e49313602250f80aca7ee810245d002c9c8f939706a6848d8cf"
+    },
+    {
+      "path": "boss-gameplay-desktop-1280x720-expected.png",
+      "sha256": "66f666fbc9872be4e895b386af05153aad11bb2279d7edfa36eeb52a78366e83"
+    },
+    {
+      "path": "damage-applied-before-after.json",
+      "sha256": "be4b249a4791a18165fa14f51802f08247f95b3782e748328182cd90d6d524db"
+    },
+    {
+      "path": "desktop-1280x720/compact-landscape-brief-facts.json",
+      "sha256": "7c098a458b6d931dfdce2c41f13247d515055d998e624898beee5338810bffc4"
+    },
+    {
+      "path": "desktop-1280x720/compact-landscape-brief.png",
+      "sha256": "590691e52ddb7fa0a26c68b7cd912a6899e866e02b6cac71ebf1ba652fac7ce1"
+    },
+    {
+      "path": "desktop-1280x720/compact-landscape-overclock-facts.json",
+      "sha256": "64d0f2feed3a2be4b426e61d7c4147912359ca180f2cf3a6adff501e6b478af8"
+    },
+    {
+      "path": "desktop-1280x720/compact-landscape-overclock.png",
+      "sha256": "ae880d60f177d9c056d2876ac11f3be8b569fdcd5f3c5faae8aeb0b813940afc"
+    },
+    {
+      "path": "desktop-1280x720/crowded-combat-overclock-facts.json",
+      "sha256": "99d7019d95077e9508f0df19f1d8f502bffa7e1bafef0825d133bf488801f4e2"
+    },
+    {
+      "path": "desktop-1280x720/crowded-combat-overclock.png",
+      "sha256": "8b32cfe327e8902919b5739600324e2e8ef8036d12a21192b97f95c9ef800a01"
+    },
+    {
+      "path": "domain-red.log",
+      "sha256": "1d8c6b2abd9ef36aa13e87253f6f161764a4da372126cacd6d5367b178bdfc6d"
+    },
+    {
+      "path": "extraction-red.txt",
+      "sha256": "9a8326ab534763779d2f98035b392fa9a5200dac50f3535cd92f3f8316c3e398"
+    },
+    {
+      "path": "forge-gameplay-desktop-1280x720-actual.png",
+      "sha256": "7d780a62ef80a0ac9c0492e2516229489e42af7106a9b7a271dc43b5e6b4bb2a"
+    },
+    {
+      "path": "forge-gameplay-desktop-1280x720-diff.png",
+      "sha256": "7a979247521607deccc15c5c41917f976d1ea472d6a1e9a8ea4af663dbd47f30"
+    },
+    {
+      "path": "forge-gameplay-desktop-1280x720-expected.png",
+      "sha256": "23a3a12b59b6f7e8c8bb51e4b09910bd9a1cee2a06cb8a1ae8a9748e235c2733"
+    },
+    {
+      "path": "fx-red.txt",
+      "sha256": "31cd63c1647e8550fb63dd6cd4bbd21be9fcdffaba009d25191c6f8e5ee1ef7c"
+    },
+    {
+      "path": "gameplay-art-baseline-proof.json",
+      "sha256": "d9c6174c312127362343053841150e02939e47976ea4e77361a79129bde12ad4"
+    },
+    {
+      "path": "gameplay-desktop-1280x720-actual.png",
+      "sha256": "f9a20bff42be760e99089bd1a31df06c5c450fecaf59e5cecf397e6e3d80ca46"
+    },
+    {
+      "path": "gameplay-desktop-1280x720-diff.png",
+      "sha256": "5245ff62054d68f9343823204c290952440e347f62cbc49424d9be12b119641d"
+    },
+    {
+      "path": "gameplay-desktop-1280x720-expected.png",
+      "sha256": "789b0899a4b6d658eaec238400a6c9ad412534dba0af324affc43677e40532e5"
+    },
+    {
+      "path": "gameplay-foldable-1114x720-actual.png",
+      "sha256": "4fbaae1bb868463148d3642fe229a6dbcc1943dbf4f6099c8f6c9b5f6dc14b75"
+    },
+    {
+      "path": "gameplay-foldable-1114x720-diff.png",
+      "sha256": "057d43964aaa26bb5b543ad0a4f4f4a628518698007ff576f4bfd1fef256c6f0"
+    },
+    {
+      "path": "gameplay-foldable-1114x720-expected.png",
+      "sha256": "8de8a40209a36ac3feeec255ad1358134372a52e210319d4cadca9c9da322fcd"
+    },
+    {
+      "path": "gameplay-phone-390x844-actual.png",
+      "sha256": "b9c54dc00bf6f70ae81a139f5a8d89e4438bc1446934c12e516d02c8244d880f"
+    },
+    {
+      "path": "gameplay-phone-390x844-diff.png",
+      "sha256": "a69c8cc652bcc1cd8f78c8b7dc4d75c57a8632bdd2bd66b3e0fbf09fb13a30cf"
+    },
+    {
+      "path": "gameplay-phone-390x844-expected.png",
+      "sha256": "318f1175a1e80415c5fda8f5a4dc88087b0f5c75419f71c677467fffd0632809"
+    },
+    {
+      "path": "golden-review.json",
+      "sha256": "06dfaeb330c09703626f511ef334bb1644ad3a88ae047462ef615e30eb51e317"
+    },
+    {
+      "path": "hud-hint-wrapping-red.txt",
+      "sha256": "818c41c5d2107557662dc2050fb9689f42d92852e9758ff14df4467c8744eefd"
+    },
+    {
+      "path": "hud-intro-green.txt",
+      "sha256": "4ec101619ff34c9fc5de49acf65c7b832dc1000b438d941038b58f8a7ea79ac8"
+    },
+    {
+      "path": "hud-intro-red.txt",
+      "sha256": "9188ef3882fc2cca48414e42696db701233a0687eb686284e936cbf09df9439c"
+    },
+    {
+      "path": "hud-red.txt",
+      "sha256": "1492ecd39291948c0079436949be837189fcd20971f2a9dae21d76da2908f098"
+    },
+    {
+      "path": "intro-red.txt",
+      "sha256": "27179fb51d961da9f3622b70400ff9c1ffe5483c2707369db07b44630bd4da5b"
+    },
+    {
+      "path": "menu-entry-red.txt",
+      "sha256": "230700e72251f498db63da1ade17ec5a9754abf05eed1a813ee144bdc9f80cac"
+    },
+    {
+      "path": "mercenary-desktop-1280x720-actual.png",
+      "sha256": "0ad0c0d90708012cbbf4f4a6f4244a1f86ea76999d9c4194ee3fc70e393f01c5"
+    },
+    {
+      "path": "mercenary-desktop-1280x720-diff.png",
+      "sha256": "c8859895b65cde2a63912340a9966792eef29c3996a0cc4e3cfa0d9926dbf2f0"
+    },
+    {
+      "path": "mercenary-desktop-1280x720-expected.png",
+      "sha256": "30b3ea0eb4a94b3443aa39d30df8a83668564beee09a7f0b915225fa8420a51f"
+    },
+    {
+      "path": "mercenary-foldable-1114x720-actual.png",
+      "sha256": "3ae01865a80770088b9a53e61041fa4c25ffcec5c3551ff4673e19fbe1fb6d4a"
+    },
+    {
+      "path": "mercenary-foldable-1114x720-diff.png",
+      "sha256": "720163bfccff0aca259d28ca1c989aa4bc2d1d59370ae5264d1dedae31f5dc1e"
+    },
+    {
+      "path": "mercenary-foldable-1114x720-expected.png",
+      "sha256": "14a5b760b1ba841590d6a222bda205e2cade5f936d9af380a0388c07da2410e1"
+    },
+    {
+      "path": "mercenary-lower-desktop-1280x720-actual.png",
+      "sha256": "2a95fbcff86c2f4460d9b693423faf36a8bf05d75c1ae686432a104c2f5eb112"
+    },
+    {
+      "path": "mercenary-lower-desktop-1280x720-diff.png",
+      "sha256": "1f64ac53e9918a32d2a93c1bfbcf01034724884f27a5bc083a1af9a5cf00dc37"
+    },
+    {
+      "path": "mercenary-lower-desktop-1280x720-expected.png",
+      "sha256": "eddc6a0eab8368bd3863ef9703f4cfdb29fddc3abb9637589ccffb511f17f35a"
+    },
+    {
+      "path": "mercenary-lower-foldable-1114x720-actual.png",
+      "sha256": "cb9f347483645a98471720836cd8bd169d2b1184923fbc73dd326460d77fb149"
+    },
+    {
+      "path": "mercenary-lower-foldable-1114x720-diff.png",
+      "sha256": "ce217417e5cf98b0bda7ab1b8c487a8849fe650fa6c26b8998fd8b0d534809a2"
+    },
+    {
+      "path": "mercenary-lower-foldable-1114x720-expected.png",
+      "sha256": "f8437918cc0c4deb86a997775173775bfaa81fb5263212385fcce70a400626fe"
+    },
+    {
+      "path": "mercenary-lower-phone-390x844-actual.png",
+      "sha256": "e939e46999912354a2dbd95b973e98b3c19e9aec0dcde4b83da6a283da3481e4"
+    },
+    {
+      "path": "mercenary-lower-phone-390x844-diff.png",
+      "sha256": "eb95b0f9291dd2ba2d35f20e5729e8de6b4a70c08edf301c8edae44cafa50482"
+    },
+    {
+      "path": "mercenary-lower-phone-390x844-expected.png",
+      "sha256": "5474a5f85f9523b4e82336842788fd5c1dbb2034526dd4ec2050ed2690fca5bb"
+    },
+    {
+      "path": "mercenary-phone-390x844-actual.png",
+      "sha256": "63a56732922b402b5d1d4c8cadabfa74f8a76215d6f18cfc21bc003f8d3ea5f3"
+    },
+    {
+      "path": "mercenary-phone-390x844-diff.png",
+      "sha256": "b6c3da4e88409c4f63da77d28ad628e2e12a0ab16a259c58bd4e70324807c980"
+    },
+    {
+      "path": "mercenary-phone-390x844-expected.png",
+      "sha256": "e6f1bb54973df7a9bf5383a579615520aa5f7e89aab515b5ec1572b78fd0cb61"
+    },
+    {
+      "path": "phone-360x640/bolt-hound-activation-facts.json",
+      "sha256": "a78d911571eaa3d03c4116d8969b400fd2ae12e0ae7515a7c270cfa0fd8f6a7e"
+    },
+    {
+      "path": "phone-360x640/bolt-hound-activation.png",
+      "sha256": "bd02bf59bbf2bebd60e8db35faf9f243a09a26fb4f0e56a25fcabb8ec71de060"
+    },
+    {
+      "path": "phone-360x640/bolt-hound-brief-facts.json",
+      "sha256": "cf4d0f4d2de652f98395932275e6c38a33111fdf5166642b7cc6ddcf28c3432c"
+    },
+    {
+      "path": "phone-360x640/bolt-hound-brief.png",
+      "sha256": "654e5a95312e285f694515c71be77957a17d0f006f97067013736feba96a6093"
+    },
+    {
+      "path": "phone-360x640/brass-boar-activation-facts.json",
+      "sha256": "00f36b1aee811d463cb70dec40047dc7617e27cfa5a59000feea9d244051c22a"
+    },
+    {
+      "path": "phone-360x640/brass-boar-activation.png",
+      "sha256": "a507bf63c1c498698cc3cedca772527b28146d99b2701036504e83ff797aaf10"
+    },
+    {
+      "path": "phone-360x640/brass-boar-brief-facts.json",
+      "sha256": "96c7df19cf9fe0922d9499f8029fe0c12793f430f4d306e31d4a965e828afa1c"
+    },
+    {
+      "path": "phone-360x640/brass-boar-brief.png",
+      "sha256": "283c1d4f9db5e6e0341dae7b69d53ab1355d565b30547fcc05e87ae040ce8e9d"
+    },
+    {
+      "path": "phone-360x640/ember-cougar-activation-facts.json",
+      "sha256": "3cdd0c62d2e772f9d70c66de3dfd711cb9da27370495d9ce8623862a84102a9c"
+    },
+    {
+      "path": "phone-360x640/ember-cougar-activation.png",
+      "sha256": "05c5080c98695c39aaa0b7ee5f72ae091cbe8ba09ddcbe3c0537cf6997126765"
+    },
+    {
+      "path": "phone-360x640/ember-cougar-brief-facts.json",
+      "sha256": "b16b69e73606008678026b401cb04ee146d9db28fccdf04ebd58b382010df4f3"
+    },
+    {
+      "path": "phone-360x640/ember-cougar-brief.png",
+      "sha256": "a50b688f4e6ec50082f3a1073c73db0979faf7d8f68397aeae60c9885a4c38bb"
+    },
+    {
+      "path": "phone-360x640/piston-ram-activation-facts.json",
+      "sha256": "81265a55f1e8d2a5b9aa996a71a2d5b2bc4c74c8819d47cfff2f73a42d64de55"
+    },
+    {
+      "path": "phone-360x640/piston-ram-activation.png",
+      "sha256": "9f72eabf79cac48b9914d33075bef0331dbd7af7d94cc62b733c31b81c23874f"
+    },
+    {
+      "path": "phone-360x640/piston-ram-brief-facts.json",
+      "sha256": "e10d3111557c27e5098cbff56f9e2d25224f49641b0be97db8a69f1952983d72"
+    },
+    {
+      "path": "phone-360x640/piston-ram-brief.png",
+      "sha256": "af0f111080fd5838c40a211f4fe274f521d069235386d80d0b6d3ddd407b4e8e"
+    },
+    {
+      "path": "phone-360x640/rattle-raptor-activation-facts.json",
+      "sha256": "8d30c5ccb072f361c76dfc52cf8bde725ec434dcbd43879a1b34ae440a92f54b"
+    },
+    {
+      "path": "phone-360x640/rattle-raptor-activation.png",
+      "sha256": "6f9577f614ca1234fb22da81a5fdc1bf8834d6cbe1516b8966e55b666ee2d1b1"
+    },
+    {
+      "path": "phone-360x640/rattle-raptor-brief-facts.json",
+      "sha256": "d0670f8d61b8be38c5d709943432700e8693124ad5f419d59dbd7fe78e9e79d5"
+    },
+    {
+      "path": "phone-360x640/rattle-raptor-brief.png",
+      "sha256": "d7ff319b5f1ad57e1fe5c01cabaa34a7f79229afdc3a9ae9cb28be93ac5e4385"
+    },
+    {
+      "path": "phone-360x640/resized-frozen-brief-facts.json",
+      "sha256": "dc8eb73671289eaeee2e11baa2e4d76eb2947c31dee332a5bc94fb556d3c66bd"
+    },
+    {
+      "path": "phone-360x640/resized-frozen-brief.png",
+      "sha256": "d56ebe206939826abcb89995c3a5b85f01155852061cc67d3a7ce251a702651e"
+    },
+    {
+      "path": "phone-360x640/scrap-tabby-activation-facts.json",
+      "sha256": "a25e3b2b3a86e82c3b73c519d7bd626541ac936dcbf5801b818b7c0d8ff38b56"
+    },
+    {
+      "path": "phone-360x640/scrap-tabby-activation.png",
+      "sha256": "a20bf957b71da7540f113ec4bb690391d87ee3a75fd5552a6d5263fe7e59a5f9"
+    },
+    {
+      "path": "phone-360x640/scrap-tabby-brief-facts.json",
+      "sha256": "de4e0a40a13ec88c9d005b6b5adcbe4921699a8d2eb60151ea24369d24c156f1"
+    },
+    {
+      "path": "phone-360x640/scrap-tabby-brief.png",
+      "sha256": "0f9b1c32cb1e36c1f1c6fd268183a4472200567c15cb39f86e2430fdbc5ff2fe"
+    },
+    {
+      "path": "phone-360x640/scrap-weasel-activation-facts.json",
+      "sha256": "775d89b97c27f759432f9c9cb28681b60c976dab30b9d03a7c063c42fd2fcdd2"
+    },
+    {
+      "path": "phone-360x640/scrap-weasel-activation.png",
+      "sha256": "cb3481d37986129da587f53249e73d7d53743517d77ef5b0989ede113a4b191f"
+    },
+    {
+      "path": "phone-360x640/scrap-weasel-brief-facts.json",
+      "sha256": "747389875b85d9ccdfd62a0e5abadd3b42155a403500c2fb3a9904c1c27fde1f"
+    },
+    {
+      "path": "phone-360x640/scrap-weasel-brief.png",
+      "sha256": "3cd3b934e8146e4210ae53f78174a30bfe83cca2437eb4ccef3b901c9571e126"
+    },
+    {
+      "path": "phone-360x640/volt-lynx-activation-facts.json",
+      "sha256": "95c22bff434ab6f6175b20f4d0a9bbe3c4752b23a79aaac90af3cabd0ec9a7a7"
+    },
+    {
+      "path": "phone-360x640/volt-lynx-activation.png",
+      "sha256": "a9fcd0b93f4fd4f0f0364b8b5dd2a21782ac0bc457f7261a4747ff9bd7946eb9"
+    },
+    {
+      "path": "phone-360x640/volt-lynx-brief-facts.json",
+      "sha256": "99c2d8695577781c022665c52c86268a975805d855ccdd1260dc5177928d236a"
+    },
+    {
+      "path": "phone-360x640/volt-lynx-brief.png",
+      "sha256": "0e5656ff712c0c64f744ee0086526cf2cd3e0838c4e1bf578304b63a2b192859"
+    },
+    {
+      "path": "phone-390x844/compact-landscape-brief-facts.json",
+      "sha256": "337265cef5a89f832defac7e8f89c5de00947c70d0fe816bb7320f31d9a8adda"
+    },
+    {
+      "path": "phone-390x844/compact-landscape-brief.png",
+      "sha256": "590691e52ddb7fa0a26c68b7cd912a6899e866e02b6cac71ebf1ba652fac7ce1"
+    },
+    {
+      "path": "phone-390x844/compact-landscape-overclock-facts.json",
+      "sha256": "b1fc2a0a87b6d45e0a95894d95c1fbeb2b199b2d30b659ea9569b6604d151eb0"
+    },
+    {
+      "path": "phone-390x844/compact-landscape-overclock.png",
+      "sha256": "ae880d60f177d9c056d2876ac11f3be8b569fdcd5f3c5faae8aeb0b813940afc"
+    },
+    {
+      "path": "phone-390x844/crowded-combat-overclock-facts.json",
+      "sha256": "373da406b592590c2f114f9a7f5ac6b6ba56a5d5d0804ce20184edbac82b4cfb"
+    },
+    {
+      "path": "phone-390x844/crowded-combat-overclock.png",
+      "sha256": "672effbc56255860ccbe599e59138d779b265479d2c2a32bcd65ae99b657ce52"
+    }
+  ],
+  "logNormalization": "Committed logs preserve diagnostic content with trailing whitespace/blank lines normalized for git diff checks; external original logs are unchanged."
+}

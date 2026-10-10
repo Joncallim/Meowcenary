@@ -1,0 +1,89 @@
+{
+  "visible": false,
+  "status": "active",
+  "timeMs": 166.52,
+  "characterId": "scrap-tabby",
+  "player": {
+    "x": 384,
+    "y": 672,
+    "health": 87
+  },
+  "enemies": 4,
+  "abilityState": {
+    "phase": "active",
+    "activeRemainingMs": 350.0400000000001,
+    "cooldownRemainingMs": 8950.039999999999
+  },
+  "abilityDefinition": {
+    "id": "ability:scrap-burst",
+    "name": "Scrap Burst",
+    "description": "Fire a burst that knocks enemies back.",
+    "cooldownMs": 9000,
+    "durationMs": 400,
+    "effect": {
+      "kind": "knockback",
+      "radius": 90,
+      "power": 260
+    },
+    "presentation": {
+      "cue": "shockwave",
+      "color": "#facc15",
+      "iconArtId": "ability-icon:scrap-burst"
+    }
+  },
+  "buttons": [],
+  "inputMode": "keyboard",
+  "inputNeutral": false,
+  "orientationBlocked": false,
+  "abilityUiState": {
+    "phase": "cooling",
+    "activeRemainingMs": 0,
+    "cooldownRemainingMs": 8950.039999999999,
+    "readiness": 0.005551111111111173,
+    "activeProgress": 0
+  },
+  "abilityButton": {
+    "x": 216,
+    "y": 556,
+    "width": 120,
+    "height": 60
+  },
+  "controlsHint": {
+    "text": "SCRAP BURST — Knock back enemies within 90 range.",
+    "x": 23.125,
+    "y": 501.75,
+    "width": 313.75,
+    "height": 32.5,
+    "visible": true
+  },
+  "abilityBanner": "Scrap Burst\nKnocked back 4",
+  "abilityFx": {
+    "transient": {
+      "abilityId": "ability:scrap-burst",
+      "kind": "knockback",
+      "color": 16436245,
+      "radius": 90,
+      "glyphMask": 0,
+      "remaining": 350.0400000000001,
+      "elapsed": 49.96000000000001,
+      "x": 384,
+      "y": 672,
+      "rendered": true
+    }
+  },
+  "activationId": 1,
+  "latestResolution": {
+    "kind": "knockback",
+    "radius": 90,
+    "affected": 4
+  },
+  "briefText": [],
+  "capture": {
+    "project": "phone-360x640",
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "devicePixelRatio": 1
+  }
+}

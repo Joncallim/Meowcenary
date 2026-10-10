@@ -1,0 +1,46 @@
+
+ RUN  v3.2.6 /home/jon/projects/meowcenary-worktrees/meowcenary-196-production
+
+ ❯ tests/gameSceneIntro.test.ts (3 tests | 2 failed) 12ms
+   × run-start intro logical command boundary > Confirm starts once, quarantines before start publication and destroys the brief 8ms
+     → expected 'intro' to be 'active' // Object.is equality
+   ✓ run-start intro logical command boundary > intro freezes simulation and discards combat/manual pause/inventory commands 1ms
+   × run-start intro logical command boundary > Back revokes the brief and returns to Menu without terminal/start facts 2ms
+     → expected "spy" to be called with arguments: [ 'MenuScene' ]
+
+Number of calls: 0
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/gameSceneIntro.test.ts > run-start intro logical command boundary > Confirm starts once, quarantines before start publication and destroys the brief
+AssertionError: expected 'intro' to be 'active' // Object.is equality
+
+Expected: "active"
+Received: "intro"
+
+ ❯ tests/gameSceneIntro.test.ts:24:33
+     22|   scene.testContext.bus.on('run:start',start);
+     23|   scene.routeAction('confirm');scene.routeAction('confirm');
+     24|   expect(scene.runState.status).toBe('active');expect(start).toHaveBee…
+       |                                 ^
+     25|  });
+     26|  it('intro freezes simulation and discards combat/manual pause/invento…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/gameSceneIntro.test.ts > run-start intro logical command boundary > Back revokes the brief and returns to Menu without terminal/start facts
+AssertionError: expected "spy" to be called with arguments: [ 'MenuScene' ]
+
+Number of calls: 0
+
+ ❯ tests/gameSceneIntro.test.ts:34:55
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  16:35:02
+   Duration  1.90s (transform 1.12s, setup 0ms, collect 1.52s, tests 12ms, environment 0ms, prepare 82ms)

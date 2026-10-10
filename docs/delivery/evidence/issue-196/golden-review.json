@@ -1,0 +1,90 @@
+{
+  "baseline": "a100e053ce4e2bc48bc4b8844e7da5010d562096",
+  "review": "Actual, expected and diff inspected individually by integrator. Candidate runtime evidence only; no art or comprehension approval. Chooser, summaries, actor crops and other expectations unchanged.",
+  "changes": [
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-phone-390x844-linux.png",
+      "oldSha256": "e6f1bb54973df7a9bf5383a579615520aa5f7e89aab515b5ec1572b78fd0cb61",
+      "newSha256": "63a56732922b402b5d1d4c8cadabfa74f8a76215d6f18cfc21bc003f8d3ea5f3",
+      "reason": "Shared mechanically derived ability copy: target/range, actual heal limit and cooldown; no art/layout change."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-foldable-1114x720-linux.png",
+      "oldSha256": "14a5b760b1ba841590d6a222bda205e2cade5f936d9af380a0388c07da2410e1",
+      "newSha256": "3ae01865a80770088b9a53e61041fa4c25ffcec5c3551ff4673e19fbe1fb6d4a",
+      "reason": "Shared mechanically derived ability copy; no art/layout change."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-desktop-1280x720-linux.png",
+      "oldSha256": "30b3ea0eb4a94b3443aa39d30df8a83668564beee09a7f0b915225fa8420a51f",
+      "newSha256": "0ad0c0d90708012cbbf4f4a6f4244a1f86ea76999d9c4194ee3fc70e393f01c5",
+      "reason": "Shared mechanically derived ability copy; no art/layout change."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-desktop-1280x720-linux.png",
+      "oldSha256": "66f666fbc9872be4e895b386af05153aad11bb2279d7edfa36eeb52a78366e83",
+      "newSha256": "bcc902266d82983e841529e146c15e0bfae0b0f0e2e9bb56ebc97cf6b87e3674",
+      "reason": "Shared combat teaching copy and READY shape glyph. RUN remains RUN after fixed run:start subscription. Actors/world unchanged; existing HUD alpha .42/.48 unchanged."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/forge-gameplay-desktop-1280x720-linux.png",
+      "oldSha256": "23a3a12b59b6f7e8c8bb51e4b09910bd9a1cee2a06cb8a1ae8a9748e235c2733",
+      "newSha256": "7d780a62ef80a0ac9c0492e2516229489e42af7106a9b7a271dc43b5e6b4bb2a",
+      "reason": "Shared combat teaching copy and READY shape glyph. RUN remains RUN. Actors/world unchanged; existing HUD alpha .42/.48 unchanged."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-phone-390x844-linux.png",
+      "oldSha256": "5474a5f85f9523b4e82336842788fd5c1dbb2034526dd4ec2050ed2690fca5bb",
+      "newSha256": "e939e46999912354a2dbd95b973e98b3c19e9aec0dcde4b83da6a283da3481e4",
+      "reason": "Independent QA inspected all three triplets: derived Precision +30% damage/+1 pierce4s/14s cooldown, Overclock +50% fire/+25% move3.5s/12s cooldown, visible phone Scavenge radius160/8s cooldown. No art, layout, navigation or selection changes."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-foldable-1114x720-linux.png",
+      "oldSha256": "f8437918cc0c4deb86a997775173775bfaa81fb5263212385fcce70a400626fe",
+      "newSha256": "cb9f347483645a98471720836cd8bd169d2b1184923fbc73dd326460d77fb149",
+      "reason": "Independent QA inspected all three triplets: derived Precision +30% damage/+1 pierce4s/14s cooldown, Overclock +50% fire/+25% move3.5s/12s cooldown, visible phone Scavenge radius160/8s cooldown. No art, layout, navigation or selection changes."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-desktop-1280x720-linux.png",
+      "oldSha256": "eddc6a0eab8368bd3863ef9703f4cfdb29fddc3abb9637589ccffb511f17f35a",
+      "newSha256": "2a95fbcff86c2f4460d9b693423faf36a8bf05d75c1ae686432a104c2f5eb112",
+      "reason": "Independent QA inspected all three triplets: derived Precision +30% damage/+1 pierce4s/14s cooldown, Overclock +50% fire/+25% move3.5s/12s cooldown, visible phone Scavenge radius160/8s cooldown. No art, layout, navigation or selection changes."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-phone-390x844-linux.png",
+      "oldSha256": "318f1175a1e80415c5fda8f5a4dc88087b0f5c75419f71c677467fffd0632809",
+      "newSha256": "b9c54dc00bf6f70ae81a139f5a8d89e4438bc1446934c12e516d02c8244d880f",
+      "reason": "Reviewed shared combat mechanical hint and READY shape glyph. Full-scene golden last changed5779696 before main enemy/icon937b7a5 and actor-scale324947e; existing exact actor crops updated8a47e02 remain unchanged and authoritative for pixel assertion. No production art, icon or scale changes in196. Existing main HUD .42/.48 alpha retained; RUN remains RUN."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-foldable-1114x720-linux.png",
+      "oldSha256": "8de8a40209a36ac3feeec255ad1358134372a52e210319d4cadca9c9da322fcd",
+      "newSha256": "4fbaae1bb868463148d3642fe229a6dbcc1943dbf4f6099c8f6c9b5f6dc14b75",
+      "reason": "Reviewed shared combat mechanical hint and READY shape glyph. Full-scene golden last changed5779696 before main enemy/icon937b7a5 and actor-scale324947e; existing exact actor crops updated8a47e02 remain unchanged and authoritative for pixel assertion. No production art, icon or scale changes in196. Existing main HUD .42/.48 alpha retained; RUN remains RUN."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-desktop-1280x720-linux.png",
+      "oldSha256": "789b0899a4b6d658eaec238400a6c9ad412534dba0af324affc43677e40532e5",
+      "newSha256": "f9a20bff42be760e99089bd1a31df06c5c450fecaf59e5cecf397e6e3d80ca46",
+      "reason": "Reviewed shared combat mechanical hint and READY shape glyph. Full-scene golden last changed5779696 before main enemy/icon937b7a5 and actor-scale324947e; existing exact actor crops updated8a47e02 remain unchanged and authoritative for pixel assertion. No production art, icon or scale changes in196. Existing main HUD .42/.48 alpha retained; RUN remains RUN."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/ability-effect-phone-390x844-linux.png",
+      "oldSha256": "d621654522c0454a266847849351bffe05bf8f688191e5419118bffcde0cb51e",
+      "newSha256": "0e96800a94a33797086ddddb2d32eef0d72280d8031d8c14b2dd31b6ab4b4299",
+      "reason": "Individually inspected intended mechanic-kind knockback FX: exact authoritative90 boundary instead of animated undersized ring, four bounded outward arrows, mechanically derived nonblocking name/effect banner, teaching copy and READY glyph. Fixture now derives its geometry/copy from definition; no blank banner accepted. Existing actor/icon/HUD baseline differences independently reconciled; no asset changes or art approval."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/ability-effect-foldable-1114x720-linux.png",
+      "oldSha256": "104ea8db3937c45bb598a859620ac89523e7a5c7a93e44c24805cf3bb0ac42b5",
+      "newSha256": "dab5913c8b82aabdbcddd655c42b11e109b80fe677cc6bb037d8b85e7e86e901",
+      "reason": "Individually inspected intended mechanic-kind knockback FX: exact authoritative90 boundary instead of animated undersized ring, four bounded outward arrows, mechanically derived nonblocking name/effect banner, teaching copy and READY glyph. Fixture now derives its geometry/copy from definition; no blank banner accepted. Existing actor/icon/HUD baseline differences independently reconciled; no asset changes or art approval."
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/ability-effect-desktop-1280x720-linux.png",
+      "oldSha256": "8a33c6d2512ded86d31b9497e667f2e615fedb82b305c5c6e54783292fc78bd8",
+      "newSha256": "f47c716e7b2604c9265668403e23e8d5fcb007dfbb94496aadc1de6c5eb88231",
+      "reason": "Individually inspected intended mechanic-kind knockback FX: exact authoritative90 boundary instead of animated undersized ring, four bounded outward arrows, mechanically derived nonblocking name/effect banner, teaching copy and READY glyph. Fixture now derives its geometry/copy from definition; no blank banner accepted. Existing actor/icon/HUD baseline differences independently reconciled; no asset changes or art approval."
+    }
+  ]
+}
