@@ -32,6 +32,7 @@ type Seam = {
   captureArenaReadability(): Promise<Readability | undefined>;
   summaryMenuTarget(): Readonly<{ x: number; y: number }> | undefined;
   showRunSummary(outcome: 'won' | 'lost'): boolean;
+  runStartBriefDiagnostics(): { visible: boolean; status: string; timeMs: number } | undefined;
 };
 declare global { var __MEOWCENARY_VISUAL_TEST__: Seam | undefined; }
 
@@ -140,7 +141,7 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   const inputFrame = async () => expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame())).toBe(true);
   let mark = (_phase: string): void => {};
-  const launch = async () => {
+  const launch = async (begin = true) => {
     mark('launch start');
     expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
     expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isMenuInputNeutral())).toBe(true);
@@ -151,7 +152,9 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
       await page.keyboard.up('Enter');
     }
     await inputFrame();
-    await dismissRunStartBrief(page, 'keyboard');
+    if (begin) await dismissRunStartBrief(page, 'keyboard');
+    else expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.runStartBriefDiagnostics()))
+      .toMatchObject({ visible: true, status: 'intro', timeMs: 0 });
     mark('launch complete');
   };
   const plateCount = () => page.evaluate(() => {
@@ -193,7 +196,10 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
     await renderFrames();
     expect(await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()))).toBe(savedBeforeResize);
     mark(`resize ${visit} complete`);
-    await launch();
+    // HUD ownership is established during scene creation, before Start. The
+    // final reconstructed HUD needs no third combat start to expose a leak.
+    // Both earlier runs still use real Start and both Menu returns/resizes run.
+    await launch(visit === 0);
     // A leaked PhaserHudView resize subscription creates two extra plates in
     // the inactive scene, which then coexist with the next live HUD.
     expect(await plateCount()).toBe(2);

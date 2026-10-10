@@ -84,14 +84,17 @@ async function start(page: Page): Promise<void> {
   await pulse(page, 'Enter');
   expect((await read(page)).status).toBe('active');
 }
-async function capture(page: Page, info: TestInfo, name: string): Promise<void> {
+async function captureFacts(page: Page, info: TestInfo, name: string): Promise<void> {
   const facts = info.outputPath(`${name}-facts.json`);
-  const image = info.outputPath(`${name}.png`);
   const state = await read(page);
   const pixelRatio = await page.evaluate(() => devicePixelRatio);
   await writeFile(facts, JSON.stringify({ ...state, capture: { project: info.project.name, viewport: page.viewportSize(), devicePixelRatio: pixelRatio } }, null, 2));
-  await page.screenshot({ path: image });
   await info.attach(`${name}-facts`, { path: facts, contentType: 'application/json' });
+}
+async function capture(page: Page, info: TestInfo, name: string): Promise<void> {
+  await captureFacts(page, info, name);
+  const image = info.outputPath(`${name}.png`);
+  await page.screenshot({ path: image });
   await info.attach(name, { path: image, contentType: 'image/png' });
 }
 function centre(rect: Rect): { x: number; y: number } { return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; }
@@ -198,7 +201,10 @@ test('resize revokes an unfinished Start pointer gesture and Back/relaunch leave
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
   expect(await save(page)).toBe(beforeSave);
   const next = await launch(page); expect(next.visible).toBe(true); expect(next.timeMs).toBe(0);
-  await start(page); expect((await read(page)).activationId).toBe(0); await capture(page, info, 'fresh-relaunch');
+  await start(page); expect((await read(page)).activationId).toBe(0);
+  // The resized brief is the visual evidence for this journey. Preserve the
+  // fresh-run facts without a second full-resolution image of the ordinary HUD.
+  await captureFacts(page, info, 'fresh-relaunch');
 });
 
 test('DPR3 reduced-motion phone stays frozen through blocked landscape and foreground restoration', async ({ browser }, info) => {

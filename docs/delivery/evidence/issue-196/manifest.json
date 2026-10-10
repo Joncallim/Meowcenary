@@ -429,6 +429,10 @@
       "path": "ui-audit-baseline-proof.json",
       "sha256": "daa63d60e7d1fffcd49da84dcc3336af37d087752e8ce5707effb5b8b25afc25",
       "origin": "Exact495b9cf fullmatrixfailure or exacta100 baseline capture; reviewed candidate evidence only."
+    },
+    {
+      "path": "hosted-browser-budget-evidence.json",
+      "sha256": "48350254bfa3db35714ae0a18be9acbae5f449d3388c9a864844b219101e5229"
     }
   ],
   "logNormalization": "Committed logs preserve diagnostic content with trailing whitespace/blank lines normalized for git diff checks; external original logs are unchanged."

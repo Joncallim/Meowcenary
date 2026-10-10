@@ -128,6 +128,27 @@ boundaries must not be represented as a performance improvement against older
 archives. No performance architecture, timeout, gameplay or diagnostic bypass
 was introduced. The helper regression is part of ordinary Vitest discovery.
 
+## Hosted browser budget reconciliation
+
+The reviewed older hosted [run at `495b9cf`](https://github.com/Joncallim/Meowcenary/actions/runs/38042480462)
+finished with 473 passed, 64 existing scoped skips and three failures over 1.5h.
+Besides the separately reconciled phone copy golden, two desktop 1920px journeys
+exhausted their unchanged 30s budgets. [Preserved facts and phase timings](evidence/issue-196/hosted-browser-budget-evidence.json)
+show the resize/Back journey reached a fresh active run with no accidental
+activation, and the HUD journey completed its third launch at 30,145ms. These
+are cumulative capture/journey costs, not evidence of a failed runtime assertion.
+
+The test-only correction preserves every lifecycle assertion and both real Menu
+returns/resizes. The resized brief keeps its screenshot; the redundant final
+ordinary-HUD image becomes structured fresh-run facts. The HUD regression starts
+the first two runs normally, then inspects its final fully constructed HUD in
+explicitly asserted time-zero intro. The last Start adds no coverage to the
+inactive HUD resize-subscription invariant. All three plate-count assertions and
+both save-equality checks remain. Independent domain and QA review approved the
+scope; the twelve focused cases pass across all six profiles. No timeout,
+threshold, assertion, retry or skip was relaxed. Final exact-head hosted and
+local full gates must still pass before merge.
+
 ## Remaining product gate
 
 Automated virtual gamepads, Chromium viewport/DPR/touch emulation and CDP
