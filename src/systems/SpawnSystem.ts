@@ -1,3 +1,4 @@
+import { enemyProjectileImpact } from '../gameplay/arenaInteractions';
 import { deepFreeze } from '../engine/freeze';
 import type { GameContext } from '../engine/context';
 import type { Rng } from '../engine/rng';
@@ -30,6 +31,7 @@ export class SpawnSystem implements System {
   private readonly scaling?: EnemyScalingDefinition;
   private readonly environment: ChargerEnvironment;
   private readonly enemyProjectiles: Projectile[] = [];
+  private readonly previousProjectilePositions = new Map<Projectile, { x: number; y: number }>();
   private readonly unsubscribeRangedShot: () => void;
   private readonly unsubscribeDashHit: () => void;
   private readonly unsubscribeSummon: () => void;
@@ -69,10 +71,10 @@ export class SpawnSystem implements System {
     for (let index = 0; index < SpawnSystem.ENEMY_PROJECTILE_POOL; index += 1) {
       const projectile = new Projectile(this.scene, 6);
       this.enemyProjectiles.push(projectile);
+      this.previousProjectilePositions.set(projectile, { x: 0, y: 0 });
       this.scene.physics.add.overlap(this.player.sprite, projectile.sprite, () => {
         if (!projectile.active || !this.canDamagePlayer()) return;
-        this.player.takeDamage(projectile.damage);
-        projectile.reset();
+        this.resolveProjectileContact(projectile, true);
       });
     }
     this.unsubscribeRangedShot = this.ctx.bus.on('enemy:ranged-shot', this.handleRangedShot);
@@ -97,7 +99,12 @@ export class SpawnSystem implements System {
     this.enemies.forEach((enemy) => {
       enemy.update(this.player, dtMs);
     });
-    this.enemyProjectiles.forEach((projectile) => projectile.update(dtMs));
+    this.enemyProjectiles.forEach((projectile) => {
+      if (projectile.active) this.resolveProjectileContact(projectile, false);
+      projectile.update(dtMs);
+      const previous = this.previousProjectilePositions.get(projectile)!;
+      previous.x = projectile.x; previous.y = projectile.y;
+    });
 
     const activeCounts = Object.create(null) as Record<string, number>;
     for (const enemy of this.enemies) {
@@ -126,6 +133,7 @@ export class SpawnSystem implements System {
       enemy.destroy();
     });
     this.enemies.length = 0;
+    this.previousProjectilePositions.clear();
   }
 
   /** Explicit encounter/boss entrypoint. Stage composition owns *when* this
@@ -142,6 +150,8 @@ export class SpawnSystem implements System {
     // Saturation drops the newest shot; it never allocates or evicts a live,
     // already-telegraphed projectile.
     if (!projectile) return;
+    const previous = this.previousProjectilePositions.get(projectile)!;
+    previous.x = shot.x; previous.y = shot.y;
     projectile.spawn(shot.x, shot.y, { x: shot.dirX, y: shot.dirY }, {
       speed: 210,
       damage: shot.damage,
@@ -155,6 +165,15 @@ export class SpawnSystem implements System {
       color: 0xff5a48,
     });
   };
+
+  private resolveProjectileContact(projectile: Projectile, overlap: boolean): void {
+    if (!this.canDamagePlayer()) return;
+    const previous = this.previousProjectilePositions.get(projectile)!;
+    const impact = enemyProjectileImpact(previous.x, previous.y, projectile.x, projectile.y, 6,
+      this.player.x, this.player.y, this.player.bodyRadius, this.arena.obstacles);
+    if (impact === 'cover') projectile.reset();
+    else if (impact === 'player' || overlap) { this.player.takeDamage(projectile.damage); projectile.reset(); }
+  }
 
   private readonly handleDashHit = (hit: { damage: number }): void => {
     if (!this.canDamagePlayer() || !Number.isFinite(hit.damage) || hit.damage <= 0) return;

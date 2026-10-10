@@ -1,3 +1,6 @@
+import { resolveArenaLayout, type ResolvedArenaLayout } from '../gameplay/arenaLayout';
+import { reseedRunRequest } from '../gameplay/runRequest';
+import { nextRunSeed } from '../engine/rng';
 import Phaser from 'phaser';
 import { getGameContext, type GameContext } from '../engine/context';
 import type { EventBus } from '../engine/eventBus';
@@ -165,6 +168,8 @@ export class MenuScene extends Phaser.Scene {
   /** A run never starts against the boot bundle alone. This state remains in
    * Menu so a load failure has a usable Retry/Back surface rather than a
    * partially constructed GameScene. */
+  private preparedArenaLayout?: ResolvedArenaLayout;
+  private capturedLaunch?: { readonly request: ComposedRunRequest; readonly isTraining: boolean };
   private runLaunchState: 'idle' | 'loading' | 'failed' = 'idle';
   private runLaunchProgress?: ResourceLoadProgress;
   private runLaunchProgressText?: Phaser.GameObjects.Text;
@@ -256,6 +261,8 @@ export class MenuScene extends Phaser.Scene {
     // must never leave a newly activated Menu permanently inert.
     this.resetMenuTextureLoadQueue();
     this.runLaunchState = 'idle';
+    this.preparedArenaLayout = undefined;
+    this.capturedLaunch = undefined;
     this.runLaunchProgress = undefined;
     this.runLaunchPresentation = undefined;
     this.gunsmithArtGeneration += 1;
@@ -296,7 +303,7 @@ export class MenuScene extends Phaser.Scene {
     this.render(data?.initialPanel && data.initialPanel !== 'home'
       ? this.controller.open(data.initialPanel)
       : this.controller.snapshot());
-    if (data?.replayRequest) void this.startRunWithResources(data.replayRequest, data.isTraining === true);
+    if (data?.replayRequest) void this.startRunWithResources(reseedRunRequest(data.replayRequest, nextRunSeed(this.getContext().menuRng)), data.isTraining === true);
 
     // FIT changes the physical-to-logical hit-target conversion. Rebuild the
     // committed panel from the real scale event so every live target is sized
@@ -325,6 +332,12 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private render(snapshot: MainMenuSnapshot, reason?: 'viewport-resize' | 'lazy-art-hydration'): void {
+    // Navigating away abandons a failed launch. Retry on the same launch
+    // surface retains its exact request/layout; another selection starts fresh.
+    if (this.runLaunchState === 'failed' && this.capturedLaunch && snapshot.panel !== (this.capturedLaunch.isTraining ? 'training' : 'home')) {
+      this.runLaunchState = 'idle'; this.capturedLaunch = undefined; this.preparedArenaLayout = undefined;
+      this.runLaunchGeneration += 1;
+    }
     const before = performanceProbe ? collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[]) : undefined;
     const started = performanceProbe?.now();
     const previousPanel = this.committedPanel;
@@ -931,7 +944,7 @@ export class MenuScene extends Phaser.Scene {
 
   private async startContractWithResources(): Promise<void> {
     const ctx = this.getContext();
-    await this.startRunWithResources(assembleComposedRunRequest(ctx, ctx.menuRng), false);
+    await this.startRunWithResources(this.runLaunchState === 'failed' && this.capturedLaunch?.isTraining === false ? this.capturedLaunch.request : assembleComposedRunRequest(ctx, ctx.menuRng), false);
   }
 
   /** Training deliberately uses the existing legacy arena composition, but
@@ -939,13 +952,15 @@ export class MenuScene extends Phaser.Scene {
    * Compendium facts. It still waits for the same physical resource closure. */
   private async startTrainingWithResources(): Promise<void> {
     const ctx = this.getContext();
-    await this.startRunWithResources(asLegacyComposedRunRequest(assembleRunRequest(ctx, ctx.menuRng)), true);
+    await this.startRunWithResources(this.runLaunchState === 'failed' && this.capturedLaunch?.isTraining === true ? this.capturedLaunch.request : asLegacyComposedRunRequest(assembleRunRequest(ctx, ctx.menuRng)), true);
   }
 
   private async startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void> {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     const started = performanceProbe?.now();
     const generation = ++this.runLaunchGeneration;
+    if (this.capturedLaunch?.request !== request) this.preparedArenaLayout = undefined;
+    this.capturedLaunch = { request, isTraining };
     const ctx = this.getContext();
     // Result truth belongs to this exact launch, not whatever durable state
     // happens to exist when asynchronous resource loading eventually ends.
@@ -968,13 +983,16 @@ export class MenuScene extends Phaser.Scene {
       const resolvedArenaId = plan?.arenaId ?? arenaId;
       const resolvedArena = resolvedArenaId === undefined ? undefined : ctx.arenas.arenaById(resolvedArenaId);
       if (!resolvedArena) throw new Error('Selected contract arena is unavailable');
+      const layout = this.preparedArenaLayout ?? resolveArenaLayout(resolvedArena, request.seed, ctx.data.contentVersion, plan?.encounter.bossId !== undefined);
+      this.preparedArenaLayout = layout;
       const legacyEnemyIds = request.kind === 'legacy-arena'
         ? (ctx.data.spawnCurves.find((curve) => curve.id === resolvedArena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
         : [];
       const resources = resolveRunPhysicalResources({
         data: ctx.data,
         characterId: request.characterId,
-        arena: resolvedArena,
+        arena: layout.arena,
+        layout,
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
       });
@@ -1007,7 +1025,7 @@ export class MenuScene extends Phaser.Scene {
         return;
       }
       if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'ready', isTraining, physicalResources: resources.length, audioFiles: runAudio.length, seed: request.seed });
-      this.scene.start(SceneKey.Game, { runRequest: request, runStartPresentation, isTraining });
+      this.scene.start(SceneKey.Game, { runRequest: request, arenaLayout: layout, runStartPresentation, isTraining });
     } catch (error) {
       if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'failed', isTraining });
       if (!this.isLive || generation !== this.runLaunchGeneration) return;

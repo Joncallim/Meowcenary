@@ -1,3 +1,4 @@
+import { assertArenaLayout, resolveArenaLayout, type ResolvedArenaLayout } from '../gameplay/arenaLayout';
 import Phaser from 'phaser';
 import { getGameContext, type GameContext, type RunPresentationBaseline } from '../engine/context';
 import { RuntimeConfig } from '../engine/config';
@@ -198,6 +199,7 @@ export class GameScene extends Phaser.Scene {
   /** Prevents ghost clicks during scene transitions by suppressing all
    *  input for a brief window after a state-changing action. */
   private _inputBlockedUntil = 0;
+  private resolvedArenaLayout?: ResolvedArenaLayout;
   private arenaDimensions?: { readonly width: number; readonly height: number };
   private arenaPresentationPadding?: ActorPresentationPadding;
   private arenaCameraFraming?: ArenaCameraFraming;
@@ -207,7 +209,7 @@ export class GameScene extends Phaser.Scene {
     super(SceneKey.Game);
   }
 
-  create(data?: { readonly runRequest?: ComposedRunRequest; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean }): void {
+  create(data?: { readonly runRequest?: ComposedRunRequest; readonly arenaLayout?: ResolvedArenaLayout; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean }): void {
     const createStarted = performanceProbe?.now();
     this.resetPerRunState(data?.isTraining === true);
     const ctx = this.getContext();
@@ -231,10 +233,15 @@ export class GameScene extends Phaser.Scene {
     const visualArt = new DataVisualArtRegistry(ctx.data);
 
     const arenaId = request.kind === 'stage' ? plan!.arenaId : request.arenaId;
-    const arena = ctx.arenas.arenaById(arenaId);
-    if (!arena) {
+    const template = ctx.arenas.arenaById(arenaId);
+    if (!template) {
       throw new Error(`Run arena "${arenaId}" is missing from the registry`);
     }
+    if (data?.runRequest && !data.arenaLayout) throw new Error('Run launch is missing its prepared arena layout');
+    const layout = data?.arenaLayout ?? resolveArenaLayout(template, request.seed, ctx.data.contentVersion, plan?.encounter.bossId !== undefined);
+    assertArenaLayout(layout, arenaId, request.seed, ctx.data.contentVersion, plan?.encounter.bossId !== undefined);
+    this.resolvedArenaLayout = layout;
+    const arena = layout.arena;
     if (data?.runRequest) {
       const legacyEnemyIds = request.kind === 'legacy-arena'
         ? (ctx.data.spawnCurves.find((curve) => curve.id === arena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
@@ -243,6 +250,7 @@ export class GameScene extends Phaser.Scene {
         data: ctx.data,
         characterId: request.characterId,
         arena,
+        layout,
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
       });
@@ -341,8 +349,8 @@ export class GameScene extends Phaser.Scene {
       baseMaxHealth: prepared.basePlayer.maxHealth,
       baseMoveSpeed: prepared.basePlayer.moveSpeed,
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
-      spawnX: arena.size.width / 2,
-      spawnY: arena.size.height / 2,
+      spawnX: layout.start.x,
+      spawnY: layout.start.y,
     }, visualArt.bindingById(`character:${request.characterId}`));
     this.abilityPresentationSystem = new AbilityPresentationSystem(this, ctx.bus, this.player);
 
@@ -420,7 +428,7 @@ export class GameScene extends Phaser.Scene {
       onExitConfirmed: () => this.exitRunEarly(),
     });
 
-    this.arenaScenery = buildArenaScenery(this, arena, visualArt, this.arenaCameraFraming!.bounds);
+    this.arenaScenery = buildArenaScenery(this, arena, visualArt, this.arenaCameraFraming!.bounds, layout.floorPlan);
     if (this.arenaScenery.obstacleGroup.children?.size > 0) {
       this.physics.add.collider(this.player.sprite, this.arenaScenery.obstacleGroup);
       this.physics.add.collider(this.enemyGroup, this.arenaScenery.obstacleGroup);
@@ -563,7 +571,7 @@ export class GameScene extends Phaser.Scene {
       () => this.canReceiveCombatDamage(),
     );
     if (plan?.encounter.bossId) {
-      spawnSystem.spawnEncounterEnemy(plan.encounter.bossId, arena.size.width / 2, Math.max(80, arena.size.height * 0.2));
+      spawnSystem.spawnEncounterEnemy(plan.encounter.bossId, layout.boss!.x, layout.boss!.y);
     }
     const passiveSystem = new PassiveCoordinator({
       runState: this.runState,
@@ -956,7 +964,7 @@ export class GameScene extends Phaser.Scene {
       || !Number.isInteger(count) || count < 0) return false;
     const requested = Math.min(48, count);
     const ctx = this.getContext();
-    const arena = ctx.arenas.arenaById(this.runState.arenaId);
+    const arena = this.resolvedArenaLayout?.arena;
     if (!arena) return false;
     const art = new DataVisualArtRegistry(ctx.data);
     const candidates = ctx.data.enemies.filter(enemy => {
@@ -1077,6 +1085,7 @@ export class GameScene extends Phaser.Scene {
     this.performanceFixture = undefined;
     this.spawnCurve = undefined;
     this.arenaDimensions = undefined;
+    this.resolvedArenaLayout = undefined;
     this.arenaPresentationPadding = undefined;
     this.arenaCameraFraming = undefined;
     this.arenaScenery?.destroy();

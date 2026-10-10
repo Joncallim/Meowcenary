@@ -177,7 +177,7 @@ const CHARACTER_BASE_STATS_FIELDS = new Set(['maxHealth', 'moveSpeed']);
 const CHARACTER_STATIC_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'effects', 'presentation']);
 const CHARACTER_REACTIVE_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'event', 'handlerId', 'presentation']);
 const CHARACTER_PASSIVE_PRESENTATION_FIELDS = new Set(['iconArtId']);
-const ARENA_FIELDS = new Set(['id', 'name', 'size', 'spawnCurveId', 'spawnRegions', 'obstacles', 'hazards', 'unlock', 'visual']);
+const ARENA_FIELDS = new Set(['id', 'name', 'size', 'spawnCurveId', 'spawnRegions', 'obstacles', 'hazards', 'unlock', 'visual', 'generation']);
 const ARENA_SIZE_FIELDS = new Set(['width', 'height']);
 const REGION_RING_FIELDS = new Set(['kind', 'cx', 'cy', 'minRadius', 'maxRadius']);
 const REGION_RECT_FIELDS = new Set(['kind', 'x', 'y', 'w', 'h']);
@@ -185,13 +185,13 @@ const REGION_EDGES_FIELDS = new Set(['kind', 'margin']);
 const REGION_EDGE_LANES_FIELDS = new Set(['kind', 'inset', 'lanes']);
 const EDGE_LANE_FIELDS = new Set(['side', 'offset', 'width']);
 const EDGE_LANE_SIDES = new Set(['top', 'right', 'bottom', 'left']);
-const OBSTACLE_FIELDS = new Set(['id', 'x', 'y', 'w', 'h']);
+const OBSTACLE_FIELDS = new Set(['id', 'x', 'y', 'w', 'h', 'blocksEnemyProjectiles']);
 const ARENA_VISUAL_FIELDS = new Set(['menuBackdropArtId', 'floorArtIds', 'boundary', 'decorations', 'obstacleSkins', 'hazardSkins']);
 const ARENA_BOUNDARY_FIELDS = new Set(['straightArtId', 'cornerArtId', 'patchArtId', 'gateArtId']);
 const ARENA_DECORATION_FIELDS = new Set(['id', 'artId', 'x', 'y', 'flipX', 'layer']);
 const ARENA_OBSTACLE_SKIN_FIELDS = new Set(['obstacleId', 'artId', 'offsetX', 'offsetY']);
 const ARENA_HAZARD_SKIN_FIELDS = new Set(['hazardId', 'artId']);
-const HAZARD_FIELDS = new Set(['id', 'kind', 'x', 'y', 'w', 'h', 'damagePerSecond']);
+const HAZARD_FIELDS = new Set(['id', 'kind', 'x', 'y', 'w', 'h', 'damagePerSecond', 'pulse']);
 const LOOT_KINDS = new Set(['xp', 'scrap', 'chest', 'weapon', 'nothing']);
 const LOOT_FIELDS = new Set(['id', 'entries']);
 const LOOT_ENTRY_FIELDS = new Set(['kind', 'amount', 'weight', 'tableId', 'definitionId']);
@@ -1417,6 +1417,7 @@ function checkArena(row: unknown): string[] {
       }
       const obsErrors: string[] = [];
       rejectUnknownFields(obstacle, OBSTACLE_FIELDS, obsErrors);
+      if (obstacle.blocksEnemyProjectiles !== undefined && typeof obstacle.blocksEnemyProjectiles !== 'boolean') obsErrors.push('blocksEnemyProjectiles: expected boolean');
       requireString(obstacle, 'id', obsErrors);
       const obstacleId = readOwnField(obstacle, 'id');
       if (typeof obstacleId === 'string') {
@@ -1549,6 +1550,16 @@ function checkArena(row: unknown): string[] {
       if (!isFiniteNumber(dps) || dps <= 0 || dps > 1000) {
         hazErrors.push('damagePerSecond: required finite number in (0, 1000]');
       }
+      if (hazard.pulse !== undefined) {
+        if (!isRecord(hazard.pulse)) hazErrors.push('pulse: expected object');
+        else {
+          rejectUnknownFields(hazard.pulse, new Set(['safeMs', 'warningMs', 'activeMs', 'offsetMs']), hazErrors);
+          requireIntegerInRange(hazard.pulse, 'safeMs', 250, 60000, hazErrors);
+          requireIntegerInRange(hazard.pulse, 'warningMs', 500, 10000, hazErrors);
+          requireIntegerInRange(hazard.pulse, 'activeMs', 250, 60000, hazErrors);
+          requireIntegerInRange(hazard.pulse, 'offsetMs', 0, 130000, hazErrors);
+        }
+      }
       errors.push(...hazErrors.map((error) => `hazards[${index}].${error}`));
     }
   }
@@ -1564,6 +1575,42 @@ function checkArena(row: unknown): string[] {
       isFiniteNumber(arenaWidth) ? arenaWidth : 0,
       isFiniteNumber(arenaHeight) ? arenaHeight : 0,
     ).map((error) => `visual.${error}`));
+  }
+
+  const generation = readOwnField(row, 'generation');
+  if (generation !== undefined) {
+    const e: string[] = [];
+    if (!isRecord(generation)) e.push('required object');
+    else {
+      rejectUnknownFields(generation, new Set(['obstacleIds', 'extraObstacles', 'zones']), e);
+      const ids = readOwnField(generation, 'obstacleIds');
+      const obstacles = readOwnField(row, 'obstacles');
+      if (!Array.isArray(ids) || ids.length < 1 || ids.length > 5 || new Set(ids).size !== ids.length || ids.some(id => typeof id !== 'string' || !Array.isArray(obstacles) || !obstacles.some(o => isRecord(o) && o.id === id))) e.push('obstacleIds: expected unique authored obstacle references');
+      const extra = readOwnField(generation, 'extraObstacles');
+      if (!isRecord(extra)) e.push('extraObstacles: required object');
+      else {
+        rejectUnknownFields(extra, new Set(['min', 'max']), e);
+        requireIntegerInRange(extra, 'min', 2, 3, e); requireIntegerInRange(extra, 'max', 2, 3, e);
+        if (typeof extra.min === 'number' && typeof extra.max === 'number' && (extra.min > extra.max || (Array.isArray(obstacles) && obstacles.length + extra.max > 5))) e.push('extraObstacles: exceeds total obstacle budget');
+      }
+      const zones = readOwnField(generation, 'zones');
+      if (!Array.isArray(zones) || zones.length < 1 || zones.length > 16) e.push('zones: expected 1–16 zones');
+      else {
+        const seen = new Set<unknown>();
+        for (const zone of zones) {
+          if (!isRecord(zone)) { e.push('zone: expected object'); continue; }
+          rejectUnknownFields(zone, new Set(['id', 'x', 'y', 'w', 'h']), e); requireString(zone, 'id', e);
+          if (seen.has(zone.id)) e.push('zones: duplicate id'); seen.add(zone.id);
+          for (const key of ['x', 'y']) requireIntegerInRange(zone, key, 0, 16384, e);
+          for (const key of ['w', 'h']) requireIntegerInRange(zone, key, 1, 16384, e);
+          if (isRecord(size) && typeof zone.x === 'number' && typeof zone.y === 'number' && typeof zone.w === 'number' && typeof zone.h === 'number' && (zone.x + zone.w > Number(size.width) || zone.y + zone.h > Number(size.height))) e.push('zones: out of bounds');
+        }
+      }
+      if (isRecord(size) && Math.ceil(Number(size.width) / 32) * Math.ceil(Number(size.height) / 32) > 4096) e.push('candidate-cell-budget exceeded');
+      const visual = readOwnField(row, 'visual');
+      if (isRecord(visual) && Array.isArray(visual.decorations) && (visual.decorations.length === 0 || visual.decorations.length + 20 > 48)) e.push('decoration palette must contain 1–28 entries');
+    }
+    errors.push(...e.map(error => `generation.${error}`));
   }
 
   const unlock = readOwnField(row, 'unlock');

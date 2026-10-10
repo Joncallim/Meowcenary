@@ -1,3 +1,4 @@
+import { hazardActiveDuration, hazardPhase } from '../gameplay/arenaInteractions';
 import type { System } from '../engine/system';
 import type { EventBus } from '../engine/eventBus';
 import type { RunState } from '../gameplay/runState';
@@ -24,6 +25,8 @@ export class HazardSystem implements System {
   private readonly player: Player;
   private readonly visuals: Phaser.GameObjects.GameObject[] = [];
   private destroyed = false;
+  private elapsedMs = 0;
+  private readonly phaseVisuals = new Map<string, Phaser.GameObjects.TileSprite>();
 
   constructor(options: HazardSystemOptions) {
     this.hazards = options.hazards;
@@ -48,6 +51,8 @@ export class HazardSystem implements System {
           binding.frameKey,
         ).setDepth(VisualDepth.groundDecoration);
         this.visuals.push(tile);
+        this.phaseVisuals.set(h.id, tile);
+        if (h.pulse) tile.setAlpha(hazardPhase(h, 0) === 'safe' ? 0.25 : 1);
       }
     } else if (options.scene.add && options.hazards.length > 0) {
       // Headless/legacy geometry diagnostics do not supply the production art
@@ -68,6 +73,15 @@ export class HazardSystem implements System {
     if (this.hazards.length === 0) return;
     if (!this.player.active) return;
 
+    const startMs = this.elapsedMs;
+    this.elapsedMs += dtMs;
+    for (const hazard of this.hazards) {
+      if (!hazard.pulse) continue;
+      const phase = hazardPhase(hazard, this.elapsedMs);
+      const tile = this.phaseVisuals.get(hazard.id);
+      tile?.setAlpha(phase === 'safe' ? 0.25 : phase === 'warning' ? 0.55 + 0.25 * Math.sin(this.elapsedMs / 70) : 1);
+      tile?.setTint(phase === 'warning' ? 0xffd65c : phase === 'active' ? 0xff7156 : 0x829aa0);
+    }
     const px = this.player.x;
     const py = this.player.y;
     const r = this.player.bodyRadius;
@@ -84,7 +98,7 @@ export class HazardSystem implements System {
 
       if (!inHazard) continue;
 
-      const damage = hazard.damagePerSecond * dtMs / 1000;
+      const damage = hazard.damagePerSecond * hazardActiveDuration(hazard, startMs, this.elapsedMs) / 1000;
       if (!Number.isFinite(damage) || damage <= 0) continue;
       this.player.takeEnvironmentalDamage(damage);
       this.bus.emit('hazard:triggered', {
@@ -102,5 +116,6 @@ export class HazardSystem implements System {
       rect.destroy();
     }
     this.visuals.length = 0;
+    this.phaseVisuals.clear();
   }
 }

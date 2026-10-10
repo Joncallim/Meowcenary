@@ -1,3 +1,4 @@
+import type { ResolvedArenaLayout } from '../gameplay/arenaLayout';
 /**
  * Resource loading/closure system.
  *
@@ -226,9 +227,11 @@ export function resolveRunPhysicalResources(options: {
   readonly data: GameData;
   readonly characterId: string;
   readonly arena: Readonly<ArenaDefinition>;
+  readonly layout?: ResolvedArenaLayout;
   readonly encounterEnemyIds: readonly string[];
   readonly bossId?: string;
 }): readonly VisualTextureResource[] {
+  if (options.layout && options.layout.arena !== options.arena) throw new Error('Resource closure must consume the prepared layout arena');
   const art = new DataVisualArtRegistry(options.data);
   const resourceById = new Map(options.data.visualResources.map((resource) => [resource.id, resource]));
   const artIds = new Set<string>();
@@ -243,7 +246,7 @@ export function resolveRunPhysicalResources(options: {
     if (!ability.presentation.iconArtId) throw new Error(`Run resource closure references ability "${selectedCharacter.abilityId}" without presentation art`);
     addArt(ability.presentation.iconArtId);
   }
-  for (const id of options.arena.visual.floorArtIds) addArt(id);
+  for (const id of options.layout ? [options.arena.visual.floorArtIds[0]!, ...options.layout.floorPlan] : options.arena.visual.floorArtIds) addArt(id);
   for (const id of Object.values(options.arena.visual.boundary)) addArt(id);
   for (const decoration of options.arena.visual.decorations) addArt(decoration.artId);
   for (const skin of options.arena.visual.obstacleSkins) addArt(skin.artId);

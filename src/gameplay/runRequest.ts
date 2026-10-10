@@ -86,3 +86,9 @@ export function assembleComposedRunRequest(ctx: GameContext, rng: Pick<Rng, 'int
   if (!stage) throw new Error('No valid stage is available for normal run composition');
   return createStageRunRequest({ characterId, stageId: stage.id, rng });
 }
+
+/** Terminal replay draws its seed at Menu; loading retries retain the captured request. */
+export function reseedRunRequest(request: ComposedRunRequest, seed: number): ComposedRunRequest {
+  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffff_ffff) throw new Error("Invalid run seed");
+  return Object.freeze({ ...request, seed });
+}
