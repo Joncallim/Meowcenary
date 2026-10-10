@@ -23,10 +23,8 @@ function eventFamilyTier(
  * Game-scoped audio manager (Epic 10, docs/architecture/epic-10-audio.md §8).
  *
  * One instance per game lifetime, constructed and inited by BootScene and
- * published under AUDIO_MANAGER_REGISTRY_KEY — BootScene wiring lands in
- * Slice 3 (docs/architecture/epic-10-audio.md §9.1); until then this class
- * is deliberately unwired and the game is silent by design (§13 slice
- * table, Slice 2 row). Scenes only fetch it, forward `update(dtMs)`, call
+ * published under AUDIO_MANAGER_REGISTRY_KEY. Scenes only fetch it,
+ * forward `update(dtMs)`, call
  * `playMusic`, and wire the first-gesture `unlock` — they never construct,
  * init, or destroy it, and shutdown never touches `sound.stopAll()` (that
  * is the global manager).
@@ -75,23 +73,19 @@ function isAudioManager(value: unknown): value is AudioManager {
 }
 
 interface MusicFade {
-  readonly fromVolume: number;
+  readonly fromGain: number;
   readonly durationMs: number;
   elapsedMs: number;
 }
 
-/**
- * Structural slice of Phaser's sound instances the manager retains. Phaser's
- * sound classes disagree on members (NoAudioSound is bare, HTML5/WebAudio
- * differ), so the manager narrows `sound.add`'s union result to the small
- * surface it uses — no Phaser typings are needed at runtime.
- */
-interface MusicLoop {
-  readonly volume: number;
-  play(config?: { readonly loop?: boolean; readonly volume?: number; readonly mute?: boolean }): unknown;
-  stop(): unknown;
-  setMute(muted: boolean): unknown;
-  setVolume(volume: number): unknown;
+/** All Phaser 3.90 backends expose this lifecycle, including NoAudio. */
+type SoundHandle = ReturnType<Phaser.Scene['sound']['add']>;
+
+interface OwnedVoice {
+  readonly sound: SoundHandle;
+  released: boolean;
+  /** Failed starts are removed immediately: NoAudio has no update sweep. */
+  release(removeImmediately?: boolean): void;
 }
 
 function clamp01(value: number): number {
@@ -118,9 +112,11 @@ export class AudioManager implements System {
   // MAX_SAFE_INTEGER ms) — no concern for session-scoped use, and cooldown
   // logic compares differences, never absolute magnitudes.
   private nowMs = 0;
-  private currentMusic?: MusicLoop;
+  private currentMusic?: OwnedVoice;
+  private readonly activeSfx = new Map<OwnedVoice, number>();
   private currentMusicKey?: string;
   private pendingMusicKey?: string;
+  private musicIntent = 0;
   private fade?: MusicFade;
   private initialized = false;
   private destroyed = false;
@@ -182,8 +178,16 @@ export class AudioManager implements System {
     if (!shouldPlay(this.lastPlayed.get(sfxKey), this.nowMs, this.cooldownMsByKey.get(sfxKey) ?? 0)) {
       return;
     }
-    this.scene.sound.play(sfxKey, { volume: clamp01(this.sfxVolume * volumeMultiplier) });
-    this.lastPlayed.set(sfxKey, this.nowMs);
+    const voice = this.addVoice(sfxKey);
+    if (!voice) return;
+    if (this.destroyed || this.muted || this.scene.sound.locked) {
+      voice.release(true);
+      return;
+    }
+    this.activeSfx.set(voice, volumeMultiplier);
+    if (this.startVoice(voice, { volume: clamp01(this.sfxVolume * volumeMultiplier) })) {
+      this.lastPlayed.set(sfxKey, this.nowMs);
+    }
   }
 
   /** Scene-selected, manager-executed: menu/run loops (§4.5). Same-key calls
@@ -191,9 +195,16 @@ export class AudioManager implements System {
    *  the loop fresh); while locked the key is deferred, never played. */
   playMusic(musicKey: string): void {
     if (this.destroyed || !this.initialized) return;
+    const intent = ++this.musicIntent;
     // Same-key is a true no-op only when no fade owns the ramp; during a fade we
     // cancel it and restart fresh so a Retry/restart always replays music.
-    if (!this.fade && (musicKey === this.currentMusicKey || musicKey === this.pendingMusicKey)) return;
+    if (this.currentMusic) this.reapStoppedVoice(this.currentMusic);
+    if (!this.isCurrentMusicIntent(intent)) return;
+    if (!this.fade && musicKey === this.pendingMusicKey) return;
+    if (!this.fade && musicKey === this.currentMusicKey) {
+      this.pendingMusicKey = undefined; // Latest intent may supersede another locked request.
+      return;
+    }
     if (!this.scene.cache.audio.exists(musicKey)) {
       this.warnOnce(musicKey);
       return;
@@ -202,14 +213,25 @@ export class AudioManager implements System {
       this.pendingMusicKey = musicKey;
       return;
     }
-    // Replacement: an in-progress fade is cancelled and the old loop is
-    // stopped immediately.
-    this.stopMusic(0);
-    const loop = this.scene.sound.add(musicKey) as unknown as MusicLoop;
-    loop.play({ loop: true, volume: this.musicVolume, mute: this.muted });
-    this.currentMusic = loop;
-    this.currentMusicKey = musicKey;
+    // Internal replacement cleanup is not a new public intent. Phaser stop
+    // and destroy callbacks may synchronously issue a newer play/stop/teardown.
     this.pendingMusicKey = undefined;
+    this.currentMusic?.release();
+    if (!this.isCurrentMusicIntent(intent)) return;
+    const voice = this.addVoice(musicKey);
+    if (!voice) return;
+    if (!this.isCurrentMusicIntent(intent)) {
+      voice.release(true);
+      return;
+    }
+    // Publish before play: synchronous completion/destruction can retire only
+    // this exact voice, never a newer replacement with the same asset key.
+    this.currentMusic = voice;
+    this.currentMusicKey = musicKey;
+    this.startVoice(voice, { loop: true, volume: this.musicVolume, mute: this.muted });
+    // A newer same-key request or fade may still own this voice. Do not undo
+    // that intent; only retire a handle that no longer belongs to it.
+    if (!this.isCurrentMusicIntent(intent) && this.currentMusic !== voice) voice.release();
   }
 
   /** Non-finite (`NaN`/±Infinity) or non-positive `fadeMs` stops immediately;
@@ -218,37 +240,34 @@ export class AudioManager implements System {
    *  shutdown). */
   stopMusic(fadeMs = 0): void {
     if (this.destroyed || !this.initialized) return;
+    this.musicIntent += 1;
+    this.pendingMusicKey = undefined;
     const music = this.currentMusic;
     if (!music) {
       this.fade = undefined;
       return;
     }
     if (!Number.isFinite(fadeMs) || fadeMs <= 0) {
-      music.stop();
-      this.currentMusic = undefined;
-      this.currentMusicKey = undefined;
-      this.fade = undefined;
+      music.release();
       return;
     }
-    // Belt-and-suspenders: fromVolume is read from the MusicLoop instance the
-    // manager does not fully control, so it is clamped the same way as every
-    // volume that enters through the public surface (clamp01 never lets NaN
-    // reach the fade ramp).
-    this.fade = { fromVolume: clamp01(music.volume), elapsedMs: 0, durationMs: fadeMs };
+    // Keep the envelope independent of user gain, including gain zero.
+    this.fade = { fromGain: this.musicFadeGain(), elapsedMs: 0, durationMs: fadeMs };
   }
 
-  /** Live settings: mute always applies; music volume is deferred while a
-   *  fade owns the ramp. SFX volume applies to subsequent `play` calls. */
+  /** User gain applies live, including during fades. Muting retires one-shot
+   *  tails rather than allowing an old cue to reappear on a later unmute. */
   applySettings(settings: Settings): void {
     if (this.destroyed || !this.initialized) return;
     this.muted = settings.muted;
     this.musicVolume = clamp01(settings.musicVolume);
     this.sfxVolume = clamp01(settings.sfxVolume);
-    const music = this.currentMusic;
-    if (!music) return;
-    music.setMute(this.muted);
-    if (!this.fade) {
-      music.setVolume(this.musicVolume);
+    for (const [voice, multiplier] of this.activeSfx) {
+      if (this.muted) voice.release();
+      else this.applyVoiceGain(voice, clamp01(this.sfxVolume * multiplier));
+    }
+    if (this.currentMusic) {
+      this.applyVoiceGain(this.currentMusic, this.musicVolume * this.musicFadeGain());
     }
   }
 
@@ -270,6 +289,10 @@ export class AudioManager implements System {
     if (this.destroyed || !this.initialized) return;
     if (!Number.isFinite(dtMs) || dtMs <= 0) return;
     this.nowMs += dtMs;
+    // HTML5 tag stealing resets the old sound without complete/stop events.
+    // Do not retire paused voices: pause/blur remains Phaser's responsibility.
+    for (const voice of this.activeSfx.keys()) this.reapStoppedVoice(voice);
+    if (this.currentMusic) this.reapStoppedVoice(this.currentMusic);
     this.advanceFade(dtMs);
   }
 
@@ -278,9 +301,11 @@ export class AudioManager implements System {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.musicIntent += 1;
     this.unsubscribers.forEach((unsubscribe) => unsubscribe());
     this.unsubscribers.length = 0;
-    this.currentMusic?.stop();
+    this.currentMusic?.release();
+    for (const voice of this.activeSfx.keys()) voice.release();
     this.currentMusic = undefined;
     this.currentMusicKey = undefined;
     this.pendingMusicKey = undefined;
@@ -335,20 +360,106 @@ export class AudioManager implements System {
     this.playMusic(key);
   };
 
+  private isCurrentMusicIntent(intent: number): boolean {
+    return !this.destroyed && intent === this.musicIntent;
+  }
+
+  private musicFadeGain(): number {
+    const fade = this.fade;
+    return fade ? clamp01(fade.fromGain * (1 - fade.elapsedMs / fade.durationMs)) : 1;
+  }
+
   private advanceFade(dtMs: number): void {
     const fade = this.fade;
     const music = this.currentMusic;
     if (!fade || !music) return;
     fade.elapsedMs += dtMs;
-    const t = fade.elapsedMs / fade.durationMs;
-    if (t >= 1) {
-      music.stop();
-      this.currentMusic = undefined;
-      this.currentMusicKey = undefined;
-      this.fade = undefined;
+    if (fade.elapsedMs >= fade.durationMs) {
+      music.release();
       return;
     }
-    music.setVolume(fade.fromVolume * (1 - t));
+    this.applyVoiceGain(music, this.musicVolume * this.musicFadeGain());
+  }
+
+  /** Only an acquired voice can clear its own identity. Detach before calling
+   *  Phaser destroy (which synchronously stops and emits destroy); never
+   *  destroy again from an external destroy callback. No global stop/remove.
+   *  Completion uses normal deferred Phaser removal so its sound-update
+   *  iteration is not spliced while other voices are being updated. */
+  private addVoice(key: string): OwnedVoice | undefined {
+    let sound: SoundHandle;
+    try {
+      sound = this.scene.sound.add(key);
+    } catch {
+      return undefined; // Missing/failed backend stays optional and silent.
+    }
+    const forget = (): void => {
+      if (voice.released) return;
+      voice.released = true;
+      this.removeFromBlurResumeQueue(sound);
+      sound.off('complete', complete);
+      sound.off('destroy', forget);
+      this.activeSfx.delete(voice);
+      if (this.currentMusic === voice) {
+        this.currentMusic = undefined;
+        this.currentMusicKey = undefined;
+        this.fade = undefined;
+      }
+    };
+    const complete = (): void => voice.release();
+    const voice: OwnedVoice = {
+      sound,
+      released: false,
+      release: (removeImmediately = false): void => {
+        if (voice.released) return;
+        forget();
+        try {
+          if (removeImmediately) this.scene.sound.remove(sound);
+          else sound.destroy();
+        } catch {
+          // Audio teardown must not prevent terminal feedback or game teardown.
+        }
+      },
+    };
+    sound.on('complete', complete);
+    sound.on('destroy', forget);
+    return voice;
+  }
+
+  /** Phaser 3.90 HTML5 keeps a private blur-resume queue even after destroy.
+   *  Its focus handler does not skip pendingRemove handles. Remove only this
+   *  retiring identity; keep every unrelated paused sound and engine listener.
+   *  WebAudio/NoAudio have no such queue. Real-manager tests pin this adapter. */
+  private removeFromBlurResumeQueue(sound: SoundHandle): void {
+    const queue = (this.scene.sound as unknown as { onBlurPausedSounds?: unknown }).onBlurPausedSounds;
+    if (!Array.isArray(queue)) return;
+    for (let index = queue.length - 1; index >= 0; index -= 1) {
+      if (queue[index] === sound) queue.splice(index, 1);
+    }
+  }
+
+  private startVoice(voice: OwnedVoice, config: Phaser.Types.Sound.SoundConfig): boolean {
+    try {
+      if (voice.sound.play(config)) return true;
+    } catch {
+      // WebAudio start can throw; HTML5/NoAudio can return false.
+    }
+    voice.release(true);
+    return false;
+  }
+
+  private applyVoiceGain(voice: OwnedVoice, volume: number): void {
+    if (voice.released) return;
+    try {
+      voice.sound.setMute(this.muted);
+      voice.sound.setVolume(clamp01(volume));
+    } catch {
+      voice.release();
+    }
+  }
+
+  private reapStoppedVoice(voice: OwnedVoice): void {
+    if (!voice.sound.isPlaying && !voice.sound.isPaused) voice.release();
   }
 
   /** Dev-only, at most once per key: missing or deleted assets never throw
