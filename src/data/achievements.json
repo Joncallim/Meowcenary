@@ -636,7 +636,7 @@
   {
     "id": "achievement:quick-clear",
     "name": "Decisive Victory",
-    "description": "Clear a Contract in 3 minutes or less.",
+    "description": "Clear a non-survival Contract in 3 minutes or less.",
     "kind": "standard",
     "presentation": {
       "iconArtId": "achievement-icon:first-victory"
@@ -655,7 +655,7 @@
   {
     "id": "achievement:quick-clear-five",
     "name": "Rapid Response",
-    "description": "Clear 5 different Contracts in 3 minutes or less.",
+    "description": "Clear 5 different non-survival Contracts in 3 minutes or less.",
     "kind": "incremental",
     "presentation": {
       "iconArtId": "achievement-icon:first-victory"

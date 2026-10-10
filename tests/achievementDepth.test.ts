@@ -67,7 +67,8 @@ describe('long-term achievement facts and atomic workshop rewards', () => {
     expect(metric('contracts-cleared-under-180s', { metrics: {}, catalog: data, stages: {
       'stage:junkyard-01': { completed: true, bestTimeMs: 180000 },
       'stage:junkyard-02': { completed: true, bestTimeMs: 180001 },
-      'stage:junkyard-03': { completed: false, bestTimeMs: 1 },
+      'stage:junkyard-03': { completed: true, bestTimeMs: 120000 }, // fixed-time survival is not a speed feat
+      'stage:forge-02': { completed: true, bestTimeMs: 120000 },
       'stage:junkyard-04': { completed: true, bestTimeMs: 0 },
       'stage:retired': { completed: true, bestTimeMs: 1 },
     } })).toBe(1);
@@ -126,6 +127,24 @@ describe('long-term achievement facts and atomic workshop rewards', () => {
     const result = evaluateAchievements(state, { metrics: {}, catalog: data }, { definitions: new Map([[definition.id, definition]]), metrics: new Map([[definition.metricId!, metricExtractor(definition.metricId!)!]]) }, 1);
     expect(result.state).toBe(state);
     expect(result.rewards).toEqual([]);
+  });
+  it('removes the fabrication offer after real acquisition and reload while preserving its blueprint cost', () => {
+    const initial = createDefaultSaveV4();
+    const { context, reload } = harness({ ...initial, progression: { ...initial.progression, scrap: 200 } });
+    const controller = new EquipmentController(context);
+    expect(controller.fabricate('equipment:commando-helmet')).toBe(true);
+    expect(context.saveData.progression.scrap).toBe(100);
+    for (const current of [context, reload()]) {
+      const equipment = new EquipmentController(current);
+      const route = equipment.snapshot().acquisition.find((row) => row.equipmentId === 'equipment:commando-helmet');
+      expect(route).toMatchObject({ owned: true, available: true });
+      expect(route?.summary).toContain('Blueprint cost: 100 Scrap');
+      expect(route?.summary).toContain('No additional copy can be fabricated');
+      expect(route?.summary).not.toContain('Fabricate for');
+      expect(equipment.fabricable()).not.toContain('equipment:commando-helmet');
+      expect(equipment.fabricate('equipment:commando-helmet')).toBe(false);
+      expect(current.saveData.progression.scrap).toBe(100);
+    }
   });
   it('equipment read models distinguish available blueprints and actual ownership without grants', () => {
     const { context } = harness();

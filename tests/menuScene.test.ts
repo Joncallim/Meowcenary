@@ -870,7 +870,7 @@ describe('MenuScene', () => {
     const root = scene.root, maskContent = scene.scrollMaskContainer;
     const slotBounds = { ...scene.scrollItemBounds.get(0)! };
     const candidate = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
-    const blueprint = harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!;
+    const blueprint = harness.buttonByLabel('Commando Helmet\nBLUEPRINT • NOT OWNED • 100 Scrap')!;
     const before = harness.context.saveData;
     candidate.state.handlers.pointerup!();
     const longHeight = scene.scrollRegion.contentHeight;
@@ -902,7 +902,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as { root: FakeObject; committedDisplay: boolean };
     const firstRoot = scene.root;
-    harness.buttonByLabel('Pyro Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Pyro Helmet\nBLUEPRINT • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     expect(scene.root).not.toBe(firstRoot);
     expect(firstRoot.state.destroyed).toBe(true);
     expect(harness.textContents().join('\n')).toContain('Pyro Set');
@@ -1056,7 +1056,7 @@ describe('MenuScene', () => {
     });
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     frames.length = 0;
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nBLUEPRINT • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     const fabricate = harness.buttonByLabel('Fabricate for 100 Scrap')!;
     const back = harness.buttonByLabel('Back')!;
     const cardFor = (button: FakeObject) => frames.find(({ name, frame }) => name === 'figma-card'
@@ -1226,7 +1226,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('BROWSE SETS')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     expect(harness.textContents().some((copy) => copy.includes('2-piece'))).toBe(true);
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nBLUEPRINT • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     scene.handleResize();
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-blueprint-detail:equipment:commando-helmet');
@@ -1249,7 +1249,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     const before = harness.context.saveData;
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nBLUEPRINT • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     expect(harness.textContents().join('\n')).toContain('Creates a stored T1 item');
     harness.buttonByLabel('Fabricate for 100 Scrap')!.state.handlers.pointerup!();
@@ -3336,9 +3336,9 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers['pointerup']!();
 
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
-    expect(harness.textContents()).toContain('Commando Helmet\nFABRICABLE • 100 Scrap');
+    expect(harness.textContents()).toContain('Commando Helmet\nBLUEPRINT • NOT OWNED • 100 Scrap');
     expect(harness.textContents().some((text) => text.includes('Commando Armour'))).toBe(false);
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nBLUEPRINT • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('+5% Fire Rate [All Weapons]');
     expect(harness.textContents()).toContain('Fabricate for 100 Scrap');
     expect(addLoadoutArt).toHaveBeenCalledWith(

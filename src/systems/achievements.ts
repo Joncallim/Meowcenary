@@ -49,6 +49,8 @@ const METRIC_EXTRACTORS: ReadonlyMap<string, MetricExtractor> = new Map<string, 
   ['metric:runs-completed', (facts) => facts.metrics['metric:runs-completed'] ?? 0],
   ['metric:scrap-banked', (facts) => facts.metrics['metric:scrap-banked'] ?? 0],
   ['metric:contracts-cleared-under-180s', (facts) => (facts.catalog?.stages ?? []).filter((stage) => {
+    // Fixed-duration survival cannot demonstrate faster completion.
+    if (stage.objective.type === 'survive') return false;
     const progress = facts.stages?.[stage.id];
     return progress?.completed === true && progress.bestTimeMs !== undefined && progress.bestTimeMs > 0 && progress.bestTimeMs <= 180_000;
   }).length],
