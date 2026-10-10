@@ -1,5 +1,6 @@
 -- Lossless authored Mercenary raster loader. The checked-in raster is the
--- reviewed pixel authority; this builder only restores those pixels into an
+-- production candidate; visual authority remains the canonical reference and
+-- recorded owner approval. This builder only restores those pixels into an
 -- editable Pixelorama project and never reconstructs a silhouette.
 local U = dofile("docs/art/scripts/lib/sprite-utils.lua")
 local M = {}

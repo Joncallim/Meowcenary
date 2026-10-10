@@ -246,6 +246,22 @@ describe('Volt Lynx production-art distinction', () => {
     }
   });
 
+  it('keeps all eight Mercenaries clear of every source-frame border', () => {
+    const ids = ['scrap-tabby', 'bolt-hound', 'volt-lynx', 'brass-boar',
+      'ember-cougar', 'scrap-weasel', 'rattle-raptor', 'piston-ram'] as const;
+    for (const id of ids) {
+      const png = decodeRgbaPng(`public/assets/characters/${id}/${id}.png`);
+      for (let frame = 0; frame < 16; frame += 1) {
+        const edge = [...frameAlphaMask(png, frame)].filter((pixel) => {
+          const x = pixel % 48;
+          const y = Math.floor(pixel / 48);
+          return x === 0 || x === 47 || y === 0 || y === 47;
+        });
+        expect(edge, `${id} frame ${frame + 1} meets the source-frame border`).toEqual([]);
+      }
+    }
+  });
+
   it('keeps distinct logical and physical resources under the character-specific run closure', () => {
     const data = loadGameData();
     const registry = new DataVisualArtRegistry(data);
