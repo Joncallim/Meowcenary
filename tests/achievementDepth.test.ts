@@ -111,11 +111,12 @@ describe('long-term achievement facts and atomic workshop rewards', () => {
   it('shows partial chapter/mastery progress and retains completed and retired history', () => {
     const save = createDefaultSaveV4();
     const { context, data } = harness({ ...save, stages: { 'stage:junkyard-01': { completed: true } }, characters: { 'scrap-tabby': { tier: 3, xp: 300 } },
-      achievements: { 'achievement:retired-proof': { completed: true }, 'achievement:first-kill': { completed: true } } });
+      achievements: { 'achievement:retired-proof': { completed: true }, 'achievement:veteran-scrap-tabby': { completed: true, progress: 1 }, 'achievement:first-kill': { completed: true } } });
     const views = new AchievementsController(context, new DataAchievementRegistry({ achievements: data.achievements })).snapshot().achievements;
     expect(views.find((a) => a.id === 'achievement:chapter-junkyard')).toMatchObject({ progress: 1, target: 5, status: 'in-progress' });
-    expect(views.find((a) => a.id === 'achievement:veteran-scrap-tabby')).toMatchObject({ progress: 3, target: 5 });
+    expect(views.find((a) => a.id === 'achievement:tabby-specialist')).toMatchObject({ progress: 3, target: 10 });
     expect(context.saveData.achievements['achievement:retired-proof']?.completed).toBe(true);
+    expect(context.saveData.achievements['achievement:veteran-scrap-tabby']).toEqual({ completed: true, progress: 1 });
     expect(context.saveData.progression.scrap).toBe(75); // Tabby tier 1 reconciles; First Blood does not replay.
   });
   it('accepts a second data-only engineering goal and never revokes its earned milestone', () => {
