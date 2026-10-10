@@ -1,5 +1,5 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
-import { dismissRunStartBrief } from './run-start-helpers';
+import { completeRunStartIntro } from './run-start-helpers';
 
 type Button = { text: string; visible: boolean; interactive: boolean; bounds: { x: number; y: number; width: number; height: number } };
 type EventFact = { owner: string; facts: Record<string, string | number | boolean | readonly string[]> };
@@ -31,7 +31,7 @@ async function launchByRealInput(page: Page, testInfo: TestInfo): Promise<void> 
 async function launch(page: Page, testInfo: TestInfo): Promise<void> {
   await launchByRealInput(page, testInfo);
   expect(await page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
-  await dismissRunStartBrief(page, testInfo.project.use.hasTouch ? 'touch' : 'mouse');
+  await completeRunStartIntro(page, testInfo.project.use.hasTouch ? 'touch' : 'mouse');
   expect(await page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(true);
 }
 
@@ -110,7 +110,7 @@ test('Home loads only menu audio; real Play Contract waits for run audio without
     await page.screenshot({ path: testInfo.outputPath('delayed-run-audio.png') });
     releaseMusic();
     expect(await page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
-    await dismissRunStartBrief(page, testInfo.project.use.hasTouch ? 'touch' : 'mouse');
+    await completeRunStartIntro(page, testInfo.project.use.hasTouch ? 'touch' : 'mouse');
     expect(await page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(true);
   } finally { releaseMusic(); }
 });

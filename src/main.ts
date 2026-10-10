@@ -151,6 +151,10 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
   let abilityObservedRun: object | undefined;
   let stopAbilityObservation: (() => void) | undefined;
   let abilityResolution: GameEventMap['ability:resolved'] | undefined;
+  let observedIntroIdentity: import('./presentation/runStartIntro').RunStartIntroModel['identity'] | undefined;
+  let observedIntroObjective: import('./presentation/runStartIntro').RunStartIntroModel['objective'] | undefined;
+  let observedRunStart: { count: number; timeMs?: number; atMs?: number } = { count: 0 };
+  let observedTerminalEvents = 0;
   game.events.once(Phaser.Core.Events.DESTROY, () => { stopAbilityObservation?.(); abilityObservedRun=undefined; abilityResolution=undefined; });
   type UpgradeFixtureScene = Phaser.Scene & {
     runState?: RunState;
@@ -336,13 +340,13 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       pendingGunsmithArtIds: scene?.pendingGunsmithArtIds?.size ?? 0,
     };
   };
-  // Tests wait for the logical input owner, rather than a generic animation
-  // frame, to confirm that a released keyboard key has been polled neutral.
+  // Tests observe the owning physical/logical boundary after a real input
+  // frame, including keys, pointers and native pad state across scene handoff.
   const isMenuInputNeutral = (): boolean => {
     const scene = game.scene.getScene('MenuScene') as unknown as {
-      inputController?: { core?: { isNeutral?(): boolean } };
+      inputController?: { isNeutral(): boolean; isQuarantined(): boolean };
     };
-    return !game.scene.isActive('MenuScene') || scene.inputController?.core?.isNeutral?.() === true;
+    return !game.scene.isActive('MenuScene') || (scene.inputController?.isNeutral() === true && !scene.inputController.isQuarantined());
   };
   const waitBeforeDeadline = (pending: Promise<unknown>, deadline: number): Promise<boolean> => new Promise((resolve) => {
     let completed = false;
@@ -473,38 +477,76 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         scene.dropSystem?.spawnDrop(scene.player.x+52,scene.player.y,{kind:'scrap',amount:7});
         return true;
       },
-      runStartBriefDiagnostics: (): Record<string, unknown> | undefined => {
+      runStartIntroDiagnostics: (): Record<string, unknown> | undefined => {
         const scene = game.scene.getScene('GameScene') as unknown as {
-          runState?: {status:string;timeMs:number;characterId:string}; player?:{x:number;y:number;health:number};
-          getContext():{bus:EventBus}; inputController?:{getInputMode():string;core:{isNeutral():boolean}};
-          orientationBlocked:boolean;enemies?:readonly unknown[]; abilityState?:unknown; abilityDefinition?:unknown;
-          controlsView?:{abilityUiState:unknown;abilityButton?:Phaser.GameObjects.Rectangle;hintText?:Phaser.GameObjects.Text};
-          abilityPresentationSystem?:{banner:Phaser.GameObjects.Text;persistent?:unknown;transient?:unknown};
-          runStartBrief?: {root?:Phaser.GameObjects.Container;model:unknown;buttons:Array<{target:Phaser.GameObjects.Rectangle}>}; cameras:Phaser.Cameras.Scene2D.CameraManager;
+          runState?: { status: string; timeMs: number; characterId: string }; player?: { x: number; y: number; health: number };
+          getContext(): { bus: EventBus }; inputController?: { getInputMode(): string; isNeutral(): boolean; isQuarantined(): boolean };
+          orientationBlocked: boolean; recovering?: boolean; enemies?: readonly unknown[]; abilityState?: unknown; abilityDefinition?: unknown;
+          controlsView?: { abilityUiState: unknown; abilityButton?: Phaser.GameObjects.Rectangle; hintText?: Phaser.GameObjects.Text };
+          abilityPresentationSystem?: { banner: Phaser.GameObjects.Text; persistent?: unknown; transient?: unknown };
+          introModel?: import('./presentation/runStartIntro').RunStartIntroModel;
+          introController?: { snapshot(): import('./ui/runStartIntroController').IntroSnapshot };
+          introView?: {
+            root?: Phaser.GameObjects.Container; content?: Phaser.GameObjects.Container;
+            contentBounds: { x: number; y: number; width: number; height: number }; scrollOffset: number; maxScroll: number;
+            focusedCommand(): import('./ui/runStartIntroController').IntroCommand | undefined;
+            buttons: Array<{ command: import('./ui/runStartIntroController').IntroCommand; label: string; rect: Phaser.GameObjects.Rectangle }>;
+          };
+          canInteractWithIntro(): boolean; cameras: Phaser.Cameras.Scene2D.CameraManager;
         };
-        if (!game.scene.isActive('GameScene') || !scene.runState) return undefined;
-        if(abilityObservedRun!==scene.runState) {
-          stopAbilityObservation?.();abilityObservedRun=scene.runState;abilityResolution=undefined;
-          const run=scene.runState;
-          stopAbilityObservation=scene.getContext().bus.on('ability:resolved',event=>{if(scene.runState===run)abilityResolution=event;});
+        const active = game.scene.isActive('GameScene');
+        if (!active || !scene.runState) {
+          return abilityObservedRun ? { visible: false, status: 'menu', phase: observedRunStart.count > 0 ? 'consumed' : 'cancelled', revision: null,
+            identity: observedIntroIdentity, objective: observedIntroObjective, runStart: { ...observedRunStart }, terminalEvents: observedTerminalEvents, commands: [] } : undefined;
         }
-        const camera=scene.cameras.main, rect=game.canvas.getBoundingClientRect();
-        const bounds=(target:Phaser.GameObjects.Rectangle|Phaser.GameObjects.Text)=>{
-          const matrix=Phaser.GameObjects.GetCalcMatrix(target,camera,target.parentContainer?.getWorldTransformMatrix()).calc;
-          const point=matrix.transformPoint(-target.displayOriginX,-target.displayOriginY);
-          return {x:rect.left+point.x*rect.width/game.scale.gameSize.width,y:rect.top+point.y*rect.height/game.scale.gameSize.height,
-            width:target.width*camera.zoom*rect.width/game.scale.gameSize.width,height:target.height*camera.zoom*rect.height/game.scale.gameSize.height};
+        if (abilityObservedRun !== scene.runState) {
+          stopAbilityObservation?.(); abilityObservedRun = scene.runState; abilityResolution = undefined;
+          observedIntroIdentity = scene.introModel?.identity; observedIntroObjective = scene.introModel?.objective;
+          observedRunStart = { count: 0 }; observedTerminalEvents = 0;
+          const run = scene.runState; const bus = scene.getContext().bus;
+          const stops = [
+            bus.on('ability:resolved', event => { if (scene.runState === run) abilityResolution = event; }),
+            bus.on('run:start', () => { if (scene.runState === run) observedRunStart = { count: observedRunStart.count + 1, timeMs: run.timeMs, atMs: performance.now() }; }),
+            bus.on('run:won', () => { if (scene.runState === run) observedTerminalEvents += 1; }),
+            bus.on('run:lost', () => { if (scene.runState === run) observedTerminalEvents += 1; }),
+          ];
+          stopAbilityObservation = () => stops.forEach(stop => stop());
+        }
+        const camera = scene.cameras.main, canvas = game.canvas.getBoundingClientRect();
+        const project = (matrix: Phaser.GameObjects.Components.TransformMatrix, x: number, y: number, width: number, height: number) => {
+          const first = matrix.transformPoint(x, y), last = matrix.transformPoint(x + width, y + height);
+          return { x: canvas.left + first.x * canvas.width / game.scale.gameSize.width,
+            y: canvas.top + first.y * canvas.height / game.scale.gameSize.height,
+            width: (last.x - first.x) * canvas.width / game.scale.gameSize.width,
+            height: (last.y - first.y) * canvas.height / game.scale.gameSize.height };
         };
-        const buttons=(scene.runStartBrief?.buttons??[]).map(({target})=>bounds(target));
-        const fx=scene.abilityPresentationSystem;
-        return {visible:!!scene.runStartBrief,status:scene.runState.status,timeMs:scene.runState.timeMs,
-          characterId:scene.runState.characterId,player:scene.player?{x:scene.player.x,y:scene.player.y,health:scene.player.health}:undefined,
-          enemies:scene.enemies?.length,abilityState:scene.abilityState,abilityDefinition:scene.abilityDefinition,model:scene.runStartBrief?.model,buttons,
-          inputMode:scene.inputController?.getInputMode(),inputNeutral:scene.inputController?.core.isNeutral(),orientationBlocked:scene.orientationBlocked,
-          abilityUiState:scene.controlsView?.abilityUiState,abilityButton:scene.controlsView?.abilityButton?bounds(scene.controlsView.abilityButton):undefined,
-          controlsHint:scene.controlsView?.hintText?{text:scene.controlsView.hintText.text,...bounds(scene.controlsView.hintText),visible:scene.controlsView.hintText.visible&&scene.controlsView.hintText.alpha>0}:undefined,
-          abilityBanner:fx?.banner.text,abilityFx:{persistent:fx?.persistent,transient:fx?.transient},activationId:abilityResolution?.activationId??0,latestResolution:abilityResolution?.resolution,
-          briefText:(scene.runStartBrief?.root?.list??[]).filter((o):o is Phaser.GameObjects.Text=>o instanceof Phaser.GameObjects.Text).map(o=>({text:o.text,...bounds(o)}))};
+        const bounds = (target: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text) => project(
+          Phaser.GameObjects.GetCalcMatrix(target, camera, target.parentContainer?.getWorldTransformMatrix()).calc,
+          -target.displayOriginX, -target.displayOriginY, target.width, target.height);
+        const view = scene.introView, state = scene.introController?.snapshot();
+        const ready = scene.canInteractWithIntro();
+        const commands = (view?.buttons ?? []).map(({ command, label, rect }) => ({ command, label, bounds: bounds(rect), enabled: ready }));
+        const text: Array<Record<string, unknown>> = [];
+        const walk = (node: Phaser.GameObjects.GameObject): void => {
+          if (node instanceof Phaser.GameObjects.Text) text.push({ text: node.text, ...bounds(node), inScrollBody: node.parentContainer === view?.content });
+          for (const child of (node as Phaser.GameObjects.Container).list ?? []) walk(child);
+        };
+        if (view?.root) walk(view.root);
+        const body = view?.root ? project(Phaser.GameObjects.GetCalcMatrix(view.root, camera, view.root.parentContainer?.getWorldTransformMatrix()).calc,
+          view.contentBounds.x, view.contentBounds.y, view.contentBounds.width, view.contentBounds.height) : undefined;
+        const fx = scene.abilityPresentationSystem;
+        return { visible: Boolean(view?.root), phase: state?.phase ?? (scene.recovering ? 'cancelled' : 'consumed'), revision: state?.revision ?? null,
+          status: scene.runState.status, timeMs: scene.runState.timeMs, identity: observedIntroIdentity, objective: observedIntroObjective,
+          focusedCommand: view?.focusedCommand(), ready, commands, body, scroll: view ? { offset: view.scrollOffset, max: view.maxScroll } : undefined,
+          runStart: { ...observedRunStart }, terminalEvents: observedTerminalEvents,
+          characterId: scene.runState.characterId, player: scene.player ? { x: scene.player.x, y: scene.player.y, health: scene.player.health } : undefined,
+          enemies: scene.enemies?.length, abilityState: scene.abilityState, abilityDefinition: scene.abilityDefinition, model: scene.introModel,
+          inputMode: scene.inputController?.getInputMode(), inputNeutral: scene.inputController?.isNeutral() === true,
+          inputQuarantined: scene.inputController?.isQuarantined() !== false, orientationBlocked: scene.orientationBlocked,
+          abilityUiState: scene.controlsView?.abilityUiState, abilityButton: scene.controlsView?.abilityButton ? bounds(scene.controlsView.abilityButton) : undefined,
+          controlsHint: scene.controlsView?.hintText ? { text: scene.controlsView.hintText.text, ...bounds(scene.controlsView.hintText), visible: scene.controlsView.hintText.visible && scene.controlsView.hintText.alpha > 0 } : undefined,
+          abilityBanner: fx?.banner.text, abilityFx: { persistent: fx?.persistent, transient: fx?.transient }, activationId: abilityResolution?.activationId ?? 0,
+          latestResolution: abilityResolution?.resolution, introText: text };
       },
       waitForPreparedGame: async (): Promise<boolean> => {
         // Join the owning serialized loader rather than imposing a synthetic

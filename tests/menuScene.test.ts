@@ -444,8 +444,8 @@ function createFakeScene(
   };
 }
 
-function createHarness(options: { create?: boolean; audio?: boolean } = { create: true }) {
-  const data = loadGameData();
+function createHarness(options: { create?: boolean; audio?: boolean; data?: ReturnType<typeof loadGameData> } = { create: true }) {
+  const data = options.data ?? loadGameData();
   const arenas = new DataArenaRegistry(data);
   const metaUpgrades = new DataMetaUpgradeRegistry(data);
   const characters = new DataCharacterRegistry(data);
@@ -474,6 +474,8 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
   Object.assign(menuScene, environment);
   if (options.create !== false) {
     menuScene.create();
+    menuScene.update(0, 0); // Real neutral entry frame precedes a fresh test gesture.
+    audioFake?.update.mockClear(); // Count each test’s updates after entry setup.
   }
 
   return { menuScene, ...helpers, audioFake, bus: context.bus, context };
@@ -732,9 +734,11 @@ describe('MenuScene', () => {
     const root = scene.root!; const content = scene.panelContentRoot!;
     const button = harness.buttonByLabel('HELMET\nT1 • EQUIPPED')!;
     const command = button.state.handlers.pointerup;
+    const retainedBack = harness.buttonByLabel('Return to Contract')!;
     harness.input.emit('wheel', { isDown: false }, [], 0, 120);
     const controls = harness.menuScene.loadoutUiDiagnostics().buttons;
     const scrollOffset = scene.scrollRegion.scrollOffset;
+    const hydrationGesture = scenario === 'current mount' ? gesture(harness, retainedBack) : undefined;
     const before = harness.menuScene.renderRebuildCount;
     const revision = harness.menuScene.renderRevisionCount;
     const saved = structuredClone(harness.context.saveData);
@@ -802,6 +806,12 @@ describe('MenuScene', () => {
     expect(slot!.alpha).toBe(1);
     expect({ x: slot!.x, y: slot!.y, width: slot!.width, height: slot!.height, mask: slot!.state.mask, visible: slot!.state.visible }).toEqual(geometry);
     expect(root.state.destroyed).toBe(false);
+    if (hydrationGesture) {
+      hydrationGesture.release();
+      expect(harness.menuScene.loadoutUiDiagnostics().panel).toBe('loadout');
+      gesture(harness, retainedBack).release();
+      expect(harness.menuScene.loadoutUiDiagnostics().panel).toBe('stage');
+    }
     if (scenario === 'returned and resized mount') {
       expect(obsoleteImages.every(image => image.state.destroyed)).toBe(true);
       expect(obsoleteImages.filter(image => image.textureKey === '__DEFAULT').every(image => image.alpha === 0)).toBe(true);
@@ -3006,7 +3016,7 @@ describe('MenuScene', () => {
     harness.input.emit('pointerdown', { isDown: true, y: 500 });
     harness.input.emit('pointermove', { isDown: true, y: 300 });
     const afterFirstDrag = scene.scrollRegion!.scrollOffset;
-    row.emit('pointerup');
+    row.emit('pointerup', { id: 1, isDown: false, y: 300 });
     expect(confirms).toEqual([]);
     harness.input.emit('pointerup', { isDown: false, y: 300 });
     harness.input.emit('pointerdown', { isDown: true, y: 500 });
@@ -3062,7 +3072,9 @@ describe('MenuScene', () => {
       expect(title.state.y).toBeGreaterThanOrEqual(margin('top'));
       const hint = liveText('Tap a choice');
       expect(hint.state.x).toBe(margin('left'));
-      expect(hint.state.y).toBe(viewport.canvasHeight - margin('bottom') - 14);
+      // This legacy fake gives all three copies the same height. The footer
+      // now reserves measured copy height instead of assuming a 14px line.
+      expect(hint.state.y + hint.state.height).toBe(viewport.canvasHeight - margin('bottom'));
       expect(hint.state.x + hint.state.width).toBeLessThanOrEqual(viewport.canvasWidth - margin('right'));
 
       // Sub-panel: Back is anchored above the bottom margin band with its
@@ -3189,7 +3201,8 @@ describe('MenuScene', () => {
 
   it('shows campaign completion as a replay frontier and never wraps the hero back to Next Contract', () => {
     const harness = createHarness();
-    for (const stage of harness.context.stages.allStages()) harness.context.completeStage(stage.id, 60_000);
+    for (const stage of harness.context.stages.allStages().filter(row => row.campaignRole !== 'optional')) harness.context.completeStage(stage.id, 60_000);
+    harness.context.selectStage('stage:junkyard-06', harness.context.stageSelectionRevision);
     const scene = harness.menuScene as unknown as {
       controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
       render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
@@ -3303,6 +3316,7 @@ describe('MenuScene', () => {
     // Restore focus-driven position, then prove controller Down reveals the
     // selected detail tail before focus is allowed to leave for fixed Back.
     scene.render({ ...base, panel: 'stage', stage: { ...base.stage, selectedStageId: stages[finalIndex]!.id, stages } });
+    harness.menuScene.update(0, 0); // Admit only a new gesture after scene entry.
     // The Phaser production Text reports its wrapped height. The lightweight
     // fake does not, so extend the same shared detail extent to represent the
     // wrapped N+1 roster at 360px.
@@ -3905,6 +3919,20 @@ describe('MenuScene', () => {
     expect(rings()[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     const seams = harness.menuScene as unknown as { navigator: { index: number } };
     expect(seams.navigator.index).toBe(0);
+  });
+
+  it('shows a completed campaign separately from unfinished optional Contracts in Career', () => {
+    const harness = createHarness();
+    for (const stage of harness.context.stages.allStages()) {
+      if (stage.campaignRole !== 'optional') {
+        expect(harness.context.completeStage(stage.id, 60_000)).toBe(true);
+      }
+    }
+    const saved = harness.context.saveData;
+    harness.buttonByLabel('Career')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Next Goals')!.state.handlers.pointerup!();
+    expect(harness.textContents().join('\n')).toContain('Campaign 10/10 · Optional 0/4');
+    expect(harness.context.saveData).toBe(saved);
   });
 
   it('routes Career to Compendium as a real, reachable panel (F6)', () => {
@@ -4681,6 +4709,7 @@ describe('MenuScene', () => {
       expect.arrayContaining(['Something went wrong — press Esc to retry']),
     );
 
+    harness.menuScene.update(0, 0); // Release the entry quarantine before a fresh Esc.
     // Esc goes through handleBack -> render and rebuilds the home panel,
     // replacing the fallback root.
     harness.keyboard.keydown('Escape');
@@ -5037,4 +5066,325 @@ describe('Menu transition input boundary', () => {
     expect(events).toEqual([]);
     expect(scene.navigator.index).toBe(0);
   });
+});
+
+describe('Menu physical gesture admission', () => {
+  it('rejects a release without a current matching press', () => {
+    const harness = createHarness(); harness.menuScene.update(0, 16);
+    const button = harness.buttonByLabel('Loadout')!;
+    button.state.handlers.pointerup!({ id: 9, x: 120, y: 120 });
+    expect(harness.textContents()).not.toContain('Equipment');
+  });
+});
+
+
+function gesture(harness: ReturnType<typeof createHarness>, button: FakeObject, id = 7) {
+  const scene = harness.menuScene as any;
+  scene.update(0, 0);
+  const bounds = button.getBounds();
+  const pointer = { id, x: bounds.centerX, y: bounds.centerY, isDown: true };
+  // Phaser dispatches object down before scene down, then object up before
+  // scene up. Keep both routes visible rather than calling only a callback.
+  button.state.handlers.pointerdown?.(pointer);
+  harness.input.emit('pointerdown', pointer, [button]);
+  return { pointer, release: () => {
+    pointer.isDown = false; button.state.handlers.pointerup?.(pointer); harness.input.emit('pointerup', pointer);
+    scene.update(0, 0);
+  } };
+}
+
+describe('retained Menu physical controls', () => {
+  it.each(['equipment', 'gunsmith'] as const)('admits new prefix/Back gestures after %s body mutation but revokes old presses', panel => {
+    const h = createHarness(); const scene = h.menuScene as any;
+    h.context.updateEquipment(() => ({ equipment: { commando: { equipmentId: 'equipment:commando-helmet', tier: 1 }, recon: { equipmentId: 'equipment:recon-helmet', tier: 1 } }, loadout: { helmet: 'commando' } }));
+    h.context.updateGunsmith(() => ({ parts: {}, fabricationSerials: {}, builds: [
+      { id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] },
+      { id: 'build:smg', name: 'SMG Build', baseWeaponFamily: 'smg', fitted: {}, traitParts: [] },
+    ], selectedBuildId: 'build:pistol' }));
+    scene.render(scene.controller.open(panel));
+    const retained = panel === 'equipment' ? buttonByKey(h, 'equipment-slot:armour') : buttonByKey(h, 'gunsmith-family:smg');
+    const root = scene.root; const old = gesture(h, retained);
+    if (panel === 'equipment') expect(scene.tryUpdateSurfaceMutation(scene.controller.selectEquipmentCandidate('recon'), 'equipment-selection')).toBe(true);
+    else expect(scene.tryUpdateSurfaceMutation(scene.controller.selectGunBuild('build:smg'), 'gunsmith-body')).toBe(true);
+    // Partial replacement must truly retain the original callback/object.
+    expect(scene.root).toBe(root); expect(scene.focusables).toContain(retained);
+    const event = vi.fn(); h.bus.on('ui:confirm', event); old.release(); expect(event).not.toHaveBeenCalled();
+    gesture(h, retained).release(); expect(event).toHaveBeenCalledOnce();
+    const back = h.buttonByLabel('Back')!; const backEvent = vi.fn(); h.bus.on('ui:back', backEvent);
+    gesture(h, back).release(); expect(backEvent).toHaveBeenCalledOnce();
+    expect(scene.committedPanel).toBe('loadout');
+  });
+  it('revokes a press on resize, blur, pointer-out and outside release while fresh controls rearm', () => {
+    for (const interruption of ['resize', 'blur', 'out', 'outside', 'cancel']) {
+      const h = createHarness(); const scene = h.menuScene as any;
+      const old = h.buttonByLabel('Loadout')!; const press = gesture(h, old);
+      if (interruption === 'resize') scene.handleResize();
+      if (interruption === 'blur') { scene.handleInputBlur(); scene.handleInputFocus(); }
+      if (interruption === 'out') old.state.handlers.pointerout!(press.pointer);
+      if (interruption === 'outside') h.input.emit('pointerupoutside', press.pointer);
+      if (interruption === 'cancel') Object.assign(press.pointer, { wasCanceled: true });
+      press.release(); expect(scene.committedPanel).toBe('home');
+      gesture(h, h.buttonByLabel('Loadout')!).release(); expect(scene.committedPanel).toBe('loadout');
+    }
+  });
+});
+
+describe('Menu optional ability launch and retry', () => {
+  it.each([false, true])('prepares a captured explicit ability-absent briefing for Training=%s', async training => {
+    const data = structuredClone(loadGameData()); delete (data.characters[0] as { abilityId?: string }).abilityId;
+    const h = createHarness({ data }); const scene = h.menuScene as any;
+    Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+    const request = training ? { kind: 'legacy-arena', characterId: data.characters[0].id, arenaId: 'junkyard-lot', seed: 91 }
+      : { kind: 'stage', characterId: data.characters[0].id, stageId: 'stage:junkyard-01', seed: 91 };
+    await scene.startRunWithResources(request, training);
+    expect(h.sceneStart).toHaveBeenCalledOnce(); const payload = h.sceneStart.mock.calls[0]![1];
+    expect(payload.runRequest).toBe(request); expect(payload.isTraining).toBe(training);
+    expect(payload.introModel.ability).toBeUndefined(); expect(payload.introModel.mercenary.characterName).toBe(data.characters[0].name);
+  });
+});
+
+
+describe('invalid optional ability preparation', () => {
+  it('fails both initial Menu launch and captured retry for a supplied unknown ability without reseeding', async () => {
+    const h = createHarness(); const scene = h.menuScene as any;
+    const invalid = structuredClone(h.context.data); invalid.characters[0] = { ...invalid.characters[0], abilityId: 'ability:unknown-fixture' };
+    // Deliberately corrupt only the fixture catalog after normal validation
+    // to exercise the defensive launch/retry path, not bypass production data validation.
+    Object.assign(h.context, { data: invalid });
+    const request = { kind: 'stage', characterId: invalid.characters[0].id, stageId: 'stage:junkyard-01', seed: 717 };
+    await scene.startRunWithResources(request, false);
+    expect(scene.runLaunchState).toBe('failed'); expect(h.sceneStart).not.toHaveBeenCalled();
+    expect(scene.capturedLaunch.request).toBe(request); const arena = h.context.arenas.arenaById('junkyard-lot');
+    await scene.startContractWithResources();
+    expect(scene.runLaunchState).toBe('failed'); expect(h.sceneStart).not.toHaveBeenCalled();
+    expect(scene.capturedLaunch.request).toBe(request); expect(h.context.arenas.arenaById('junkyard-lot')).toBe(arena);
+  });
+});
+
+
+describe('captured Training create-error recovery', () => {
+  it('keeps failed Training on its Retry surface with the original seed and static registry arena', async () => {
+    const h = createHarness({ create: false }); const scene = h.menuScene as any;
+    const request = { kind: 'legacy-arena' as const, characterId: 'scrap-tabby', arenaId: 'junkyard-lot', seed: 511 };
+    const arena = h.context.arenas.arenaById(request.arenaId)!;
+    scene.create({ failedRunRequest: request, failedRunError: 'fixture create failure', isTraining: true });
+    expect(h.menuScene.loadoutUiDiagnostics().panel).toBe('training');
+    expect(h.buttonByLabel('Retry Training')).toBeDefined();
+    expect(scene.capturedLaunch.request).toBe(request); expect(h.context.arenas.arenaById('junkyard-lot')).toBe(arena);
+    Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+    await scene.startTrainingWithResources();
+    expect(h.sceneStart).toHaveBeenCalledExactlyOnceWith('GameScene', expect.objectContaining({ runRequest: request, isTraining: true, introModel: expect.objectContaining({ identity: expect.objectContaining({ arenaId: arena.id, seed: request.seed, contentVersion: h.context.data.contentVersion }) }) }));
+    expect(h.context.arenas.arenaById(request.arenaId)).toBe(arena);
+    expect(h.sceneStart.mock.calls[0]![1]).not.toHaveProperty('arenaLayout');
+  });
+});
+
+
+describe('failed Contract explicit abandonment', () => {
+  it.each(['keyboard', 'gamepad', 'touch'] as const)('abandons captured failed Contract with fresh %s Back, without domain effects', async mode => {
+    const h = createHarness({ create: false }); const scene = h.menuScene as any;
+    const request = Object.freeze({ kind: 'stage' as const, characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', seed: 611 });
+    scene.create({ failedRunRequest: request, failedRunError: 'injected preparation failure' });
+    scene.update(0, 0);
+    const saved = h.context.saveData; const generation = scene.runLaunchGeneration;
+    const backEvent = vi.fn(); const confirm = vi.fn(); const settle = vi.spyOn(h.context, 'settleRunTerminal');
+    h.bus.on('ui:back', backEvent); h.bus.on('ui:confirm', confirm);
+    if (mode === 'keyboard') {
+      h.keyboard.keydown('Escape'); scene.update(0, 16); h.keyboard.keyup('Escape'); scene.update(0, 16);
+    } else if (mode === 'gamepad') {
+      const pad = new MockGamepad(); h.input.gamepad!.connect(pad); scene.update(0, 16);
+      pad.setButton(1, true); scene.update(0, 16); pad.setButton(1, false); scene.update(0, 16);
+    } else {
+      const back = h.buttonByLabel('Back'); expect(back).toBeDefined();
+      const old = gesture(h, back!); old.release(); old.release();
+    }
+    expect(scene.runLaunchState).toBe('idle'); expect(scene.capturedLaunch).toBeUndefined();
+    expect(scene.runLaunchGeneration).toBe(generation + 1);
+    expect(h.buttonByLabel('Play Contract')).toBeDefined(); expect(h.buttonByLabel('Change Contract')).toBeDefined();
+    expect(h.buttonByLabel('Retry Loading Contract')).toBeUndefined(); expect(h.buttonByLabel('Back')).toBeUndefined();
+    expect(backEvent).toHaveBeenCalledOnce(); expect(confirm).not.toHaveBeenCalled();
+    expect(settle).not.toHaveBeenCalled(); expect(h.context.saveData).toBe(saved); expect(h.sceneStart).not.toHaveBeenCalled();
+  });
+  it('keeps Retry captured but revokes an old Back gesture after abandonment', async () => {
+    const h = createHarness({ create: false }); const scene = h.menuScene as any;
+    const request = Object.freeze({ kind: 'stage' as const, characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', seed: 612 });
+    scene.create({ failedRunRequest: request, failedRunError: 'injected preparation failure' });
+    scene.update(0, 0); const oldBack = h.buttonByLabel('Back'); expect(oldBack).toBeDefined();
+    const stale = gesture(h, oldBack!);
+    // A separate accepted logical Back abandons and destroys that display.
+    h.keyboard.keydown('Escape'); scene.update(0, 16); h.keyboard.keyup('Escape'); scene.update(0, 16);
+    stale.release(); expect(scene.runLaunchState).toBe('idle');
+    h.lifecycle.emit('shutdown');
+    scene.create({ failedRunRequest: request, failedRunError: 'same launch retried' });
+    Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+    await scene.startContractWithResources();
+    expect(h.sceneStart).toHaveBeenCalledExactlyOnceWith('GameScene', expect.objectContaining({ runRequest: request, isTraining: false }));
+  });
+  it('preserves the seven-row Home action set and readable Back target at 360px', () => {
+    const h = createHarness({ create: false }); const scene = h.menuScene as any;
+    scene.scale.width = 360; scene.scale.height = 640;
+    scene.create({ failedRunRequest: { kind: 'stage', characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', seed: 613 }, failedRunError: 'injected' });
+    const back = h.buttonByLabel('Back'); expect(back).toBeDefined();
+    expect(scene.focusables).toHaveLength(7);
+    const bounds = back!.getBounds(); expect(bounds.width).toBeGreaterThanOrEqual(44); expect(bounds.height).toBeGreaterThanOrEqual(44);
+    // This legacy fake ignores Text.setOrigin(.5, 0); primary Home actions
+    // use a centered origin in production. Compare the actual authored lane.
+    expect(back!.x - bounds.width / 2).toBeGreaterThanOrEqual(0); expect(back!.x + bounds.width / 2).toBeLessThanOrEqual(360);
+    expect(bounds.bottom).toBeLessThanOrEqual(640);
+  });
+});
+
+
+/** Opt into real origin bounds for new Home scroll geometry without changing
+ * unrelated legacy menu fixture conventions. Font measurement stays approximate. */
+function createHomeGeometryHarness(width: number, height: number, failed: boolean, insets = true) {
+  const h = createHarness({ create: false }); const scene = h.menuScene as any;
+  for (const factory of ['text', 'rectangle'] as const) {
+    const original = scene.add[factory].bind(scene.add);
+    scene.add[factory] = (...args: any[]) => {
+      const node = original(...args); let ox = factory === 'rectangle' ? .5 : 0; let oy = ox;
+      if (factory === 'text') {
+        const style = args[3] ?? {}; const size = parseFloat(style.fontSize ?? '16');
+        node.setPadding(style.padding?.left ?? style.padding?.x ?? 0, style.padding?.top ?? style.padding?.y ?? 0,
+          style.padding?.right ?? style.padding?.x ?? 0, style.padding?.bottom ?? style.padding?.y ?? 0);
+        const measure = (copy: string) => {
+          const width = style.wordWrap?.width ?? copy.length * size * .6;
+          const lines = copy.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length * size * .6 / Math.max(1, width))), 0);
+          node.setFixedSize(Math.min(width, copy.length * size * .6) + node.padding.left + node.padding.right,
+            lines * (size + 3) + node.padding.top + node.padding.bottom);
+        };
+        measure(String(args[2]));
+        // Phaser rerasterizes on setText; a fixed creation-time fake would hide
+        // keyboard/gamepad hint clipping after the initial pointer-mode render.
+        const setText = node.setText.bind(node);
+        node.setText = (copy: string) => { setText(copy); measure(copy); return node; };
+        const padding = node.setPadding.bind(node);
+        node.setPadding = (...values: number[]) => {
+          const old = node.padding; const width = node.width; const height = node.height; padding(...values);
+          node.setFixedSize(width + node.padding.left + node.padding.right - old.left - old.right,
+            height + node.padding.top + node.padding.bottom - old.top - old.bottom); return node;
+        };
+      }
+      node.setOrigin = (x = .5, y = x) => { ox = x; oy = y; return node; };
+      node.getBounds = () => {
+        const left = node.x - node.width * ox; const top = node.y - node.height * oy;
+        return { x: left, y: top, left, top, right: left + node.width, bottom: top + node.height,
+          centerX: left + node.width / 2, centerY: top + node.height / 2, width: node.width, height: node.height };
+      };
+      return node;
+    };
+  }
+  if (insets) {
+    vi.stubGlobal('document', { documentElement: {} });
+    vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: (name: string) => ({ '--safe-top': '44px', '--safe-bottom': '34px', '--safe-left': '8px', '--safe-right': '8px' }[name] ?? '0px') }));
+  }
+  Object.assign(scene.scale, { width, height, displaySize: { width, height } });
+  scene.create(failed ? { failedRunRequest: { kind: 'stage', characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', seed: 621 }, failedRunError: 'injected' } : undefined);
+  scene.update(0, 0);
+  return { h, scene };
+}
+describe('Home safe-area scroll recovery', () => {
+  it.each([false, true])('makes all Home controls reachable at four viewport profiles with safe insets; failed=%s', failed => {
+    for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720]]) {
+      try {
+        const { h, scene } = createHomeGeometryHarness(width, height, failed);
+        const labels = [failed ? 'Retry Loading Contract' : 'Play Contract', failed ? 'Back' : 'Change Contract', 'Mercenary', 'Loadout', 'Career', 'Training', 'Settings'];
+        expect(scene.focusables.map((button: FakeObject) => button.text)).toEqual(labels);
+        if (width === 360) expect(scene.scrollRegion).toBeDefined();
+        const seen = new Set<number>();
+        const inspect = () => {
+          const index = scene.navigator.index; seen.add(index); const button = scene.focusables[index]; const bounds = button.getBounds();
+          expect(bounds.width).toBeGreaterThanOrEqual(44); expect(bounds.height).toBeGreaterThanOrEqual(44);
+          expect(bounds.left).toBeGreaterThanOrEqual(8); expect(bounds.right).toBeLessThanOrEqual(width - 8);
+          expect(bounds.top).toBeGreaterThanOrEqual(scene.scrollRegion ? scene.scrollViewportTop : 44);
+          expect(bounds.bottom).toBeLessThanOrEqual(scene.scrollRegion ? scene.scrollViewportBottom : scene.hint.y - 8);
+          if (scene.scrollRegion) expect(scene.scrollMaskContainer.list).toContain(button);
+        };
+        inspect();
+        const keys = width > 650 && height < 500
+          ? ['ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowLeft']
+          : ['ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowDown'];
+        for (const key of keys) { h.keyboard.keydown(key); scene.update(0, 16); h.keyboard.keyup(key); scene.update(0, 16); inspect(); }
+        expect(seen.size).toBe(7);
+        expect(scene.hint.parentContainer).toBe(scene.root);
+        expect(scene.hint.y + scene.hint.height).toBeLessThanOrEqual(height - 34);
+        h.lifecycle.emit('shutdown');
+      } finally { vi.unstubAllGlobals(); }
+    }
+  });
+  it('uses the existing wheel/drag owner, rejects a pre-scroll press and accepts a fresh visible action', () => {
+    try {
+      const { h, scene } = createHomeGeometryHarness(360, 640, true);
+      expect(scene.scrollRegion).toBeDefined();
+      const back = h.buttonByLabel('Back')!; const old = gesture(h, back); const events = vi.fn(); h.bus.on('ui:back', events);
+      h.input.emit('wheel', old.pointer, [], 0, 10000); old.release();
+      expect(events).not.toHaveBeenCalled(); expect(scene.runLaunchState).toBe('failed'); expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(0);
+      const settings = h.buttonByLabel('Settings')!; expect(settings.getBounds().bottom).toBeLessThanOrEqual(scene.scrollViewportBottom);
+      const pointer = { id: 91, x: 100, y: scene.scrollViewportTop + 30, isDown: true };
+      h.input.emit('pointerdown', pointer, []); h.input.emit('pointermove', { ...pointer, y: pointer.y + 10000 });
+      h.input.emit('pointerup', { ...pointer, isDown: false }); scene.update(0, 0);
+      expect(scene.scrollRegion.scrollOffset).toBe(0);
+      gesture(h, back).release(); expect(events).toHaveBeenCalledOnce(); expect(scene.runLaunchState).toBe('idle');
+      h.lifecycle.emit('shutdown');
+    } finally { vi.unstubAllGlobals(); }
+  });
+  it('does not add a scroll mask when measured Home content already fits', () => {
+    const { h, scene } = createHomeGeometryHarness(390, 844, false, false);
+    expect(scene.scrollRegion).toBeUndefined(); expect(scene.scrollMaskContainer).toBeUndefined();
+    h.lifecycle.emit('shutdown');
+  });
+});
+
+
+describe('Home fixed hint input-mode reservation', () => {
+  it.each(['keyboard', 'gamepad'] as const)('keeps complete %s instructions inside a stable footer after a real mode switch', mode => {
+    for (const failed of [false, true]) for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720]]) {
+      try {
+        const { h, scene } = createHomeGeometryHarness(width, height, failed);
+        const hint = scene.hint; const y = hint.y; const bodyBottom = scene.scrollViewportBottom;
+        const revision = scene.renderRevision;
+        if (mode === 'keyboard') {
+          h.keyboard.keydown('ArrowDown'); scene.update(0, 16); h.keyboard.keyup('ArrowDown'); scene.update(0, 16);
+        } else {
+          const pad = new MockGamepad(); h.input.gamepad!.connect(pad); scene.update(0, 16);
+          pad.setButton(13, true); scene.update(0, 16); pad.setButton(13, false); scene.update(0, 16);
+        }
+        expect(scene.inputController.getInputMode()).toBe(mode);
+        expect(hint.text).toBe(mode === 'keyboard'
+          ? 'Arrows navigate • Enter/Space select • Q ability in run • Esc back'
+          : 'D-pad/stick • Bottom face select • Left face ability in run • Right face back');
+        expect(hint.getBounds().right).toBeLessThanOrEqual(width - scene.safeRightMargin);
+        expect(hint.getBounds().bottom).toBeLessThanOrEqual(height - 34);
+        expect(parseFloat(hint.style.fontSize)).toBeGreaterThanOrEqual(14);
+        expect(hint.y).toBe(y); expect(scene.scrollViewportBottom).toBe(bodyBottom);
+        expect(scene.renderRevision).toBe(revision); expect(hint.parentContainer).toBe(scene.root);
+        if (scene.scrollRegion) expect(bodyBottom).toBeLessThanOrEqual(y - 8);
+        const focused = scene.focusedButtonKey; scene.refreshInputPresentation(); expect(scene.focusedButtonKey).toBe(focused);
+        // Pointer mode arrives during the first press. Updating the hint must
+        // not rebuild the Home surface or revoke that admitted gesture.
+        const button = h.buttonByLabel(failed ? 'Back' : 'Change Contract')!;
+        const event = vi.fn(); h.bus.on(failed ? 'ui:back' : 'ui:confirm', event);
+        const tap = gesture(h, button); scene.update(0, 16);
+        expect(scene.inputController.getInputMode()).toBe('pointer');
+        expect(scene.hint).toBe(hint); expect(hint.text).toBe('Tap a choice');
+        expect(hint.y).toBe(y); expect(scene.renderRevision).toBe(revision);
+        tap.release(); expect(event).toHaveBeenCalledOnce();
+        expect(scene.committedPanel).toBe(failed ? 'home' : 'stage');
+        h.lifecycle.emit('shutdown');
+      } finally { vi.unstubAllGlobals(); }
+    }
+  });
+});
+
+
+it('preserves main terminal Replay request and seed through the static preparation owner', async () => {
+  const h = createHarness({ create: false }); const scene = h.menuScene as any;
+  Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+  const request = Object.freeze({ kind: 'stage' as const, characterId: 'scrap-tabby', stageId: 'stage:junkyard-06', seed: 881 });
+  scene.create({ replayRequest: request });
+  await vi.waitFor(() => expect(h.sceneStart).toHaveBeenCalledOnce());
+  const payload = h.sceneStart.mock.calls[0]![1];
+  expect(payload.runRequest).toBe(request); expect(payload.stagePlan.seed).toBe(881); expect(payload.introModel.identity.seed).toBe(881);
+  expect(payload.introModel.identity.arenaId).toBe(h.context.stages.stageById(request.stageId)!.arenaId);
+  expect(payload).not.toHaveProperty('arenaLayout'); h.lifecycle.emit('shutdown');
 });

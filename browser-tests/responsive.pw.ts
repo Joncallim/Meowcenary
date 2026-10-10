@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { dismissRunStartBrief } from './run-start-helpers';
+import { completeRunStartIntro } from './run-start-helpers';
 
 type ArenaFramingDiagnostics = {
   window: { innerWidth: number; innerHeight: number; devicePixelRatio: number };
@@ -93,7 +93,7 @@ test('authored arena top is camera-visible and not hidden by an opaque HUD plate
   await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & {
     __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
   }).__MEOWCENARY_VISUAL_TEST__?.isSceneActive('GameScene') ?? false), { timeout: 20_000 }).toBe(true);
-  await dismissRunStartBrief(page, 'keyboard');
+  await completeRunStartIntro(page, 'keyboard');
 
   const initial = await page.evaluate(() => (globalThis as typeof globalThis & {
     __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
@@ -367,7 +367,7 @@ test('keyboard player launches the prepared Contract on the real canvas', async 
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.isSceneActive('GameScene') ?? false;
   }), { intervals: [150, 250, 400], timeout: 30_000 }).toBe(true);
-  await step('dismiss the prepared ability brief with a fresh confirm', () => dismissRunStartBrief(page, 'keyboard'));
+  await step('dismiss the prepared ability brief with a fresh confirm', () => completeRunStartIntro(page, 'keyboard'));
   await expect.poll(
     () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
     { intervals: [150, 250, 400], timeout: 8_000 },
@@ -481,7 +481,7 @@ test('phone touch starts a run, moves, and activates the graphical ability contr
       return seam?.isSceneActive('GameScene') ?? false;
     });
   }, { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
-  await dismissRunStartBrief(page, 'touch');
+  await completeRunStartIntro(page, 'touch');
   expect(requestedAssets.some((path) => path.includes('/assets/'))).toBe(true);
   await page.waitForTimeout(1_000);
 
@@ -608,7 +608,7 @@ test('the production pause control makes the responsive root fullscreen', async 
   } finally {
     await page.keyboard.up('Enter');
   }
-  await dismissRunStartBrief(page, 'keyboard');
+  await completeRunStartIntro(page, 'keyboard');
   await expect.poll(
     () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
     { intervals: [150, 250, 400], timeout: 8_000 },

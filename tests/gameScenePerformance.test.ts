@@ -4,6 +4,9 @@ import { GameScene } from '../src/scenes/GameScene';
 import { createRunState } from '../src/gameplay/runState';
 import { createPerfSampler, GAMEPLAY_PERF_OWNERS } from '../src/gameplay/perf';
 import { loadGameData } from '../src/systems/validation';
+import { createEventBus } from '../src/engine/eventBus';
+import { resolveRunStartIntroModel } from '../src/presentation/runStartIntro';
+import { RunStartIntroController } from '../src/ui/runStartIntroController';
 import { DataArenaRegistry } from '../src/systems/arenas';
 
 const probe = vi.hoisted(() => ({ enabled: true, clock: 0, now: vi.fn(), releaseGameplay: vi.fn(), attachGameplay: vi.fn(), record: vi.fn() }));
@@ -132,11 +135,21 @@ describe('guarded real-owner combat fixture', () => {
   function fixtureHarness() {
     const scene = harness();
     const data = loadGameData();
-    scene.getContext = () => ({ data, arenas: new DataArenaRegistry(data) });
+    scene.getContext = () => ({ data, bus: createEventBus(), arenas: new DataArenaRegistry(data) });
     scene.isTraining = true;
     scene.arenaDimensions = { width: 390, height: 844 };
     scene.textures = { exists: () => true };
     scene.performanceSpawnSystem = { spawnEncounterEnemy: vi.fn(() => true) };
+    scene.runState.status = 'intro';
+    scene.inputController.isQuarantined = () => false;
+    scene.inputController.quarantineUntilNeutral = vi.fn();
+    scene.introController = new RunStartIntroController(resolveRunStartIntroModel({
+      data, request: { kind: 'legacy-arena', characterId: scene.runState.characterId, arenaId: scene.runState.arenaId, seed: scene.runState.seed },
+    }));
+    expect(scene.preparePerformanceFixture(123)).toBe(false);
+    expect(scene.performanceSpawnSystem.spawnEncounterEnemy).not.toHaveBeenCalled();
+    scene.handleIntroCommand('start', 0);
+    expect(scene.runState.status).toBe('active');
     return scene;
   }
 

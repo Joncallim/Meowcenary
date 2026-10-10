@@ -21,6 +21,7 @@ import { composeStageSpawnCurve } from '../src/gameplay/stage/spawnComposition';
  */
 describe('Epic 20 stage catalog conformance', () => {
   const stages = stagesJson as readonly StageDefinition[];
+  const mainStages = stages.filter(stage => stage.campaignRole !== 'optional');
   const encounters = encountersJson as unknown as readonly EncounterProfile[];
   const difficulties = difficultiesJson as readonly DifficultyProfile[];
   const rewards = rewardsJson as readonly RewardProfile[];
@@ -39,15 +40,16 @@ describe('Epic 20 stage catalog conformance', () => {
   ] as const;
 
   it('ships two five-contract chapters in display order', () => {
-    expect(stages).toHaveLength(10);
+    expect(mainStages).toHaveLength(10);
+    expect(stages).toHaveLength(14);
     for (const chapterId of ['chapter:junkyard', 'chapter:forge']) {
-      const orders = stages.filter((stage) => stage.chapterId === chapterId).map((stage) => stage.displayOrder).sort((a, b) => a - b);
+      const orders = mainStages.filter((stage) => stage.chapterId === chapterId).map((stage) => stage.displayOrder).sort((a, b) => a - b);
       expect(orders, chapterId).toEqual([1, 2, 3, 4, 5]);
     }
   });
 
   it('matches the reviewed ten-Contract objective, encounter, and difficulty matrix exactly', () => {
-    expect(stages.map((stage) => [
+    expect(mainStages.map((stage) => [
       stage.id,
       stage.name,
       stage.objective,
@@ -57,7 +59,7 @@ describe('Epic 20 stage catalog conformance', () => {
   });
 
   it('ships the seven reviewed difficulty identities and tuning candidates', () => {
-    expect(difficulties).toEqual([
+    expect(difficulties.slice(0, 7)).toEqual([
       { id: 'difficulty:chapter-1-easy', healthMultiplier: 1, damageMultiplier: 1, speedMultiplier: 1, spawnPressure: 0.2 },
       { id: 'difficulty:chapter-1-medium', healthMultiplier: 1.15, damageMultiplier: 1.08, speedMultiplier: 1.02, spawnPressure: 0.35 },
       { id: 'difficulty:chapter-1-hard', healthMultiplier: 1.3, damageMultiplier: 1.15, speedMultiplier: 1.04, spawnPressure: 0.5 },
@@ -69,7 +71,7 @@ describe('Epic 20 stage catalog conformance', () => {
   });
 
   it('preserves every reviewed encounter roster in authored pressure-layer order', () => {
-    expect(encounters).toEqual([
+    expect(encounters.slice(0, 10)).toEqual([
       { id: 'encounter:junkyard-first-scavenge', enemyIds: ['dust-mite', 'scrap-skitter', 'junk-rusher', 'scrap-sniper'], compositionWeights: { 'dust-mite': 2, 'scrap-skitter': 1, 'junk-rusher': 1, 'scrap-sniper': 1 } },
       { id: 'encounter:junkyard-scrap-run', enemyIds: ['dust-mite', 'scrap-skitter', 'scrap-sniper', 'junk-nester', 'bastion-beetle'], compositionWeights: { 'dust-mite': 2, 'scrap-skitter': 2, 'scrap-sniper': 1, 'junk-nester': 1, 'bastion-beetle': 1 } },
       { id: 'encounter:junkyard-rusher-ambush', enemyIds: ['dust-mite', 'junk-rusher', 'scrap-skitter', 'shard-bot', 'bastion-beetle'], compositionWeights: { 'dust-mite': 2, 'junk-rusher': 2, 'scrap-skitter': 2, 'shard-bot': 1, 'bastion-beetle': 1 } },
@@ -90,7 +92,7 @@ describe('Epic 20 stage catalog conformance', () => {
   });
 
   it('covers the required objective variety: kill, collect, survive, elite, boss', () => {
-    const types = stages.map((s) => s.objective.type).sort();
+    const types = mainStages.map((s) => s.objective.type).sort();
     expect(types).toEqual(['collect', 'collect', 'defeat', 'defeat', 'kill', 'kill', 'kill', 'kill', 'survive', 'survive']);
     // Boss milestone is stage 5 (defeat of a named enemy)
     expect(stages[4].objective).toMatchObject({ type: 'defeat' });
@@ -252,7 +254,7 @@ describe('Epic 20 stage catalog conformance', () => {
   });
 
   it('Contract-25 proof: existing primitives scale through data without scene/schema/validator registration', () => {
-    const proofStages: StageDefinition[] = Array.from({ length: 15 }, (_, index) => ({
+    const proofStages: StageDefinition[] = Array.from({ length: 25 - stages.length }, (_, index) => ({
       id: `stage:proof-${String(index + 11).padStart(2, '0')}`,
       name: `Proof Contract ${index + 11}`,
       chapterId: 'chapter:proof',

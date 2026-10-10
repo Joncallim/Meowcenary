@@ -1,25 +1,26 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { activateIntroCommand, completeRunStartIntro, introCommand, type IntroDiagnostics, type Rect } from './run-start-helpers';
+import type { RunStartIntroModel } from '../src/presentation/runStartIntro';
 import { writeFile } from 'node:fs/promises';
 
-type Rect = { x: number; y: number; width: number; height: number };
 type UiState = { phase: 'ready' | 'active' | 'cooling'; activeRemainingMs: number; cooldownRemainingMs: number; readiness: number; activeProgress: number };
-type Diagnostics = {
+type Diagnostics = IntroDiagnostics & {
   visible: boolean; status: string; timeMs: number; characterId: string; enemies: number;
   player: { x: number; y: number; health?: number }; abilityState: UiState; abilityUiState: UiState;
   abilityDefinition: { id: string; effect: { kind: string; radius?: number } };
-  model?: { mercenaryName: string; ability: { headline: string; detail: string; cooldownLabel: string }; icon: { id: string }; portrait: { id: string } };
-  controlsHint?: Rect & { text: string; visible: boolean }; buttons: Rect[]; briefText: Array<Rect & { text: string }>; abilityButton: Rect; abilityBanner: string;
+  model?: RunStartIntroModel;
+  controlsHint?: Rect & { text: string; visible: boolean }; body?: Rect; scroll?: { offset: number; max: number }; introText: Array<Rect & { text: string; inScrollBody: boolean }>; abilityButton: Rect; abilityBanner: string;
   abilityFx: { persistent?: { kind: string; radius: number; glyphMask: number }; transient?: { kind: string; radius: number } };
   activationId: number; latestResolution?: { kind: string; applied?: number; collected?: number; affected?: number; modifiers?: Array<{ stat: string; op: string; value: number }> };
   inputMode: string; inputNeutral: boolean; orientationBlocked: boolean;
 };
 type Seam = {
   isSceneActive(key: string): boolean; waitForMenuPresentation(): Promise<boolean>; waitForPreparedGame(): Promise<boolean>; waitForInputFrame(): Promise<boolean>;
-  runStartBriefDiagnostics(): Diagnostics | undefined;
+  runStartIntroDiagnostics(): Diagnostics | undefined;
   selectAbilityTestCharacter(id: string): boolean;
   prepareAbilityTestConsequences(levelUp?: boolean, crowded?: boolean): boolean;
 };
-type Globals = typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: Seam; __ABILITY_PAD__?: (button: number, pressed: boolean) => void };
+type Globals = { __MEOWCENARY_VISUAL_TEST__?: Seam; __ABILITY_PAD__?: (button: number, pressed: boolean) => void };
 const CATALOG = [
   ['scrap-tabby', 'Scrap Burst', 'Knock back enemies within 90 range.', 'Cooldown 9s.', 'knockback', 'cooling'],
   ['bolt-hound', 'Giga Chomp', 'Restore up to 40 HP.', 'Cooldown 18s.', 'heal', 'cooling'],
@@ -41,22 +42,22 @@ async function installPad(page: Page): Promise<void> {
     };
   });
 }
-async function seed(page: Page, reducedMotion = false): Promise<void> {
-  await page.addInitScript(({ characterIds, reducedMotion }) => {
+async function seed(page: Page, reducedMotion = false, clearedStages: string[] = []): Promise<void> {
+  await page.addInitScript(({ characterIds, reducedMotion, clearedStages }) => {
     localStorage.setItem('meowcenary.save.v2', JSON.stringify({ version: 4,
       settings: { muted: true, musicVolume: 0, sfxVolume: 0, reducedMotion },
       progression: { scrap: 0, unlocks: characterIds.map(id => `character:${id}`) }, selectedCharacterId: 'scrap-tabby',
-      stages: {}, achievements: {}, achievementMetrics: {}, characters: {},
+      stages: Object.fromEntries(clearedStages.map(id => [id, { completed: true, bestTimeMs: 60000 }])), achievements: {}, achievementMetrics: {}, characters: {},
       gunsmith: { builds: [], parts: {}, fabricationSerials: {} }, equipment: {}, equipmentLoadout: {}, items: {}, bosses: {}, compendium: {},
       pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
     }));
-  }, { characterIds: CATALOG.map(row => row[0]), reducedMotion });
+  }, { characterIds: CATALOG.map(row => row[0]), reducedMotion, clearedStages });
 }
 async function frame(page: Page, count = 1): Promise<void> {
   for (let index = 0; index < count; index++) expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame())).toBe(true);
 }
 async function read(page: Page): Promise<Diagnostics> {
-  const state = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartBriefDiagnostics());
+  const state = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics());
   expect(state).toBeDefined(); return state!;
 }
 async function openMenu(page: Page): Promise<void> {
@@ -73,7 +74,10 @@ async function launch(page: Page, character = 'scrap-tabby', keepLaunchHeld = fa
   await frame(page, 2);
   const state = await read(page);
   expect(state.visible).toBe(true); expect(state.status).toBe('intro'); expect(state.timeMs).toBe(0);
-  expect(state.enemies).toBe(0); expect(state.buttons).toHaveLength(2);
+  expect(state.enemies).toBe(0);
+  expect(state.commands.filter(row => row.command === 'return-menu')).toHaveLength(1);
+  expect(state.commands.filter(row => row.command === 'start' || row.command === 'continue')).toHaveLength(1);
+  expect(state.runStart.count).toBe(0);
   return state;
 }
 async function pulse(page: Page, key: string): Promise<void> {
@@ -81,7 +85,7 @@ async function pulse(page: Page, key: string): Promise<void> {
   await frame(page);
 }
 async function start(page: Page): Promise<void> {
-  await pulse(page, 'Enter');
+  await completeRunStartIntro(page);
   expect((await read(page)).status).toBe('active');
 }
 async function captureFacts(page: Page, info: TestInfo, name: string): Promise<void> {
@@ -99,11 +103,36 @@ async function capture(page: Page, info: TestInfo, name: string): Promise<void> 
 }
 function centre(rect: Rect): { x: number; y: number } { return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; }
 function assertBriefFits(state: Diagnostics, viewport: { width: number; height: number }): void {
-  for (const text of state.briefText) {
-    expect(text.x, text.text).toBeGreaterThanOrEqual(0); expect(text.y, text.text).toBeGreaterThanOrEqual(0);
+  expect(state.body).toBeDefined();
+  for (const command of state.commands) introCommand(state, command.command, viewport);
+  for (const text of state.introText) {
+    expect(text.x, text.text).toBeGreaterThanOrEqual(0);
     expect(text.x + text.width, text.text).toBeLessThanOrEqual(viewport.width + 0.01);
-    expect(text.y + text.height, text.text).toBeLessThanOrEqual(viewport.height + 0.01);
-    if (text.text !== 'Start' && text.text !== 'Back to Menu') expect(text.y + text.height, text.text).toBeLessThanOrEqual(state.buttons[0].y);
+    if (text.inScrollBody) {
+      expect(text.x, text.text).toBeGreaterThanOrEqual(state.body!.x - .01);
+      expect(text.x + text.width, text.text).toBeLessThanOrEqual(state.body!.x + state.body!.width + .01);
+      // Vertical overflow belongs to the existing masked, scrollable body.
+      expect(text.y + (state.scroll?.offset ?? 0), text.text).toBeGreaterThanOrEqual(state.body!.y - .01);
+    } else {
+      expect(text.y, text.text).toBeGreaterThanOrEqual(0);
+      expect(text.y + text.height, text.text).toBeLessThanOrEqual(viewport.height + .01);
+    }
+  }
+  const regions = [{ name: 'scroll body', bounds: state.body! }, ...state.commands.map(row => ({ name: row.command, bounds: row.bounds }))];
+  for (const { name, bounds } of regions) {
+    expect(bounds.width, name).toBeGreaterThan(0); expect(bounds.height, name).toBeGreaterThan(0);
+    expect(bounds.x, name).toBeGreaterThanOrEqual(0); expect(bounds.y, name).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width, name).toBeLessThanOrEqual(viewport.width + .01);
+    expect(bounds.y + bounds.height, name).toBeLessThanOrEqual(viewport.height + .01);
+  }
+  for (const row of state.commands) expect(row.bounds.width, row.command).toBeGreaterThanOrEqual(44);
+  // Portrait stacks actions below the body; compact landscape puts them
+  // beside it. Either layout must keep the actual regions disjoint.
+  for (let i = 0; i < regions.length; i++) for (let j = i + 1; j < regions.length; j++) {
+    const a = regions[i].bounds, b = regions[j].bounds;
+    const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+    const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+    expect(Math.min(overlapX, overlapY), `${regions[i].name} overlaps ${regions[j].name}`).toBeLessThanOrEqual(.01);
   }
 }
 function assertHintFits(state: Diagnostics, viewport: { width: number; height: number }): void {
@@ -120,8 +149,8 @@ for (const [character, name, detail, cooldown, kind, phase] of CATALOG) {
   test(`${name}: real briefing, activation receipt and authoritative HUD`, async ({ page }, info) => {
     await seed(page, true); await openMenu(page); const brief = await launch(page, character);
     expect(brief.characterId).toBe(character); assertBriefFits(brief, page.viewportSize()!);
-    expect(brief.model!.ability).toMatchObject({ headline: name, detail, cooldownLabel: cooldown });
-    expect(brief.model!.icon.id).toMatch(/^ability-icon:/); expect(brief.model!.portrait.id).toBe(`character-portrait:${character}`);
+    expect(brief.model!.ability!.effect).toMatchObject({ headline: name, detail, cooldownLabel: cooldown });
+    expect(brief.model!.ability!.iconArtId).toMatch(/^ability-icon:/); expect(brief.model!.mercenary.portraitArtId).toBe(`character-portrait:${character}`);
     const beforeSave = await save(page); await frame(page, 4);
     expect((await read(page)).timeMs).toBe(0); expect(await save(page)).toBe(beforeSave);
     await capture(page, info, `${character}-brief`);
@@ -176,7 +205,7 @@ test('held launch Confirm is quarantined; real controller Confirm starts once an
 test('touch Start consumes held movement/ability and preserves a fresh ability card gesture', async ({ page }, info) => {
   await seed(page); await openMenu(page); const initial = await launch(page);
   await page.keyboard.down('w'); await page.keyboard.down('q'); await frame(page, 2);
-  const point = centre(initial.buttons[0]);
+  const point = centre(introCommand(initial, 'start', page.viewportSize()!).bounds);
   if (info.project.use.hasTouch) await page.touchscreen.tap(point.x, point.y);
   else await page.mouse.click(point.x, point.y);
   await frame(page, 3);
@@ -192,7 +221,7 @@ test('touch Start consumes held movement/ability and preserves a fresh ability c
 
 test('resize revokes an unfinished Start pointer gesture and Back/relaunch leaves no stale brief', async ({ page }, info) => {
   await seed(page); await openMenu(page); const initial = await launch(page); const beforeSave = await save(page);
-  const old = centre(initial.buttons[0]); await page.mouse.move(old.x, old.y); await page.mouse.down(); await frame(page);
+  const old = centre(introCommand(initial, 'start', page.viewportSize()!).bounds); await page.mouse.move(old.x, old.y); await page.mouse.down(); await frame(page);
   const viewport = page.viewportSize()!; await page.setViewportSize({ width: viewport.width + 20, height: viewport.height + 20 }); await frame(page, 2);
   await page.mouse.up(); await frame(page, 2); expect((await read(page)).status).toBe('intro');
   expect((await read(page)).timeMs).toBe(0); expect(await save(page)).toBe(beforeSave);
@@ -233,12 +262,12 @@ test('DPR3 reduced-motion phone stays frozen through blocked landscape and foreg
   } finally { await context.close(); }
 });
 
-test('fine-pointer compact landscape keeps both brief actions visible at readable size', async ({ browser }, info) => {
+test('fine-pointer compact landscape keeps every intro command visible at readable size', async ({ browser }, info) => {
   const context = await browser.newContext({ baseURL: info.project.use.baseURL, viewport: { width: 844, height: 390 }, hasTouch: false, isMobile: false });
   const page = await context.newPage();
   try { await seed(page, true); await openMenu(page); const brief = await launch(page, 'piston-ram');
   assertBriefFits(brief, { width: 844, height: 390 });
-  for (const button of brief.buttons) {
+  for (const { bounds: button } of brief.commands) {
     expect(button.x).toBeGreaterThanOrEqual(0); expect(button.y).toBeGreaterThanOrEqual(0);
     expect(button.x + button.width).toBeLessThanOrEqual(844); expect(button.y + button.height).toBeLessThanOrEqual(390);
     expect(button.height).toBeGreaterThanOrEqual(44);
@@ -262,8 +291,11 @@ test('Scavenge reports the admitted collection before the real upgrade pause fre
 
 test('Back controller Confirm stays quarantined across the new Menu input owner', async ({ page }, info) => {
   await installPad(page); await seed(page); await openMenu(page); await launch(page);
-  await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(13, true)); await frame(page);
-  await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(13, false)); await frame(page, 2);
+  for (let step = 0; (await read(page)).focusedCommand !== 'return-menu' && step < 3; step++) {
+    await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(15, true)); await frame(page);
+    await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(15, false)); await frame(page, 2);
+  }
+  expect((await read(page)).focusedCommand).toBe('return-menu');
   const beforeSave = await save(page);
   await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(0, true)); await frame(page, 8);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.isSceneActive('MenuScene'))).toBe(true);
@@ -299,4 +331,38 @@ test('crowded combat keeps Overclock modifiers readable with one sustained effec
   await frame(page, 3);
   expect((await read(page)).abilityFx.persistent).toMatchObject({ kind: 'stat-burst', glyphMask: 3 });
   expect((await read(page)).abilityFx.transient).toBeUndefined();
+});
+
+
+for (const input of ['keyboard', 'mouse', 'touch'] as const) {
+  test(`dialogue uses Continue then explicit Start through semantic ${input} targets`, async ({ page }, info) => {
+    await seed(page, true, ['stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03', 'stage:junkyard-04']);
+    await openMenu(page); const brief = await launch(page);
+    expect(brief.model?.boss?.enemyId).toBe('boss-crusher');
+    expect(brief.commands.some(row => row.command === 'start')).toBe(false);
+    const beforeSave = await save(page);
+    const boss = await activateIntroCommand(page, 'continue', input);
+    expect(boss).toMatchObject({ phase: 'boss', revision: 1, status: 'intro', timeMs: 0, runStart: { count: 0 } });
+    const dialogue = await read(page); assertBriefFits(dialogue, page.viewportSize()!);
+    expect(dialogue.enemies).toBe(0); expect(await save(page)).toBe(beforeSave);
+    expect(dialogue.introText.some(row => row.text.includes(brief.model!.boss!.lines[0]))).toBe(true);
+    if (dialogue.scroll!.max > 0) {
+      const body = centre(dialogue.body!); await page.mouse.move(body.x, body.y); await page.mouse.wheel(0, 10000); await frame(page, 2);
+      expect((await read(page)).scroll!.offset).toBe((await read(page)).scroll!.max);
+    }
+    await capture(page, info, `boss-dialogue-${input}`);
+    await activateIntroCommand(page, 'start', input);
+    expect((await read(page)).runStart).toMatchObject({ count: 1, timeMs: 0 });
+    expect((await read(page)).enemies).toBeGreaterThanOrEqual(1);
+  });
+}
+
+test('Skip is deliberate and Return abandons a dialogue intro without facts', async ({ page }) => {
+  await seed(page, true, ['stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03', 'stage:junkyard-04']);
+  await openMenu(page); await launch(page); const beforeSave = await save(page);
+  await activateIntroCommand(page, 'return-menu', 'mouse');
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
+  expect(await save(page)).toBe(beforeSave);
+  await launch(page); const started = await completeRunStartIntro(page, 'mouse', true);
+  expect(started).toMatchObject({ phase: 'consumed', runStart: { count: 1, timeMs: 0 } });
 });

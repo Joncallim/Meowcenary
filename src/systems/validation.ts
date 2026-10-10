@@ -98,6 +98,7 @@ import {
   assertStageEncounterEnemyReferences,
   assertBossStageSemantics,
   assertStageDefeatEnemyReferences,
+  assertStageOpeningReferences,
   assertStageRewardLootTableReferences,
   assertStageRewardGrantReferences,
   assertStageUnlockReferences,
@@ -704,6 +705,7 @@ export function validateGameData(raw: unknown): GameData {
   assertStageEncounterEnemyReferences(encounterProfiles, enemyIdSet);
   assertStageDefeatEnemyReferences(stages, enemyIdSet);
   assertBossStageSemantics(stages, encounterProfiles);
+  assertStageOpeningReferences(stages, enemies, visualArt);
   assertStageRewardLootTableReferences(rewardProfiles, lootTableIdSet);
   assertStageRewardGrantReferences(
     rewardProfiles,
@@ -987,6 +989,21 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   const visualResources = catalogs.visualResources as VisualTextureResource[];
   const assetBundles = catalogs.assetBundles as AssetBundleDefinition[];
 
+  // Mirror boot's Stage joins without suppressing independent collecting errors.
+  const stages = catalogs.stages as StageDefinition[];
+  const encounterProfiles = catalogs.encounterProfiles as EncounterProfile[];
+  const difficultyProfiles = catalogs.difficultyProfiles as DifficultyProfile[];
+  const rewardProfiles = catalogs.rewardProfiles as RewardProfile[];
+  const achievements = catalogs.achievements as AchievementDefinition[];
+  const metaUpgrades = catalogs.metaUpgrades as MetaUpgradeDefinition[];
+  const arenaIds = new Set(arenas.map((a) => a.id));
+  const enemyIdSet = new Set(enemies.filter((e) => e.archetype !== 'elite').map((e) => e.id));
+  const lootTableIdSet = new Set(lootTables.map((lt) => lt.id));
+  const stageIdSet = new Set(stages.map((s) => s.id));
+  const encounterProfileIdSet = new Set(encounterProfiles.map((ep) => ep.id));
+  const difficultyProfileIdSet = new Set(difficultyProfiles.map((dp) => dp.id));
+  const rewardProfileIdSet = new Set(rewardProfiles.map((rp) => rp.id));
+
   const crossReferenceIssues: ValidationIssue[] = [];
   const assertions: ReadonlyArray<() => void> = [
     () => assertSpawnReferences(spawnCurves, enemies),
@@ -1001,9 +1018,39 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertArenaVisualReferences(arenas, visualArt),
     () => assertUpgradeWeaponFamilyReferences(upgrades, weapons),
     () => assertUpgradeArtReferences(upgrades, visualArt),
+    () => assertStageArenaReferences(stages, arenaIds),
+    () => assertVisualResourceReferences(visualArt, visualResources),
+    () => assertStageChapterArtReferences(stages, visualArt),
+    () => assertStageAssetBundleReferences(stages, assetBundles, visualArt, visualResources, arenas),
+    () => assertStageEncounterReferences(stages, encounterProfileIdSet),
+    () => assertStageDifficultyReferences(stages, difficultyProfileIdSet),
+    () => assertStageRewardReferences(stages, rewardProfileIdSet),
+    () => assertStageEncounterEnemyReferences(encounterProfiles, enemyIdSet),
+    () => assertStageDefeatEnemyReferences(stages, enemyIdSet),
+    () => assertBossStageSemantics(stages, encounterProfiles),
+    () => {
+      // Opening identity/art depends on valid defeat and boss ownership.
+      // Independent Stage diagnostics above must still all be collected.
+      try {
+        assertStageDefeatEnemyReferences(stages, enemyIdSet);
+        assertBossStageSemantics(stages, encounterProfiles);
+      } catch {
+        return;
+      }
+      assertStageOpeningReferences(stages, enemies, visualArt);
+    },
+    () => assertStageRewardLootTableReferences(rewardProfiles, lootTableIdSet),
+    () => assertStageRewardGrantReferences(rewardProfiles, {
+      partIds: new Set((catalogs['gun-parts'] as PartDefinition[]).map((part) => part.id)),
+      equipmentIds: new Set((catalogs.equipment as EquipmentDefinition[]).map((equipment) => equipment.id)),
+      traitIds: new Set((catalogs['gun-parts'] as PartDefinition[]).flatMap((part) => part.traits.map((trait) => `trait:${trait.toLowerCase()}`))),
+      stageIds: stageIdSet,
+      characterIds: new Set(characters.map((character) => `character:${character.id}`)),
+      achievementIds: new Set(achievements.map((achievement) => achievement.id)),
+      metaUpgradeIds: new Set(metaUpgrades.map((upgrade) => upgrade.id)),
+    }),
+    () => assertStageUnlockReferences(stages, stageIdSet),
     () => assertAchievementArtReferences(catalogs.achievements as AchievementDefinition[], visualArt),
-    () => assertStageChapterArtReferences(catalogs.stages as StageDefinition[], visualArt),
-    () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, visualResources, arenas),
     () => assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt),
     () => validateGunsmithPartVisuals(catalogs['gun-parts'] as PartDefinition[], undefined, new Set(visualArt.bindings.map((binding) => binding.id))),
     () => assertPartAcquisitionRoutes(catalogs['gun-parts'] as PartDefinition[], catalogs.rewardProfiles as RewardProfile[], (catalogs.achievements ?? []) as AchievementDefinition[]),
