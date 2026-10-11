@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import './__mocks__/phaser';
+import { MockInputPlugin } from './__mocks__/phaser';
+import { EventEmitter } from 'node:events';
+import { resolveRunStartIntroModel } from '../src/presentation/runStartIntro';
+import { RunStartIntroController } from '../src/ui/runStartIntroController';
 import { GameScene } from '../src/scenes/GameScene';
 import { createEventBus } from '../src/engine/eventBus';
 import { loadGameData } from '../src/systems/validation';
@@ -10,6 +13,30 @@ import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 
+function attachLifecycle(scene: any): void {
+  scene.events = new MockInputPlugin();
+  scene.game = { events: new EventEmitter(), renderer: new EventEmitter() };
+  scene.physics = { world: { pause: vi.fn(), resume: vi.fn() } };
+  scene.scene = { start: vi.fn() };
+}
+
+/** Settlement fixtures omit rendering/combat composition but cross actual
+ * create/reset and the real intro controller/Start boundary before terminal
+ * facts. Failed-create coverage belongs to gameSceneIntro.test.ts. */
+function installHeadlessPreparation(scene: any, context: any): void {
+  attachLifecycle(scene);
+  let seed = 0;
+  scene.getContext = () => context;
+  scene.createPreparedRun = () => {
+    const request = { kind: 'legacy-arena' as const, characterId: 'scrap-tabby', arenaId: 'junkyard-lot', seed: ++seed };
+    scene.launchRequest = request;
+    scene.runState = createRunState(request);
+    scene.introModel = resolveRunStartIntroModel({ data: context.data, request });
+    scene.introController = new RunStartIntroController(scene.introModel);
+    scene.inputController = { isQuarantined: () => false, quarantineUntilNeutral: vi.fn(), destroy: vi.fn() };
+  };
+}
+
 describe('GameScene achievement fact bridge', () => {
   it.each(['normal-win', 'training', 'loss-retry', 'discarded-save'] as const)(
     'settles the second run on the same Scene and production save owner after %s', (prior) => {
@@ -19,11 +46,11 @@ describe('GameScene achievement fact bridge', () => {
         arenas: new DataArenaRegistry(data), characters: new DataCharacterRegistry(data) });
       const settle = vi.spyOn(context, 'settleRunTerminal');
       const scene = new GameScene() as any;
-      // Execute the actual persistent create/reset boundary on every run;
-      // stop before Phaser composition, which this headless harness omits.
-      scene.getContext = () => { throw new Error('headless composition boundary'); };
-      expect(() => scene.create({ isTraining: prior === 'training' })).toThrow('headless composition boundary');
-      scene.runState = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
+      installHeadlessPreparation(scene, context);
+      scene.create({ isTraining: prior === 'training' });
+      expect(scene.runState.status).toBe('intro');
+      scene.handleIntroCommand('start', 0);
+      expect(scene.runState.status).toBe('active');
       scene.runState.status = prior === 'normal-win' ? 'won' : 'lost';
       scene.runState.currency = 10;
       scene.runState.timeMs = 1000;
@@ -39,10 +66,12 @@ describe('GameScene achievement fact bridge', () => {
       const beforeSecond = context.saveData.progression.scrap;
       settle.mockClear();
 
-      expect(() => scene.create()).toThrow('headless composition boundary');
+      scene.create();
+      expect(scene.runState.status).toBe('intro');
+      scene.handleIntroCommand('start', 0);
+      expect(scene.runState.status).toBe('active');
       expect(scene.terminalStageId).toBeUndefined();
       expect(scene.pendingAchievementFacts).toEqual({});
-      scene.runState = createRunState({ seed: 2, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
       scene.runState.status = 'lost';
       scene.runState.currency = 30;
       scene.runState.timeMs = 2000;
@@ -65,9 +94,11 @@ describe('GameScene achievement fact bridge', () => {
     // The minimal context intentionally fails later run composition. The
     // lifecycle assertion is that create has already cleared state before any
     // fresh-run resource work, exactly as a Phaser Retry/Replay reuse does.
+    attachLifecycle(scene);
     scene.getContext = () => ({});
 
-    expect(() => scene.create()).toThrow();
+    expect(() => scene.create()).not.toThrow();
+    expect(scene.recovering).toBe(true);
     expect(scene.completedAchievementNames).toEqual([]);
     expect(scene.completedAchievements).toEqual([]);
   });
@@ -79,9 +110,11 @@ describe('GameScene achievement fact bridge', () => {
     scene.pendingAchievementFacts = { 'metric:enemies-defeated': 7 };
     scene.achievementToast = { text: 'Old run', untilMs: 99_999 };
     scene._wasPendingClear = true;
+    attachLifecycle(scene);
     scene.getContext = () => ({});
 
-    expect(() => scene.create()).toThrow();
+    expect(() => scene.create()).not.toThrow();
+    expect(scene.recovering).toBe(true);
 
     expect(scene.terminalSettlement).toBeUndefined();
     expect(scene.terminalStageId).toBeUndefined();
@@ -95,7 +128,7 @@ describe('GameScene achievement fact bridge', () => {
       persistentGrantIds: [], achievementIdsCompleted: [],
     }));
     scene.trySettleTerminal({ data: loadGameData(), bus: createEventBus(), settleRunTerminal }, 'loss');
-    expect(settleRunTerminal).toHaveBeenCalledOnce();
+    expect(settleRunTerminal).not.toHaveBeenCalled(); // A failed create cannot settle fabricated terminal facts.
   });
 
   it('discards pending achievement facts when the player leaves without saving', () => {
@@ -187,7 +220,7 @@ describe('GameScene achievement fact bridge', () => {
 
   it('routes won-run mastery through the terminal settlement owner', () => {
     const scene = new GameScene() as any;
-    scene.runState = { status: 'won', timeMs: 1_000, currency: 12, characterId: 'scrap-tabby' };
+    scene.runState = Object.assign(createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' }), { timeMs: 1_000, currency: 12 });
     scene.isTraining = true;
     const data = loadGameData();
     const ctx: any = {
@@ -195,6 +228,14 @@ describe('GameScene achievement fact bridge', () => {
       bus: createEventBus(),
       settleRunTerminal: vi.fn(() => ({ ok: true, terminalApplied: true, runScrapBanked: 12, firstClear: false, bestTimeImproved: false, firstClearScrap: 0, persistentGrantIds: [], achievementIdsCompleted: [], scrapAwardedFromAchievements: 0, masteryTierAwarded: 1 })),
     };
+    scene.getContext = () => ctx;
+    scene.inputController = { isQuarantined: () => false, quarantineUntilNeutral: vi.fn() };
+    scene.introController = new RunStartIntroController(resolveRunStartIntroModel({
+      data: ctx.data, request: { kind: 'legacy-arena', characterId: 'scrap-tabby', arenaId: 'junkyard-lot', seed: 1 },
+    }));
+    scene.handleIntroCommand('start', 0);
+    expect(scene.runState.status).toBe('active');
+    scene.runState.status = 'won'; // Terminal fixture follows actual Start admission.
     scene.trySettleTerminal(ctx, 'win');
     expect(ctx.settleRunTerminal).toHaveBeenCalledWith(expect.objectContaining({ terminalStatus: 'win', characterId: 'scrap-tabby', isTraining: true }));
     expect(scene.hasPendingTerminalPersistence()).toBe(false);
@@ -202,7 +243,7 @@ describe('GameScene achievement fact bridge', () => {
 
   it('carries the captured launch presentation baseline to terminal settlement', () => {
     const scene = new GameScene() as any;
-    scene.runState = { status: 'lost', timeMs: 1_000, currency: 12, characterId: 'scrap-tabby' };
+    scene.runState = Object.assign(createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' }), { timeMs: 1_000, currency: 12 });
     scene.isTraining = false;
     scene.runStartPresentation = Object.freeze({
       availability: Object.freeze({
@@ -221,6 +262,14 @@ describe('GameScene achievement fact bridge', () => {
       })),
     };
 
+    scene.getContext = () => ctx;
+    scene.inputController = { isQuarantined: () => false, quarantineUntilNeutral: vi.fn() };
+    scene.introController = new RunStartIntroController(resolveRunStartIntroModel({
+      data: ctx.data, request: { kind: 'legacy-arena', characterId: 'scrap-tabby', arenaId: 'junkyard-lot', seed: 1 },
+    }));
+    scene.handleIntroCommand('start', 0);
+    expect(scene.runState.status).toBe('active');
+    scene.runState.status = 'lost'; // Terminal fixture follows actual Start admission.
     scene.trySettleTerminal(ctx, 'loss');
 
     expect(ctx.settleRunTerminal).toHaveBeenCalledWith(expect.objectContaining({

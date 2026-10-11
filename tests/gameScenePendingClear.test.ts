@@ -21,6 +21,9 @@ import { createStageRuntime } from '../src/gameplay/stage/stageRuntime';
 import { applyXp } from '../src/gameplay/xp';
 import { UpgradeSystem } from '../src/systems/UpgradeSystem';
 import { UpgradeChooserController } from '../src/ui/upgradeChooserController';
+import { resolveRunStartIntroModel } from '../src/presentation/runStartIntro';
+import { RunStartIntroController } from '../src/ui/runStartIntroController';
+import { loadGameData } from '../src/systems/validation';
 
 import { HudController } from '../src/ui/hud';
 import { ControlsView } from '../src/ui/controls';
@@ -156,6 +159,15 @@ describe('#164 GameScene pending-clear update ordering', () => {
     const run = scene.runState;
     const bus = createEventBus();
     scene.getContext = () => ({ bus });
+    // Admit the fixture through the real intro command before publishing
+    // gameplay facts. The elapsed clock below remains the test's 30s fixture.
+    run.status = 'intro';
+    scene.inputController.isQuarantined = () => false;
+    scene.introController = new RunStartIntroController(resolveRunStartIntroModel({
+      data: loadGameData(), request: { kind: 'legacy-arena', characterId: run.characterId, arenaId: run.arenaId, seed: run.seed },
+    }));
+    scene.handleIntroCommand('start', 0);
+    expect(run.status).toBe('active');
     const runtime = createStageRuntime({
       stageId: 'stage:pulse-clear-proof',
       objective: { definition: { type: 'collect', itemId: 'drop:scrap', count: 1 } },

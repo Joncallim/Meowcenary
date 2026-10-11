@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { dismissRunStartBrief } from './run-start-helpers';
+import { completeRunStartIntro } from './run-start-helpers';
 
 // A complete visual pass deliberately reloads Phaser and its art bundles many
 // times. Shared CI runners can take materially longer than a developer machine
@@ -192,7 +192,7 @@ test('fixed art reference compositions retain the Meowcenary visual system', asy
   await showMenu(page, 'home');
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
-  await dismissRunStartBrief(page, 'mouse');
+  await completeRunStartIntro(page, 'mouse');
   await resumeLoop(page);
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-tabby.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-sniper.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
@@ -305,7 +305,7 @@ test('pause and Weapon Rack use the shared authored modal system', async ({ page
   await showMenu(page, 'home');
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
-  await dismissRunStartBrief(page, 'mouse');
+  await completeRunStartIntro(page, 'mouse');
   await press(page, 'p');
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('pause-modal.png', illustratedScreenshot);
@@ -325,7 +325,7 @@ test('transient decision art references use the shared authored visual system', 
     await showMenu(page, 'home');
     await press(page, 'Enter');
     await expectScene(page, 'GameScene');
-    await dismissRunStartBrief(page, 'mouse');
+    await completeRunStartIntro(page, 'mouse');
     await resumeLoop(page);
   };
   const show = async (method: 'showUpgradeChooser' | 'showExtraction', name: string): Promise<void> => {
@@ -381,7 +381,7 @@ test('boss art reference keeps the approved boss-scale visual hierarchy', async 
   await showMenu(page, 'home');
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
-  await dismissRunStartBrief(page, 'mouse');
+  await completeRunStartIntro(page, 'mouse');
   await resumeLoop(page);
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/boss-crusher.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expect.poll(() => page.evaluate(() => {
@@ -422,7 +422,7 @@ test('Forge Warden art reference keeps its approved furnace-gantry silhouette', 
   await showMenu(page, 'home');
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
-  await dismissRunStartBrief(page, 'mouse');
+  await completeRunStartIntro(page, 'mouse');
   await resumeLoop(page);
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/boss-forge.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expect.poll(() => page.evaluate(() => {
@@ -462,7 +462,7 @@ test('every Mercenary actor retains its approved runtime silhouette', async ({ p
     await showMenu(page, 'home');
     await press(page, 'Enter');
     await expectScene(page, 'GameScene');
-    await dismissRunStartBrief(page, 'mouse');
+    await completeRunStartIntro(page, 'mouse');
     await resumeLoop(page);
     await expect.poll(() => page.evaluate(() => {
       const seam = (globalThis as typeof globalThis & {

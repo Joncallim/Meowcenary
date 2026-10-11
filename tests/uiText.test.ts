@@ -199,7 +199,11 @@ describe('createUiText', () => {
     // shares copy/header helpers instead of ten repeated factory sites.
     // Ability consequence banner and HUD state glyph add two factory sites.
     // Every actual site remains covered by the symbol-resolved bypass audit.
-    expect(migratedSites).toHaveLength(48);
+    // One intro view adds four sites: body copy, name, footer command and hint.
+    // The retired brief used modal helpers, so no direct factory site is removed.
+    expect(migratedSites).toHaveLength(52);
+    const introSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/ui/runStartIntroView.ts'));
+    expect(introSites).toHaveLength(4);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);

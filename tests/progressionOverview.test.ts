@@ -138,12 +138,13 @@ describe('Epic 26 progression overview read model', () => {
 
 describe('Epic 26 reward cadence conformance', () => {
   const rewards = rewardProfilesJson as unknown as { id: string; firstClearScrap: number }[];
-  const stages = stagesJson as unknown as { id: string; chapterId: string; displayOrder: number; rewardProfileId: string }[];
+  const stages = stagesJson as unknown as { id: string; chapterId: string; displayOrder: number; rewardProfileId: string; campaignRole?: 'main' | 'optional' }[];
 
-  it('stage rewards scale monotonically within each chapter', () => {
+  it('main campaign rewards scale monotonically while optional rewards retain their authored values', () => {
     const byProfile = new Map(rewards.map((r) => [r.id, r]));
     const chapters = new Map<string, typeof stages>();
     for (const stage of stages) {
+      if (stage.campaignRole === 'optional') continue;
       chapters.set(stage.chapterId, [...(chapters.get(stage.chapterId) ?? []), stage]);
     }
     for (const chapter of chapters.values()) {
@@ -154,6 +155,8 @@ describe('Epic 26 reward cadence conformance', () => {
         expect(ordered[i]).toBeGreaterThan(ordered[i - 1]);
       }
     }
+    expect(stages.filter(stage => stage.campaignRole === 'optional')
+      .map(stage => byProfile.get(stage.rewardProfileId)!.firstClearScrap)).toEqual([145, 150, 160, 170]);
   });
 
   it('the boss milestone reward substantially exceeds ordinary stage farming (decision #9)', () => {
@@ -170,5 +173,25 @@ describe('Epic 26 reward cadence conformance', () => {
       expect(profile, stage.rewardProfileId).toBeDefined();
       expect(profile!.firstClearScrap).toBeGreaterThan(0);
     }
+  });
+});
+
+
+describe('Contracts campaign and optional completion projection', () => {
+  it('keeps an old ten-clear save at Campaign 10/10 with all four optional goals available', () => {
+    const { context, controller } = createHarness();
+    for (const stage of context.stages.allStages().filter(stage => stage.campaignRole !== 'optional')) context.completeStage(stage.id, 60_000);
+    const snapshot = controller.snapshot();
+    expect(snapshot).toMatchObject({ completedStages: 10, totalStages: 10, optionalCompletedStages: 0, totalOptionalStages: 4 });
+    expect(snapshot.nextGoals[0]).toMatchObject({ id: 'stage:junkyard-nest-breaker', detail: 'Optional contract after the completed campaign.' });
+  });
+  it('retains every one of the fourteen rows while reporting both fully completed groups without a next-stage wrap', () => {
+    const { context, controller } = createHarness();
+    const stages = context.stages.allStages(); expect(stages).toHaveLength(14);
+    for (const stage of stages) expect(context.completeStage(stage.id, 60_000)).toBe(true);
+    expect(stages.every(stage => context.saveData.stages[stage.id]?.completed)).toBe(true);
+    const snapshot = controller.snapshot();
+    expect(snapshot).toMatchObject({ completedStages: 10, totalStages: 10, optionalCompletedStages: 4, totalOptionalStages: 4 });
+    expect(snapshot.nextGoals.some(goal => goal.kind === 'stage')).toBe(false);
   });
 });

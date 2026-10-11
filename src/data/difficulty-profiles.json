@@ -47,5 +47,33 @@
     "damageMultiplier": 1.40,
     "speedMultiplier": 1.0,
     "spawnPressure": 0.55
+  },
+  {
+    "id": "difficulty:salvage-hunt",
+    "healthMultiplier": 1.45,
+    "damageMultiplier": 1.2,
+    "speedMultiplier": 1.02,
+    "spawnPressure": 0.45
+  },
+  {
+    "id": "difficulty:salvage-crossfire",
+    "healthMultiplier": 1.4,
+    "damageMultiplier": 1.18,
+    "speedMultiplier": 1,
+    "spawnPressure": 0.4
+  },
+  {
+    "id": "difficulty:forge-shatterline",
+    "healthMultiplier": 1.45,
+    "damageMultiplier": 1.22,
+    "speedMultiplier": 1.04,
+    "spawnPressure": 0.45
+  },
+  {
+    "id": "difficulty:forge-pressure-test",
+    "healthMultiplier": 1.4,
+    "damageMultiplier": 1.2,
+    "speedMultiplier": 1.03,
+    "spawnPressure": 0.35
   }
 ]

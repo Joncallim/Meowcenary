@@ -1,0 +1,1414 @@
+{
+  "sourceCommit": "4f79d6210c3b028b995d67a5cc6e35318b17b2ee",
+  "catalogs": {
+    "stages": [
+      {
+        "id": "stage:junkyard-01",
+        "name": "First Scavenge",
+        "chapterId": "chapter:junkyard",
+        "chapterIconArtId": "chapter-icon:junkyard",
+        "displayOrder": 1,
+        "arenaId": "junkyard-lot",
+        "assetBundleId": "bundle:core-junkyard",
+        "objective": {
+          "type": "kill",
+          "count": 25
+        },
+        "encounterProfileId": "encounter:junkyard-first-scavenge",
+        "difficultyProfileId": "difficulty:chapter-1-easy",
+        "rewardProfileId": "reward:stage-01",
+        "unlock": {
+          "type": "always"
+        }
+      },
+      {
+        "id": "stage:junkyard-02",
+        "name": "Scrap Run",
+        "chapterId": "chapter:junkyard",
+        "chapterIconArtId": "chapter-icon:junkyard",
+        "displayOrder": 2,
+        "arenaId": "junkyard-lot",
+        "assetBundleId": "bundle:core-junkyard",
+        "objective": {
+          "type": "collect",
+          "itemId": "drop:scrap",
+          "count": 14
+        },
+        "encounterProfileId": "encounter:junkyard-scrap-run",
+        "difficultyProfileId": "difficulty:chapter-1-easy",
+        "rewardProfileId": "reward:stage-02",
+        "unlock": {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-01"
+        }
+      },
+      {
+        "id": "stage:junkyard-03",
+        "name": "Rusher Ambush",
+        "chapterId": "chapter:junkyard",
+        "chapterIconArtId": "chapter-icon:junkyard",
+        "displayOrder": 3,
+        "arenaId": "junkyard-lot",
+        "assetBundleId": "bundle:core-junkyard",
+        "objective": {
+          "type": "survive",
+          "seconds": 120
+        },
+        "encounterProfileId": "encounter:junkyard-rusher-ambush",
+        "difficultyProfileId": "difficulty:chapter-1-medium",
+        "rewardProfileId": "reward:stage-03",
+        "unlock": {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-02"
+        }
+      },
+      {
+        "id": "stage:junkyard-04",
+        "name": "Brute Force",
+        "chapterId": "chapter:junkyard",
+        "chapterIconArtId": "chapter-icon:junkyard",
+        "displayOrder": 4,
+        "arenaId": "junkyard-lot",
+        "assetBundleId": "bundle:core-junkyard",
+        "objective": {
+          "type": "kill",
+          "count": 8,
+          "enemyTag": "tank"
+        },
+        "encounterProfileId": "encounter:junkyard-brute-force",
+        "difficultyProfileId": "difficulty:chapter-1-hard",
+        "rewardProfileId": "reward:stage-04",
+        "unlock": {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-03"
+        }
+      },
+      {
+        "id": "stage:junkyard-05",
+        "name": "Scrap Crusher",
+        "chapterId": "chapter:junkyard",
+        "chapterIconArtId": "chapter-icon:junkyard",
+        "displayOrder": 5,
+        "arenaId": "junkyard-lot",
+        "assetBundleId": "bundle:core-junkyard",
+        "objective": {
+          "type": "defeat",
+          "enemyId": "boss-crusher"
+        },
+        "encounterProfileId": "encounter:junkyard-crusher-boss",
+        "difficultyProfileId": "difficulty:boss-crusher",
+        "rewardProfileId": "reward:stage-05-boss",
+        "bossId": "boss-crusher",
+        "unlock": {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-04"
+        }
+      },
+      {
+        "id": "stage:forge-01",
+        "name": "Hot Salvage",
+        "chapterId": "chapter:forge",
+        "chapterIconArtId": "chapter-icon:forge",
+        "displayOrder": 1,
+        "arenaId": "forge-foundry",
+        "assetBundleId": "bundle:core-forge",
+        "objective": {
+          "type": "collect",
+          "itemId": "drop:scrap",
+          "count": 18
+        },
+        "encounterProfileId": "encounter:forge-hot-salvage",
+        "difficultyProfileId": "difficulty:forge-medium",
+        "rewardProfileId": "reward:forge-01",
+        "unlock": {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-05"
+        }
+      },
+      {
+        "id": "stage:forge-02",
+        "name": "Smelter Rush",
+        "chapterId": "chapter:forge",
+        "chapterIconArtId": "chapter-icon:forge",
+        "displayOrder": 2,
+        "arenaId": "forge-foundry",
+        "assetBundleId": "bundle:core-forge",
+        "objective": {
+          "type": "survive",
+          "seconds": 120
+        },
+        "encounterProfileId": "encounter:forge-smelter-rush",
+        "difficultyProfileId": "difficulty:forge-medium",
+        "rewardProfileId": "reward:forge-02",
+        "unlock": {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-01"
+        }
+      },
+      {
+        "id": "stage:forge-03",
+        "name": "Steel Wall",
+        "chapterId": "chapter:forge",
+        "chapterIconArtId": "chapter-icon:forge",
+        "displayOrder": 3,
+        "arenaId": "forge-foundry",
+        "assetBundleId": "bundle:core-forge",
+        "objective": {
+          "type": "kill",
+          "count": 10,
+          "enemyTag": "shielded"
+        },
+        "encounterProfileId": "encounter:forge-steel-wall",
+        "difficultyProfileId": "difficulty:forge-hard",
+        "rewardProfileId": "reward:forge-03",
+        "unlock": {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-02"
+        }
+      },
+      {
+        "id": "stage:forge-04",
+        "name": "Cut the Feed",
+        "chapterId": "chapter:forge",
+        "chapterIconArtId": "chapter-icon:forge",
+        "displayOrder": 4,
+        "arenaId": "forge-foundry",
+        "assetBundleId": "bundle:core-forge",
+        "objective": {
+          "type": "kill",
+          "count": 12,
+          "enemyTag": "ranged"
+        },
+        "encounterProfileId": "encounter:forge-cut-the-feed",
+        "difficultyProfileId": "difficulty:forge-hard",
+        "rewardProfileId": "reward:forge-04",
+        "unlock": {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-03"
+        }
+      },
+      {
+        "id": "stage:junkyard-06",
+        "name": "Forge Warden",
+        "chapterId": "chapter:forge",
+        "chapterIconArtId": "chapter-icon:forge",
+        "displayOrder": 5,
+        "arenaId": "forge-foundry",
+        "assetBundleId": "bundle:core-forge",
+        "objective": {
+          "type": "defeat",
+          "enemyId": "boss-forge"
+        },
+        "encounterProfileId": "encounter:forge-warden-boss",
+        "difficultyProfileId": "difficulty:boss-forge",
+        "rewardProfileId": "reward:stage-06-boss",
+        "bossId": "boss-forge",
+        "unlock": {
+          "type": "stage-cleared",
+          "stageId": "stage:forge-04"
+        }
+      }
+    ],
+    "encounterProfiles": [
+      {
+        "id": "encounter:junkyard-first-scavenge",
+        "enemyIds": [
+          "dust-mite",
+          "scrap-skitter",
+          "junk-rusher",
+          "scrap-sniper"
+        ],
+        "compositionWeights": {
+          "dust-mite": 2,
+          "scrap-skitter": 1,
+          "junk-rusher": 1,
+          "scrap-sniper": 1
+        }
+      },
+      {
+        "id": "encounter:junkyard-scrap-run",
+        "enemyIds": [
+          "dust-mite",
+          "scrap-skitter",
+          "scrap-sniper",
+          "junk-nester",
+          "bastion-beetle"
+        ],
+        "compositionWeights": {
+          "dust-mite": 2,
+          "scrap-skitter": 2,
+          "scrap-sniper": 1,
+          "junk-nester": 1,
+          "bastion-beetle": 1
+        }
+      },
+      {
+        "id": "encounter:junkyard-rusher-ambush",
+        "enemyIds": [
+          "dust-mite",
+          "junk-rusher",
+          "scrap-skitter",
+          "shard-bot",
+          "bastion-beetle"
+        ],
+        "compositionWeights": {
+          "dust-mite": 2,
+          "junk-rusher": 2,
+          "scrap-skitter": 2,
+          "shard-bot": 1,
+          "bastion-beetle": 1
+        }
+      },
+      {
+        "id": "encounter:junkyard-brute-force",
+        "enemyIds": [
+          "dust-mite",
+          "trash-brute",
+          "bastion-beetle",
+          "shard-bot",
+          "junk-nester"
+        ],
+        "compositionWeights": {
+          "dust-mite": 2,
+          "trash-brute": 2,
+          "bastion-beetle": 1,
+          "shard-bot": 1,
+          "junk-nester": 1
+        }
+      },
+      {
+        "id": "encounter:junkyard-crusher-boss",
+        "enemyIds": [
+          "dust-mite",
+          "junk-rusher",
+          "bastion-beetle",
+          "scrap-sniper"
+        ],
+        "compositionWeights": {
+          "dust-mite": 2,
+          "junk-rusher": 1,
+          "bastion-beetle": 1,
+          "scrap-sniper": 1
+        },
+        "bossId": "boss-crusher"
+      },
+      {
+        "id": "encounter:forge-hot-salvage",
+        "enemyIds": [
+          "dust-mite",
+          "shard-bot",
+          "junk-nester",
+          "scrap-sniper",
+          "bastion-beetle"
+        ],
+        "compositionWeights": {
+          "dust-mite": 2,
+          "shard-bot": 2,
+          "junk-nester": 1,
+          "scrap-sniper": 1,
+          "bastion-beetle": 1
+        }
+      },
+      {
+        "id": "encounter:forge-smelter-rush",
+        "enemyIds": [
+          "dust-mite",
+          "junk-rusher",
+          "shard-bot",
+          "scrap-skitter",
+          "bastion-beetle"
+        ],
+        "compositionWeights": {
+          "dust-mite": 2,
+          "junk-rusher": 2,
+          "shard-bot": 2,
+          "scrap-skitter": 1,
+          "bastion-beetle": 1
+        }
+      },
+      {
+        "id": "encounter:forge-steel-wall",
+        "enemyIds": [
+          "dust-mite",
+          "bastion-beetle",
+          "junk-nester",
+          "trash-brute",
+          "scrap-sniper"
+        ],
+        "compositionWeights": {
+          "dust-mite": 2,
+          "bastion-beetle": 1,
+          "junk-nester": 1,
+          "trash-brute": 1,
+          "scrap-sniper": 1
+        }
+      },
+      {
+        "id": "encounter:forge-cut-the-feed",
+        "enemyIds": [
+          "dust-mite",
+          "scrap-sniper",
+          "junk-nester",
+          "junk-rusher",
+          "shard-bot",
+          "bastion-beetle"
+        ],
+        "compositionWeights": {
+          "dust-mite": 2,
+          "scrap-sniper": 1,
+          "junk-nester": 1,
+          "junk-rusher": 1,
+          "shard-bot": 1,
+          "bastion-beetle": 1
+        }
+      },
+      {
+        "id": "encounter:forge-warden-boss",
+        "enemyIds": [
+          "dust-mite",
+          "junk-rusher",
+          "shard-bot",
+          "junk-nester"
+        ],
+        "compositionWeights": {
+          "dust-mite": 2,
+          "junk-rusher": 1,
+          "shard-bot": 1,
+          "junk-nester": 1
+        },
+        "bossId": "boss-forge"
+      }
+    ],
+    "difficultyProfiles": [
+      {
+        "id": "difficulty:chapter-1-easy",
+        "healthMultiplier": 1,
+        "damageMultiplier": 1,
+        "speedMultiplier": 1,
+        "spawnPressure": 0.2
+      },
+      {
+        "id": "difficulty:chapter-1-medium",
+        "healthMultiplier": 1.15,
+        "damageMultiplier": 1.08,
+        "speedMultiplier": 1.02,
+        "spawnPressure": 0.35
+      },
+      {
+        "id": "difficulty:chapter-1-hard",
+        "healthMultiplier": 1.3,
+        "damageMultiplier": 1.15,
+        "speedMultiplier": 1.04,
+        "spawnPressure": 0.5
+      },
+      {
+        "id": "difficulty:forge-medium",
+        "healthMultiplier": 1.35,
+        "damageMultiplier": 1.18,
+        "speedMultiplier": 1.05,
+        "spawnPressure": 0.45
+      },
+      {
+        "id": "difficulty:forge-hard",
+        "healthMultiplier": 1.55,
+        "damageMultiplier": 1.28,
+        "speedMultiplier": 1.08,
+        "spawnPressure": 0.6
+      },
+      {
+        "id": "difficulty:boss-crusher",
+        "healthMultiplier": 1.6,
+        "damageMultiplier": 1.25,
+        "speedMultiplier": 0.95,
+        "spawnPressure": 0.4
+      },
+      {
+        "id": "difficulty:boss-forge",
+        "healthMultiplier": 1.9,
+        "damageMultiplier": 1.4,
+        "speedMultiplier": 1,
+        "spawnPressure": 0.55
+      }
+    ],
+    "rewardProfiles": [
+      {
+        "id": "reward:stage-01",
+        "firstClearScrap": 35,
+        "grants": [
+          {
+            "type": "grant-part-instance",
+            "instanceId": "reward:stage-01-standard-barrel",
+            "partId": "part:barrel-standard",
+            "tier": 1
+          }
+        ]
+      },
+      {
+        "id": "reward:stage-02",
+        "firstClearScrap": 45,
+        "grants": [
+          {
+            "type": "grant-part-instance",
+            "instanceId": "reward:stage-02-red-dot-optic",
+            "partId": "part:optic-red-dot",
+            "tier": 1
+          }
+        ]
+      },
+      {
+        "id": "reward:stage-03",
+        "firstClearScrap": 60,
+        "grants": [
+          {
+            "type": "grant-part-instance",
+            "instanceId": "reward:stage-03-heavy-receiver",
+            "partId": "part:receiver-heavy",
+            "tier": 1
+          }
+        ]
+      },
+      {
+        "id": "reward:stage-04",
+        "firstClearScrap": 75,
+        "grants": [
+          {
+            "type": "grant-part-instance",
+            "instanceId": "reward:stage-04-hair-trigger",
+            "partId": "part:trigger-hair",
+            "tier": 1
+          }
+        ]
+      },
+      {
+        "id": "reward:stage-05-boss",
+        "firstClearScrap": 130,
+        "grants": [
+          {
+            "type": "grant-part-instance",
+            "instanceId": "reward:stage-05-fire-trait",
+            "partId": "part:trait-fire",
+            "tier": 1
+          }
+        ]
+      },
+      {
+        "id": "reward:forge-01",
+        "firstClearScrap": 90
+      },
+      {
+        "id": "reward:forge-02",
+        "firstClearScrap": 105
+      },
+      {
+        "id": "reward:forge-03",
+        "firstClearScrap": 120
+      },
+      {
+        "id": "reward:forge-04",
+        "firstClearScrap": 140,
+        "grants": [
+          {
+            "type": "grant-part-instance",
+            "instanceId": "reward:forge-04-grenade-launcher",
+            "partId": "part:underbarrel-grenade",
+            "tier": 1
+          }
+        ]
+      },
+      {
+        "id": "reward:stage-06-boss",
+        "firstClearScrap": 180,
+        "grants": [
+          {
+            "type": "grant-part-instance",
+            "instanceId": "reward:stage-06-mastered-fire-trait",
+            "partId": "part:trait-fire-mastered",
+            "tier": 3
+          }
+        ]
+      }
+    ]
+  },
+  "plans": [
+    {
+      "plan": {
+        "characterId": "scrap-tabby",
+        "stageId": "stage:junkyard-01",
+        "arenaId": "junkyard-lot",
+        "objective": {
+          "type": "kill",
+          "definition": {
+            "type": "kill",
+            "count": 25
+          }
+        },
+        "encounter": {
+          "profileId": "encounter:junkyard-first-scavenge",
+          "enemyIds": [
+            "dust-mite",
+            "scrap-skitter",
+            "junk-rusher",
+            "scrap-sniper"
+          ],
+          "compositionWeights": {
+            "dust-mite": 2,
+            "scrap-skitter": 1,
+            "junk-rusher": 1,
+            "scrap-sniper": 1
+          }
+        },
+        "difficulty": {
+          "profileId": "difficulty:chapter-1-easy",
+          "healthMultiplier": 1,
+          "damageMultiplier": 1,
+          "speedMultiplier": 1,
+          "spawnPressure": 0.2
+        },
+        "reward": {
+          "profileId": "reward:stage-01",
+          "firstClearScrap": 35,
+          "grants": [
+            {
+              "type": "grant-part-instance",
+              "instanceId": "reward:stage-01-standard-barrel",
+              "partId": "part:barrel-standard",
+              "tier": 1
+            }
+          ]
+        },
+        "seed": 91
+      },
+      "spawnCurve": {
+        "id": "junkyard-intro",
+        "durationSeconds": 120,
+        "scaling": {
+          "healthPerMinute": 0.18,
+          "damagePerMinute": 0.1
+        },
+        "waves": [
+          {
+            "startSecond": 0,
+            "enemyId": "dust-mite",
+            "spawnEveryMs": 667,
+            "maxAlive": 15
+          },
+          {
+            "startSecond": 30,
+            "enemyId": "scrap-skitter",
+            "spawnEveryMs": 2000,
+            "maxAlive": 8
+          },
+          {
+            "startSecond": 60,
+            "enemyId": "junk-rusher",
+            "spawnEveryMs": 2667,
+            "maxAlive": 5
+          },
+          {
+            "startSecond": 90,
+            "enemyId": "scrap-sniper",
+            "spawnEveryMs": 5417,
+            "maxAlive": 4
+          }
+        ]
+      }
+    },
+    {
+      "plan": {
+        "characterId": "scrap-tabby",
+        "stageId": "stage:junkyard-02",
+        "arenaId": "junkyard-lot",
+        "objective": {
+          "type": "collect",
+          "definition": {
+            "type": "collect",
+            "itemId": "drop:scrap",
+            "count": 14
+          }
+        },
+        "encounter": {
+          "profileId": "encounter:junkyard-scrap-run",
+          "enemyIds": [
+            "dust-mite",
+            "scrap-skitter",
+            "scrap-sniper",
+            "junk-nester",
+            "bastion-beetle"
+          ],
+          "compositionWeights": {
+            "dust-mite": 2,
+            "scrap-skitter": 2,
+            "scrap-sniper": 1,
+            "junk-nester": 1,
+            "bastion-beetle": 1
+          }
+        },
+        "difficulty": {
+          "profileId": "difficulty:chapter-1-easy",
+          "healthMultiplier": 1,
+          "damageMultiplier": 1,
+          "speedMultiplier": 1,
+          "spawnPressure": 0.2
+        },
+        "reward": {
+          "profileId": "reward:stage-02",
+          "firstClearScrap": 45,
+          "grants": [
+            {
+              "type": "grant-part-instance",
+              "instanceId": "reward:stage-02-red-dot-optic",
+              "partId": "part:optic-red-dot",
+              "tier": 1
+            }
+          ]
+        },
+        "seed": 91
+      },
+      "spawnCurve": {
+        "id": "junkyard-intro",
+        "durationSeconds": 120,
+        "scaling": {
+          "healthPerMinute": 0.18,
+          "damagePerMinute": 0.1
+        },
+        "waves": [
+          {
+            "startSecond": 0,
+            "enemyId": "dust-mite",
+            "spawnEveryMs": 667,
+            "maxAlive": 15
+          },
+          {
+            "startSecond": 24,
+            "enemyId": "scrap-skitter",
+            "spawnEveryMs": 1000,
+            "maxAlive": 8
+          },
+          {
+            "startSecond": 48,
+            "enemyId": "scrap-sniper",
+            "spawnEveryMs": 2667,
+            "maxAlive": 5
+          },
+          {
+            "startSecond": 72,
+            "enemyId": "junk-nester",
+            "spawnEveryMs": 2667,
+            "maxAlive": 5
+          },
+          {
+            "startSecond": 96,
+            "enemyId": "bastion-beetle",
+            "spawnEveryMs": 5417,
+            "maxAlive": 4
+          }
+        ]
+      }
+    },
+    {
+      "plan": {
+        "characterId": "scrap-tabby",
+        "stageId": "stage:junkyard-03",
+        "arenaId": "junkyard-lot",
+        "objective": {
+          "type": "survive",
+          "definition": {
+            "type": "survive",
+            "seconds": 120
+          }
+        },
+        "encounter": {
+          "profileId": "encounter:junkyard-rusher-ambush",
+          "enemyIds": [
+            "dust-mite",
+            "junk-rusher",
+            "scrap-skitter",
+            "shard-bot",
+            "bastion-beetle"
+          ],
+          "compositionWeights": {
+            "dust-mite": 2,
+            "junk-rusher": 2,
+            "scrap-skitter": 2,
+            "shard-bot": 1,
+            "bastion-beetle": 1
+          }
+        },
+        "difficulty": {
+          "profileId": "difficulty:chapter-1-medium",
+          "healthMultiplier": 1.15,
+          "damageMultiplier": 1.08,
+          "speedMultiplier": 1.02,
+          "spawnPressure": 0.35
+        },
+        "reward": {
+          "profileId": "reward:stage-03",
+          "firstClearScrap": 60,
+          "grants": [
+            {
+              "type": "grant-part-instance",
+              "instanceId": "reward:stage-03-heavy-receiver",
+              "partId": "part:receiver-heavy",
+              "tier": 1
+            }
+          ]
+        },
+        "seed": 91
+      },
+      "spawnCurve": {
+        "id": "junkyard-intro",
+        "durationSeconds": 120,
+        "scaling": {
+          "healthPerMinute": 0.18,
+          "damagePerMinute": 0.1
+        },
+        "waves": [
+          {
+            "startSecond": 0,
+            "enemyId": "dust-mite",
+            "spawnEveryMs": 593,
+            "maxAlive": 17
+          },
+          {
+            "startSecond": 24,
+            "enemyId": "junk-rusher",
+            "spawnEveryMs": 889,
+            "maxAlive": 9
+          },
+          {
+            "startSecond": 48,
+            "enemyId": "scrap-skitter",
+            "spawnEveryMs": 1185,
+            "maxAlive": 6
+          },
+          {
+            "startSecond": 72,
+            "enemyId": "shard-bot",
+            "spawnEveryMs": 2370,
+            "maxAlive": 6
+          },
+          {
+            "startSecond": 96,
+            "enemyId": "bastion-beetle",
+            "spawnEveryMs": 4815,
+            "maxAlive": 5
+          }
+        ]
+      }
+    },
+    {
+      "plan": {
+        "characterId": "scrap-tabby",
+        "stageId": "stage:junkyard-04",
+        "arenaId": "junkyard-lot",
+        "objective": {
+          "type": "kill",
+          "definition": {
+            "type": "kill",
+            "count": 8,
+            "enemyTag": "tank"
+          }
+        },
+        "encounter": {
+          "profileId": "encounter:junkyard-brute-force",
+          "enemyIds": [
+            "dust-mite",
+            "trash-brute",
+            "bastion-beetle",
+            "shard-bot",
+            "junk-nester"
+          ],
+          "compositionWeights": {
+            "dust-mite": 2,
+            "trash-brute": 2,
+            "bastion-beetle": 1,
+            "shard-bot": 1,
+            "junk-nester": 1
+          }
+        },
+        "difficulty": {
+          "profileId": "difficulty:chapter-1-hard",
+          "healthMultiplier": 1.3,
+          "damageMultiplier": 1.15,
+          "speedMultiplier": 1.04,
+          "spawnPressure": 0.5
+        },
+        "reward": {
+          "profileId": "reward:stage-04",
+          "firstClearScrap": 75,
+          "grants": [
+            {
+              "type": "grant-part-instance",
+              "instanceId": "reward:stage-04-hair-trigger",
+              "partId": "part:trigger-hair",
+              "tier": 1
+            }
+          ]
+        },
+        "seed": 91
+      },
+      "spawnCurve": {
+        "id": "junkyard-intro",
+        "durationSeconds": 120,
+        "scaling": {
+          "healthPerMinute": 0.18,
+          "damagePerMinute": 0.1
+        },
+        "waves": [
+          {
+            "startSecond": 0,
+            "enemyId": "dust-mite",
+            "spawnEveryMs": 533,
+            "maxAlive": 18
+          },
+          {
+            "startSecond": 24,
+            "enemyId": "trash-brute",
+            "spawnEveryMs": 800,
+            "maxAlive": 9
+          },
+          {
+            "startSecond": 48,
+            "enemyId": "bastion-beetle",
+            "spawnEveryMs": 2133,
+            "maxAlive": 6
+          },
+          {
+            "startSecond": 72,
+            "enemyId": "shard-bot",
+            "spawnEveryMs": 2133,
+            "maxAlive": 6
+          },
+          {
+            "startSecond": 96,
+            "enemyId": "junk-nester",
+            "spawnEveryMs": 4333,
+            "maxAlive": 5
+          }
+        ]
+      }
+    },
+    {
+      "plan": {
+        "characterId": "scrap-tabby",
+        "stageId": "stage:junkyard-05",
+        "arenaId": "junkyard-lot",
+        "objective": {
+          "type": "defeat",
+          "definition": {
+            "type": "defeat",
+            "enemyId": "boss-crusher"
+          }
+        },
+        "encounter": {
+          "profileId": "encounter:junkyard-crusher-boss",
+          "enemyIds": [
+            "dust-mite",
+            "junk-rusher",
+            "bastion-beetle",
+            "scrap-sniper"
+          ],
+          "compositionWeights": {
+            "dust-mite": 2,
+            "junk-rusher": 1,
+            "bastion-beetle": 1,
+            "scrap-sniper": 1
+          },
+          "bossId": "boss-crusher"
+        },
+        "difficulty": {
+          "profileId": "difficulty:boss-crusher",
+          "healthMultiplier": 1.6,
+          "damageMultiplier": 1.25,
+          "speedMultiplier": 0.95,
+          "spawnPressure": 0.4
+        },
+        "reward": {
+          "profileId": "reward:stage-05-boss",
+          "firstClearScrap": 130,
+          "grants": [
+            {
+              "type": "grant-part-instance",
+              "instanceId": "reward:stage-05-fire-trait",
+              "partId": "part:trait-fire",
+              "tier": 1
+            }
+          ]
+        },
+        "seed": 91
+      },
+      "spawnCurve": {
+        "id": "junkyard-intro",
+        "durationSeconds": 120,
+        "scaling": {
+          "healthPerMinute": 0.18,
+          "damagePerMinute": 0.1
+        },
+        "waves": [
+          {
+            "startSecond": 0,
+            "enemyId": "dust-mite",
+            "spawnEveryMs": 571,
+            "maxAlive": 17
+          },
+          {
+            "startSecond": 30,
+            "enemyId": "junk-rusher",
+            "spawnEveryMs": 1714,
+            "maxAlive": 9
+          },
+          {
+            "startSecond": 60,
+            "enemyId": "bastion-beetle",
+            "spawnEveryMs": 2286,
+            "maxAlive": 6
+          },
+          {
+            "startSecond": 90,
+            "enemyId": "scrap-sniper",
+            "spawnEveryMs": 4643,
+            "maxAlive": 5
+          }
+        ]
+      }
+    },
+    {
+      "plan": {
+        "characterId": "scrap-tabby",
+        "stageId": "stage:forge-01",
+        "arenaId": "forge-foundry",
+        "objective": {
+          "type": "collect",
+          "definition": {
+            "type": "collect",
+            "itemId": "drop:scrap",
+            "count": 18
+          }
+        },
+        "encounter": {
+          "profileId": "encounter:forge-hot-salvage",
+          "enemyIds": [
+            "dust-mite",
+            "shard-bot",
+            "junk-nester",
+            "scrap-sniper",
+            "bastion-beetle"
+          ],
+          "compositionWeights": {
+            "dust-mite": 2,
+            "shard-bot": 2,
+            "junk-nester": 1,
+            "scrap-sniper": 1,
+            "bastion-beetle": 1
+          }
+        },
+        "difficulty": {
+          "profileId": "difficulty:forge-medium",
+          "healthMultiplier": 1.35,
+          "damageMultiplier": 1.18,
+          "speedMultiplier": 1.05,
+          "spawnPressure": 0.45
+        },
+        "reward": {
+          "profileId": "reward:forge-01",
+          "firstClearScrap": 90,
+          "grants": []
+        },
+        "seed": 91
+      },
+      "spawnCurve": {
+        "id": "junkyard-intro",
+        "durationSeconds": 120,
+        "scaling": {
+          "healthPerMinute": 0.18,
+          "damagePerMinute": 0.1
+        },
+        "waves": [
+          {
+            "startSecond": 0,
+            "enemyId": "dust-mite",
+            "spawnEveryMs": 552,
+            "maxAlive": 18
+          },
+          {
+            "startSecond": 24,
+            "enemyId": "shard-bot",
+            "spawnEveryMs": 828,
+            "maxAlive": 9
+          },
+          {
+            "startSecond": 48,
+            "enemyId": "junk-nester",
+            "spawnEveryMs": 2207,
+            "maxAlive": 6
+          },
+          {
+            "startSecond": 72,
+            "enemyId": "scrap-sniper",
+            "spawnEveryMs": 2207,
+            "maxAlive": 6
+          },
+          {
+            "startSecond": 96,
+            "enemyId": "bastion-beetle",
+            "spawnEveryMs": 4483,
+            "maxAlive": 5
+          }
+        ]
+      }
+    },
+    {
+      "plan": {
+        "characterId": "scrap-tabby",
+        "stageId": "stage:forge-02",
+        "arenaId": "forge-foundry",
+        "objective": {
+          "type": "survive",
+          "definition": {
+            "type": "survive",
+            "seconds": 120
+          }
+        },
+        "encounter": {
+          "profileId": "encounter:forge-smelter-rush",
+          "enemyIds": [
+            "dust-mite",
+            "junk-rusher",
+            "shard-bot",
+            "scrap-skitter",
+            "bastion-beetle"
+          ],
+          "compositionWeights": {
+            "dust-mite": 2,
+            "junk-rusher": 2,
+            "shard-bot": 2,
+            "scrap-skitter": 1,
+            "bastion-beetle": 1
+          }
+        },
+        "difficulty": {
+          "profileId": "difficulty:forge-medium",
+          "healthMultiplier": 1.35,
+          "damageMultiplier": 1.18,
+          "speedMultiplier": 1.05,
+          "spawnPressure": 0.45
+        },
+        "reward": {
+          "profileId": "reward:forge-02",
+          "firstClearScrap": 105,
+          "grants": []
+        },
+        "seed": 91
+      },
+      "spawnCurve": {
+        "id": "junkyard-intro",
+        "durationSeconds": 120,
+        "scaling": {
+          "healthPerMinute": 0.18,
+          "damagePerMinute": 0.1
+        },
+        "waves": [
+          {
+            "startSecond": 0,
+            "enemyId": "dust-mite",
+            "spawnEveryMs": 552,
+            "maxAlive": 18
+          },
+          {
+            "startSecond": 24,
+            "enemyId": "junk-rusher",
+            "spawnEveryMs": 828,
+            "maxAlive": 9
+          },
+          {
+            "startSecond": 48,
+            "enemyId": "shard-bot",
+            "spawnEveryMs": 1103,
+            "maxAlive": 6
+          },
+          {
+            "startSecond": 72,
+            "enemyId": "scrap-skitter",
+            "spawnEveryMs": 2207,
+            "maxAlive": 6
+          },
+          {
+            "startSecond": 96,
+            "enemyId": "bastion-beetle",
+            "spawnEveryMs": 4483,
+            "maxAlive": 5
+          }
+        ]
+      }
+    },
+    {
+      "plan": {
+        "characterId": "scrap-tabby",
+        "stageId": "stage:forge-03",
+        "arenaId": "forge-foundry",
+        "objective": {
+          "type": "kill",
+          "definition": {
+            "type": "kill",
+            "count": 10,
+            "enemyTag": "shielded"
+          }
+        },
+        "encounter": {
+          "profileId": "encounter:forge-steel-wall",
+          "enemyIds": [
+            "dust-mite",
+            "bastion-beetle",
+            "junk-nester",
+            "trash-brute",
+            "scrap-sniper"
+          ],
+          "compositionWeights": {
+            "dust-mite": 2,
+            "bastion-beetle": 1,
+            "junk-nester": 1,
+            "trash-brute": 1,
+            "scrap-sniper": 1
+          }
+        },
+        "difficulty": {
+          "profileId": "difficulty:forge-hard",
+          "healthMultiplier": 1.55,
+          "damageMultiplier": 1.28,
+          "speedMultiplier": 1.08,
+          "spawnPressure": 0.6
+        },
+        "reward": {
+          "profileId": "reward:forge-03",
+          "firstClearScrap": 120,
+          "grants": []
+        },
+        "seed": 91
+      },
+      "spawnCurve": {
+        "id": "junkyard-intro",
+        "durationSeconds": 120,
+        "scaling": {
+          "healthPerMinute": 0.18,
+          "damagePerMinute": 0.1
+        },
+        "waves": [
+          {
+            "startSecond": 0,
+            "enemyId": "dust-mite",
+            "spawnEveryMs": 500,
+            "maxAlive": 20
+          },
+          {
+            "startSecond": 24,
+            "enemyId": "bastion-beetle",
+            "spawnEveryMs": 1500,
+            "maxAlive": 10
+          },
+          {
+            "startSecond": 48,
+            "enemyId": "junk-nester",
+            "spawnEveryMs": 2000,
+            "maxAlive": 7
+          },
+          {
+            "startSecond": 72,
+            "enemyId": "trash-brute",
+            "spawnEveryMs": 2000,
+            "maxAlive": 7
+          },
+          {
+            "startSecond": 96,
+            "enemyId": "scrap-sniper",
+            "spawnEveryMs": 4063,
+            "maxAlive": 5
+          }
+        ]
+      }
+    },
+    {
+      "plan": {
+        "characterId": "scrap-tabby",
+        "stageId": "stage:forge-04",
+        "arenaId": "forge-foundry",
+        "objective": {
+          "type": "kill",
+          "definition": {
+            "type": "kill",
+            "count": 12,
+            "enemyTag": "ranged"
+          }
+        },
+        "encounter": {
+          "profileId": "encounter:forge-cut-the-feed",
+          "enemyIds": [
+            "dust-mite",
+            "scrap-sniper",
+            "junk-nester",
+            "junk-rusher",
+            "shard-bot",
+            "bastion-beetle"
+          ],
+          "compositionWeights": {
+            "dust-mite": 2,
+            "scrap-sniper": 1,
+            "junk-nester": 1,
+            "junk-rusher": 1,
+            "shard-bot": 1,
+            "bastion-beetle": 1
+          }
+        },
+        "difficulty": {
+          "profileId": "difficulty:forge-hard",
+          "healthMultiplier": 1.55,
+          "damageMultiplier": 1.28,
+          "speedMultiplier": 1.08,
+          "spawnPressure": 0.6
+        },
+        "reward": {
+          "profileId": "reward:forge-04",
+          "firstClearScrap": 140,
+          "grants": [
+            {
+              "type": "grant-part-instance",
+              "instanceId": "reward:forge-04-grenade-launcher",
+              "partId": "part:underbarrel-grenade",
+              "tier": 1
+            }
+          ]
+        },
+        "seed": 91
+      },
+      "spawnCurve": {
+        "id": "junkyard-intro",
+        "durationSeconds": 120,
+        "scaling": {
+          "healthPerMinute": 0.18,
+          "damagePerMinute": 0.1
+        },
+        "waves": [
+          {
+            "startSecond": 0,
+            "enemyId": "dust-mite",
+            "spawnEveryMs": 500,
+            "maxAlive": 20
+          },
+          {
+            "startSecond": 20,
+            "enemyId": "scrap-sniper",
+            "spawnEveryMs": 1500,
+            "maxAlive": 10
+          },
+          {
+            "startSecond": 40,
+            "enemyId": "junk-nester",
+            "spawnEveryMs": 1500,
+            "maxAlive": 10
+          },
+          {
+            "startSecond": 60,
+            "enemyId": "junk-rusher",
+            "spawnEveryMs": 2000,
+            "maxAlive": 7
+          },
+          {
+            "startSecond": 80,
+            "enemyId": "shard-bot",
+            "spawnEveryMs": 2000,
+            "maxAlive": 7
+          },
+          {
+            "startSecond": 100,
+            "enemyId": "bastion-beetle",
+            "spawnEveryMs": 4063,
+            "maxAlive": 5
+          }
+        ]
+      }
+    },
+    {
+      "plan": {
+        "characterId": "scrap-tabby",
+        "stageId": "stage:junkyard-06",
+        "arenaId": "forge-foundry",
+        "objective": {
+          "type": "defeat",
+          "definition": {
+            "type": "defeat",
+            "enemyId": "boss-forge"
+          }
+        },
+        "encounter": {
+          "profileId": "encounter:forge-warden-boss",
+          "enemyIds": [
+            "dust-mite",
+            "junk-rusher",
+            "shard-bot",
+            "junk-nester"
+          ],
+          "compositionWeights": {
+            "dust-mite": 2,
+            "junk-rusher": 1,
+            "shard-bot": 1,
+            "junk-nester": 1
+          },
+          "bossId": "boss-forge"
+        },
+        "difficulty": {
+          "profileId": "difficulty:boss-forge",
+          "healthMultiplier": 1.9,
+          "damageMultiplier": 1.4,
+          "speedMultiplier": 1,
+          "spawnPressure": 0.55
+        },
+        "reward": {
+          "profileId": "reward:stage-06-boss",
+          "firstClearScrap": 180,
+          "grants": [
+            {
+              "type": "grant-part-instance",
+              "instanceId": "reward:stage-06-mastered-fire-trait",
+              "partId": "part:trait-fire-mastered",
+              "tier": 3
+            }
+          ]
+        },
+        "seed": 91
+      },
+      "spawnCurve": {
+        "id": "junkyard-intro",
+        "durationSeconds": 120,
+        "scaling": {
+          "healthPerMinute": 0.18,
+          "damagePerMinute": 0.1
+        },
+        "waves": [
+          {
+            "startSecond": 0,
+            "enemyId": "dust-mite",
+            "spawnEveryMs": 516,
+            "maxAlive": 19
+          },
+          {
+            "startSecond": 30,
+            "enemyId": "junk-rusher",
+            "spawnEveryMs": 1548,
+            "maxAlive": 10
+          },
+          {
+            "startSecond": 60,
+            "enemyId": "shard-bot",
+            "spawnEveryMs": 2065,
+            "maxAlive": 7
+          },
+          {
+            "startSecond": 90,
+            "enemyId": "junk-nester",
+            "spawnEveryMs": 4194,
+            "maxAlive": 5
+          }
+        ]
+      }
+    }
+  ]
+}

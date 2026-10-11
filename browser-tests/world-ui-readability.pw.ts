@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
-import { dismissRunStartBrief } from './run-start-helpers';
+import { completeRunStartIntro, type IntroDiagnostics } from './run-start-helpers';
 
 type Rect = { x: number; y: number; width: number; height: number };
 type Framing = {
@@ -32,7 +32,7 @@ type Seam = {
   captureArenaReadability(): Promise<Readability | undefined>;
   summaryMenuTarget(): Readonly<{ x: number; y: number }> | undefined;
   showRunSummary(outcome: 'won' | 'lost'): boolean;
-  runStartBriefDiagnostics(): { visible: boolean; status: string; timeMs: number; buttons: Rect[] } | undefined;
+  runStartIntroDiagnostics(): IntroDiagnostics | undefined;
 };
 declare global { var __MEOWCENARY_VISUAL_TEST__: Seam | undefined; }
 
@@ -51,7 +51,7 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
   } finally {
     await page.keyboard.up('Enter');
   }
-  await dismissRunStartBrief(page, 'keyboard');
+  await completeRunStartIntro(page, 'keyboard');
   mark('prepared game');
   const initial = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
   expect(initial).toBeDefined();
@@ -152,8 +152,8 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
       await page.keyboard.up('Enter');
     }
     await inputFrame();
-    if (begin) await dismissRunStartBrief(page, 'keyboard');
-    else expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.runStartBriefDiagnostics()))
+    if (begin) await completeRunStartIntro(page, 'keyboard');
+    else expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics()))
       .toMatchObject({ visible: true, status: 'intro', timeMs: 0 });
     mark('launch complete');
   };

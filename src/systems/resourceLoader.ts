@@ -228,11 +228,13 @@ export function resolveRunPhysicalResources(options: {
   readonly arena: Readonly<ArenaDefinition>;
   readonly encounterEnemyIds: readonly string[];
   readonly bossId?: string;
+  readonly introArtIds?: readonly string[];
 }): readonly VisualTextureResource[] {
   const art = new DataVisualArtRegistry(options.data);
   const resourceById = new Map(options.data.visualResources.map((resource) => [resource.id, resource]));
   const artIds = new Set<string>();
   const addArt = (id: string): void => { artIds.add(id); };
+  for (const id of options.introArtIds ?? []) addArt(id);
 
   addArt(`character:${options.characterId}`);
   const selectedCharacter = options.data.characters.find((character) => character.id === options.characterId);

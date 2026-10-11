@@ -1,3 +1,4 @@
+import { resolveStageCompletion } from '../gameplay/stage/stageCompletion';
 /**
  * Progression overview read model (Epic 26) — one coherent view of the
  * post-Alpha-3 progression web: stage ladder, boss milestone, achievements,
@@ -23,6 +24,8 @@ export interface NextGoalView {
 
 export interface ProgressionOverviewSnapshot {
   readonly revision: number;
+  readonly optionalCompletedStages: number;
+  readonly totalOptionalStages: number;
   readonly completedStages: number;
   readonly totalStages: number;
   readonly completedAchievements: number;
@@ -78,7 +81,7 @@ export class ProgressionOverviewController {
         title: stageLocked ? `Unlock ${nextStage.name}` : `Clear ${nextStage.name}`,
         detail: stageLocked
           ? `${describeProgressionCondition(nextStage.unlock as unknown as ProgressionCondition, context.data)}.`
-          : `Complete this Contract to advance in ${chapterName(nextStage.chapterId)}.`,
+          : nextStage.campaignRole === 'optional' ? 'Optional contract after the completed campaign.' : `Complete this Contract to advance in ${chapterName(nextStage.chapterId)}.`,
         priority: 1,
         artId: stageArtId(nextStage),
       });
@@ -143,15 +146,17 @@ export class ProgressionOverviewController {
       });
     }
 
-    const completedStages = stages.filter((s) => context.saveData.stages[s.id]?.completed).length;
+    const completion = resolveStageCompletion(stages, context.saveData.stages);
     const achievementDefs = this.achievements.all();
     const completedAchievements = achievementDefs.filter((a) => context.saveData.achievements[a.id]?.completed).length;
     const unlockedCharacters = characters.filter((character) => isCharacterAvailable(character, conditionCtx)).length;
 
     return Object.freeze({
       revision: this.revision,
-      completedStages,
-      totalStages: stages.length,
+      completedStages: completion.mainCompleted,
+      totalStages: completion.mainTotal,
+      optionalCompletedStages: completion.optionalCompleted,
+      totalOptionalStages: completion.optionalTotal,
       completedAchievements,
       totalAchievements: achievementDefs.length,
       unlockedCharacters,

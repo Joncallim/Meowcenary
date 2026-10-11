@@ -44,7 +44,14 @@ export interface RewardProfile {
 
 // ── Stage definition (§3.1) ──────────────────────────────────────────
 
+export interface StageOpeningDialogue {
+  readonly speakerEnemyId: string;
+  readonly lines: readonly string[];
+}
+
 export interface StageDefinition {
+  readonly campaignRole?: 'main' | 'optional';
+  readonly openingDialogue?: StageOpeningDialogue;
   readonly id: string; // e.g. 'stage:junkyard-01'
   readonly name: string;
   readonly chapterId: string; // e.g. 'chapter:junkyard'
@@ -98,6 +105,7 @@ export interface ResolvedRewardProfile {
 }
 
 export interface ResolvedRunPlan {
+  readonly openingDialogue?: StageOpeningDialogue;
   readonly characterId: string;
   readonly stageId: string;
   readonly arenaId: string;
@@ -206,6 +214,7 @@ export function resolveRunPlan(
   }
 
   return Object.freeze({
+    ...(stage.openingDialogue ? { openingDialogue: deepFreeze(structuredClone(stage.openingDialogue)) } : {}),
     characterId: request.characterId,
     stageId: stage.id,
     arenaId: stage.arenaId,
