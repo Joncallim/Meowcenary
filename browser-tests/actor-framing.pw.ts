@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import { completeRunStartIntro } from './run-start-helpers';
+import { withBrowserDiagnostics, withRecordedCleanup } from './diagnostic-records';
 
 type Rect = { x: number; y: number; width: number; height: number };
 type Diagnostic = {
@@ -37,13 +38,11 @@ async function enterPreparedGame(page: Page): Promise<void> {
     __MEOWCENARY_VISUAL_TEST__?: VisualSeam;
   }).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
   await page.keyboard.down('Enter');
-  try {
+  await withRecordedCleanup(undefined, async () => {
     expect(await page.evaluate(() => (globalThis as typeof globalThis & {
       __MEOWCENARY_VISUAL_TEST__?: VisualSeam;
     }).__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
-  } finally {
-    await page.keyboard.up('Enter');
-  }
+  }, [['launch-key-up', () => page.keyboard.up('Enter')]]);
   await completeRunStartIntro(page, 'keyboard');
 }
 
@@ -81,8 +80,9 @@ async function placeAndSettle(page: Page, x: number, y: number): Promise<Diagnos
     return readyX && readyY;
     }).toBe(true);
   } catch (error) {
-    await saveFacts(test.info(), 'failed-follow-observations.json', { requested: { x, y }, observations });
-    throw error;
+    return withRecordedCleanup(undefined, async () => { throw error; }, [
+      ['follow-facts', () => saveFacts(test.info(), 'failed-follow-observations.json', { requested: { x, y }, observations })],
+    ]);
   }
   const diagnostic = await page.evaluate(() => (globalThis as typeof globalThis & {
     __MEOWCENARY_VISUAL_TEST__?: VisualSeam;
@@ -131,7 +131,9 @@ async function saveFacts(testInfo: TestInfo, filename: string, facts: unknown): 
   await testInfo.attach(filename, { path, contentType: 'application/json' });
 }
 
-test('the complete actor presentation bounds fit at every arena perimeter position', async ({ page }, testInfo) => {
+test('the complete actor presentation bounds fit at every arena perimeter position', async ({ page }, testInfo) => withBrowserDiagnostics(
+  page, testInfo, 'actor-perimeter', ['desktop-1280x720', 'desktop-1920x1080'].includes(testInfo.project.name), async (page, record) => {
+  record?.note('actor-perimeter.prepare');
   await enterPreparedGame(page);
   const initial = await page.evaluate(() => (globalThis as typeof globalThis & {
     __MEOWCENARY_VISUAL_TEST__?: VisualSeam;
@@ -171,7 +173,7 @@ test('the complete actor presentation bounds fit at every arena perimeter positi
   }
   await saveFacts(testInfo, 'actor-framing-perimeter.json', facts);
   for (const { position, diagnostic } of facts) expectWholeActorContained(diagnostic, position);
-});
+}));
 
 test('actor bounds remain stable after a viewport resize and restoration', async ({ page }, testInfo) => {
   await enterPreparedGame(page);

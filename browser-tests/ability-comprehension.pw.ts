@@ -2,6 +2,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { activateIntroCommand, completeRunStartIntro, introCommand, type IntroDiagnostics, type Rect } from './run-start-helpers';
 import type { RunStartIntroModel } from '../src/presentation/runStartIntro';
 import { writeFile } from 'node:fs/promises';
+import { withBrowserDiagnostics, withRecordedCleanup, type DiagnosticRecord } from './diagnostic-records';
 // @ts-expect-error standalone JavaScript tooling has no declaration file
 import { waitForPerformanceRunStart } from '../scripts/performance-run-start.mjs';
 
@@ -71,8 +72,9 @@ async function launch(page: Page, character = 'scrap-tabby', keepLaunchHeld = fa
   expect(await page.evaluate(id => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.selectAbilityTestCharacter(id), character)).toBe(true);
   await frame(page, 2);
   await page.keyboard.down('Enter');
-  try { expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true); }
-  finally { if (!keepLaunchHeld) await page.keyboard.up('Enter'); }
+  await withRecordedCleanup(undefined, async () => {
+    expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
+  }, keepLaunchHeld ? [] : [['launch-key-up', () => page.keyboard.up('Enter')]]);
   await frame(page, 2);
   const state = await read(page);
   expect(state.visible).toBe(true); expect(state.status).toBe('intro'); expect(state.timeMs).toBe(0);
@@ -148,7 +150,9 @@ function assertHintFits(state: Diagnostics, viewport: { width: number; height: n
 async function save(page: Page): Promise<string | null> { return page.evaluate(() => localStorage.getItem('meowcenary.save.v2')); }
 
 for (const [character, name, detail, cooldown, kind, phase] of CATALOG) {
-  test(`${name}: real briefing, activation receipt and authoritative HUD`, async ({ page }, info) => {
+  test(`${name}: real briefing, activation receipt and authoritative HUD`, async ({ page }, info) => withBrowserDiagnostics(
+    page, info, 'scrap-burst', name === 'Scrap Burst' && ['desktop-1280x720', 'desktop-1920x1080'].includes(info.project.name), async (page, record) => {
+    record?.note('scrap-burst.prepare');
     await seed(page, true); await openMenu(page); const brief = await launch(page, character);
     expect(brief.characterId).toBe(character); assertBriefFits(brief, page.viewportSize()!);
     expect(brief.model!.ability!.effect).toMatchObject({ headline: name, detail, cooldownLabel: cooldown });
@@ -156,11 +160,11 @@ for (const [character, name, detail, cooldown, kind, phase] of CATALOG) {
     const beforeSave = await save(page); await frame(page, 4);
     expect((await read(page)).timeMs).toBe(0); expect(await save(page)).toBe(beforeSave);
     await capture(page, info, `${character}-brief`);
-    await start(page);
+    record?.note('scrap-burst.start'); await start(page);
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.prepareAbilityTestConsequences())).toBe(true);
     const prepared = await read(page);
-    await page.keyboard.down('q');
-    try {
+    record?.note('scrap-burst.activate'); await page.keyboard.down('q');
+    await withRecordedCleanup(record, async () => {
       await frame(page);
       const result = await read(page);
       expect(result.activationId).toBe(1); expect(result.latestResolution!.kind).toBe(kind);
@@ -181,8 +185,8 @@ for (const [character, name, detail, cooldown, kind, phase] of CATALOG) {
       } else expect(result.abilityUiState.activeRemainingMs).toBe(0);
       if (result.abilityDefinition.effect.radius !== undefined) expect(result.abilityFx.transient!.radius).toBe(result.abilityDefinition.effect.radius);
       await capture(page, info, `${character}-activation`);
-    } finally { await page.keyboard.up('q'); }
-  });
+    }, [['ability-key-up', () => page.keyboard.up('q')]]);
+  }));
 }
 
 test('held launch Confirm is quarantined; real controller Confirm starts once and neutral re-arms ability', async ({ page }, info) => {
@@ -373,23 +377,32 @@ const NO_ACTIVE_CDP_TOUCH = 'cdpSession.send: Protocol error (Input.dispatchTouc
 type ContactEvent = { type: string; atMs: number; contacts: number; trusted: boolean };
 type ReleaseObservation = { touchCancelAtMs?: number; touchFrameAtMs?: number; padReleaseAtMs?: number; padFrameAtMs?: number };
 type ContactAdmission = { release: ReleaseObservation; dispatches: Array<ReleaseObservation & { key: string; atMs: number; state?: Diagnostics; saved: string | null }> };
-type ContactGlobals = Globals & { __TOUCH_REPAIR_EVENTS__?: ContactEvent[]; __TOUCH_REPAIR_ADMISSION__?: ContactAdmission };
+type ContactGlobals = Globals & { __TOUCH_REPAIR_EVENTS__?: ContactEvent[]; __TOUCH_REPAIR_ADMISSION__?: ContactAdmission;
+  __MEOWCENARY_TEST_RECORD__?: (phase: string, facts: unknown) => Promise<void> };
 type SessionEvent = { session: number; type: string; error?: string };
 
-async function prepareContactProbe(page: Page, dialogue = false): Promise<Diagnostics> {
+async function prepareContactProbe(page: Page, dialogue = false, record?: DiagnosticRecord): Promise<Diagnostics> {
+  record?.note('contact.prepare');
   await seed(page, true, dialogue ? ['stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03', 'stage:junkyard-04'] : []);
+  await page.addInitScript(() => {
+    const events: ContactEvent[] = []; (globalThis as ContactGlobals).__TOUCH_REPAIR_EVENTS__ = events;
+    for (const type of ['touchstart', 'touchend', 'touchcancel', 'pointercancel', 'click']) {
+      document.addEventListener(type, event => {
+        const fact = { type, atMs: performance.now(), contacts: 'touches' in event ? (event as TouchEvent).touches.length : 0, trusted: event.isTrusted };
+        events.push(fact);
+        void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.(`dom.${type}`, fact).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ });
+      }, true);
+    }
+    const capability = { maxTouchPoints: navigator.maxTouchPoints, touchEventProperty: 'ontouchstart' in window,
+      coarse: matchMedia('(pointer: coarse)').matches, fine: matchMedia('(pointer: fine)').matches,
+      width: innerWidth, height: innerHeight, devicePixelRatio, userAgent: navigator.userAgent };
+    void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('capability', capability).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ });
+  });
   await page.goto('/?visual-test=1&perf-test=1');
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
   const state = await launch(page); await frame(page);
-  await page.evaluate(() => {
-    const events: ContactEvent[] = []; (globalThis as ContactGlobals).__TOUCH_REPAIR_EVENTS__ = events;
-    for (const type of ['touchstart', 'touchend', 'touchcancel', 'pointercancel', 'click']) {
-      document.addEventListener(type, event => {
-        events.push({ type, atMs: performance.now(), contacts: 'touches' in event ? (event as TouchEvent).touches.length : 0, trusted: event.isTrusted });
-      }, true);
-    }
-  });
+  record?.note('contact.prepared', state);
   return state;
 }
 async function contactEvents(page: Page): Promise<ContactEvent[]> {
@@ -431,8 +444,9 @@ function observedContactPage(page: Page, events: SessionEvent[], afterStart?: ()
 }
 
 for (const helper of ['browser', 'performance'] as const) for (const input of ['keyboard', 'mouse', 'touch'] as const) for (const dialogue of [false, true]) {
-  test(`CDP no-contact: ${helper} ${input}, dialogue=${dialogue}, keeps explicit admission`, async ({ page }, info) => {
-    await prepareContactProbe(page, dialogue); const sessions: SessionEvent[] = [];
+  test(`CDP no-contact: ${helper} ${input}, dialogue=${dialogue}, keeps explicit admission`, async ({ page }, info) => withBrowserDiagnostics(
+    page, info, 'cdp-no-contact', true, async (page, record) => {
+    await prepareContactProbe(page, dialogue, record); const sessions: SessionEvent[] = [];
     const observed = observedContactPage(page, sessions);
     if (helper === 'browser') await completeRunStartIntro(observed, input);
     else {
@@ -448,12 +462,17 @@ for (const helper of ['browser', 'performance'] as const) for (const input of ['
     expect(sessions.some(event => event.error === NO_ACTIVE_CDP_TOUCH)).toBe(true);
     const ids = new Set(sessions.map(event => event.session));
     for (const session of ids) expect(sessions.filter(event => event.session === session && event.type === 'detach')).toHaveLength(1);
-    await info.attach('cdp-no-contact-sessions', { body: JSON.stringify(sessions), contentType: 'application/json' });
-  });
+    record!.note('cdp-no-contact-sessions', sessions);
+  }));
 }
 
-for (const helper of ['browser', 'performance'] as const) test(`CDP owned interruption: ${helper} cancels its original session without firing the old target`, async ({ page }, info) => {
-  const initial = await prepareContactProbe(page), beforeSave = await save(page), sessions: SessionEvent[] = [];
+// Only these four definitions need live-contact handling in desktop contexts.
+// The viewport and isMobile values continue to come from the existing project.
+test.describe('touch-capable ownership fixtures', () => {
+  test.use({ hasTouch: true });
+for (const helper of ['browser', 'performance'] as const) test(`CDP owned interruption: ${helper} cancels its original session without firing the old target`, async ({ page }, info) => withBrowserDiagnostics(
+  page, info, 'owned-contact', true, async (page, record) => {
+  const initial = await prepareContactProbe(page, false, record), beforeSave = await save(page), sessions: SessionEvent[] = [];
   const interruption = new Error('intentional interruption after a real admitted touchStart');
   const observed = observedContactPage(page, sessions, async () => {
     await frame(page); frozenIntro(await read(page), initial);
@@ -475,11 +494,12 @@ for (const helper of ['browser', 'performance'] as const) test(`CDP owned interr
   await frame(page); await assertPhysicalAdmission(page);
   await activateIntroCommand(page, helper === 'browser' ? 'start' : 'return-menu', 'keyboard');
   expect((await read(page)).runStart.count).toBe(helper === 'browser' ? 1 : 0);
-  await info.attach('owned-contact-order', { body: JSON.stringify({ sessions, contacts }), contentType: 'application/json' });
-});
+  record!.note('owned-contact-order', { sessions, contacts });
+}));
 
-for (const holdPad of [false, true]) test(`CDP separate owner remains a physical gate; held pad=${holdPad}`, async ({ page }, info) => {
-  await installPad(page); const initial = await prepareContactProbe(page), beforeSave = await save(page);
+for (const holdPad of [false, true]) test(`CDP separate owner remains a physical gate; held pad=${holdPad}`, async ({ page }, info) => withBrowserDiagnostics(
+  page, info, 'separate-owner', true, async (page, record) => {
+  await installPad(page); const initial = await prepareContactProbe(page, false, record), beforeSave = await save(page);
   const owner = await page.context().newCDPSession(page), sessions: SessionEvent[] = [];
   let settled = false;
   await page.evaluate(() => {
@@ -491,20 +511,23 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
       // Observation only: this registers a real completed input frame in the
       // page, independently of the test driver's later promise continuation.
       void seam.waitForInputFrame().then(completed => {
-        if (completed) evidence.release.touchFrameAtMs = performance.now();
+        if (completed) { evidence.release.touchFrameAtMs = performance.now();
+          void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('touch.release-frame', evidence.release).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ }); }
       });
     }, true);
     document.addEventListener('keydown', event => {
       const state = seam.runStartIntroDiagnostics();
       // Capture precedes Phaser's normal non-capture keyboard processing.
       // Never await, poll, hold or delay the dispatched command to make it pass.
-      evidence.dispatches.push({ ...evidence.release, key: event.key, atMs: performance.now(),
-        state: state && structuredClone(state), saved: localStorage.getItem('meowcenary.save.v2') });
+      const dispatch = { ...evidence.release, key: event.key, atMs: performance.now(),
+        state: state && structuredClone(state), saved: localStorage.getItem('meowcenary.save.v2') };
+      evidence.dispatches.push(dispatch);
+      void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('contact.dispatch', dispatch).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ });
     }, true);
   });
   const point = centre(introCommand(initial, 'return-menu', page.viewportSize()!).bounds);
   let pending: Promise<IntroDiagnostics> | undefined;
-  try {
+  await withRecordedCleanup(record, async () => {
     await owner.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...point, id: 7 }] });
     await frame(page); expect((await read(page)).inputNeutral).toBe(false);
     expect((await contactEvents(page)).some(event => event.type === 'touchstart' && event.contacts === 1 && event.trusted)).toBe(true);
@@ -529,7 +552,8 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
         const evidence = (globalThis as ContactGlobals).__TOUCH_REPAIR_ADMISSION__!;
         evidence.release.padReleaseAtMs = performance.now();
         void (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame().then(completed => {
-          if (completed) evidence.release.padFrameAtMs = performance.now();
+          if (completed) { evidence.release.padFrameAtMs = performance.now();
+            void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('pad.release-frame', evidence.release).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ }); }
         });
       });
     }
@@ -552,15 +576,20 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
       expect(dispatch.state).toBeDefined(); frozenIntro(dispatch.state!, initial); expect(dispatch.saved).toBe(beforeSave);
       expect(dispatch.state).toMatchObject({ visible: true, ready: true, inputNeutral: true, inputQuarantined: false });
     }
-    await info.attach('separate-owner-contact-order', { body: JSON.stringify({ sessions, contacts: await contactEvents(page), admission }), contentType: 'application/json' });
-  } finally {
-    try {
+    record!.note('separate-owner-contact-order', { sessions, contacts: await contactEvents(page), admission });
+  }, [
+    ['owner-cancel', async () => {
       try { await owner.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); }
       catch (error) { if (!(error instanceof Error) || error.message !== NO_ACTIVE_CDP_TOUCH) throw error; }
-    } finally {
-      await owner.detach(); await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, false));
-      // Do not strand a rejected helper promise when an earlier assertion fails.
-      if (pending) await Promise.allSettled([pending]);
-    }
-  }
+    }],
+    ['owner-detach', () => owner.detach()],
+    ['pad-release', () => page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, false))],
+    ['pending-helper', async () => {
+      if (pending) {
+        const [result] = await Promise.allSettled([pending]); record!.note('pending-helper.settlement', result);
+        if (result.status === 'rejected') throw result.reason;
+      }
+    }],
+  ]);
+}));
 });

@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { completeRunStartIntro } from './run-start-helpers';
+import { writeFile } from 'node:fs/promises';
+import { installContractTitleObserver, readContractTitleObserver, withRecordedCleanup } from './diagnostic-records';
 
 // A complete visual pass deliberately reloads Phaser and its art bundles many
 // times. Shared CI runners can take materially longer than a developer machine
@@ -136,6 +138,19 @@ test('fixed art reference compositions retain the Meowcenary visual system', asy
   test.skip(!representativeProjects.has(testInfo.project.name));
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
+  await page.addInitScript(installContractTitleObserver);
+  const persistTitleEvidence = async (phase: 'before' | 'after') => {
+    const facts = await page.evaluate(readContractTitleObserver, phase === 'after');
+    const json = JSON.stringify({ project: testInfo.project.name, phase, facts });
+    if (Buffer.byteLength(json) > 65535) throw new Error('Contract title evidence exceeded its 64 KiB bound');
+    const path = testInfo.outputPath(`contract-title-${phase}.json`); await writeFile(path, json + '\n');
+    await testInfo.attach(`contract-title-${phase}`, { path, contentType: 'application/json' });
+    if (phase === 'after') {
+      const evidence = facts as { draws?: Array<{ font?: string; metrics?: unknown }>; hashes?: unknown };
+      console.log('MEOW_CONTRACT_TITLE ' + JSON.stringify({ project: testInfo.project.name,
+        font: evidence.draws?.at(-1)?.font, metrics: evidence.draws?.at(-1)?.metrics, hashes: evidence.hashes }));
+    }
+  };
 
   await page.goto('/?visual-test=1');
   const canvas = page.locator('#game-root canvas');
@@ -162,7 +177,16 @@ test('fixed art reference compositions retain the Meowcenary visual system', asy
   await showMenu(page, 'stage');
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('contract-selection.png', illustratedScreenshot);
+  // Persist draw/font facts before the assertion can fail. The finally-stage
+  // read hashes backing pixels after the existing capture without another shot.
+  const titleEvidenceErrors: unknown[] = [];
+  try { await persistTitleEvidence('before'); } catch (error) { titleEvidenceErrors.push(error); }
+  await withRecordedCleanup(undefined, async () => {
+    await expect(page).toHaveScreenshot('contract-selection.png', illustratedScreenshot);
+  }, [['contract-title-facts', async () => {
+    try { await persistTitleEvidence('after'); } catch (error) { titleEvidenceErrors.push(error); }
+    if (titleEvidenceErrors.length) throw new AggregateError(titleEvidenceErrors, 'Contract title evidence failed');
+  }]]);
 
   await page.reload();
   await showMenu(page, 'equipment');
