@@ -1,5 +1,31 @@
 import assert from 'node:assert/strict';
 
+// The no-contact response describes this CDP session, never page neutrality.
+async function cancelOwnedTouch(session) {
+  try { await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); }
+  catch (error) {
+    if (!(error instanceof Error) || error.message !== 'cdpSession.send: Protocol error (Input.dispatchTouchEvent): Must send a TouchStart first to start a new touch.') throw error;
+  }
+}
+async function withOwnedTouchSession(page, operation) {
+  const session = await page.context().newCDPSession(page);
+  const failures = [];
+  try { await operation?.(session); }
+  catch (error) { failures.push(error); }
+  finally {
+    // An interrupted gesture must be cancelled through its original owner.
+    // Preserve operation/cleanup failures and always attempt one detach.
+    try { await cancelOwnedTouch(session); }
+    catch (error) { failures.push(error); }
+    finally {
+      try { await session.detach(); }
+      catch (error) { failures.push(error); }
+    }
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) throw new AggregateError(failures, 'Touch operation and session cleanup failed');
+}
+
 // Preparation ends at the first rendered intro (current builds) or active
 // frame (historical builds). Continue and final Start have separate endpoints.
 export async function waitForPerformanceRunStart(page, input = 'keyboard') {
@@ -15,9 +41,7 @@ export async function waitForPerformanceRunStart(page, input = 'keyboard') {
   const release = async () => {
     for (const key of ['Enter', 'Space', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', 'q', 'p', 'i']) await page.keyboard.up(key);
     await page.mouse.move(-1, -1); await page.mouse.up();
-    const session = await page.context().newCDPSession(page);
-    try { await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); }
-    finally { await session.detach(); }
+    await withOwnedTouchSession(page);
     await frame();
     await page.waitForFunction(() => {
       const state = globalThis.__MEOWCENARY_VISUAL_TEST__.runStartIntroDiagnostics();
@@ -49,11 +73,10 @@ export async function waitForPerformanceRunStart(page, input = 'keyboard') {
       await page.mouse.move(x + width / 2, y + height / 2); await page.mouse.down();
       try { await frame(); } finally { await page.mouse.up(); }
     } else {
-      const session = await page.context().newCDPSession(page);
-      try {
+      await withOwnedTouchSession(page, async session => {
         await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x + width / 2, y: y + height / 2, id: 1 }] });
         await frame(); await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      } finally { await session.detach(); }
+      });
     }
     await frame();
     if (name === 'continue') {

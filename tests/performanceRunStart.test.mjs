@@ -59,14 +59,21 @@ function pageHarness({ initial = 'intro', input = 'keyboard', dialogue = false, 
       down: async () => { pointerTarget = neutral && !quarantined ? hit(point.x, point.y) : undefined; held = true; },
       up: async () => { held = false; if (input === 'mouse' && pointerTarget && pointerTarget === hit(point.x, point.y)) activate(pointerTarget); pointerTarget = undefined; },
     },
-    context: () => ({ newCDPSession: async () => ({
-      send: async (_method, { type, touchPoints }) => {
-        actions.push(type);
-        if (type === 'touchStart') { const p = touchPoints[0]; pointerTarget = neutral && !quarantined ? hit(p.x, p.y) : undefined; held = true; }
-        else if (type === 'touchEnd') { held = false; if (input === 'touch') activate(pointerTarget); pointerTarget = undefined; }
-        else { held = false; pointerTarget = undefined; }
-      }, detach: async () => {},
-    }) }),
+    context: () => ({ newCDPSession: async () => {
+      let contact = false;
+      return {
+        send: async (_method, { type, touchPoints }) => {
+          actions.push(type);
+          if (type === 'touchStart') { contact = true; const p = touchPoints[0]; pointerTarget = neutral && !quarantined ? hit(p.x, p.y) : undefined; held = true; }
+          else {
+            if (!contact) throw new Error('cdpSession.send: Protocol error (Input.dispatchTouchEvent): Must send a TouchStart first to start a new touch.');
+            contact = false; held = false;
+            if (type === 'touchEnd' && input === 'touch') activate(pointerTarget);
+            pointerTarget = undefined;
+          }
+        }, detach: async () => { actions.push('detach'); },
+      };
+    } }),
   };
   return { page, actions };
 }

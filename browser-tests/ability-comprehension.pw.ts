@@ -2,6 +2,8 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { activateIntroCommand, completeRunStartIntro, introCommand, type IntroDiagnostics, type Rect } from './run-start-helpers';
 import type { RunStartIntroModel } from '../src/presentation/runStartIntro';
 import { writeFile } from 'node:fs/promises';
+// @ts-expect-error standalone JavaScript tooling has no declaration file
+import { waitForPerformanceRunStart } from '../scripts/performance-run-start.mjs';
 
 type UiState = { phase: 'ready' | 'active' | 'cooling'; activeRemainingMs: number; cooldownRemainingMs: number; readiness: number; activeProgress: number };
 type Diagnostics = IntroDiagnostics & {
@@ -365,4 +367,200 @@ test('Skip is deliberate and Return abandons a dialogue intro without facts', as
   expect(await save(page)).toBe(beforeSave);
   await launch(page); const started = await completeRunStartIntro(page, 'mouse', true);
   expect(started).toMatchObject({ phase: 'consumed', runStart: { count: 1, timeMs: 0 } });
+});
+
+const NO_ACTIVE_CDP_TOUCH = 'cdpSession.send: Protocol error (Input.dispatchTouchEvent): Must send a TouchStart first to start a new touch.';
+type ContactEvent = { type: string; atMs: number; contacts: number; trusted: boolean };
+type ReleaseObservation = { touchCancelAtMs?: number; touchFrameAtMs?: number; padReleaseAtMs?: number; padFrameAtMs?: number };
+type ContactAdmission = { release: ReleaseObservation; dispatches: Array<ReleaseObservation & { key: string; atMs: number; state?: Diagnostics; saved: string | null }> };
+type ContactGlobals = Globals & { __TOUCH_REPAIR_EVENTS__?: ContactEvent[]; __TOUCH_REPAIR_ADMISSION__?: ContactAdmission };
+type SessionEvent = { session: number; type: string; error?: string };
+
+async function prepareContactProbe(page: Page, dialogue = false): Promise<Diagnostics> {
+  await seed(page, true, dialogue ? ['stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03', 'stage:junkyard-04'] : []);
+  await page.goto('/?visual-test=1&perf-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
+  const state = await launch(page); await frame(page);
+  await page.evaluate(() => {
+    const events: ContactEvent[] = []; (globalThis as ContactGlobals).__TOUCH_REPAIR_EVENTS__ = events;
+    for (const type of ['touchstart', 'touchend', 'touchcancel', 'pointercancel', 'click']) {
+      document.addEventListener(type, event => {
+        events.push({ type, atMs: performance.now(), contacts: 'touches' in event ? (event as TouchEvent).touches.length : 0, trusted: event.isTrusted });
+      }, true);
+    }
+  });
+  return state;
+}
+async function contactEvents(page: Page): Promise<ContactEvent[]> {
+  return page.evaluate(() => (globalThis as ContactGlobals).__TOUCH_REPAIR_EVENTS__!);
+}
+function frozenIntro(state: Diagnostics, initial: Diagnostics): void {
+  expect(state).toMatchObject({ visible: true, status: 'intro', phase: initial.phase, revision: initial.revision, timeMs: 0, runStart: { count: 0 }, terminalEvents: 0 });
+  expect(state.identity).toEqual(initial.identity); expect(state.objective).toEqual(initial.objective);
+}
+async function assertPhysicalAdmission(page: Page): Promise<void> {
+  expect(await read(page)).toMatchObject({ visible: true, ready: true, inputNeutral: true, inputQuarantined: false });
+}
+
+// These wrappers observe real CDP calls. The interruption hook runs only after
+// Chromium has accepted touchStart; it never fabricates an input event or
+// changes the game's diagnostics. Every helper-created session remains real.
+function observedContactPage(page: Page, events: SessionEvent[], afterStart?: () => Promise<void>): Page {
+  let nextSession = 0;
+  return new Proxy(page, { get(target, key) {
+    if (key === 'context') return () => ({ newCDPSession: async () => {
+      const session = await page.context().newCDPSession(page), id = nextSession++;
+      return new Proxy(session, { get(owner, property) {
+        if (property === 'send') return async (method: string, params: { type?: string }) => {
+          events.push({ session: id, type: params.type ?? method });
+          try {
+            const result = await owner.send(method as 'Input.dispatchTouchEvent', params as Parameters<typeof owner.send<'Input.dispatchTouchEvent'>>[1]);
+            if (params.type === 'touchStart') await afterStart?.();
+            return result;
+          } catch (error) {
+            events.push({ session: id, type: 'send-error', error: error instanceof Error ? error.message : String(error) }); throw error;
+          }
+        };
+        if (property === 'detach') return async () => { events.push({ session: id, type: 'detach' }); await owner.detach(); };
+        const value = Reflect.get(owner, property); return typeof value === 'function' ? value.bind(owner) : value;
+      } });
+    } });
+    const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value;
+  } });
+}
+
+for (const helper of ['browser', 'performance'] as const) for (const input of ['keyboard', 'mouse', 'touch'] as const) for (const dialogue of [false, true]) {
+  test(`CDP no-contact: ${helper} ${input}, dialogue=${dialogue}, keeps explicit admission`, async ({ page }, info) => {
+    await prepareContactProbe(page, dialogue); const sessions: SessionEvent[] = [];
+    const observed = observedContactPage(page, sessions);
+    if (helper === 'browser') await completeRunStartIntro(observed, input);
+    else {
+      const timing = await waitForPerformanceRunStart(observed, input);
+      expect(timing.compatibility).toBe('explicit-intro'); expect(timing.preparedRun.status).toBe('intro');
+      expect(timing.dialogueCommands).toHaveLength(dialogue ? 1 : 0);
+      expect(timing.preparedRun.atMs).toBeLessThanOrEqual(timing.startCommandAtMs);
+      if (dialogue) expect(timing.dialogueCommands[0].completedAtMs).toBeLessThanOrEqual(timing.startCommandAtMs);
+      expect(timing.startCommandAtMs).toBeLessThanOrEqual(timing.startedAtMs);
+    }
+    const after = await read(page);
+    expect(after).toMatchObject({ phase: 'consumed', revision: null, runStart: { count: 1, timeMs: 0 }, terminalEvents: 0 });
+    expect(sessions.some(event => event.error === NO_ACTIVE_CDP_TOUCH)).toBe(true);
+    const ids = new Set(sessions.map(event => event.session));
+    for (const session of ids) expect(sessions.filter(event => event.session === session && event.type === 'detach')).toHaveLength(1);
+    await info.attach('cdp-no-contact-sessions', { body: JSON.stringify(sessions), contentType: 'application/json' });
+  });
+}
+
+for (const helper of ['browser', 'performance'] as const) test(`CDP owned interruption: ${helper} cancels its original session without firing the old target`, async ({ page }, info) => {
+  const initial = await prepareContactProbe(page), beforeSave = await save(page), sessions: SessionEvent[] = [];
+  const interruption = new Error('intentional interruption after a real admitted touchStart');
+  const observed = observedContactPage(page, sessions, async () => {
+    await frame(page); frozenIntro(await read(page), initial);
+    expect((await read(page)).inputNeutral).toBe(false);
+    expect((await contactEvents(page)).some(event => event.type === 'touchstart' && event.contacts === 1 && event.trusted)).toBe(true);
+    throw interruption;
+  });
+  // Browser old target is Return, fresh target is Start. Performance old target
+  // is Start, fresh target is Return: an unwanted activation cannot pass either.
+  const operation = helper === 'browser' ? activateIntroCommand(observed, 'return-menu', 'touch') : waitForPerformanceRunStart(observed, 'touch');
+  await expect(operation).rejects.toBe(interruption);
+  const owner = sessions.find(event => event.type === 'touchStart')!.session;
+  expect(sessions.filter(event => event.session === owner).map(event => event.type)).toEqual(['touchStart', 'send-error', 'touchCancel', 'detach']);
+  const contacts = await contactEvents(page);
+  expect(contacts.some(event => event.type === 'touchcancel' && event.trusted && event.contacts === 0)).toBe(true);
+  expect(contacts.some(event => event.type === 'pointercancel' && event.trusted)).toBe(true);
+  expect(contacts.filter(event => event.type === 'touchend' || event.type === 'click')).toEqual([]);
+  frozenIntro(await read(page), initial); expect(await save(page)).toBe(beforeSave);
+  await frame(page); await assertPhysicalAdmission(page);
+  await activateIntroCommand(page, helper === 'browser' ? 'start' : 'return-menu', 'keyboard');
+  expect((await read(page)).runStart.count).toBe(helper === 'browser' ? 1 : 0);
+  await info.attach('owned-contact-order', { body: JSON.stringify({ sessions, contacts }), contentType: 'application/json' });
+});
+
+for (const holdPad of [false, true]) test(`CDP separate owner remains a physical gate; held pad=${holdPad}`, async ({ page }, info) => {
+  await installPad(page); const initial = await prepareContactProbe(page), beforeSave = await save(page);
+  const owner = await page.context().newCDPSession(page), sessions: SessionEvent[] = [];
+  let settled = false;
+  await page.evaluate(() => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    const evidence: ContactAdmission = { release: {}, dispatches: [] };
+    (globalThis as ContactGlobals).__TOUCH_REPAIR_ADMISSION__ = evidence;
+    document.addEventListener('touchcancel', () => {
+      evidence.release.touchCancelAtMs = performance.now();
+      // Observation only: this registers a real completed input frame in the
+      // page, independently of the test driver's later promise continuation.
+      void seam.waitForInputFrame().then(completed => {
+        if (completed) evidence.release.touchFrameAtMs = performance.now();
+      });
+    }, true);
+    document.addEventListener('keydown', event => {
+      const state = seam.runStartIntroDiagnostics();
+      // Capture precedes Phaser's normal non-capture keyboard processing.
+      // Never await, poll, hold or delay the dispatched command to make it pass.
+      evidence.dispatches.push({ ...evidence.release, key: event.key, atMs: performance.now(),
+        state: state && structuredClone(state), saved: localStorage.getItem('meowcenary.save.v2') });
+    }, true);
+  });
+  const point = centre(introCommand(initial, 'return-menu', page.viewportSize()!).bounds);
+  let pending: Promise<IntroDiagnostics> | undefined;
+  try {
+    await owner.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...point, id: 7 }] });
+    await frame(page); expect((await read(page)).inputNeutral).toBe(false);
+    expect((await contactEvents(page)).some(event => event.type === 'touchstart' && event.contacts === 1 && event.trusted)).toBe(true);
+    if (holdPad) { await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, true)); await frame(page); }
+    const observed = observedContactPage(page, sessions);
+    pending = activateIntroCommand(observed, 'start', 'keyboard');
+    // Attach both outcomes immediately while retaining the original rejection.
+    void pending.then(() => { settled = true; }, () => { settled = true; });
+    await expect.poll(() => sessions.some(event => event.error === NO_ACTIVE_CDP_TOUCH)).toBe(true);
+    await frame(page, 3); expect(settled).toBe(false); frozenIntro(await read(page), initial);
+    expect((await read(page)).inputNeutral).toBe(false); expect(await save(page)).toBe(beforeSave);
+    expect((await contactEvents(page)).filter(event => event.type === 'touchcancel')).toEqual([]);
+    await owner.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    expect((await contactEvents(page)).some(event => event.type === 'touchcancel' && event.trusted)).toBe(true);
+    if (holdPad) {
+      // The pad still owns a physical hold here, so these pre-release frozen
+      // assertions cannot race with a correctly admitted command.
+      await frame(page, 3); expect(settled).toBe(false); frozenIntro(await read(page), initial);
+      expect((await read(page)).inputNeutral).toBe(false); expect(await save(page)).toBe(beforeSave);
+      await page.evaluate(() => {
+        (globalThis as Globals).__ABILITY_PAD__!(2, false);
+        const evidence = (globalThis as ContactGlobals).__TOUCH_REPAIR_ADMISSION__!;
+        evidence.release.padReleaseAtMs = performance.now();
+        void (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame().then(completed => {
+          if (completed) evidence.release.padFrameAtMs = performance.now();
+        });
+      });
+    }
+    // Once the final owner releases, the helper may finish before this driver
+    // resumes. Validate page-side facts captured at actual dispatch, not a late
+    // main-thread flag or a separate post-release frozen-state read.
+    await pending; expect((await read(page)).runStart).toMatchObject({ count: 1, timeMs: 0 });
+    const admission = await page.evaluate(() => (globalThis as ContactGlobals).__TOUCH_REPAIR_ADMISSION__!);
+    expect(admission.dispatches.filter(row => row.key === 'Enter')).toHaveLength(1);
+    for (const dispatch of admission.dispatches) {
+      expect(['ArrowRight', 'Enter']).toContain(dispatch.key);
+      expect(dispatch.touchCancelAtMs).toEqual(expect.any(Number)); expect(dispatch.touchFrameAtMs).toEqual(expect.any(Number));
+      expect(dispatch.touchCancelAtMs!).toBeLessThanOrEqual(dispatch.touchFrameAtMs!);
+      expect(dispatch.touchFrameAtMs!).toBeLessThanOrEqual(dispatch.atMs);
+      if (holdPad) {
+        expect(dispatch.padReleaseAtMs).toEqual(expect.any(Number)); expect(dispatch.padFrameAtMs).toEqual(expect.any(Number));
+        expect(dispatch.padReleaseAtMs!).toBeLessThanOrEqual(dispatch.padFrameAtMs!);
+        expect(dispatch.padFrameAtMs!).toBeLessThanOrEqual(dispatch.atMs);
+      }
+      expect(dispatch.state).toBeDefined(); frozenIntro(dispatch.state!, initial); expect(dispatch.saved).toBe(beforeSave);
+      expect(dispatch.state).toMatchObject({ visible: true, ready: true, inputNeutral: true, inputQuarantined: false });
+    }
+    await info.attach('separate-owner-contact-order', { body: JSON.stringify({ sessions, contacts: await contactEvents(page), admission }), contentType: 'application/json' });
+  } finally {
+    try {
+      try { await owner.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); }
+      catch (error) { if (!(error instanceof Error) || error.message !== NO_ACTIVE_CDP_TOUCH) throw error; }
+    } finally {
+      await owner.detach(); await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, false));
+      // Do not strand a rejected helper promise when an earlier assertion fails.
+      if (pending) await Promise.allSettled([pending]);
+    }
+  }
 });
