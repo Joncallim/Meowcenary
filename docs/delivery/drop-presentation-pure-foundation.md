@@ -135,3 +135,23 @@ unblocking cannot conceal the presentation state. No durable loadout changes.
 Independent core and corrected fixture review: PASS. Focused mechanics/pool/resource
 suites pass 182 tests in five files; ordinary TypeScript passes. Exact final-head
 full repository and hosted matrix results are recorded in issue/PR evidence.
+
+## Separate physical-owner observation boundary
+
+PR #246 hosted run 38240675904 at `24a01fc` passed 601 browser cases and
+failed one held-pad fixture before any keyboard dispatch. The actual CDP
+touch cancellation succeeded; the deliberately held pad still kept input
+non-neutral and the helper rejected its unchanged five-second neutral wait.
+The fixture is designed to prove that wait, then release its final owner;
+it must not bypass neutrality or remove the intentional held phase.
+
+The already reviewed #236 correction groups each held phase's same three
+actual POST_STEP observations and state/save/contact snapshots into one page
+evaluation. This removes redundant driver round trips before planned release.
+All original frozen-intro, no-start, non-neutral, no-save, trusted cancellation
+and release-before-dispatch assertions remain; each frame must explicitly
+complete. No timeout, protocol-error classification, input owner, runtime,
+screenshot, retry, or scoped skip changes. The hosted trace proves rejection
+before release; it does not isolate every component of driver latency.
+Focused physical-owner tests, complete final-head gates and exact-head hosted
+CI remain required; this fixture correction adds no #201 runtime finding.
