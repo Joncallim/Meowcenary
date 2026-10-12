@@ -1,6 +1,6 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
-import stageCatalog from '../src/data/stages.json';
+import stageCatalog from '../src/data/stages.json' with { type: 'json' };
 import type { ComposedRunRequest } from '../src/gameplay/runRequest';
 import type { ResolvedArenaLayout } from '../src/gameplay/arenaLayout';
 import type { IntroDiagnostics, Rect } from './run-start-helpers';
