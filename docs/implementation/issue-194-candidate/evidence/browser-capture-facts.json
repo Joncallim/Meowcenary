@@ -1,0 +1,1198 @@
+{
+  "captureStatus": "Map captures only. The final cover/hazard browser evidence is separately recorded in arena-cover-disposition.json; full all-viewport matrix and exact-head closeout remain pending.",
+  "captures": {
+    "junkyard_phone_seed42_actual": {
+      "source": "arena-composition.pw.ts-ju-2867c-ches-live-collision-and-art-phone-390x844/junkyard-lot-42-actual-scale.json",
+      "profile": "phone-390x844",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "status": "active",
+      "timeMs": 99.9666666666667,
+      "camera": {
+        "zoom": 1.25,
+        "worldView": {
+          "x": 228,
+          "y": 335,
+          "width": 312,
+          "height": 675
+        }
+      },
+      "player": {
+        "x": 384,
+        "y": 672,
+        "health": 100
+      },
+      "layout": {
+        "arenaId": "junkyard-lot",
+        "seed": 42,
+        "layoutSeed": 4211525730,
+        "contentVersion": "alpha3-2",
+        "generationVersion": 1,
+        "hash": "e9d2b40f",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "start": {
+          "x": 384,
+          "y": 672
+        },
+        "boss": {
+          "x": 384,
+          "y": 268.8
+        },
+        "obstacles": [
+          {
+            "instanceId": "hanging-press",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "hanging-press",
+              "x": 96,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "hanging-press",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "barrel-power-stack",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "barrel-power-stack",
+              "x": 608,
+              "y": 960,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "barrel-power-stack",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          },
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "generated-0",
+              "x": 192,
+              "y": 1056,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-1",
+              "x": 320,
+              "y": 896,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          },
+          {
+            "instanceId": "generated-2",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-2",
+              "x": 224,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-2",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          }
+        ],
+        "hazards": []
+      },
+      "arenaSize": {
+        "width": 768,
+        "height": 1344
+      },
+      "presentationCounts": {
+        "floorNodeCount": 1008,
+        "boundaryNodeCount": 128,
+        "decorationNodeCount": 31,
+        "obstacleSkinNodeCount": 5
+      },
+      "hazard": {
+        "elapsedMs": 0,
+        "nodes": []
+      }
+    },
+    "junkyard_phone_seed42_overview": {
+      "source": "arena-composition.pw.ts-ju-2867c-ches-live-collision-and-art-phone-390x844/junkyard-lot-42-overview.json",
+      "profile": "phone-390x844",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "status": "active",
+      "timeMs": 99.9666666666667,
+      "camera": {
+        "zoom": 0.5078125,
+        "worldView": {
+          "x": 0,
+          "y": -159,
+          "width": 768,
+          "height": 1662
+        }
+      },
+      "player": {
+        "x": 384,
+        "y": 672,
+        "health": 100
+      },
+      "layout": {
+        "arenaId": "junkyard-lot",
+        "seed": 42,
+        "layoutSeed": 4211525730,
+        "contentVersion": "alpha3-2",
+        "generationVersion": 1,
+        "hash": "e9d2b40f",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "start": {
+          "x": 384,
+          "y": 672
+        },
+        "boss": {
+          "x": 384,
+          "y": 268.8
+        },
+        "obstacles": [
+          {
+            "instanceId": "hanging-press",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "hanging-press",
+              "x": 96,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "hanging-press",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "barrel-power-stack",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "barrel-power-stack",
+              "x": 608,
+              "y": 960,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "barrel-power-stack",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          },
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "generated-0",
+              "x": 192,
+              "y": 1056,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-1",
+              "x": 320,
+              "y": 896,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          },
+          {
+            "instanceId": "generated-2",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-2",
+              "x": 224,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-2",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          }
+        ],
+        "hazards": []
+      },
+      "arenaSize": {
+        "width": 768,
+        "height": 1344
+      },
+      "presentationCounts": {
+        "floorNodeCount": 1008,
+        "boundaryNodeCount": 128,
+        "decorationNodeCount": 31,
+        "obstacleSkinNodeCount": 5
+      },
+      "hazard": {
+        "elapsedMs": 0,
+        "nodes": []
+      }
+    },
+    "forge_phone_seed42_actual": {
+      "source": "arena-composition.pw.ts-fo-dbf23-ches-live-collision-and-art-phone-390x844/forge-foundry-42-actual-scale.json",
+      "profile": "phone-390x844",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "status": "active",
+      "timeMs": 99.92000000000003,
+      "camera": {
+        "zoom": 1.25,
+        "worldView": {
+          "x": 228,
+          "y": 335,
+          "width": 312,
+          "height": 675
+        }
+      },
+      "player": {
+        "x": 384,
+        "y": 672,
+        "health": 100
+      },
+      "layout": {
+        "arenaId": "forge-foundry",
+        "seed": 42,
+        "layoutSeed": 1365317085,
+        "contentVersion": "alpha3-2",
+        "generationVersion": 1,
+        "hash": "50957a53",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "start": {
+          "x": 384,
+          "y": 672
+        },
+        "boss": {
+          "x": 384,
+          "y": 268.8
+        },
+        "obstacles": [
+          {
+            "instanceId": "furnace-throat",
+            "archetypeId": "furnace-throat",
+            "footprint": {
+              "id": "furnace-throat",
+              "x": 96,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "furnace-throat",
+              "artId": "world:forge-landmark:furnace-throat"
+            }
+          },
+          {
+            "instanceId": "cooling-manifold",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "cooling-manifold",
+              "x": 608,
+              "y": 960,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "cooling-manifold",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-0",
+              "x": 160,
+              "y": 512,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "furnace-throat",
+            "footprint": {
+              "id": "generated-1",
+              "x": 160,
+              "y": 768,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:forge-landmark:furnace-throat"
+            }
+          }
+        ],
+        "hazards": [
+          {
+            "instanceId": "heat-grate",
+            "footprint": {
+              "id": "heat-grate",
+              "kind": "heat-grate",
+              "x": 288,
+              "y": 304,
+              "w": 192,
+              "h": 48,
+              "damagePerSecond": 10,
+              "pulse": {
+                "safeMs": 2400,
+                "warningMs": 900,
+                "activeMs": 1700,
+                "offsetMs": 0
+              }
+            },
+            "artId": "world:forge-hazard:heat-grate"
+          }
+        ]
+      },
+      "arenaSize": {
+        "width": 768,
+        "height": 1344
+      },
+      "presentationCounts": {
+        "floorNodeCount": 1008,
+        "boundaryNodeCount": 128,
+        "decorationNodeCount": 29,
+        "obstacleSkinNodeCount": 4
+      },
+      "hazard": {
+        "elapsedMs": 99.92000000000003,
+        "nodes": [
+          {
+            "id": "heat-grate",
+            "x": 384,
+            "y": 328,
+            "width": 192,
+            "height": 48,
+            "alpha": 0.25,
+            "tint": 8559264,
+            "visible": true,
+            "active": true
+          }
+        ]
+      }
+    },
+    "forge_phone_seed42_overview": {
+      "source": "arena-composition.pw.ts-fo-dbf23-ches-live-collision-and-art-phone-390x844/forge-foundry-42-overview.json",
+      "profile": "phone-390x844",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "status": "active",
+      "timeMs": 99.92000000000003,
+      "camera": {
+        "zoom": 0.5078125,
+        "worldView": {
+          "x": 0,
+          "y": -159,
+          "width": 768,
+          "height": 1662
+        }
+      },
+      "player": {
+        "x": 384,
+        "y": 672,
+        "health": 100
+      },
+      "layout": {
+        "arenaId": "forge-foundry",
+        "seed": 42,
+        "layoutSeed": 1365317085,
+        "contentVersion": "alpha3-2",
+        "generationVersion": 1,
+        "hash": "50957a53",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "start": {
+          "x": 384,
+          "y": 672
+        },
+        "boss": {
+          "x": 384,
+          "y": 268.8
+        },
+        "obstacles": [
+          {
+            "instanceId": "furnace-throat",
+            "archetypeId": "furnace-throat",
+            "footprint": {
+              "id": "furnace-throat",
+              "x": 96,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "furnace-throat",
+              "artId": "world:forge-landmark:furnace-throat"
+            }
+          },
+          {
+            "instanceId": "cooling-manifold",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "cooling-manifold",
+              "x": 608,
+              "y": 960,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "cooling-manifold",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-0",
+              "x": 160,
+              "y": 512,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "furnace-throat",
+            "footprint": {
+              "id": "generated-1",
+              "x": 160,
+              "y": 768,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:forge-landmark:furnace-throat"
+            }
+          }
+        ],
+        "hazards": [
+          {
+            "instanceId": "heat-grate",
+            "footprint": {
+              "id": "heat-grate",
+              "kind": "heat-grate",
+              "x": 288,
+              "y": 304,
+              "w": 192,
+              "h": 48,
+              "damagePerSecond": 10,
+              "pulse": {
+                "safeMs": 2400,
+                "warningMs": 900,
+                "activeMs": 1700,
+                "offsetMs": 0
+              }
+            },
+            "artId": "world:forge-hazard:heat-grate"
+          }
+        ]
+      },
+      "arenaSize": {
+        "width": 768,
+        "height": 1344
+      },
+      "presentationCounts": {
+        "floorNodeCount": 1008,
+        "boundaryNodeCount": 128,
+        "decorationNodeCount": 29,
+        "obstacleSkinNodeCount": 4
+      },
+      "hazard": {
+        "elapsedMs": 99.92000000000003,
+        "nodes": [
+          {
+            "id": "heat-grate",
+            "x": 384,
+            "y": 328,
+            "width": 192,
+            "height": 48,
+            "alpha": 0.25,
+            "tint": 8559264,
+            "visible": true,
+            "active": true
+          }
+        ]
+      }
+    },
+    "junkyard_desktop_seed42_actual": {
+      "source": "arena-composition.pw.ts-ju-2867c-ches-live-collision-and-art-desktop-1280x720/junkyard-lot-42-actual-scale.json",
+      "profile": "desktop-1280x720",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "status": "active",
+      "timeMs": 99.99999999999997,
+      "camera": {
+        "zoom": 1.25,
+        "worldView": {
+          "x": -128,
+          "y": 384,
+          "width": 1024,
+          "height": 576
+        }
+      },
+      "player": {
+        "x": 384,
+        "y": 672,
+        "health": 100
+      },
+      "layout": {
+        "arenaId": "junkyard-lot",
+        "seed": 42,
+        "layoutSeed": 4211525730,
+        "contentVersion": "alpha3-2",
+        "generationVersion": 1,
+        "hash": "e9d2b40f",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "start": {
+          "x": 384,
+          "y": 672
+        },
+        "boss": {
+          "x": 384,
+          "y": 268.8
+        },
+        "obstacles": [
+          {
+            "instanceId": "hanging-press",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "hanging-press",
+              "x": 96,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "hanging-press",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "barrel-power-stack",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "barrel-power-stack",
+              "x": 608,
+              "y": 960,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "barrel-power-stack",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          },
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "generated-0",
+              "x": 192,
+              "y": 1056,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-1",
+              "x": 320,
+              "y": 896,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          },
+          {
+            "instanceId": "generated-2",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-2",
+              "x": 224,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-2",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          }
+        ],
+        "hazards": []
+      },
+      "arenaSize": {
+        "width": 768,
+        "height": 1344
+      },
+      "presentationCounts": {
+        "floorNodeCount": 1008,
+        "boundaryNodeCount": 128,
+        "decorationNodeCount": 31,
+        "obstacleSkinNodeCount": 5
+      },
+      "hazard": {
+        "elapsedMs": 0,
+        "nodes": []
+      }
+    },
+    "junkyard_desktop_seed42_overview": {
+      "source": "arena-composition.pw.ts-ju-2867c-ches-live-collision-and-art-desktop-1280x720/junkyard-lot-42-overview.json",
+      "profile": "desktop-1280x720",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "status": "active",
+      "timeMs": 99.99999999999997,
+      "camera": {
+        "zoom": 0.5357142857142857,
+        "worldView": {
+          "x": -810,
+          "y": 0,
+          "width": 2389,
+          "height": 1344
+        }
+      },
+      "player": {
+        "x": 384,
+        "y": 672,
+        "health": 100
+      },
+      "layout": {
+        "arenaId": "junkyard-lot",
+        "seed": 42,
+        "layoutSeed": 4211525730,
+        "contentVersion": "alpha3-2",
+        "generationVersion": 1,
+        "hash": "e9d2b40f",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "start": {
+          "x": 384,
+          "y": 672
+        },
+        "boss": {
+          "x": 384,
+          "y": 268.8
+        },
+        "obstacles": [
+          {
+            "instanceId": "hanging-press",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "hanging-press",
+              "x": 96,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "hanging-press",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "barrel-power-stack",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "barrel-power-stack",
+              "x": 608,
+              "y": 960,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "barrel-power-stack",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          },
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "generated-0",
+              "x": 192,
+              "y": 1056,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-1",
+              "x": 320,
+              "y": 896,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          },
+          {
+            "instanceId": "generated-2",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-2",
+              "x": 224,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-2",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          }
+        ],
+        "hazards": []
+      },
+      "arenaSize": {
+        "width": 768,
+        "height": 1344
+      },
+      "presentationCounts": {
+        "floorNodeCount": 1008,
+        "boundaryNodeCount": 128,
+        "decorationNodeCount": 31,
+        "obstacleSkinNodeCount": 5
+      },
+      "hazard": {
+        "elapsedMs": 0,
+        "nodes": []
+      }
+    },
+    "forge_desktop_seed42_actual": {
+      "source": "arena-composition.pw.ts-fo-dbf23-ches-live-collision-and-art-desktop-1280x720/forge-foundry-42-actual-scale.json",
+      "profile": "desktop-1280x720",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "status": "active",
+      "timeMs": 99.99999999999997,
+      "camera": {
+        "zoom": 1.25,
+        "worldView": {
+          "x": -128,
+          "y": 384,
+          "width": 1024,
+          "height": 576
+        }
+      },
+      "player": {
+        "x": 384,
+        "y": 672,
+        "health": 100
+      },
+      "layout": {
+        "arenaId": "forge-foundry",
+        "seed": 42,
+        "layoutSeed": 1365317085,
+        "contentVersion": "alpha3-2",
+        "generationVersion": 1,
+        "hash": "50957a53",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "start": {
+          "x": 384,
+          "y": 672
+        },
+        "boss": {
+          "x": 384,
+          "y": 268.8
+        },
+        "obstacles": [
+          {
+            "instanceId": "furnace-throat",
+            "archetypeId": "furnace-throat",
+            "footprint": {
+              "id": "furnace-throat",
+              "x": 96,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "furnace-throat",
+              "artId": "world:forge-landmark:furnace-throat"
+            }
+          },
+          {
+            "instanceId": "cooling-manifold",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "cooling-manifold",
+              "x": 608,
+              "y": 960,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "cooling-manifold",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-0",
+              "x": 160,
+              "y": 512,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "furnace-throat",
+            "footprint": {
+              "id": "generated-1",
+              "x": 160,
+              "y": 768,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:forge-landmark:furnace-throat"
+            }
+          }
+        ],
+        "hazards": [
+          {
+            "instanceId": "heat-grate",
+            "footprint": {
+              "id": "heat-grate",
+              "kind": "heat-grate",
+              "x": 288,
+              "y": 304,
+              "w": 192,
+              "h": 48,
+              "damagePerSecond": 10,
+              "pulse": {
+                "safeMs": 2400,
+                "warningMs": 900,
+                "activeMs": 1700,
+                "offsetMs": 0
+              }
+            },
+            "artId": "world:forge-hazard:heat-grate"
+          }
+        ]
+      },
+      "arenaSize": {
+        "width": 768,
+        "height": 1344
+      },
+      "presentationCounts": {
+        "floorNodeCount": 1008,
+        "boundaryNodeCount": 128,
+        "decorationNodeCount": 29,
+        "obstacleSkinNodeCount": 4
+      },
+      "hazard": {
+        "elapsedMs": 99.99999999999997,
+        "nodes": [
+          {
+            "id": "heat-grate",
+            "x": 384,
+            "y": 328,
+            "width": 192,
+            "height": 48,
+            "alpha": 0.25,
+            "tint": 8559264,
+            "visible": true,
+            "active": true
+          }
+        ]
+      }
+    },
+    "forge_desktop_seed42_overview": {
+      "source": "arena-composition.pw.ts-fo-dbf23-ches-live-collision-and-art-desktop-1280x720/forge-foundry-42-overview.json",
+      "profile": "desktop-1280x720",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "status": "active",
+      "timeMs": 99.99999999999997,
+      "camera": {
+        "zoom": 0.5357142857142857,
+        "worldView": {
+          "x": -810,
+          "y": 0,
+          "width": 2389,
+          "height": 1344
+        }
+      },
+      "player": {
+        "x": 384,
+        "y": 672,
+        "health": 100
+      },
+      "layout": {
+        "arenaId": "forge-foundry",
+        "seed": 42,
+        "layoutSeed": 1365317085,
+        "contentVersion": "alpha3-2",
+        "generationVersion": 1,
+        "hash": "50957a53",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "start": {
+          "x": 384,
+          "y": 672
+        },
+        "boss": {
+          "x": 384,
+          "y": 268.8
+        },
+        "obstacles": [
+          {
+            "instanceId": "furnace-throat",
+            "archetypeId": "furnace-throat",
+            "footprint": {
+              "id": "furnace-throat",
+              "x": 96,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "furnace-throat",
+              "artId": "world:forge-landmark:furnace-throat"
+            }
+          },
+          {
+            "instanceId": "cooling-manifold",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "cooling-manifold",
+              "x": 608,
+              "y": 960,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "cooling-manifold",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-0",
+              "x": 160,
+              "y": 512,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "furnace-throat",
+            "footprint": {
+              "id": "generated-1",
+              "x": 160,
+              "y": 768,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:forge-landmark:furnace-throat"
+            }
+          }
+        ],
+        "hazards": [
+          {
+            "instanceId": "heat-grate",
+            "footprint": {
+              "id": "heat-grate",
+              "kind": "heat-grate",
+              "x": 288,
+              "y": 304,
+              "w": 192,
+              "h": 48,
+              "damagePerSecond": 10,
+              "pulse": {
+                "safeMs": 2400,
+                "warningMs": 900,
+                "activeMs": 1700,
+                "offsetMs": 0
+              }
+            },
+            "artId": "world:forge-hazard:heat-grate"
+          }
+        ]
+      },
+      "arenaSize": {
+        "width": 768,
+        "height": 1344
+      },
+      "presentationCounts": {
+        "floorNodeCount": 1008,
+        "boundaryNodeCount": 128,
+        "decorationNodeCount": 29,
+        "obstacleSkinNodeCount": 4
+      },
+      "hazard": {
+        "elapsedMs": 99.99999999999997,
+        "nodes": [
+          {
+            "id": "heat-grate",
+            "x": 384,
+            "y": 328,
+            "width": 192,
+            "height": 48,
+            "alpha": 0.25,
+            "tint": 8559264,
+            "visible": true,
+            "active": true
+          }
+        ]
+      }
+    }
+  },
+  "overviewState": "Frozen overview with HUD preserved and no pause modal visible."
+}

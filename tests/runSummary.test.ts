@@ -684,7 +684,7 @@ describe('PhaserRunSummaryView', () => {
     expect(textContents(scene)).toContain('Next Contract');
     expect(view.confirmFocused()).toBe(true);
     expect(onNextStage).toHaveBeenCalledTimes(1);
-    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, {});
   });
 
   it('does not offer a next contract for a legacy or terminal stage run', () => {
@@ -1005,8 +1005,25 @@ describe('PhaserRunSummaryView', () => {
       liveButtons(scene)[2]!.state.handlers['pointerup']!();
 
       expect(events).toEqual(['ui:confirm']);
-      expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+      expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, {});
       expect(scene.scene.restart).not.toHaveBeenCalled();
+    });
+
+    it('clears a prior Menu entry payload when discarding pending rewards to Main Menu', () => {
+      const discard = vi.fn();
+      const { bus, scene } = createHarness({
+        banked: bankedRun(),
+        canNavigate: () => false,
+        onDiscardPending: discard,
+      });
+      bus.emit('run:lost', { timeMs: 90_000, level: 4, kills: 23 });
+      const events = recordEvents(bus);
+
+      liveButtons(scene)[0]!.state.handlers['pointerup']!();
+
+      expect(discard).toHaveBeenCalledOnce();
+      expect(events).toEqual(['ui:confirm']);
+      expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, {});
     });
 
     it('does not offer Main Menu while terminal persistence is pending', () => {

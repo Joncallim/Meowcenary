@@ -18,6 +18,9 @@ import type { ComposedRunRequest } from './gameplay/runRequest';
 import { responsiveArenaPresentationBounds } from './gameplay/responsiveArenaPresentation';
 import { createWeaponInstance } from './gameplay/weapons';
 import type { RunState } from './gameplay/runState';
+import type { ResolvedArenaLayout } from './gameplay/arenaLayout';
+import type { ArenaWorldView } from './systems/arenaScenery';
+import type { HazardSystem } from './systems/HazardSystem';
 import type { UpgradeSystem } from './systems/UpgradeSystem';
 import type { UpgradeChooser } from './ui/UpgradeChooser';
 import { DataVisualArtRegistry } from './systems/visualArt';
@@ -382,6 +385,12 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     game.loop.sleep();
   };
+  const renderVisualFrame = (): void => {
+    // Render explicitly frozen fixture state without running input or simulation.
+    game.renderer.preRender();
+    game.scene.render(game.renderer);
+    game.renderer.postRender();
+  };
   Object.defineProperty(globalThis, '__MEOWCENARY_VISUAL_TEST__', {
     configurable: true,
     value: Object.freeze({
@@ -538,7 +547,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         // Read-only physical evidence at this exact diagnostic call. Never
         // refresh an adapter or alter held/quarantine state while observing.
         const controller = scene.inputController as typeof scene.inputController & {
-          core?: { isNeutral(): boolean }; keyboardAdapter?: { isNeutral(): boolean };
+          core?: { isNeutral(): boolean; isEffectiveHeld?(action: 'ability' | 'confirm'): boolean }; keyboardAdapter?: { isNeutral(): boolean };
           pointerAdapter?: { isNeutral(): boolean }; gamepadAdapter?: { isNeutral(): boolean };
         };
         const actualScene = game.scene.getScene('GameScene');
@@ -561,6 +570,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           characterId: scene.runState.characterId, player: scene.player ? { x: scene.player.x, y: scene.player.y, health: scene.player.health } : undefined,
           enemies: scene.enemies?.length, abilityState: scene.abilityState, abilityDefinition: scene.abilityDefinition, model: scene.introModel,
           inputMode: scene.inputController?.getInputMode(), inputNeutral: scene.inputController?.isNeutral() === true,
+          abilityHeld: controller?.core?.isEffectiveHeld?.('ability') === true, confirmHeld: controller?.core?.isEffectiveHeld?.('confirm') === true,
           inputQuarantined: scene.inputController?.isQuarantined() !== false, orientationBlocked: scene.orientationBlocked,
           abilityUiState: scene.controlsView?.abilityUiState, abilityButton: scene.controlsView?.abilityButton ? bounds(scene.controlsView.abilityButton) : undefined,
           controlsHint: scene.controlsView?.hintText ? { text: scene.controlsView.hintText.text, ...bounds(scene.controlsView.hintText), visible: scene.controlsView.hintText.visible && scene.controlsView.hintText.alpha > 0 } : undefined,
@@ -931,6 +941,8 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       showAbilityEffect: (): boolean => {
         const scene = game.scene.getScene('GameScene') as unknown as {
           player?: { x: number; y: number };
+          runState?: { timeMs: number };
+          hudController?: { update(deltaMs: number): void };
           abilityPresentationSystem?: { update(deltaMs: number, reducedMotion: boolean): void };
           getContext?(): GameContext;
         };
@@ -939,6 +951,12 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         const definition = ctx.data.abilities?.find(ability => ability.effect.kind === 'knockback');
         if (!definition || definition.effect.kind !== 'knockback') return false;
         const explanation = resolveAbilityEffectPresentation(definition);
+        // This paused, synthetic art reference owns its clock just as it owns
+        // the posed actor and effect age. Enemy-load scheduling is not timer
+        // authority. Real run timing remains covered by the runtime journeys.
+        if (!game.scene.isPaused('GameScene') || !scene.runState) return false;
+        scene.runState.timeMs = 0;
+        scene.hudController?.update(0);
         ctx.bus.emit('ability:activated', {
           abilityId: 'ability:visual-test', cue: definition.presentation.cue, mechanicKind: definition.effect.kind,
           headline: explanation.headline, detail: explanation.detail,
@@ -978,6 +996,31 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         scene.controlsView.setExtractionState(true);
         scene.scene?.pause();
         return true;
+      },
+      summaryActionDiagnostics: (): Record<string, unknown> | undefined => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          runSummaryView?: { root?: Phaser.GameObjects.Container; visible: boolean;
+            navigator: { index: number }; buttons: Array<{ target: Phaser.GameObjects.Rectangle; enabled: boolean }> };
+          cameras: { main: Phaser.Cameras.Scene2D.Camera };
+        };
+        const view = scene.runSummaryView;
+        if (!game.scene.isActive('GameScene') || !view?.visible || !view.root?.active) return undefined;
+        const canvas = game.canvas.getBoundingClientRect();
+        const actions = view.buttons.map(({ target, enabled }, index) => {
+          const labels = view.root!.list.filter((child): child is Phaser.GameObjects.Text =>
+            child instanceof Phaser.GameObjects.Text && child.x === target.x && child.y === target.y && child.visible);
+          const matrix = Phaser.GameObjects.GetCalcMatrix(target, scene.cameras.main,
+            target.parentContainer?.getWorldTransformMatrix()).calc;
+          const first = matrix.transformPoint(-target.displayOriginX, -target.displayOriginY);
+          const last = matrix.transformPoint(target.width - target.displayOriginX, target.height - target.displayOriginY);
+          return { label: labels.length === 1 ? labels[0]!.text : undefined, enabled,
+            focused: view.navigator.index === index, bounds: {
+              x: canvas.left + first.x * canvas.width / game.scale.gameSize.width,
+              y: canvas.top + first.y * canvas.height / game.scale.gameSize.height,
+              width: (last.x - first.x) * canvas.width / game.scale.gameSize.width,
+              height: (last.y - first.y) * canvas.height / game.scale.gameSize.height } };
+        });
+        return { actions, focusedLabel: actions.find(action => action.focused)?.label };
       },
       summaryMenuTarget: (): Readonly<{ x: number; y: number }> | undefined => {
         // Read the rendered semantic action, never invoke its command or set
@@ -1047,6 +1090,145 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         // generation before opening the next independently captured surface.
         if (!scene?.controller || !scene.render || !isMenuPresentationSettled()) return false;
         scene.render(scene.controller.open(panel));
+        return true;
+      },
+      runPreparationDiagnostics: (): Record<string, unknown> => {
+        const menu = game.scene.getScene('MenuScene') as unknown as {
+          runLaunchState?: string; capturedLaunch?: { request: ComposedRunRequest; isTraining: boolean };
+          preparedArenaLayout?: ResolvedArenaLayout;
+        };
+        return { active: game.scene.isActive('MenuScene'), state: menu.runLaunchState,
+          request: menu.capturedLaunch?.request, isTraining: menu.capturedLaunch?.isTraining,
+          layout: menu.preparedArenaLayout };
+      },
+      startRecordedRunTest: async (request: ComposedRunRequest, isTraining = false): Promise<boolean> => {
+        if (!Number.isSafeInteger(request.seed) || request.seed < 0 || request.seed > 0xffff_ffff || !isMenuPresentationSettled()) return false;
+        const menu = game.scene.getScene('MenuScene') as unknown as {
+          runLaunchState?: string;
+          getContext(): GameContext; controller: { open(panel: string): unknown };
+          render(snapshot: unknown): void;
+          startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void>;
+        };
+        const ctx = menu.getContext();
+        if (!ctx.characters.characterById(request.characterId)) return false;
+        if (request.kind === 'stage' ? !ctx.stages.stageById(request.stageId) || isTraining : !ctx.arenas.arenaById(request.arenaId) || !isTraining) return false;
+        // Recorded fixture composition only; real serialized preparation,
+        // immutable resource closure and logical intro commands still own entry.
+        menu.render(menu.controller.open(isTraining ? 'training' : 'home'));
+        await menu.startRunWithResources(Object.freeze({ ...request }), isTraining);
+        return menu.runLaunchState !== 'failed';
+      },
+      startArenaTestRun: async (arenaId: string, seed: number): Promise<boolean> => {
+        if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffff_ffff || !isMenuPresentationSettled()) return false;
+        const menu = game.scene.getScene('MenuScene') as unknown as {
+          getContext(): GameContext;
+          controller: { open(panel: string): unknown };
+          render(snapshot: unknown): void;
+          startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void>;
+        };
+        const ctx = menu.getContext();
+        if (!ctx.data.arenas.some(arena => arena.id === arenaId)) return false;
+        // Exercise the real Training owner, serialized preparation and intro.
+        menu.render(menu.controller.open('training'));
+        await menu.startRunWithResources(Object.freeze({ kind: 'legacy-arena',
+          characterId: ctx.selectedCharacterId, arenaId, seed }), true);
+        return true;
+      },
+      arenaLayoutDiagnostics: (): Record<string, unknown> | undefined => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          resolvedArenaLayout?: ResolvedArenaLayout;
+          arenaScenery?: ArenaWorldView;
+          systems: unknown[];
+          player?: { health: number; x: number; y: number; writePresentationBounds(bounds: Phaser.Geom.Rectangle): void };
+          runState: RunState;
+          cameras: { main: Phaser.Cameras.Scene2D.Camera };
+          physics: { world: { isPaused: boolean } };
+        };
+        const layout = scene.resolvedArenaLayout;
+        if (!layout || !scene.arenaScenery || !scene.player) return undefined;
+        const playerPresentationBounds = new Phaser.Geom.Rectangle();
+        scene.player.writePresentationBounds(playerPresentationBounds);
+        const hazard = scene.systems.find(system => system !== null && typeof system === 'object' && 'phaseVisuals' in system);
+        const internals = hazard as unknown as { elapsedMs: number; phaseVisuals: Map<string, Phaser.GameObjects.TileSprite> } | undefined;
+        const spawning = scene.systems.find(system => system !== null && typeof system === 'object' && 'enemyProjectiles' in system) as {
+          enemyProjectiles: Array<{ active: boolean; x: number; y: number; traveled: number;
+            body: { center: { x: number; y: number }; velocity: { x: number; y: number } } }>;
+        } | undefined;
+        return { layout, status: scene.runState.status, timeMs: scene.runState.timeMs,
+          camera: { zoom: scene.cameras.main.zoom, worldView: {
+            x: scene.cameras.main.worldView.x, y: scene.cameras.main.worldView.y,
+            width: scene.cameras.main.worldView.width, height: scene.cameras.main.worldView.height } },
+          player: { x: scene.player.x, y: scene.player.y, health: scene.player.health,
+            presentationBounds: { x: playerPresentationBounds.x, y: playerPresentationBounds.y,
+              width: playerPresentationBounds.width, height: playerPresentationBounds.height } },
+          enemyProjectiles: spawning?.enemyProjectiles.filter(projectile => projectile.active).length ?? 0,
+          projectileSimulation: { loopRunning: game.loop.running, physicsPaused: scene.physics.world.isPaused,
+            visibility: document.visibilityState,
+            active: spawning?.enemyProjectiles.flatMap((projectile, index) => projectile.active ? [{ index,
+              x: projectile.x, y: projectile.y, traveled: projectile.traveled,
+              centerX: projectile.body.center.x, centerY: projectile.body.center.y,
+              velocityX: projectile.body.velocity.x, velocityY: projectile.body.velocity.y }] : []) ?? [] },
+          bodies: scene.arenaScenery.obstacleGroup.getChildren().map(object => {
+            const body = object.body as Phaser.Physics.Arcade.StaticBody;
+            return { x: body.x, y: body.y, w: body.width, h: body.height };
+          }),
+          presentation: scene.arenaScenery.presentationInspection(),
+          hazard: internals ? { elapsedMs: internals.elapsedMs,
+            nodes: [...internals.phaseVisuals.entries()].map(([id, node]) => ({ id, x: node.x, y: node.y,
+              width: node.width, height: node.height, alpha: node.alpha, tint: node.tintTopLeft,
+              visible: node.visible, active: node.active })) } : undefined };
+      },
+      fireArenaTestShot: (x: number, y: number, targetX: number, targetY: number): boolean => {
+        if (!game.scene.isActive('GameScene') || ![x, y, targetX, targetY].every(Number.isFinite)) return false;
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          runState: RunState; getContext(): GameContext;
+          player: { sprite: Phaser.GameObjects.Sprite & { body: Phaser.Physics.Arcade.Body } };
+        };
+        if (scene.runState.status !== 'active') return false;
+        scene.player.sprite.body.reset(targetX, targetY); scene.player.sprite.setPosition(targetX, targetY);
+        scene.getContext().bus.emit('enemy:ranged-shot', { enemyId: 'scrap-sniper', x, y,
+          dirX: targetX - x, dirY: targetY - y, damage: 6 });
+        return true;
+      },
+      stepArenaHazardTest: (dtMs: number, x: number, y: number): boolean => {
+        if (game.loop.running || !Number.isFinite(dtMs) || dtMs < 0) return false;
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          systems: HazardSystem[]; resolvedArenaLayout?: ResolvedArenaLayout;
+          hudController?: { update(dtMs: number): void };
+          cameras: { main: Phaser.Cameras.Scene2D.Camera };
+          player?: { bodyRadius: number; update(dtMs: number): void; sprite: Phaser.GameObjects.Sprite & { body: Phaser.Physics.Arcade.Body } };
+        };
+        const hazard = scene.systems.find(system => 'phaseVisuals' in system);
+        const arena = scene.resolvedArenaLayout?.arena;
+        if (!hazard || !arena || !scene.player || !Number.isFinite(x) || !Number.isFinite(y)
+          || x < scene.player.bodyRadius || y < scene.player.bodyRadius
+          || x > arena.size.width - scene.player.bodyRadius || y > arena.size.height - scene.player.bodyRadius) return false;
+        // Advance the actual owner; never fabricate another phase clock or damage calculation.
+        scene.player.sprite.body.reset(x, y); scene.player.sprite.setPosition(x, y);
+        scene.cameras.main.centerOn(x, y);
+        hazard.update(dtMs);
+        // The hidden collision proxy and production actor view are separate.
+        // Synchronize presentation at zero elapsed time after the real damage
+        // command; otherwise a frozen capture retains the old actor position.
+        scene.player.update(0);
+        scene.hudController?.update(0);
+        renderVisualFrame();
+        return true;
+      },
+      showArenaTestOverview: (): boolean => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          resolvedArenaLayout?: ResolvedArenaLayout; scale: { width: number; height: number };
+          cameras: { main: Phaser.Cameras.Scene2D.Camera };
+        };
+        const layout = scene.resolvedArenaLayout;
+        if (!layout || game.loop.running) return false;
+        const camera = scene.cameras.main;
+        // Evidence-only overview. Normal-camera captures are taken first.
+        camera.stopFollow(); camera.removeBounds();
+        camera.setZoom(Math.min(scene.scale.width / layout.arena.size.width, scene.scale.height / layout.arena.size.height));
+        camera.centerOn(layout.arena.size.width / 2, layout.arena.size.height / 2);
+        camera.preRender();
+        renderVisualFrame();
         return true;
       },
       startPerformanceTraining: async (seed: number): Promise<boolean> => {

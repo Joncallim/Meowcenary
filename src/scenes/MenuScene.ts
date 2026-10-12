@@ -1,4 +1,7 @@
 import { resolveRunStartIntroModel, requiredRunStartIntroArtIds } from '../presentation/runStartIntro';
+import { assertArenaLayout, resolveArenaLayout, type ResolvedArenaLayout } from '../gameplay/arenaLayout';
+import { reseedRunRequest } from '../gameplay/runRequest';
+import { nextRunSeed } from '../engine/rng';
 import Phaser from 'phaser';
 import { getGameContext, type GameContext } from '../engine/context';
 import type { EventBus } from '../engine/eventBus';
@@ -166,6 +169,8 @@ export class MenuScene extends Phaser.Scene {
   /** A run never starts against the boot bundle alone. This state remains in
    * Menu so a load failure has a usable Retry/Back surface rather than a
    * partially constructed GameScene. */
+  private preparedArenaLayout?: ResolvedArenaLayout;
+  private capturedLaunch?: { readonly request: ComposedRunRequest; readonly isTraining: boolean };
   private runLaunchState: 'idle' | 'loading' | 'failed' = 'idle';
   private runLaunchProgress?: ResourceLoadProgress;
   private runLaunchProgressText?: Phaser.GameObjects.Text;
@@ -248,7 +253,6 @@ export class MenuScene extends Phaser.Scene {
     };
   }
 
-  private capturedLaunch?: { readonly request: ComposedRunRequest; readonly isTraining: boolean };
 
   private pointerGeneration = 0;
 
@@ -262,11 +266,12 @@ export class MenuScene extends Phaser.Scene {
     super(SceneKey.Menu);
   }
 
-  create(data?: { readonly failedRunRequest?: ComposedRunRequest; readonly failedRunError?: string; readonly initialPanel?: import('../ui/menus').MenuPanel; readonly replayRequest?: ComposedRunRequest; readonly isTraining?: boolean; readonly quarantineInput?: boolean }): void {
+  create(data?: { readonly failedArenaLayout?: ResolvedArenaLayout; readonly failedRunRequest?: ComposedRunRequest; readonly failedRunError?: string; readonly initialPanel?: import('../ui/menus').MenuPanel; readonly replayRequest?: ComposedRunRequest; readonly isTraining?: boolean; readonly quarantineInput?: boolean }): void {
     // Phaser reuses this Scene instance after Game. Loading is transient and
     // must never leave a newly activated Menu permanently inert.
     this.resetMenuTextureLoadQueue();
     this.runLaunchState = 'idle';
+    this.preparedArenaLayout = undefined;
     this.capturedLaunch = undefined;
     this.runLaunchProgress = undefined;
     this.runLaunchPresentation = undefined;
@@ -317,12 +322,15 @@ export class MenuScene extends Phaser.Scene {
     this.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.handlePointerUpOutside, this);
 
     if (data?.failedRunRequest) {
+      this.preparedArenaLayout = data.failedArenaLayout;
       this.capturedLaunch = { request: data.failedRunRequest, isTraining: data.isTraining === true };
       this.runLaunchState = 'failed';
     }
-    const initialPanel = data?.initialPanel ?? (data?.failedRunRequest && data.isTraining ? 'training' : 'home');
+    const initialPanel = data?.replayRequest
+      ? (data.isTraining === true ? 'training' : 'home')
+      : data?.initialPanel ?? (data?.failedRunRequest && data.isTraining ? 'training' : 'home');
     this.render(initialPanel !== 'home' ? this.controller.open(initialPanel) : this.controller.snapshot());
-    if (data?.replayRequest) void this.startRunWithResources(data.replayRequest, data.isTraining === true);
+    if (data?.replayRequest) void this.startRunWithResources(reseedRunRequest(data.replayRequest, nextRunSeed(ctx.menuRng)), data.isTraining === true);
 
     // FIT changes the physical-to-logical hit-target conversion. Rebuild the
     // committed panel from the real scale event so every live target is sized
@@ -1016,6 +1024,7 @@ export class MenuScene extends Phaser.Scene {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     const started = performanceProbe?.now();
     const generation = ++this.runLaunchGeneration;
+    if (this.capturedLaunch?.request !== request) this.preparedArenaLayout = undefined;
     this.capturedLaunch = { request, isTraining };
     const ctx = this.getContext();
     // Result truth belongs to this exact launch, not whatever durable state
@@ -1039,6 +1048,10 @@ export class MenuScene extends Phaser.Scene {
       const resolvedArenaId = plan?.arenaId ?? arenaId;
       const resolvedArena = resolvedArenaId === undefined ? undefined : ctx.arenas.arenaById(resolvedArenaId);
       if (!resolvedArena) throw new Error('Selected contract arena is unavailable');
+      const layout = this.preparedArenaLayout ?? resolveArenaLayout(resolvedArena, request.seed, ctx.data.contentVersion);
+      this.preparedArenaLayout = layout;
+      // A recovered bad tuple remains failed; never regenerate or load it.
+      assertArenaLayout(layout, resolvedArenaId!, request.seed, ctx.data.contentVersion, plan?.encounter.bossId !== undefined);
       const legacyEnemyIds = request.kind === 'legacy-arena'
         ? (ctx.data.spawnCurves.find((curve) => curve.id === resolvedArena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
         : [];
@@ -1046,7 +1059,8 @@ export class MenuScene extends Phaser.Scene {
       const resources = resolveRunPhysicalResources({
         data: ctx.data,
         characterId: request.characterId,
-        arena: resolvedArena,
+        arena: layout.arena,
+        layout,
         introArtIds: requiredRunStartIntroArtIds(introModel),
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
@@ -1080,7 +1094,7 @@ export class MenuScene extends Phaser.Scene {
         return;
       }
       if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'ready', isTraining, physicalResources: resources.length, audioFiles: runAudio.length, seed: request.seed });
-      this.scene.start(SceneKey.Game, { runRequest: request, stagePlan: plan, introModel, runStartPresentation, isTraining });
+      this.scene.start(SceneKey.Game, { runRequest: request, stagePlan: plan, introModel, arenaLayout: layout, runStartPresentation, isTraining });
     } catch (error) {
       if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'failed', isTraining });
       if (!this.isLive || generation !== this.runLaunchGeneration) return;
@@ -2713,6 +2727,8 @@ export class MenuScene extends Phaser.Scene {
 
   private handleShutdown(): void {
     this.isLive = false;
+    this.preparedArenaLayout = undefined;
+    this.capturedLaunch = undefined;
     this.pointerGeneration += 1;
     this.game?.events?.off('blur', this.handleInputBlur, this);
     this.game?.events?.off('focus', this.handleInputFocus, this);
@@ -2834,6 +2850,7 @@ export class MenuScene extends Phaser.Scene {
     if (this.runLaunchState !== 'failed') return;
     this.runLaunchState = 'idle';
     this.capturedLaunch = undefined;
+    this.preparedArenaLayout = undefined;
     this.runLaunchGeneration += 1;
   }
 

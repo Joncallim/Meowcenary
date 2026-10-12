@@ -15,8 +15,8 @@
       ]
     }],
     "obstacles": [
-      { "id": "hanging-press", "x": 96, "y": 384, "w": 64, "h": 64 },
-      { "id": "barrel-power-stack", "x": 608, "y": 960, "w": 64, "h": 64 }
+      { "id": "hanging-press", "x": 96, "y": 384, "w": 64, "h": 64, "blocksEnemyProjectiles": true },
+      { "id": "barrel-power-stack", "x": 608, "y": 960, "w": 64, "h": 64, "blocksEnemyProjectiles": true }
     ],
     "hazards": [],
     "visual": {
@@ -54,6 +54,14 @@
       ],
       "hazardSkins": []
     },
+    "generation": {
+      "obstacleIds": ["hanging-press", "barrel-power-stack"],
+      "extraObstacles": { "min": 2, "max": 3 },
+      "zones": [
+        { "id": "scrap-north", "x": 192, "y": 160, "w": 384, "h": 384 },
+        { "id": "scrap-south", "x": 160, "y": 800, "w": 384, "h": 384 }
+      ]
+    },
     "unlock": { "type": "default" }
   },
   {
@@ -72,11 +80,11 @@
       ]
     }],
     "obstacles": [
-      { "id": "furnace-throat", "x": 96, "y": 384, "w": 64, "h": 64 },
-      { "id": "cooling-manifold", "x": 608, "y": 960, "w": 64, "h": 64 }
+      { "id": "furnace-throat", "x": 96, "y": 384, "w": 64, "h": 64, "blocksEnemyProjectiles": true },
+      { "id": "cooling-manifold", "x": 608, "y": 960, "w": 64, "h": 64, "blocksEnemyProjectiles": true }
     ],
     "hazards": [
-      { "id": "heat-grate", "kind": "heat-grate", "x": 288, "y": 304, "w": 192, "h": 48, "damagePerSecond": 6 }
+      { "id": "heat-grate", "kind": "heat-grate", "x": 288, "y": 304, "w": 192, "h": 48, "damagePerSecond": 10, "pulse": { "safeMs": 2400, "warningMs": 900, "activeMs": 1700, "offsetMs": 0 } }
     ],
     "visual": {
       "menuBackdropArtId": "arena-backdrop:forge",
@@ -113,6 +121,14 @@
       ],
       "hazardSkins": [
         { "hazardId": "heat-grate", "artId": "world:forge-hazard:heat-grate" }
+      ]
+    },
+    "generation": {
+      "obstacleIds": ["furnace-throat", "cooling-manifold"],
+      "extraObstacles": { "min": 2, "max": 3 },
+      "zones": [
+        { "id": "machine-west", "x": 160, "y": 480, "w": 128, "h": 704 },
+        { "id": "machine-east", "x": 480, "y": 160, "w": 128, "h": 960 }
       ]
     },
     "unlock": { "type": "meta", "requiresUnlockId": "arena:forge-foundry" }

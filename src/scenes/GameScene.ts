@@ -1,3 +1,4 @@
+import { assertArenaLayout, resolveArenaLayout, type ResolvedArenaLayout } from '../gameplay/arenaLayout';
 import Phaser from 'phaser';
 import { getGameContext, type GameContext, type RunPresentationBaseline } from '../engine/context';
 import { RuntimeConfig } from '../engine/config';
@@ -228,6 +229,9 @@ export class GameScene extends Phaser.Scene {
   /** Prevents ghost clicks during scene transitions by suppressing all
    *  input for a brief window after a state-changing action. */
   private _inputBlockedUntil = 0;
+  private launchArenaLayout?: ResolvedArenaLayout;
+  private resolvedArenaLayout?: ResolvedArenaLayout;
+  private arenaDebugLine = '';
   private arenaDimensions?: { readonly width: number; readonly height: number };
   private arenaPresentationPadding?: ActorPresentationPadding;
   private arenaCameraFraming?: ArenaCameraFraming;
@@ -237,7 +241,7 @@ export class GameScene extends Phaser.Scene {
     super(SceneKey.Game);
   }
 
-  create(data?: { readonly introModel?: RunStartIntroModel; readonly stagePlan?: ResolvedRunPlan; readonly runRequest?: ComposedRunRequest; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean }): void {
+  create(data?: { readonly arenaLayout?: ResolvedArenaLayout; readonly introModel?: RunStartIntroModel; readonly stagePlan?: ResolvedRunPlan; readonly runRequest?: ComposedRunRequest; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean }): void {
     // Register disposal before the first fallible preparation operation. A
     // failed create is still a scene lifetime, even without run/input/entities.
     if (this.lifecycleOwned) this.handleShutdown();
@@ -247,6 +251,9 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.launchRequest = data?.runRequest;
+    // Retain supplied identity even if plan/model/resource preparation fails.
+    // Validation below still exclusively admits geometry to gameplay.
+    this.launchArenaLayout = data?.arenaLayout;
     try {
       this.createPreparedRun(data);
     } catch (error) {
@@ -282,10 +289,16 @@ export class GameScene extends Phaser.Scene {
     const visualArt = new DataVisualArtRegistry(ctx.data);
 
     const arenaId = request.kind === 'stage' ? plan!.arenaId : request.arenaId;
-    const arena = ctx.arenas.arenaById(arenaId);
-    if (!arena) {
+    const template = ctx.arenas.arenaById(arenaId);
+    if (!template) {
       throw new Error(`Run arena "${arenaId}" is missing from the registry`);
     }
+    if (data?.runRequest && !data.arenaLayout) throw new Error('Run launch is missing its prepared arena layout');
+    const layout = data?.arenaLayout ?? resolveArenaLayout(template, request.seed, ctx.data.contentVersion);
+    assertArenaLayout(layout, arenaId, request.seed, ctx.data.contentVersion, plan?.encounter.bossId !== undefined);
+    this.resolvedArenaLayout = layout;
+    this.arenaDebugLine = `Arena: ${layout.contentVersion}/${layout.arenaId}/${layout.seed}/v${layout.generationVersion} layoutSeed=${layout.layoutSeed} hash=${layout.hash} ${layout.diagnostic.mode}${layout.diagnostic.reason ? ` (${layout.diagnostic.reason})` : ''}`;
+    const arena = layout.arena;
     if (data?.runRequest) {
       const legacyEnemyIds = request.kind === 'legacy-arena'
         ? (ctx.data.spawnCurves.find((curve) => curve.id === arena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
@@ -295,6 +308,7 @@ export class GameScene extends Phaser.Scene {
         characterId: request.characterId,
         arena,
         introArtIds: requiredRunStartIntroArtIds(introModel),
+        layout,
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
       });
@@ -400,8 +414,8 @@ export class GameScene extends Phaser.Scene {
       baseMaxHealth: prepared.basePlayer.maxHealth,
       baseMoveSpeed: prepared.basePlayer.moveSpeed,
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
-      spawnX: arena.size.width / 2,
-      spawnY: arena.size.height / 2,
+      spawnX: layout.start.x,
+      spawnY: layout.start.y,
     }, visualArt.bindingById(`character:${request.characterId}`));
     this.abilityPresentationSystem = new AbilityPresentationSystem(this, ctx.bus, this.player);
 
@@ -479,7 +493,7 @@ export class GameScene extends Phaser.Scene {
       onExitConfirmed: () => this.exitRunEarly(),
     });
 
-    this.arenaScenery = buildArenaScenery(this, arena, visualArt, this.arenaCameraFraming!.bounds);
+    this.arenaScenery = buildArenaScenery(this, arena, visualArt, this.arenaCameraFraming!.bounds, layout.floorPlan);
     if (this.arenaScenery.obstacleGroup.children?.size > 0) {
       this.physics.add.collider(this.player.sprite, this.arenaScenery.obstacleGroup);
       this.physics.add.collider(this.enemyGroup, this.arenaScenery.obstacleGroup);
@@ -622,7 +636,7 @@ export class GameScene extends Phaser.Scene {
       () => this.canReceiveCombatDamage(),
     ));
     if (plan?.encounter.bossId) {
-      this.pendingBossStart = () => spawnSystem.spawnEncounterEnemy(plan.encounter.bossId!, arena.size.width / 2, Math.max(80, arena.size.height * 0.2));
+      this.pendingBossStart = () => spawnSystem.spawnEncounterEnemy(plan.encounter.bossId!, layout.boss!.x, layout.boss!.y);
     }
     const passiveSystem = this.ownSystem(new PassiveCoordinator({
       runState: this.runState,
@@ -633,6 +647,7 @@ export class GameScene extends Phaser.Scene {
     const hazardSystem = this.ownSystem(new HazardSystem({
       scene: this,
       runState: this.runState,
+      reducedMotion: () => ctx.settings.reducedMotion,
       bus: ctx.bus,
       player: this.player,
       hazards: arena.hazards,
@@ -809,6 +824,9 @@ export class GameScene extends Phaser.Scene {
     this.stagePlan = undefined;
     this.stageRuntime = undefined;
     this.launchRequest = undefined;
+    this.launchArenaLayout = undefined;
+    this.resolvedArenaLayout = undefined;
+    this.arenaDebugLine = '';
     this.runStartPresentation = undefined;
     this.abilityActivationId = 0;
     this.introStartCommitted = false;
@@ -991,6 +1009,7 @@ export class GameScene extends Phaser.Scene {
       `PhysDebug: ${this.physics.world.drawDebug ? 'on' : 'off'}`,
       perfLine,
       `Run: ${runState.status} ${Math.floor(runState.timeMs / 1000)}s`,
+      this.arenaDebugLine,
       `Level: ${runState.level} XP: ${runState.xp.toFixed(1)}/${runState.xpToNext}`,
       `Health: ${this.player.health.toFixed(0)}/${this.player.maxHealth.toFixed(0)}`,
       `Enemies: ${this.enemies.length} Kills: ${runState.kills}`,
@@ -1048,7 +1067,7 @@ export class GameScene extends Phaser.Scene {
       || !Number.isInteger(count) || count < 0) return false;
     const requested = Math.min(48, count);
     const ctx = this.getContext();
-    const arena = ctx.arenas.arenaById(this.runState.arenaId);
+    const arena = this.resolvedArenaLayout?.arena;
     if (!arena) return false;
     const art = new DataVisualArtRegistry(ctx.data);
     const candidates = ctx.data.enemies.filter(enemy => {
@@ -1179,6 +1198,9 @@ export class GameScene extends Phaser.Scene {
     this.performanceFixture = undefined;
     this.spawnCurve = undefined;
     this.arenaDimensions = undefined;
+    this.launchArenaLayout = undefined;
+    this.resolvedArenaLayout = undefined;
+    this.arenaDebugLine = '';
     this.arenaPresentationPadding = undefined;
     this.arenaCameraFraming = undefined;
     this.arenaScenery?.destroy();
@@ -1429,8 +1451,9 @@ export class GameScene extends Phaser.Scene {
     if (this.recovering) return;
     this.recovering = true;
     const request = this.launchRequest;
-    // Retry re-resolves the same immutable static arena from this request.
-    const payload = error ? { failedRunRequest: request,
+    // Preparation Retry retains the exact captured plan; terminal Replay
+    // instead asks Menu for a new run seed and layout.
+    const payload = error ? { failedRunRequest: request, failedArenaLayout: this.launchArenaLayout ?? this.resolvedArenaLayout,
       failedRunError: error, isTraining: this.isTraining, quarantineInput: true } : { quarantineInput: true };
     this.disposeIntro();
     this.introStartCommitted = false;

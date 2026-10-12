@@ -4,6 +4,7 @@ import PhaserMock, { MockInputPlugin } from './__mocks__/phaser';
 import { GameScene } from '../src/scenes/GameScene';
 import { createRunState, tickRun } from '../src/gameplay/runState';
 import { createEventBus } from '../src/engine/eventBus';
+import { resolveArenaLayout } from '../src/gameplay/arenaLayout';
 import { resolveRunPlan } from '../src/gameplay/stage/stageContracts';
 import { createStageRuntime } from '../src/gameplay/stage/stageRuntime';
 import { loadGameData } from '../src/systems/validation';
@@ -195,11 +196,34 @@ function preparedScene(options: { absent?: boolean; training?: boolean; stageId?
   scene.cameras = { main: { zoom: 1.25, setZoom: vi.fn(), setBounds: vi.fn(), startFollow: vi.fn(), stopFollow: vi.fn(), centerOn: vi.fn() } };
   scene.registry = { get: () => undefined };
   scene.scene = { start: vi.fn() }; scene.getContext = () => context;
-  const payload = { runRequest: request, stagePlan: plan, introModel: model, isTraining: options.training === true };
-  return { scene, context, request, plan, arena, model, payload };
+  const layout = resolveArenaLayout(arena, request.seed, data.contentVersion);
+  const payload = { runRequest: request, stagePlan: plan, introModel: model, arenaLayout: layout, isTraining: options.training === true };
+  return { scene, context, request, plan, arena, layout, model, payload };
 }
 
 describe('actual GameScene create transaction', () => {
+  it('captures the exact supplied layout before a fallible plan and replaces it on Scene reuse', () => {
+    const h = preparedScene();
+    vi.spyOn(h.context.stages, 'runPlanCatalog').mockImplementation(() => { throw new Error('early plan failure'); });
+    h.scene.create({ ...h.payload, stagePlan: undefined }); h.scene.game.events.emit('poststep');
+    expect(h.scene.scene.start).toHaveBeenCalledExactlyOnceWith('MenuScene', expect.objectContaining({
+      failedRunRequest: h.request, failedArenaLayout: h.layout, failedRunError: 'early plan failure',
+    }));
+    h.scene.scene.start.mockClear();
+    h.scene.create({ ...h.payload, stagePlan: undefined, arenaLayout: undefined }); h.scene.game.events.emit('poststep');
+    const result = h.scene.scene.start.mock.calls[0][1];
+    expect(result.failedArenaLayout).toBeUndefined();
+  });
+  it.each(['seed', 'hash'] as const)('keeps an invalid captured %s layout fail-closed without regeneration', kind => {
+    const h = preparedScene();
+    const layout = Object.freeze({ ...h.layout, ...(kind === 'seed' ? { seed: 999 } : { hash: 'bad-hash' }) });
+    h.scene.create({ ...h.payload, arenaLayout: layout });
+    expect(h.scene.recovering).toBe(true); expect(h.scene.player).toBeUndefined();
+    h.scene.game.events.emit('poststep');
+    expect(h.scene.scene.start).toHaveBeenCalledExactlyOnceWith('MenuScene', expect.objectContaining({
+      failedRunRequest: h.request, failedArenaLayout: layout,
+    }));
+  });
   it.each(['model', 'plan', 'missing-arena', 'wrong-content-version', 'missing-texture', 'missing-frame', 'debug', 'player', 'summary', 'intro-view'])('recovers an injected %s failure without leaking Start authority', failure => {
     const h = preparedScene(); const payload: any = { ...h.payload };
     if (failure === 'model') payload.introModel = { ...h.model, identity: { ...h.model.identity, seed: 999 } };
@@ -220,7 +244,7 @@ describe('actual GameScene create transaction', () => {
     h.scene.game.events.emit('poststep'); h.scene.game.events.emit('poststep');
     expect(h.scene.scene.start).toHaveBeenCalledOnce();
     const result = h.scene.scene.start.mock.calls[0][1]; expect(result.failedRunRequest).toBe(h.request);
-    expect(result).not.toHaveProperty('failedArenaLayout');
+    expect(result.failedArenaLayout).toBe(h.layout);
     expect(result.isTraining).toBe(false);
     h.scene.events.emit('shutdown'); h.scene.events.emit('destroy');
     expect(h.scene.inputController).toBeUndefined(); expect(h.scene.runState).toBeUndefined();
@@ -255,7 +279,7 @@ describe('actual GameScene create transaction', () => {
     expect(spawn).not.toHaveBeenCalled();
     h.scene.input.keyboard.keyup('Enter'); h.scene.update(0, 16); h.scene.update(16, 16);
     expect(spawn).toHaveBeenCalledTimes(h.plan?.encounter.bossId ? 1 : 0);
-    if (h.plan?.encounter.bossId) expect(spawn).toHaveBeenCalledWith(h.plan.encounter.bossId, h.arena.size.width / 2, Math.max(80, h.arena.size.height * 0.2));
+    if (h.plan?.encounter.bossId) expect(spawn).toHaveBeenCalledWith(h.plan.encounter.bossId, h.layout.boss!.x, h.layout.boss!.y);
     expect(JSON.stringify(h.context.saveData)).toBe(saved);
     h.scene.events.emit('shutdown'); h.scene.events.emit('destroy');
   });

@@ -1,3 +1,4 @@
+import { resolveArenaLayout } from '../src/gameplay/arenaLayout';
 import { describe, expect, it, vi } from 'vitest';
 // Must precede any import whose transitive dependencies resolve Phaser at module
 // evaluation time. The mock registration in __mocks__/phaser is a side-effectful
@@ -4732,6 +4733,96 @@ describe('MenuScene', () => {
     expect(harness.textContents()).toContain('Retry Loading Contract');
   });
 
+  it('preserves one prepared layout on load retry and abandons it on navigation', async () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as any;
+    harness.buttonByLabel('Play Contract')!.state.handlers['pointerup']!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(layout).toBeDefined();
+    harness.buttonByLabel('Retry Loading Contract')!.state.handlers['pointerup']!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    harness.buttonByLabel('Mercenary')!.state.handlers['pointerup']!();
+    expect(scene.capturedLaunch).toBeUndefined();
+    expect(scene.preparedArenaLayout).toBeUndefined();
+    expect(scene.runLaunchState).toBe('idle');
+  });
+
+  it('replays a terminal Stage with the same composition, one fresh Menu seed, and a retryable captured launch', async () => {
+    const harness = createHarness({ create: false });
+    const menuRng = { int: vi.fn(() => 0x1234) };
+    (harness.context as unknown as { menuRng: typeof menuRng }).menuRng = menuRng;
+    const request = {
+      kind: 'stage' as const,
+      characterId: harness.context.characters.defaultCharacterId(),
+      stageId: harness.context.stages.allStages()[0]!.id,
+      seed: 7,
+    };
+
+    harness.menuScene.create({ replayRequest: request, isTraining: false });
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const scene = harness.menuScene as any;
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+    expect(menuRng.int).toHaveBeenCalledWith(0, 0xffff_ffff);
+    expect(captured).toEqual({
+      request: { ...request, seed: 0x1234 },
+      isTraining: false,
+    });
+    expect(layout).toBeDefined();
+    expect(harness.textContents()).toContain('Retry Loading Contract');
+
+    harness.buttonByLabel('Retry Loading Contract')!.state.handlers.pointerup!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps terminal Training replay on Training after load failure, retries the exact launch, and abandons it on Back', async () => {
+    const harness = createHarness({ create: false });
+    const menuRng = { int: vi.fn(() => 0x5678) };
+    (harness.context as unknown as { menuRng: typeof menuRng }).menuRng = menuRng;
+    const request = {
+      kind: 'legacy-arena' as const,
+      characterId: harness.context.characters.defaultCharacterId(),
+      arenaId: harness.context.arenas.defaultArenaId(),
+      seed: 9,
+    };
+
+    harness.menuScene.create({ replayRequest: request, isTraining: true });
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const scene = harness.menuScene as any;
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+    expect(captured).toEqual({
+      request: { ...request, seed: 0x5678 },
+      isTraining: true,
+    });
+    expect(layout).toBeDefined();
+    expect(harness.textContents()).toContain('Training');
+    expect(harness.textContents()).toContain('Retry Training');
+    expect(harness.textContents()).toContain("Couldn't load Training. Retry or go Back.");
+
+    harness.buttonByLabel('Retry Training')!.state.handlers.pointerup!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+
+    harness.buttonByLabel('Back')!.state.handlers.pointerup!();
+    expect(scene.capturedLaunch).toBeUndefined();
+    expect(scene.preparedArenaLayout).toBeUndefined();
+    expect(scene.runLaunchState).toBe('idle');
+  });
+
   it('places a wrapped Contract loading error above Retry without overlap at the narrow viewport', async () => {
     const harness = createHarness({ create: false });
     const scale = harness.menuScene.scale as unknown as { width: number; displaySize: { width: number } };
@@ -5163,11 +5254,28 @@ describe('invalid optional ability preparation', () => {
 
 
 describe('captured Training create-error recovery', () => {
-  it('keeps failed Training on its Retry surface with the original seed and static registry arena', async () => {
+  it('retains an invalid failed layout and rejects repeated Retry before resources or reseeding', async () => {
+    const h = createHarness({ create: false }); const scene = h.menuScene as any;
+    const request = { kind: 'legacy-arena' as const, characterId: 'scrap-tabby', arenaId: 'junkyard-lot', seed: 511 };
+    const valid = resolveArenaLayout(h.context.arenas.arenaById(request.arenaId)!, request.seed, h.context.data.contentVersion);
+    const bad = Object.freeze({ ...valid, seed: 999 });
+    const rng = { int: vi.fn(() => 123) }; (h.context as any).menuRng = rng;
+    scene.create({ failedRunRequest: request, failedArenaLayout: bad, isTraining: true });
+    Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+    for (let i = 0; i < 2; i++) {
+      await scene.startTrainingWithResources();
+      expect(h.sceneStart).not.toHaveBeenCalled(); expect(scene.runLaunchState).toBe('failed');
+      expect(scene.preparedArenaLayout).toBe(bad); expect(scene.capturedLaunch.request).toBe(request);
+    }
+    expect(rng.int).not.toHaveBeenCalled(); h.lifecycle.emit('shutdown');
+    expect(scene.preparedArenaLayout).toBeUndefined(); expect(scene.capturedLaunch).toBeUndefined();
+  });
+  it('keeps failed Training on its Retry surface with the original seed and exact prepared layout', async () => {
     const h = createHarness({ create: false }); const scene = h.menuScene as any;
     const request = { kind: 'legacy-arena' as const, characterId: 'scrap-tabby', arenaId: 'junkyard-lot', seed: 511 };
     const arena = h.context.arenas.arenaById(request.arenaId)!;
-    scene.create({ failedRunRequest: request, failedRunError: 'fixture create failure', isTraining: true });
+    const layout = resolveArenaLayout(arena, request.seed, h.context.data.contentVersion);
+    scene.create({ failedRunRequest: request, failedArenaLayout: layout, failedRunError: 'fixture create failure', isTraining: true });
     expect(h.menuScene.loadoutUiDiagnostics().panel).toBe('training');
     expect(h.buttonByLabel('Retry Training')).toBeDefined();
     expect(scene.capturedLaunch.request).toBe(request); expect(h.context.arenas.arenaById('junkyard-lot')).toBe(arena);
@@ -5175,7 +5283,7 @@ describe('captured Training create-error recovery', () => {
     await scene.startTrainingWithResources();
     expect(h.sceneStart).toHaveBeenCalledExactlyOnceWith('GameScene', expect.objectContaining({ runRequest: request, isTraining: true, introModel: expect.objectContaining({ identity: expect.objectContaining({ arenaId: arena.id, seed: request.seed, contentVersion: h.context.data.contentVersion }) }) }));
     expect(h.context.arenas.arenaById(request.arenaId)).toBe(arena);
-    expect(h.sceneStart.mock.calls[0]![1]).not.toHaveProperty('arenaLayout');
+    expect(h.sceneStart.mock.calls[0]![1].arenaLayout).toBe(layout);
   });
 });
 
@@ -5377,14 +5485,16 @@ describe('Home fixed hint input-mode reservation', () => {
 });
 
 
-it('preserves main terminal Replay request and seed through the static preparation owner', async () => {
+it('joins terminal Replay fresh seed with prepared plan, intro and immutable layout', async () => {
   const h = createHarness({ create: false }); const scene = h.menuScene as any;
   Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
   const request = Object.freeze({ kind: 'stage' as const, characterId: 'scrap-tabby', stageId: 'stage:junkyard-06', seed: 881 });
   scene.create({ replayRequest: request });
   await vi.waitFor(() => expect(h.sceneStart).toHaveBeenCalledOnce());
   const payload = h.sceneStart.mock.calls[0]![1];
-  expect(payload.runRequest).toBe(request); expect(payload.stagePlan.seed).toBe(881); expect(payload.introModel.identity.seed).toBe(881);
+  expect(payload.runRequest).not.toBe(request); expect(payload.runRequest).toMatchObject({ ...request, seed: expect.any(Number) });
+  expect(payload.stagePlan.seed).toBe(payload.runRequest.seed); expect(payload.introModel.identity.seed).toBe(payload.runRequest.seed);
   expect(payload.introModel.identity.arenaId).toBe(h.context.stages.stageById(request.stageId)!.arenaId);
-  expect(payload).not.toHaveProperty('arenaLayout'); h.lifecycle.emit('shutdown');
+  expect(payload.arenaLayout).toBe(scene.preparedArenaLayout);
+  expect(payload.arenaLayout.seed).toBe(payload.runRequest.seed); h.lifecycle.emit('shutdown');
 });

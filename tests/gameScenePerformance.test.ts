@@ -1,3 +1,4 @@
+import { resolveArenaLayout } from '../src/gameplay/arenaLayout';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import './__mocks__/phaser';
 import { GameScene } from '../src/scenes/GameScene';
@@ -136,6 +137,7 @@ describe('guarded real-owner combat fixture', () => {
     const scene = harness();
     const data = loadGameData();
     scene.getContext = () => ({ data, bus: createEventBus(), arenas: new DataArenaRegistry(data) });
+    scene.resolvedArenaLayout = resolveArenaLayout(data.arenas[0]!, 123, data.contentVersion);
     scene.isTraining = true;
     scene.arenaDimensions = { width: 390, height: 844 };
     scene.textures = { exists: () => true };

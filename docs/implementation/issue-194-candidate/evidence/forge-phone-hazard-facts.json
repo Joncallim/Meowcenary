@@ -1,0 +1,109 @@
+{
+  "browserTest": "Forge crossing window matches actual damage, pause and reduced-motion presentation",
+  "testStatus": "passed",
+  "actorBoundsContainGrate": "asserted by browser test",
+  "captures": {
+    "forge-warning-reduced-motion": {
+      "sourceJson": "forge-warning-reduced-motion.json",
+      "profile": "phone-390x844",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "status": "active",
+      "timeMs": 99.98666666666668,
+      "layout": {
+        "arenaId": "forge-foundry",
+        "seed": 1,
+        "layoutSeed": 2385564506,
+        "contentVersion": "alpha3-2",
+        "generationVersion": 1,
+        "hash": "801ff24c"
+      },
+      "player": {
+        "x": 384,
+        "y": 328,
+        "health": 100,
+        "presentationBounds": {
+          "x": 362.3,
+          "y": 306.3,
+          "width": 43.400000000000034,
+          "height": 43.400000000000034
+        }
+      },
+      "hazard": {
+        "elapsedMs": 2450,
+        "nodes": [
+          {
+            "id": "heat-grate",
+            "x": 384,
+            "y": 328,
+            "width": 192,
+            "height": 48,
+            "alpha": 0.75,
+            "tint": 16766556,
+            "visible": true,
+            "active": true
+          }
+        ]
+      },
+      "projectileSimulation": {
+        "loopRunning": false,
+        "physicsPaused": false,
+        "visibility": "visible",
+        "active": []
+      }
+    },
+    "forge-active-damage": {
+      "sourceJson": "forge-active-damage.json",
+      "profile": "phone-390x844",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "status": "active",
+      "timeMs": 99.98666666666668,
+      "layout": {
+        "arenaId": "forge-foundry",
+        "seed": 1,
+        "layoutSeed": 2385564506,
+        "contentVersion": "alpha3-2",
+        "generationVersion": 1,
+        "hash": "801ff24c"
+      },
+      "player": {
+        "x": 384,
+        "y": 328,
+        "health": 99,
+        "presentationBounds": {
+          "x": 362.3,
+          "y": 306.3,
+          "width": 43.400000000000034,
+          "height": 43.400000000000034
+        }
+      },
+      "hazard": {
+        "elapsedMs": 3400,
+        "nodes": [
+          {
+            "id": "heat-grate",
+            "x": 384,
+            "y": 328,
+            "width": 192,
+            "height": 48,
+            "alpha": 1,
+            "tint": 16740694,
+            "visible": true,
+            "active": true
+          }
+        ]
+      },
+      "projectileSimulation": {
+        "loopRunning": false,
+        "physicsPaused": false,
+        "visibility": "visible",
+        "active": []
+      }
+    }
+  }
+}
