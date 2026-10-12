@@ -7,8 +7,7 @@ protected main `4f79d6210c3b028b995d67a5cc6e35318b17b2ee` as `f3113e5`,
 then replayed this bounded fix. The four-file lifecycle patch is identical to
 #239; newer #196 scene/input/resource owners remain intact. Focused evidence
 below was captured before that replay; full closeout must use the final replayed
-head. No merge, deployment,
-audio asset replacement, gameplay change or issue closure is claimed.
+head. No merge, deployment, audio asset replacement, gameplay change or issue closure is claimed.
 
 Authority: current #237 maintainer instructions and the genuine native RED
 recorded in [#201 comment 6123407199](https://github.com/Joncallim/Meowcenary/issues/201#issuecomment-6123407199).
@@ -70,9 +69,13 @@ classes and the existing four-second menu WAV. It neither patches native media
 nor invents success. The parser-loaded module attempts playback before the
 driver performs any page evaluation, polling or click. Initial and final facts
 are POSTed to its bounded local endpoint. Separate fresh contexts cover explicit
-same-key retry, unlock-only retry and a stop/restart control. Every initial
-attempt must have no prior activation, a genuine NotAllowedError, ready media
-with no media error; every retry must be trusted. GREEN requires native playing
+same-key retry, unlock-only retry and a stop/restart control. Before the parser's managed play attempt, a bounded loadeddata/canplay readiness
+wait is subscribed before loading; readiness and activation are captured at the
+actual attempt. After refusal cleanup, the gate re-awaits media readiness before
+its initial snapshot, since seeking/release may change readiness. Both waits
+retain the 15-second bound and use media events, without driver evaluation or
+policy gestures. Every initial attempt must have no prior activation, a genuine
+NotAllowedError, ready media with no media error; every retry must be trusted. GREEN requires native playing
 and positive clock advancement, latest key and one retained voice after cleanup;
 the refused initial voice must already be removed. Source/committed hashes,
 HEAD, dirty status, browser/policy, native events, warnings, trusted clicks and
@@ -111,6 +114,44 @@ failed because it incorrectly expected the old attempt to survive Phaser's
 intentional tag release; installed source showed that callback must be stale.
 The corrected test preserves ordinary paused-voice resumption. That intermediate
 95/96 result was a test expectation correction, separate from genuine native RED.
+
+## Independent review follow-up (12 October)
+
+The independent architecture/adversarial review of replayed `7c475eed` requested
+changes for two P2 findings. Both are corrected in this follow-up; a fresh
+independent verdict remains required. No PASS or full-closeout claim is made.
+
+A locked pending A survived a newer missing request; the same stale pending
+problem also followed refused A → locked B → missing. Two new installed-Phaser
+regressions failed before the correction (2 failed / 47 skipped), saved in
+`audio237-recovery-review-pending-red.log`. Clearing pending intent before the
+missing-asset check fixes both, while the valid pending/current same-key no-op
+branches remain above that clear. Focused GREEN is now 101 tests / 2 files
+(`audio237-recovery-review-focused-green.log`); lint passes
+(`audio237-recovery-review-lint.log`), as do syntax and diff checks.
+
+The old gate admitted loadedmetadata but later asserted loaded data. The
+reviewer's raw failed report is retained unchanged as
+`audio237-recovery-review-old-readiness-flake.json`: initial same-key readiness
+was 1, despite all trusted retries playing with positive clocks and one voice.
+Three additional untouched old-gate attempts passed
+(`audio237-recovery-review-old-readiness-{1,2,3}.json`); this was intermittent,
+and those passes do not invalidate the observed false failure. The corrected
+gate waits for actual loadeddata/canplay readiness before attempting and after
+cleanup, preserves the later readyState/error assertions, and additionally
+asserts readiness at the actual attempt. No policy, native playback, handle
+count or clock assertion is removed, and no deadline is increased.
+
+Three separate concurrent corrected-gate runs pass all nine scenarios, saved as
+`audio237-recovery-review-native-green-{1,2,3}.json`; attempt and post-cleanup
+readyState are 4, prior activation is absent and every trusted retry advances.
+This is three-run evidence, not a claim that a timing issue can never recur.
+The same final executable copied into the detached exact-848 evidence worktree
+still fails default GREEN with native refusal and silent same-key/unlock retry
+(`audio237-recovery-review-native-required-green-red.json`, exit 1). Original
+#239 branch/source and #245 remain untouched. The former in-flight full check
+was stopped and invalidated before these edits; it supplies no full validation
+claim. Full closeout remains pending after fresh independent review.
 
 ## Remaining acceptance and review
 

@@ -211,6 +211,9 @@ export class AudioManager implements System {
       this.pendingMusicKey = undefined; // Latest intent may supersede another locked request.
       return;
     }
+    // A newer unavailable request also supersedes older locked intent. Keep
+    // the retained-loop/pending-same-key no-op cases above unchanged.
+    this.pendingMusicKey = undefined;
     if (!this.scene.cache.audio.exists(musicKey)) {
       this.warnOnce(musicKey);
       return;

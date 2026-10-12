@@ -87,6 +87,8 @@ class BackendManager extends EventEmitter {
 
 // Use the complete installed HTML5 manager for blur/focus queue ownership.
 interface HtmlManagerHarness {
+  locked: boolean;
+  emit(event: string): boolean;
   readonly sounds: Phaser.Sound.HTML5AudioSound[];
   readonly onBlurPausedSounds: Phaser.Sound.HTML5AudioSound[];
   add(key: string): Phaser.Sound.HTML5AudioSound;
@@ -588,6 +590,26 @@ describe('AudioManager real HTML5 interruption and reentrant ownership', () => {
     first.reject(new Error('policy')); await Promise.resolve();
     audio.unlock(); sound.update(0, 16);
     expect(sound.sounds).toHaveLength(0); expect(play).toHaveBeenCalledTimes(1);
+    audio.destroy(); sound.destroy();
+  });
+
+
+  it.each(['locked-only', 'refused-then-locked'] as const)('a newer missing key invalidates stale pending music after %s', async action => {
+    const sound = htmlManager();
+    const audio = new AudioManager({ sound, cache: { audio: { exists: (key: string) => key !== 'missing' } } } as never);
+    audio.init(createEventBus(), settings, { assets: { sfx: [], music: [] }, map: [] });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    if (action === 'refused-then-locked') {
+      vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => Promise.reject(new Error('policy')));
+      audio.playMusic('music-run'); await Promise.resolve();
+      expect(sound.sounds).toHaveLength(0);
+    }
+    sound.locked = true;
+    audio.playMusic(action === 'locked-only' ? 'music-run' : 'music-menu');
+    audio.playMusic('missing');
+    sound.locked = false;
+    sound.emit('unlocked'); audio.unlock(); sound.update(0, 16);
+    expect(sound.sounds).toHaveLength(0);
     audio.destroy(); sound.destroy();
   });
 

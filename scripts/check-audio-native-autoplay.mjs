@@ -31,7 +31,7 @@ import {createEventBus} from './src/engine/eventBus.ts';
 import HtmlManager from 'phaser/src/sound/html5/HTML5AudioSoundManager.js';
 import EventEmitter from 'eventemitter3';
 const scenario = location.pathname.slice(1);
-const evidence = {scenario, warnings:[], nativeEvents:[], clicks:[], states:[], pageErrors:[]};
+const evidence = {scenario, warnings:[], nativeEvents:[], readiness:[], clicks:[], states:[], pageErrors:[]};
 const activation = () => ({isActive:navigator.userActivation.isActive,hasBeenActive:navigator.userActivation.hasBeenActive});
 addEventListener('error', e => evidence.pageErrors.push(String(e.message)));
 addEventListener('unhandledrejection', e => evidence.pageErrors.push('unhandled: '+String(e.reason)));
@@ -45,8 +45,23 @@ tag.preload = 'auto';
 // Match the ordinary desktop unlocked/unused cache shape expected by Phaser's
 // HTML5 loader; the actual loader/full scene composition is outside this harness.
 tag.dataset.used = 'false'; tag.dataset.locked = 'false';
-for (const name of ['play','playing','pause','error','ended']) tag.addEventListener(name, event => evidence.nativeEvents.push({name,trusted:event.isTrusted,time:performance.now(),currentTime:tag.currentTime,paused:tag.paused,errorCode:tag.error?.code??null}));
-await new Promise((yes,no) => {tag.addEventListener('loadedmetadata',yes,{once:true});tag.addEventListener('error',no,{once:true});tag.load()});
+for (const name of ['loadedmetadata','loadeddata','canplay','seeking','seeked','play','playing','pause','error','ended']) tag.addEventListener(name, event => evidence.nativeEvents.push({name,trusted:event.isTrusted,time:performance.now(),currentTime:tag.currentTime,paused:tag.paused,errorCode:tag.error?.code??null,readyState:tag.readyState}));
+const mediaState = () => ({paused:tag.paused,currentTime:tag.currentTime,readyState:tag.readyState,duration:tag.duration,errorCode:tag.error?.code??null});
+function waitForMediaReady(label, startLoad=false) {
+  return new Promise((yes,no) => {
+    const cleanup = () => {clearTimeout(timer);tag.removeEventListener('loadeddata',ready);tag.removeEventListener('canplay',ready);tag.removeEventListener('error',failed)};
+    const ready = () => {
+      if (tag.readyState < 2) return;
+      cleanup();evidence.readiness.push({label,time:performance.now(),activation:activation(),native:mediaState()});yes();
+    };
+    const failed = () => {cleanup();no(new Error('Media readiness failed: '+label+', code '+tag.error?.code))};
+    const timer=setTimeout(()=>{cleanup();no(new Error('Media readiness timed out: '+label))},15000);
+    // Subscribe before loading or inspecting readiness; no media/driver polling.
+    tag.addEventListener('loadeddata',ready);tag.addEventListener('canplay',ready);tag.addEventListener('error',failed);
+    if (startLoad) tag.load(); else ready();
+  });
+}
+await waitForMediaReady('before automatic attempt', true);
 const tags = new Map([['music-menu',[tag]]]);
 const cache = {get:key=>tags.get(key),exists:key=>tags.has(key)};
 const sound = new HtmlManager({events:new EventEmitter(),cache:{json:{},audio:cache}});
@@ -63,9 +78,16 @@ async function post(phase) {
 }
 // Runs from the parser-loaded module. The driver waits for the server POST
 // before making its first click; it performs no evaluate/polling in the page.
-evidence.initialAttempt = {time:performance.now(),activation:activation(),managerLocked:sound.locked};
+evidence.initialAttempt = {time:performance.now(),activation:activation(),managerLocked:sound.locked,native:mediaState()};
 audio.playMusic('music-menu');
-setTimeout(async()=>{frameState('automatic first attempt');await post('initial')},100);
+setTimeout(async()=>{
+  try {
+    // Phaser retirement releases/seeks the tag. If decoding readiness changes,
+    // wait for loadeddata/canplay again rather than asserting a timer snapshot.
+    await waitForMediaReady('after refusal cleanup');frameState('automatic first attempt');
+  } catch (error) {evidence.pageErrors.push(String(error));frameState('readiness failure')}
+  await post('initial');
+},100);
 document.querySelector('button').addEventListener('click',event=>{
   evidence.clicks.push({trusted:event.isTrusted,scenario,time:performance.now(),activation:activation()});
   if (scenario==='same-key') { audio.playMusic('music-menu'); }
@@ -117,7 +139,7 @@ try {
   const observed=scenarios.every(({initial,final})=>initial.initialAttempt.activation.isActive===false&&initial.initialAttempt.activation.hasBeenActive===false&&initial.warnings.some(x=>x.name==='NotAllowedError'&&x.isDOMException)&&initial.states[0].native.paused&&final.clicks.length===1&&final.clicks[0].trusted);
   const same=scenarios[0].final.states.at(-1),unlock=scenarios[1].final.states.at(-1),control=scenarios[2].final.states.at(-1);
   const healthy = state => !state.native.paused && state.native.currentTime>0 && state.handleCount===1 && state.handles[0].key==='music-menu' && state.handles[0].isPlaying;
-  const validInputs = scenarios.every(({initial,final,driverPageErrors}) => initial.states[0].native.readyState>=2 && initial.states[0].native.duration===4 && initial.states[0].native.errorCode===null && !initial.pageErrors.length && !final.pageErrors.length && !driverPageErrors.length && final.nativeEvents.some(event=>event.name==='playing') === !final.states.at(-1).native.paused);
+  const validInputs = scenarios.every(({initial,final,driverPageErrors}) => initial.initialAttempt.native.readyState>=2 && initial.initialAttempt.native.duration===4 && initial.initialAttempt.native.errorCode===null && initial.readiness.length===2 && initial.readiness.every(row=>row.native.readyState>=2&&row.activation.isActive===false&&row.activation.hasBeenActive===false) && initial.states[0].native.readyState>=2 && initial.states[0].native.duration===4 && initial.states[0].native.errorCode===null && !initial.pageErrors.length && !final.pageErrors.length && !driverPageErrors.length && final.nativeEvents.some(event=>event.name==='playing') === !final.states.at(-1).native.paused);
   const reproduced=observed&&same.native.paused&&same.native.currentTime===0&&same.handles[0]?.isPlaying&&unlock.native.paused&&!control.native.paused&&control.native.currentTime>0;
   const recovered=observed&&validInputs&&healthy(same)&&healthy(unlock)&&healthy(control)&&scenarios.every(({initial})=>initial.states[0].handleCount===0);
   const passed=expectation==='red'?reproduced&&validInputs:recovered;
