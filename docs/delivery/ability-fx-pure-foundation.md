@@ -5,6 +5,12 @@ validation, immutable presentation plans, and cosmetic frame selection for #241.
 It is nonshipping: the existing production ability catalog, runtime behavior,
 resources, and assets remain unchanged.
 
+For review the candidate is stacked on verified Contracts recovery
+`5b6622b9d9708bc512e158e03b3f6d70d743023e` (#240), preserving its deterministic
+browser helper and Linux font corrections. Only the five foundation files
+are added to that base; no Contracts, Arena or Progression changes are copied
+over an existing shared file. Main remains production implementation truth.
+
 The tests enrich all eight existing ability definitions with synthetic recipes
 and atlas metadata, then add a ninth fixture to exercise the same generic path.
 These fixtures prove the data contract, immutable snapshots, mechanic-derived
@@ -31,3 +37,10 @@ The plan validates and counts only the atlas pages referenced by its selected
 recipe. Global asset-budget compliance still needs validation against the real
 production resource graph. No resource manifests, loader code, renderers, save
 boundaries, live controls, or production assets change in this foundation.
+
+The standalone controls parser/layout preserves strict own primitive enum
+values, default Left, invalid-patch fallback, exact 120×60 physical card size
+and the existing double edge inset plus safe area. It does not save or relocate
+a live control. At integration the enum/default belongs to the existing Save
+Settings owner; this temporary pure contract does not create a second durable
+preference store or alter synchronous persistence semantics.

@@ -15,7 +15,8 @@ describe('ability control preference contract', () => {
     expect(parseAbilityButtonSide('left')).toBe('left');
     expect(parseAbilityButtonSide('right')).toBe('right');
     expect(parseAbilityButtonSide('invalid', 'right')).toBe('right');
-    expect(parseAbilityButtonSide(new String('right'), 'right')).toBe('right');
+    expect(parseAbilityButtonSide(new String('right'))).toBe('left');
+    expect(parseAbilityButtonSide(new String('left'), 'right')).toBe('right');
     expect(parseAbilityButtonSide({ abilityButtonSide: 'left' }, 'right')).toBe('left');
     expect(parseAbilityButtonSide(Object.create({ abilityButtonSide: 'left' }), 'right')).toBe('right');
     const getter = Object.defineProperty({}, 'abilityButtonSide', { get: () => 'left' });
