@@ -3,7 +3,7 @@ import type { Vec2 } from '../engine/vector';
 import { distanceSq, towards } from '../engine/vector';
 import type { LootGrant } from '../gameplay/loot';
 import type { VisualArtBinding } from '../systems/types';
-import { createStaticArtSprite } from './actorView';
+import type { DropPresentation } from '../presentation/dropPresentation';
 import { visualAnimationKey } from '../systems/visualArt';
 import { VisualDepth } from '../systems/visualDepths';
 import { trace } from '../engine/diagnostics';
@@ -35,13 +35,13 @@ export class Drop {
   private grantValue?: LootGrant;
   private blocked = false;
   private readonly glint: Phaser.GameObjects.Arc;
-  private readonly artSprites = new Map<DropKind, Phaser.GameObjects.Sprite>();
-  private activeArt?: Phaser.GameObjects.Sprite;
+  private artSprite?: Phaser.GameObjects.Sprite;
 
   constructor(
-    scene: Phaser.Scene,
+    private readonly scene: Phaser.Scene,
     private readonly radius: number,
     private readonly artByKind: DropArtBindings = Object.freeze({}),
+    authoredPresentation = false,
   ) {
     this.debugId = Drop.nextDebugId++;
     this.sprite = scene.add.circle(0, 0, radius, DROP_COLORS.xp)
@@ -58,9 +58,11 @@ export class Drop {
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(radius);
     this.body.enable = false;
-    for (const kind of ['xp', 'scrap', 'chest', 'weapon'] as const) {
-      const sprite = createStaticArtSprite(scene, artByKind[kind], VisualDepth.pickup);
-      if (sprite) this.artSprites.set(kind, sprite);
+    // Fixed view budget, independent of catalog size. No-art harnesses retain
+    // their isolated primitive path; production opts in before pool construction.
+    if (authoredPresentation || Object.values(artByKind).some(Boolean)) {
+      this.artSprite = scene.add.sprite(0, 0, '__DEFAULT')
+        .setDepth(VisualDepth.pickup).setOrigin(0.5).setActive(false).setVisible(false);
     }
   }
 
@@ -93,30 +95,39 @@ export class Drop {
     if (blocked) {
       this.body.setVelocity(0, 0);
     }
+    this.artSprite?.setAlpha(blocked ? 0.65 : 1);
+    if (blocked) this.artSprite?.setTint(0xffa94d);
+    else this.artSprite?.clearTint();
+    this.glint.setFillStyle(blocked ? 0xffa94d : 0xffffff)
+      .setVisible(this.active && (blocked || !this.artSprite?.visible));
   }
 
-  spawn(x: number, y: number, grant: LootGrant): void {
+  spawn(x: number, y: number, grant: LootGrant, presentation?: Readonly<DropPresentation>): void {
+    if (presentation && (presentation.kind !== grant.kind
+      || (grant.kind === 'weapon' && presentation.weapon?.definitionId !== grant.definitionId))) {
+      throw new Error('Pickup presentation does not match the authoritative grant');
+    }
+    const legacyBinding = this.artByKind[grant.kind];
+    const binding = presentation?.binding ?? (legacyBinding && this.scene.textures.exists(legacyBinding.textureKey) ? legacyBinding : undefined);
+    if (presentation && !this.artSprite) throw new Error('Pickup presentation needs a constructor-owned sprite');
     this.active = true;
     this.grantValue = { ...grant };
     this.blocked = false;
-
-    const kind = grant.kind;
-    for (const sprite of this.artSprites.values()) {
-      sprite.stop().setFrame(0).setActive(false).setVisible(false);
-    }
-    this.activeArt = this.artSprites.get(kind);
-    const useArt = this.activeArt !== undefined;
-    this.sprite.setPosition(x, y).setFillStyle(DROP_COLORS[kind]).setActive(true).setVisible(!useArt);
-    this.glint.setPosition(x - GLINT_OFFSET_X, y - GLINT_OFFSET_Y).setActive(true).setVisible(!useArt);
-    this.activeArt?.setPosition(x, y).setActive(true).setVisible(true);
-    const binding = this.artByKind[kind];
-    if (this.activeArt && binding?.clips?.idle) {
-      this.activeArt.play(visualAnimationKey(binding.id, 'idle'));
+    this.clearArt();
+    const useArt = binding !== undefined && this.artSprite !== undefined;
+    this.sprite.setPosition(x, y).setFillStyle(DROP_COLORS[grant.kind]).setActive(true).setVisible(!useArt);
+    this.glint.setPosition(x - GLINT_OFFSET_X, y - GLINT_OFFSET_Y)
+      .setFillStyle(0xffffff).setActive(true).setVisible(!useArt);
+    if (useArt) {
+      const display = presentation?.display ?? binding.display;
+      this.artSprite!.setTexture(binding.textureKey, binding.load.type === 'spritesheet' ? 0 : binding.frameKey)
+        .setDisplaySize(display.width, display.height).setPosition(x, y).setActive(true).setVisible(true);
+      if (binding.clips?.idle) this.artSprite!.play(visualAnimationKey(binding.id, 'idle'));
     }
     this.body.enable = true;
     this.body.setCircle(this.radius);
     this.body.setVelocity(0, 0);
-    trace('drop:activated', { debugId: this.debugId, kind, artId: binding?.id, textureKey: binding?.textureKey, x: Math.round(x), y: Math.round(y) });
+    trace('drop:activated', { debugId: this.debugId, kind: grant.kind, artId: binding?.id, textureKey: binding?.textureKey, x: Math.round(x), y: Math.round(y) });
   }
 
   update(dtMs: number, playerPos: Vec2, pickupRadius: number, magnetSpeed: number): void {
@@ -127,7 +138,7 @@ export class Drop {
     // Arcade physics integrates before the scene update, so the body position
     // is the rendered frame's position — the glint follows exactly.
     this.glint.setPosition(this.sprite.x - GLINT_OFFSET_X, this.sprite.y - GLINT_OFFSET_Y);
-    this.activeArt?.setPosition(this.sprite.x, this.sprite.y);
+    this.artSprite?.setPosition(this.sprite.x, this.sprite.y);
 
     if (this.blocked) {
       this.body.setVelocity(0, 0);
@@ -175,19 +186,46 @@ export class Drop {
     }
     this.sprite.setActive(false).setVisible(false);
     this.glint.setActive(false).setVisible(false);
-    for (const sprite of this.artSprites.values()) {
-      sprite.stop().setFrame(0).setActive(false).setVisible(false);
-    }
-    this.activeArt = undefined;
+    this.glint.setFillStyle(0xffffff);
+    this.clearArt();
     trace('drop:deactivated', { debugId: this.debugId });
+  }
+
+  private clearArt(): void {
+    this.artSprite?.stop().setTexture('__DEFAULT').setDisplaySize(1, 1)
+      .clearTint().setAlpha(1).setFlip(false, false).setRotation(0).setOrigin(0.5)
+      .setActive(false).setVisible(false);
   }
 
   destroy(): void {
     this.active = false;
     this.glint.destroy();
-    for (const sprite of this.artSprites.values()) sprite.destroy();
-    this.artSprites.clear();
-    this.activeArt = undefined;
+    this.artSprite?.destroy();
+    this.artSprite = undefined;
     this.sprite.destroy();
+  }
+}
+
+/** Production readiness belongs before pool acquisition, not at first play(). */
+export function assertDropPresentationReady(scene: Pick<Phaser.Scene, 'textures' | 'anims'>,
+  presentation: Readonly<DropPresentation>): void {
+  const binding = presentation.binding;
+  const fail = (detail: string): never => { throw new Error(`Pickup art "${binding.id}" ${detail}`); };
+  if (!scene.textures.exists(binding.textureKey)) fail(`requires loaded texture "${binding.textureKey}"`);
+  const texture = scene.textures.get(binding.textureKey);
+  const frame = binding.load.type === 'spritesheet' ? 0 : binding.frameKey ?? '__BASE';
+  if (!texture.has(String(frame))) fail(`requires loaded frame "${frame}"`);
+  const clip = binding.clips?.idle;
+  if (!clip) return;
+  if (binding.load.type !== 'spritesheet') fail('requires a spritesheet for its idle clip');
+  const key = visualAnimationKey(binding.id, 'idle');
+  if (!scene.anims.exists(key)) fail(`requires idle animation "${key}"`);
+  const animation = scene.anims.get(key);
+  if (!animation || animation.frameRate !== clip.frameRate || animation.repeat !== clip.repeat
+    || animation.frames.length !== clip.end - clip.start + 1) fail(`requires matching idle clip "${key}"`);
+  for (let index = clip.start; index <= clip.end; index += 1) {
+    const animationFrame = animation.frames[index - clip.start];
+    if (!texture.has(String(index)) || animationFrame.textureKey !== binding.textureKey
+      || String(animationFrame.textureFrame) !== String(index)) fail(`requires matching idle frame "${index}"`);
   }
 }

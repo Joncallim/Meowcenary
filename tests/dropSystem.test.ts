@@ -20,7 +20,24 @@ import { loadGameData } from '../src/systems/validation';
 import charactersJson from '../src/data/characters.json';
 import metaUpgradesJson from '../src/data/meta-upgrades.json';
 import { InventoryController } from '../src/ui/inventory';
+import { DataVisualArtRegistry } from '../src/systems/visualArt';
+import type { VisualArtLookup } from '../src/systems/visualArt';
 import upgradesJson from '../src/data/upgrades.json';
+
+class DropArtNode extends MockGameObject {
+  texture = '__DEFAULT'; frame: string | number = '__BASE'; animation?: string;
+  displayWidth = 1; displayHeight = 1; tint = 0xffffff; rotation = 0; flipX = false; flipY = false; originX = .5; originY = .5;
+  setTexture(key: string, frame: string | number = '__BASE'): this { this.texture = key; this.frame = frame; return this; }
+  setDisplaySize(width = 1, height = 1): this { this.displayWidth = width; this.displayHeight = height; return this; }
+  setTint(value: number): this { this.tint = value; return this; }
+  clearTint(): this { this.tint = 0xffffff; return this; }
+  setFlip(x: boolean, y: boolean): this { this.flipX = x; this.flipY = y; return this; }
+  setRotation(value: number): this { this.rotation = value; return this; }
+  setOrigin(x: number, y = x): this { this.originX = x; this.originY = y; return this; }
+  play(key: string): this { this.animation = key; return this; }
+  stop(): this { this.animation = undefined; return this; }
+}
+interface ArtReadiness { texture?: boolean; frame?: boolean; idle?: boolean; frames?: boolean; wrongTexture?: boolean; wrongFrame?: boolean; wrongRate?: boolean; wrongRepeat?: boolean; missingIdleFrame?: boolean; }
 
 interface TestSystem {
   system: DropSystem;
@@ -31,6 +48,7 @@ interface TestSystem {
   addedSprites: MockGameObject[];
   groupAddStates: Array<{ active: boolean; x: number; y: number }>;
   rng: Pick<Rng, 'next'>;
+  artNodes: DropArtNode[];
 }
 
 async function createSystem(options: {
@@ -38,6 +56,8 @@ async function createSystem(options: {
   lootTables?: LootTableLookup;
   rng?: Pick<Rng, 'next'>;
   weaponRegistry?: Pick<DataWeaponRegistry, 'weaponById' | 'createWeaponInstance'>;
+  visualArt?: Pick<VisualArtLookup, 'bindingById'>;
+  readiness?: ArtReadiness;
 } = {}): Promise<TestSystem> {
   const { DropSystem } = await import('../src/systems/DropSystem');
   const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
@@ -50,8 +70,16 @@ async function createSystem(options: {
   } = {};
   const addedSprites: MockGameObject[] = [];
   const groupAddStates: Array<{ active: boolean; x: number; y: number }> = [];
+  const artNodes: DropArtNode[] = [];
   const scene = {
+    textures: { exists: () => options.readiness?.texture !== false, get: () => ({ has: (frame: string) => options.readiness?.frame !== false && !(options.readiness?.missingIdleFrame && frame === '2') }) },
+    anims: { exists: () => options.readiness?.idle !== false, get: (key: string) => {
+      const binding = options.visualArt?.bindingById(key.slice(4, -5));
+      const clip = binding?.clips?.idle;
+      return { frameRate: options.readiness?.wrongRate ? 999 : clip?.frameRate, repeat: options.readiness?.wrongRepeat ? 0 : clip?.repeat, frames: !clip || options.readiness?.frames === false ? [] : Array.from({ length: clip.end - clip.start + 1 }, (_, i) => ({ textureKey: options.readiness?.wrongTexture ? 'wrong' : binding.textureKey, textureFrame: options.readiness?.wrongFrame ? 999 : i + clip.start })) };
+    } },
     add: {
+      sprite: () => { const node = new DropArtNode(); artNodes.push(node); return node; },
       circle: () => new MockArc(0, 0),
     },
     physics: {
@@ -98,6 +126,7 @@ async function createSystem(options: {
     dropGroup,
     lootTables,
     weaponRegistry,
+    visualArt: options.visualArt,
     rng,
     dropRadius: 4,
     magnetSpeed: 450,
@@ -116,6 +145,7 @@ async function createSystem(options: {
     },
     addedSprites,
     groupAddStates,
+    artNodes,
     rng,
   };
 }
@@ -1262,4 +1292,122 @@ describe('DropSystem', () => {
     });
   });
 
+});
+
+
+describe('production drop readiness and atomic pool publication', () => {
+  const data = loadGameData(), visualArt = new DataVisualArtRegistry(data);
+  it.each(['texture', 'frame', 'idle', 'frames'] as const)('rejects missing %s before acquiring any physical lifetime', async missing => {
+    const readiness: ArtReadiness = { [missing]: false };
+    const t = await createSystem({ visualArt, readiness });
+    const grant: LootGrant = missing === 'frame' ? { kind: 'weapon', definitionId: 'scrap-pistol-t1' } : { kind: 'xp', amount: 1 };
+    expect(() => t.system.spawnDrop(0, 0, grant)).toThrow(/Pickup/);
+    expect(t.system.activeDropCount).toBe(0); expect(t.system.allocatedDropCount).toBe(0); expect(t.artNodes).toHaveLength(0);
+    readiness[missing] = true;
+    const drop = t.system.spawnDrop(0, 0, grant);
+    expect(drop.grant).toEqual(grant); expect(t.system.activeDropCount).toBe(1); expect(t.artNodes).toHaveLength(1);
+    t.system.destroy();
+  });
+  it.each(['wrongTexture', 'wrongFrame', 'wrongRate', 'wrongRepeat', 'missingIdleFrame'] as const)('rejects %s animation identity before acquisition', async wrong => {
+    const t = await createSystem({ visualArt, readiness: { [wrong]: true } });
+    expect(() => t.system.spawnDrop(0, 0, { kind: 'xp', amount: 1 })).toThrow(/Pickup/);
+    expect(t.system.activeDropCount).toBe(0); expect(t.system.allocatedDropCount).toBe(0); t.system.destroy();
+  });
+  it('propagates registry failure before acquisition and retries without a leaked lifetime', async () => {
+    const fault = new Error('Registry lookup failure');
+    const lookup = vi.fn().mockImplementationOnce(() => { throw fault; }).mockImplementation(id => visualArt.bindingById(id));
+    const t = await createSystem({ visualArt: { bindingById: lookup } });
+    let caught: unknown;
+    try { t.system.spawnDrop(1, 2, { kind: 'weapon', definitionId: 'scrap-pistol-t1' }); } catch (error) { caught = error; }
+    expect(caught).toBe(fault);
+    expect(t.system.activeDropCount).toBe(0); expect(t.system.allocatedDropCount).toBe(0);
+    t.system.spawnDrop(1, 2, { kind: 'weapon', definitionId: 'scrap-pistol-t1' });
+    expect(t.system.activeDropCount).toBe(1); t.system.destroy();
+  });
+  it.each(['setTexture', 'setActive'] as const)('rolls back an injected %s view failure and reuses the same physical Drop', async method => {
+    const t = await createSystem({ visualArt });
+    const first = t.system.spawnDrop(1, 2, { kind: 'scrap', amount: 1 });
+    expect(t.system.collectNearbyConsumables(10)).toBe(1);
+    const publications = t.system as unknown as { liveDrops: Set<Drop>; spawnSerialByDrop: Map<Drop, number>; nextSpawnSerial: number };
+    const serial = publications.spawnSerialByDrop.get(first);
+    const node = t.artNodes[0], fault = new Error('View assignment fault');
+    const original = node[method].bind(node); let armed = true;
+    const spy = vi.spyOn(node, method).mockImplementation(((...args: unknown[]) => {
+      const isActivation = method === 'setActive' && args[0] === true;
+      const isSwap = method === 'setTexture' && args[0] !== '__DEFAULT';
+      if (armed && (isActivation || isSwap)) { armed = false; throw fault; }
+      return (original as (...args: unknown[]) => DropArtNode)(...args);
+    }) as never);
+    let caught: unknown;
+    try { t.system.spawnDrop(3, 4, { kind: 'weapon', definitionId: 'bolt-shotgun-t3' }); } catch (error) { caught = error; }
+    expect(caught).toBe(fault);
+    expect(publications.liveDrops.has(first)).toBe(false); expect(publications.spawnSerialByDrop.get(first)).toBe(serial); expect(publications.nextSpawnSerial).toBe(serial);
+    expect(t.system.activeDropCount).toBe(0); expect(t.system.collectNearbyConsumables(100)).toBe(0);
+    expect(first.grant).toBeUndefined(); expect(first.active).toBe(false); expect(first.body.enable).toBe(false); expect(first.body.velocity).toEqual({ x: 0, y: 0 });
+    expect(node).toMatchObject({ texture: '__DEFAULT', frame: '__BASE', visible: false, active: false, animation: undefined, alpha: 1, tint: 0xffffff });
+    spy.mockRestore();
+    const retry = t.system.spawnDrop(5, 6, { kind: 'weapon', definitionId: 'bolt-shotgun-t3' });
+    expect(retry).toBe(first); expect(publications.spawnSerialByDrop.get(retry)).toBe(serial! + 1); expect(publications.liveDrops.has(retry)).toBe(true); expect(t.system.activeDropCount).toBe(1); expect(t.system.allocatedDropCount).toBe(1); expect(t.artNodes).toHaveLength(1);
+    expect(retry.grant).toEqual({ kind: 'weapon', definitionId: 'bolt-shotgun-t3' }); t.system.destroy();
+  });
+});
+
+
+it('reuses one real pooled Drop across Pistol, Shotgun rack blocking and all ordinary kinds', async () => {
+  const data = loadGameData(), visualArt = new DataVisualArtRegistry(data), registry = new DataWeaponRegistry(data);
+  const t = await createSystem({ visualArt, weaponRegistry: registry, lootTables: { lootTableById: () => ({ id: 'proof', entries: [{ kind: 'nothing', amount: 0, weight: 1 }] }) } });
+  const first = t.system.spawnDrop(1, 2, { kind: 'weapon', definitionId: 'scrap-pistol-t1' });
+  const node = t.artNodes[0];
+  t.overlapCallback!(t.player.sprite, first.sprite);
+  expect(t.system.activeDropCount).toBe(0); expect(node.visible).toBe(false);
+  const second = t.system.spawnDrop(1, 2, { kind: 'weapon', definitionId: 'bolt-shotgun-t3' });
+  expect(second).toBe(first); expect(node.frame).toBe(visualArt.bindingById(registry.weaponById('bolt-shotgun-t3')!.art.iconId)!.frameKey ?? '__BASE');
+  t.runState.equipped = Array.from({ length: 6 }, () => registry.createWeaponInstance(registry.weaponById('scrap-pistol-t1')!));
+  t.overlapCallback!(t.player.sprite, second.sprite);
+  expect(second.pickupBlocked).toBe(true); expect(node.visible).toBe(true); expect(node.alpha).toBe(.65);
+  expect(t.system.activeDropCount).toBe(1);
+  t.runState.equipped.pop(); t.system.update(16);
+  expect(second.pickupBlocked).toBe(false); expect(node.alpha).toBe(1); expect(node.tint).toBe(0xffffff);
+  t.overlapCallback!(t.player.sprite, second.sprite); expect(t.system.activeDropCount).toBe(0);
+  for (const grant of [{ kind: 'scrap', amount: 1 }, { kind: 'xp', amount: 1 }, { kind: 'chest', amount: 0, tableId: 'proof' }] as const) {
+    const next = t.system.spawnDrop(1, 2, grant);
+    expect(next).toBe(first); expect(node.animation).toBe(`art:drop:${grant.kind}:idle`);
+    expect(t.system.activeDropCount).toBe(1); expect(t.system.allocatedDropCount).toBe(1); expect(t.artNodes).toHaveLength(1);
+    t.overlapCallback!(t.player.sprite, next.sprite);
+    expect(t.system.activeDropCount).toBe(0); expect(next.grant).toBeUndefined(); expect(next.body).toMatchObject({ circleRadius: 4 });
+    expect(node).toMatchObject({ texture: '__DEFAULT', frame: '__BASE', animation: undefined, visible: false, alpha: 1, tint: 0xffffff });
+  }
+  expect(t.artNodes).toHaveLength(1); t.system.destroy();
+});
+
+it('retains both original and cleanup failures without claiming successful release', async () => {
+  const visualArt = new DataVisualArtRegistry(loadGameData()), t = await createSystem({ visualArt });
+  const drop = t.system.spawnDrop(0, 0, { kind: 'scrap', amount: 1 });
+  t.system.collectNearbyConsumables(1);
+  const fault = new Error('Assignment failure'), cleanup = new Error('Backend cleanup failure');
+  const originalReset = drop.reset.bind(drop);
+  const resetSpy = vi.spyOn(drop, 'reset').mockImplementationOnce(() => { originalReset(); throw cleanup; });
+  const swap = vi.spyOn(t.artNodes[0], 'setTexture').mockImplementationOnce(() => { throw fault; });
+  let caught: unknown;
+  try { t.system.spawnDrop(0, 0, { kind: 'scrap', amount: 1 }); } catch (error) { caught = error; }
+  expect(caught).toBeInstanceOf(AggregateError); expect((caught as AggregateError).errors).toEqual([fault, cleanup]);
+  expect((caught as AggregateError).errors[0]).toBe(fault); expect((caught as AggregateError).errors[1]).toBe(cleanup);
+  expect(drop.grant).toBeUndefined(); expect(drop.active).toBe(false);
+  expect(t.system.collectNearbyConsumables(1)).toBe(0); expect(t.system.activeDropCount).toBe(1);
+  swap.mockRestore(); resetSpy.mockRestore(); t.system.destroy();
+});
+
+
+it('checks an exact named atlas frame before acquiring a pooled Drop', async () => {
+  const data = loadGameData(), art = new DataVisualArtRegistry(data);
+  const readiness: ArtReadiness = { frame: false };
+  const visualArt = { bindingById: (id: string) => {
+    const binding = art.bindingById(id);
+    return binding && { ...binding, load: { type: 'atlas' as const }, frameKey: 'proof-exact-named-tier-frame' };
+  } };
+  const t = await createSystem({ visualArt, readiness });
+  expect(() => t.system.spawnDrop(0, 0, { kind: 'weapon', definitionId: 'scrap-pistol-t1' })).toThrow(/proof-exact-named-tier-frame/);
+  expect(t.system.allocatedDropCount).toBe(0); expect(t.system.activeDropCount).toBe(0);
+  readiness.frame = true; t.system.spawnDrop(0, 0, { kind: 'weapon', definitionId: 'scrap-pistol-t1' });
+  expect(t.artNodes[0].frame).toBe('proof-exact-named-tier-frame'); t.system.destroy();
 });
