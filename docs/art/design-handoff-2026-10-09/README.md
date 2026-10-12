@@ -2,6 +2,8 @@
 
 Baseline reverified at publication preparation: main `a100e053ce4e2bc48bc4b8844e7da5010d562096`. This additive package changes documentation/art references only. No runtime implementation, merge, deployment or new implementation agent was started.
 
+**12 October addendum for #193/#197:** read the [resolved compact-grid focus/input contract](COMPACT-GRID-INPUT-CONTRACT.md) alongside the layout packet. It settles direct focus synchronisation, spatial navigation, the single scroll rectangle, inspector overflow, gestures and Back/bookmark restoration against main `4f79d6210c3b028b995d67a5cc6e35318b17b2ee`. Its [nonshipping proof](audit/verify-grid-input-contract.cjs) verifies the proposed primitive and selected specification models, not an integrated game. The contract corrects the original audit's nine-item example and preserves active #236/#240 ownership. Other packet status below is the dated 9 October record; recheck its live owning issues. No unrelated visual hold, merge or deployment gate is waived.
+
 ## Read this first
 
 **Implement bounded packets, not one giant rewrite.** Start from current main and recheck active work before editing. Existing gameplay/save/resource owners remain authoritative. Do not treat candidate art as finished native exports or automated checks as human/device acceptance.
