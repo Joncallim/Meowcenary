@@ -18,7 +18,7 @@ vi.mock('@playwright/test', async () => {
 const NO_CONTACT = 'cdpSession.send: Protocol error (Input.dispatchTouchEvent): Must send a TouchStart first to start a new touch.';
 const WRAPPED_NO_CONTACT = NO_CONTACT.replace('cdpSession.send:', 'cdpSession.apply:');
 const NO_CONTACT_VARIANTS = [NO_CONTACT, WRAPPED_NO_CONTACT];
-type Options = { noContactMessage?: string; dialogue?: boolean; heldPad?: boolean; cancelFailure?: unknown; createFailure?: unknown; detachFailure?: unknown;
+type Options = { frameResult?: boolean; frameFailure?: Error; rejectAdjacentSnapshotReads?: boolean; noContactMessage?: string; dialogue?: boolean; heldPad?: boolean; cancelFailure?: unknown; createFailure?: unknown; detachFailure?: unknown;
   interrupt?: 'touchStart' | 'touchEnd' | 'frame'; operationFailure?: unknown; ownedCancelFailure?: unknown };
 
 function harness(options: Options = {}) {
@@ -40,14 +40,21 @@ function harness(options: Options = {}) {
     else { phase = 'consumed'; status = 'active'; runStart = { count: 1, timeMs: 0, atMs: performance.now() }; }
   };
   const hit = (x: number, y: number) => commands().find(row => x >= row.bounds.x && x <= row.bounds.x + row.bounds.width && y >= 20 && y <= 64)?.command;
+  let snapshotReadInFrame = false;
   const frame = () => {
+    snapshotReadInFrame = false;
     events.push({ event: 'frame' });
+    if (options.frameFailure) throw options.frameFailure;
+    if (options.frameResult === false) return false;
     if (contacts.size && options.interrupt === 'frame') { options.interrupt = undefined; throw options.operationFailure; }
     if (neutral()) quarantined = false;
     return true;
   };
   const globals = {
-    __MEOWCENARY_VISUAL_TEST__: { runStartIntroDiagnostics: read, waitForInputFrame: frame, isSceneActive: () => status === 'menu' },
+    __MEOWCENARY_VISUAL_TEST__: { runStartIntroDiagnostics: () => {
+      if (options.rejectAdjacentSnapshotReads && snapshotReadInFrame) throw new Error('duplicate unchanged-owner-frame snapshot transport');
+      snapshotReadInFrame = true; return read();
+    }, waitForInputFrame: frame, isSceneActive: () => status === 'menu' },
     __MEOWCENARY_PERFORMANCE__: { snapshot: () => ({ presentedRun: { status, atMs: 100, seed: 12 } }) },
   };
   const evaluate = async (callback: (arg?: unknown) => unknown, arg?: unknown) => {
@@ -102,6 +109,31 @@ function harness(options: Options = {}) {
 
 for (const helper of ['browser', 'performance'] as const) describe(`${helper} exported helper touch ownership`, () => {
   const complete = (page: Page, input: 'keyboard' | 'mouse' | 'touch' = 'keyboard') => helper === 'browser' ? completeRunStartIntro(page, input) : waitForPerformanceRunStart(page, input);
+  for (const input of ['keyboard', 'mouse', 'touch'] as const) for (const dialogue of [false, true])
+    it(`uses the accepted immutable snapshot without duplicate unchanged-frame transport: ${input}, dialogue=${dialogue}`, async () => {
+      const h = harness({ dialogue, rejectAdjacentSnapshotReads: true });
+      await complete(h.page, input);
+      expect(h.events.filter(event => event.event === 'command').map(event => event.command))
+        .toEqual(dialogue ? ['continue', 'start'] : ['start']);
+      expect(h.read().runStart).toMatchObject({ count: 1, timeMs: 0 });
+      expect(h.contacts.size).toBe(0);
+      expect(h.events.filter(event => event.event === 'detach')).toHaveLength((dialogue ? 2 : 1) * (input === 'touch' ? 2 : 1));
+      for (const { session } of h.events.filter(event => event.event === 'detach'))
+        expect(h.events.filter(event => event.event === 'detach' && event.session === session)).toHaveLength(1);
+    });
+  for (const failure of ['false', 'rejected'] as const)
+    it(`a ${failure} neutral frame stops observation and admission after cleanup`, async () => {
+      const reason = new Error('input owner shutdown');
+      const h = harness(failure === 'false' ? { frameResult: false } : { frameFailure: reason });
+      const error = await complete(h.page, 'touch').catch((value: unknown) => value);
+      if (failure === 'rejected') expect(error).toBe(reason);
+      else expect(error).toBeInstanceOf(Error);
+      expect(h.events.filter(event => event.event === 'frame')).toHaveLength(1);
+      expect(h.events.filter(event => event.event === 'command')).toEqual([]);
+      expect(h.events.filter(event => event.event === 'detach')).toHaveLength(1);
+      expect(h.contacts.size).toBe(0);
+      expect(h.read().runStart.count).toBe(0);
+    });
   it('releases independent keys together but admits no frame or command until every physical release settles', async () => {
     const h = harness(), originalUp = h.page.keyboard.up.bind(h.page.keyboard);
     const pending: Array<() => void> = []; let releaseOpen = false;

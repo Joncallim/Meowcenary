@@ -58,7 +58,16 @@ async function seed(page: Page, reducedMotion = false, clearedStages: string[] =
   }, { characterIds: CATALOG.map(row => row[0]), reducedMotion, clearedStages });
 }
 async function frame(page: Page, count = 1): Promise<void> {
-  for (let index = 0; index < count; index++) expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame())).toBe(true);
+  const completed = await page.evaluate(async count => {
+    const frames: boolean[] = [];
+    for (let index = 0; index < count; index++) {
+      const ready = await (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame();
+      frames.push(ready);
+      if (ready !== true) break;
+    }
+    return frames;
+  }, count);
+  expect(completed).toEqual(Array.from({ length: count }, () => true));
 }
 async function read(page: Page): Promise<Diagnostics> {
   const state = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics());
@@ -90,13 +99,15 @@ async function pulse(page: Page, key: string): Promise<void> {
   await frame(page);
 }
 async function start(page: Page): Promise<void> {
-  await completeRunStartIntro(page);
-  expect((await read(page)).status).toBe('active');
+  const started = await completeRunStartIntro(page);
+  expect(started.status).toBe('active');
 }
 async function captureFacts(page: Page, info: TestInfo, name: string): Promise<void> {
   const facts = info.outputPath(`${name}-facts.json`);
-  const state = await read(page);
-  const pixelRatio = await page.evaluate(() => devicePixelRatio);
+  const { state, pixelRatio } = await page.evaluate(() => ({
+    state: (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics(), pixelRatio: devicePixelRatio,
+  }));
+  expect(state).toBeDefined();
   await writeFile(facts, JSON.stringify({ ...state, capture: { project: info.project.name, viewport: page.viewportSize(), devicePixelRatio: pixelRatio } }, null, 2));
   await info.attach(`${name}-facts`, { path: facts, contentType: 'application/json' });
 }

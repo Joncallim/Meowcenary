@@ -11,6 +11,10 @@ type Scenario = 'normal' | 'required-resource-retry' | 'terminal-neutral-warm-re
 type Intro = IntroDiagnostics & { confirmHeld: boolean; inputMode: string; enemies: number;
   identity: { characterId: string; stageId?: string; arenaId: string; seed: number; contentVersion: string } };
 type Action = { label?: string; bounds: Rect; focused: boolean; enabled: boolean };
+type Actions = { actions: Action[]; focusedLabel?: string };
+type Receipt = { kind: 'focus'; surface: 'menu' | 'intro' | 'summary'; previous?: string }
+  | { kind: 'load' } | { kind: 'start' }
+  | { kind: 'summary'; label: 'Retry' | 'Main Menu'; previousSeed: number };
 type Menu = { panel: string; focusedKey?: string; copy: string[]; buttons: Array<{ key?: string; text: string;
   visible: boolean; interactive: boolean; focused: boolean; bounds: Rect }> };
 type Preparation = { active: boolean; state: 'idle' | 'loading' | 'failed'; request?: ComposedRunRequest; layout?: ResolvedArenaLayout };
@@ -40,6 +44,13 @@ const biomes = [
   { stageId: 'stage:junkyard-01', arenaId: 'junkyard-lot', resource: '/assets/world/junkyard-floor-base/junkyard-floor-base.png' },
   { stageId: 'stage:forge-01', arenaId: 'forge-foundry', resource: '/assets/world/forge/forge-world-atlas.png' },
 ] as const;
+const observedReceipts = new WeakMap<Page, Array<{ owner: string; observedAtMs: number; facts: unknown }>>();
+function retainObservation(page: Page, owner: string, facts: unknown): void {
+  const samples = observedReceipts.get(page) ?? [];
+  samples.push({ owner, observedAtMs: Date.now(), facts });
+  if (samples.length > 12) samples.shift();
+  observedReceipts.set(page, samples);
+}
 
 async function installFixture(page: Page, input: Input): Promise<void> {
   expect(campaignIds).toHaveLength(10);
@@ -93,14 +104,63 @@ async function neutral(page: Page): Promise<void> {
   // Observe the owning input frame and neutral/quarantine receipt. Registration
   // and scene handoffs can need different frame counts; there is no fixed delay.
   await expect.poll(async () => {
-    await frame(page);
-    return page.evaluate(() => {
+    const sample = await page.evaluate(async () => {
       const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
-      if (seam.isSceneActive('MenuScene')) return seam.isMenuInputNeutral();
+      const completed = await seam.waitForInputFrame();
+      if (completed !== true) return { completed, neutral: false };
+      if (seam.isSceneActive('MenuScene')) return { completed, neutral: seam.isMenuInputNeutral() };
       const intro = seam.runStartIntroDiagnostics();
-      return intro?.inputNeutral === true && intro.inputQuarantined === false;
+      return { completed, neutral: intro?.inputNeutral === true && intro.inputQuarantined === false,
+        inputNeutral: intro?.inputNeutral, inputQuarantined: intro?.inputQuarantined, status: intro?.status };
     });
+    retainObservation(page, 'neutral', sample);
+    expect(sample.completed).toBe(true); return sample.neutral;
   }).toBe(true);
+}
+
+// Read only the receipt needed by this physical action, immediately after the
+// owning frame. A second renderer round trip must not separate these facts.
+async function observeReceipt(page: Page, receipt: Receipt, held?: { key: string; button: number }): Promise<boolean> {
+  const sample = await page.evaluate(async ({ receipt, held }) => {
+    const globals = globalThis as Globals, seam = globals.__MEOWCENARY_VISUAL_TEST__!;
+    const completed = await seam.waitForInputFrame();
+    if (completed !== true) return { completed, accepted: false };
+    let accepted: boolean, present = true;
+    let facts: unknown;
+    if (receipt.kind === 'focus') {
+      const state = receipt.surface === 'menu' ? seam.menuLoadoutDiagnostics()
+        : receipt.surface === 'intro' ? seam.runStartIntroDiagnostics() : seam.summaryActionDiagnostics();
+      present = state !== undefined;
+      const focused = receipt.surface === 'menu' ? (state as Menu | undefined)?.buttons.find(button => button.focused)?.text
+        : receipt.surface === 'intro' ? (state as Intro | undefined)?.focusedCommand : (state as Actions | undefined)?.focusedLabel;
+      accepted = present && focused !== receipt.previous;
+      facts = { surface: receipt.surface, previous: receipt.previous, focused, present };
+    } else if (receipt.kind === 'load') {
+      const state = seam.runPreparationDiagnostics().state, gameActive = seam.isSceneActive('GameScene');
+      accepted = state === 'loading' || gameActive; facts = { state, gameActive };
+    } else if (receipt.kind === 'start') {
+      const state = seam.runStartIntroDiagnostics();
+      accepted = state?.runStart.count === 1;
+      facts = { count: state?.runStart.count, status: state?.status, seed: state?.identity.seed };
+    } else if (receipt.label === 'Main Menu') {
+      const menuActive = seam.isSceneActive('MenuScene'), gameActive = seam.isSceneActive('GameScene');
+      accepted = menuActive && !gameActive; facts = { menuActive, gameActive };
+    } else {
+      const next = seam.runStartIntroDiagnostics(), menuActive = seam.isSceneActive('MenuScene');
+      accepted = menuActive || (next?.visible === true && next.identity.seed !== receipt.previousSeed);
+      facts = { menuActive, visible: next?.visible, seed: next?.identity.seed, previousSeed: receipt.previousSeed };
+    }
+    if (accepted && held) {
+      const state = seam.runStartIntroDiagnostics(), atMs = performance.now();
+      globals.__REHEARSAL_EVENTS__!.push({ type: 'held-post-step', ...held, atMs, sampledAtMs: atMs,
+        inputMode: state?.inputMode, confirmHeld: state?.confirmHeld, neutral: state?.inputNeutral });
+    }
+    return { completed, accepted, present, facts };
+  }, { receipt, held });
+  retainObservation(page, receipt.kind, sample);
+  expect(sample.completed).toBe(true);
+  expect(sample.present ?? true, 'physical action must retain its rendered receipt owner').toBe(true);
+  return sample.accepted;
 }
 async function intro(page: Page): Promise<Intro> {
   const state = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics());
@@ -122,25 +182,20 @@ function fits(bounds: Rect, page: Page): void {
 }
 
 async function press(page: Page, input: Exclude<Input, 'touch'>, key: string, button: number,
-  receipt: () => Promise<boolean>): Promise<void> {
+  receipt: Receipt): Promise<void> {
   if (input === 'keyboard') await page.keyboard.down(key);
   else await page.evaluate(({ button }) => (globalThis as Globals).__REHEARSAL_PAD__!(button, true), { button });
   try {
     // The physical hold survives Phaser POST_STEP, rather than key.press's
     // driver timing or a test-side synthetic logical dispatch.
-    await expect.poll(async () => { await frame(page); return receipt(); }).toBe(true);
-    await page.evaluate(({ key, button }) => {
-      const globals = globalThis as Globals, state = globals.__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics();
-      globals.__REHEARSAL_EVENTS__!.push({ type: 'held-post-step', key, button, atMs: performance.now(), sampledAtMs: performance.now(),
-        inputMode: state?.inputMode, confirmHeld: state?.confirmHeld, neutral: state?.inputNeutral });
-    }, { key, button });
+    await expect.poll(() => observeReceipt(page, receipt, { key, button })).toBe(true);
   } finally {
     if (input === 'keyboard') await page.keyboard.up(key);
     else await page.evaluate(({ button }) => (globalThis as Globals).__REHEARSAL_PAD__!(button, false), { button });
   }
   await neutral(page);
 }
-async function touch(page: Page, bounds: Rect, receipt: () => Promise<boolean>): Promise<void> {
+async function touch(page: Page, bounds: Rect, receipt: Receipt): Promise<void> {
   fits(bounds, page);
   const session = await page.context().newCDPSession(page);
   const errors: unknown[] = [];
@@ -154,7 +209,7 @@ async function touch(page: Page, bounds: Rect, receipt: () => Promise<boolean>):
       .filter(event => event.atMs >= firstAtMs && event.type.startsWith('touch')), firstAtMs);
     expect(await contacts()).toEqual([expect.objectContaining({ type: 'touchstart', trusted: true, contacts: 1 })]);
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await expect.poll(async () => { await frame(page); return receipt(); }).toBe(true);
+    await expect.poll(() => observeReceipt(page, receipt)).toBe(true);
     expect(await contacts()).toEqual([
       expect.objectContaining({ type: 'touchstart', trusted: true, contacts: 1 }),
       expect.objectContaining({ type: 'touchend', trusted: true, contacts: 0 }),
@@ -170,7 +225,7 @@ async function touch(page: Page, bounds: Rect, receipt: () => Promise<boolean>):
 }
 
 async function focusAction(page: Page, input: Exclude<Input, 'touch'>, label: string,
-  read: () => Promise<{ actions: Action[]; focusedLabel?: string }>): Promise<Action> {
+  read: () => Promise<Actions>, surface: 'menu' | 'intro' | 'summary'): Promise<Action> {
   let state = await read();
   for (let step = 0; state.focusedLabel !== label && step < state.actions.length * 3; step++) {
     const target = state.actions.find(action => action.label === label);
@@ -183,7 +238,7 @@ async function focusAction(page: Page, input: Exclude<Input, 'touch'>, label: st
     const key = { down: 'ArrowDown', up: 'ArrowUp', right: 'ArrowRight', left: 'ArrowLeft' }[direction];
     const button = { down: 13, up: 12, right: 15, left: 14 }[direction];
     const prior = state.focusedLabel;
-    await press(page, input, key, button, async () => (await read()).focusedLabel !== prior);
+    await press(page, input, key, button, { kind: 'focus', surface, previous: prior });
     state = await read(); expect(state.focusedLabel, 'physical navigation receipt').not.toBe(prior);
   }
   expect(state.focusedLabel).toBe(label);
@@ -199,12 +254,9 @@ async function menuAction(page: Page, input: Input, label: string): Promise<void
   };
   await neutral(page);
   const target = input === 'touch' ? (await read()).actions.find(action => action.label === label)
-    : await focusAction(page, input, label, read);
+    : await focusAction(page, input, label, read, 'menu');
   expect(target).toBeDefined(); expect(target!.enabled).toBe(true);
-  const accepted = async () => page.evaluate(() => {
-    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
-    return seam.runPreparationDiagnostics().state === 'loading' || seam.isSceneActive('GameScene');
-  });
+  const accepted: Receipt = { kind: 'load' };
   if (input === 'touch') await touch(page, target!.bounds, accepted);
   else await press(page, input, 'Enter', 0, accepted);
 }
@@ -220,13 +272,12 @@ async function start(page: Page, input: Input): Promise<Intro> {
         focused: command.command === current.focusedCommand, enabled: command.enabled })) };
   };
   const target = input === 'touch' ? (await read()).actions.find(action => action.label === 'start')
-    : await focusAction(page, input, 'start', read);
+    : await focusAction(page, input, 'start', read, 'intro');
   expect(target).toBeDefined(); expect(target!.enabled).toBe(true); fits(target!.bounds, page);
-  const accepted = async () => (await intro(page)).runStart.count === 1;
+  const accepted: Receipt = { kind: 'start' };
   if (input === 'touch') await touch(page, target!.bounds, accepted);
   else await press(page, input, 'Enter', 0, accepted);
-  await expect.poll(async () => (await intro(page)).runStart.count).toBe(1);
-  state = await intro(page);
+  await expect.poll(async () => { state = await intro(page); return state.runStart.count; }).toBe(1);
   expect(state).toMatchObject({ visible: false, phase: 'consumed', runStart: { count: 1, timeMs: 0 }, terminalEvents: 0 });
   expect(state.status).toBe('active'); expect(state.inputMode).toBe(input === 'controller' ? 'gamepad' : input === 'touch' ? 'pointer' : 'keyboard');
   return state;
@@ -239,14 +290,9 @@ async function summaryAction(page: Page, input: Input, label: 'Retry' | 'Main Me
   await neutral(page);
   const previousSeed = (await intro(page)).identity.seed;
   const target = input === 'touch' ? (await read()).actions.find(action => action.label === label)
-    : await focusAction(page, input, label, read);
+    : await focusAction(page, input, label, read, 'summary');
   expect(target).toBeDefined(); expect(target!.enabled).toBe(true);
-  const accepted = async () => page.evaluate(({ label, previousSeed }) => {
-    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
-    if (label === 'Main Menu') return seam.isSceneActive('MenuScene') && !seam.isSceneActive('GameScene');
-    const next = seam.runStartIntroDiagnostics();
-    return seam.isSceneActive('MenuScene') || (next?.visible === true && next.identity.seed !== previousSeed);
-  }, { label, previousSeed });
+  const accepted: Receipt = { kind: 'summary', label, previousSeed };
   if (input === 'touch') {
     if (label === 'Main Menu') {
       const semanticPoint = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.summaryMenuTarget());
@@ -275,10 +321,12 @@ async function prepared(page: Page, request: ComposedRunRequest, arenaId: string
 }
 async function capture(page: Page, info: TestInfo, name: string, facts: Record<string, unknown>): Promise<void> {
   const path = info.outputPath(`${name}.json`);
+  const sample = await page.evaluate(() => {
+    const globals = globalThis as Globals, seam = globals.__MEOWCENARY_VISUAL_TEST__!;
+    return { intro: seam.runStartIntroDiagnostics(), preparation: seam.runPreparationDiagnostics(), physicalEvents: globals.__REHEARSAL_EVENTS__ };
+  });
   await writeFile(path, JSON.stringify({ profile: info.project.name, viewport: page.viewportSize(), ...facts,
-    intro: await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics()),
-    preparation: await preparation(page),
-    physicalEvents: await page.evaluate(() => (globalThis as Globals).__REHEARSAL_EVENTS__),
+    ...sample,
   }, null, 2));
   await info.attach(name, { path, contentType: 'application/json' });
   const image = info.outputPath(`${name}.png`); await page.screenshot({ path: image });
@@ -382,7 +430,13 @@ for (const biome of biomes) for (const input of ['touch', 'keyboard', 'controlle
         if (input === 'keyboard') expect(events.some(event => event.type === 'keydown' && event.key === 'Enter' && event.trusted)).toBe(true);
         if (input === 'controller') expect(events.some(event => event.type === 'held-post-step' && event.inputMode === 'gamepad')).toBe(true);
         expect(unexpectedErrors).toEqual([]);
-      } catch (error) { operationError = error; throw error; }
+      } catch (error) {
+        operationError = error;
+        // Retain completed owner receipts even when the test deadline already
+        // closed the page. This attachment issues no late browser command.
+        await info.attach('last-owned-receipts', { body: JSON.stringify(observedReceipts.get(page) ?? [], null, 2), contentType: 'application/json' });
+        throw error;
+      }
       finally {
         // Release physical owners even when an assertion interrupts a row.
         const cleanup = await Promise.allSettled([

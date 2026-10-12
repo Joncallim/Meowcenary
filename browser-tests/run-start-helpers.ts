@@ -67,22 +67,27 @@ export function introCommand(state: IntroDiagnostics, command: IntroCommand, vie
  * private Start call, a fixed index or a diagnostic quarantine reset. */
 export async function activateIntroCommand(page: Page, command: IntroCommand, input: 'keyboard' | 'mouse' | 'touch' = 'keyboard'): Promise<IntroDiagnostics> {
   await releasePreviousGestures(page); await inputFrame(page);
+  let before: IntroDiagnostics | undefined;
   await expect.poll(async () => {
     const state = await readRunStartIntro(page);
-    return Boolean(state?.visible && state.ready && state.inputNeutral && !state.inputQuarantined);
+    const admitted = Boolean(state?.visible && state.ready && state.inputNeutral && !state.inputQuarantined);
+    if (admitted) before = state;
+    return admitted;
   }).toBe(true);
-  let before = (await readRunStartIntro(page))!;
-  expect(before.status).toBe('intro'); expect(before.timeMs).toBe(0); expect(before.revision).not.toBeNull();
-  const identity = before.identity, objective = before.objective, revision = before.revision!;
+  // Assert the immutable sample that admitted the command, rather than doing
+  // another renderer round trip for the same unchanged input-owner frame.
+  let accepted = before!;
+  expect(accepted.status).toBe('intro'); expect(accepted.timeMs).toBe(0); expect(accepted.revision).not.toBeNull();
+  const identity = accepted.identity, objective = accepted.objective, revision = accepted.revision!;
   if (input === 'keyboard') {
     // Left/right selects footer commands even while Up/Down owns body reading.
-    for (let step = 0; before.focusedCommand !== command && step < before.commands.length; step++) {
+    for (let step = 0; accepted.focusedCommand !== command && step < accepted.commands.length; step++) {
       await page.keyboard.down('ArrowRight'); try { await inputFrame(page); } finally { await page.keyboard.up('ArrowRight'); }
-      await inputFrame(page); before = (await readRunStartIntro(page))!;
+      await inputFrame(page); accepted = (await readRunStartIntro(page))!;
     }
-    expect(before.focusedCommand).toBe(command);
+    expect(accepted.focusedCommand).toBe(command);
   }
-  const row = introCommand(before, command, page.viewportSize()!); const { x, y, width, height } = row.bounds;
+  const row = introCommand(accepted, command, page.viewportSize()!); const { x, y, width, height } = row.bounds;
   if (input === 'keyboard') {
     await page.keyboard.down('Enter'); try { await inputFrame(page); } finally { await page.keyboard.up('Enter'); }
   } else if (input === 'mouse') {
@@ -96,18 +101,27 @@ export async function activateIntroCommand(page: Page, command: IntroCommand, in
   }
   await inputFrame(page);
   if (command === 'continue') {
-    await expect.poll(async () => (await readRunStartIntro(page))?.phase).toBe('boss');
-    const after = (await readRunStartIntro(page))!;
+    let observed: IntroDiagnostics | undefined;
+    await expect.poll(async () => { observed = await readRunStartIntro(page); return observed?.phase; }).toBe('boss');
+    const after = observed!;
     expect(after).toMatchObject({ visible: true, status: 'intro', timeMs: 0, revision: revision + 1, runStart: { count: 0 }, terminalEvents: 0 });
     expect(after.identity).toEqual(identity); expect(after.objective).toEqual(objective); return after;
   }
   if (command === 'return-menu') {
-    await expect.poll(() => page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__!.isSceneActive('MenuScene'))).toBe(true);
-    const after = (await readRunStartIntro(page))!;
+    let observed: IntroDiagnostics | undefined;
+    await expect.poll(async () => {
+      const sample = await page.evaluate(() => {
+        const seam = (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__!;
+        return { menuActive: seam.isSceneActive('MenuScene'), state: seam.runStartIntroDiagnostics() };
+      });
+      observed = sample.state; return sample.menuActive;
+    }).toBe(true);
+    const after = observed!;
     expect(after).toMatchObject({ visible: false, phase: 'cancelled', runStart: { count: 0 }, terminalEvents: 0 }); return after;
   }
-  await expect.poll(async () => (await readRunStartIntro(page))?.runStart.count).toBe(1);
-  const after = (await readRunStartIntro(page))!;
+  let observed: IntroDiagnostics | undefined;
+  await expect.poll(async () => { observed = await readRunStartIntro(page); return observed?.runStart.count; }).toBe(1);
+  const after = observed!;
   expect(after.visible).toBe(false); expect(after.phase).toBe('consumed'); expect(after.status).not.toBe('intro');
   // Polling may already see simulation time; the event observation is exact.
   expect(after.runStart.timeMs).toBe(0); expect(after.runStart.atMs).toEqual(expect.any(Number)); return after;
@@ -116,10 +130,11 @@ export async function activateIntroCommand(page: Page, command: IntroCommand, in
 /** New builds must show an explicit intro. Dialogue is read with Continue,
  * then Start; skipping is a deliberate separate request. */
 export async function completeRunStartIntro(page: Page, input: 'keyboard' | 'mouse' | 'touch' = 'keyboard', skipDialogue = false): Promise<IntroDiagnostics> {
+  let observed: IntroDiagnostics | undefined;
   await expect.poll(async () => {
-    const state = await readRunStartIntro(page); return state?.visible === true || state?.status === 'active';
+    observed = await readRunStartIntro(page); return observed?.visible === true || observed?.status === 'active';
   }).toBe(true);
-  const state = (await readRunStartIntro(page))!;
+  const state = observed!;
   expect(state.visible, 'new intro execution cannot silently accept an already-active baseline').toBe(true);
   if (state.commands.some(row => row.command === 'continue')) {
     if (skipDialogue) return activateIntroCommand(page, 'skip-dialogue', input);

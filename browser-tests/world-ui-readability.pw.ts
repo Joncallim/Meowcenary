@@ -66,9 +66,16 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
   ] as const;
   const observations: Array<{ position: string; framing: Framing; readability: Omit<Readability, 'reference' | 'actual'> }> = [];
   for (const [position, x, y] of positions) {
-    expect(await page.evaluate(({ x, y }) => globalThis.__MEOWCENARY_VISUAL_TEST__!.placePlayerForArenaFraming(x, y), { x, y })).toBe(true);
+    const placed = await page.evaluate(({ x, y }) => {
+      const seam = globalThis.__MEOWCENARY_VISUAL_TEST__!;
+      const accepted = seam.placePlayerForArenaFraming(x, y);
+      return { accepted, framing: accepted ? seam.arenaFramingDiagnostics() : undefined };
+    }, { x, y });
+    expect(placed.accepted).toBe(true);
+    let initialSample = placed.framing;
     await expect.poll(async () => {
-      const state = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
+      const state = initialSample ?? await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
+      initialSample = undefined;
       if (!state) return false;
       const sx = (state.player.x - state.camera.worldView.x) * state.camera.zoom;
       const sy = (state.player.y - state.camera.worldView.y) * state.camera.zoom;
