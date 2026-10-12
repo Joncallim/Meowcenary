@@ -1,10 +1,17 @@
 # Alpha 3 Mercenary redraw provenance
 
-These untouched concept boards are provenance/reference inputs only. Runtime
-pixels are the deliberately reconstructed 48x48 sheets under each character's
-editable Pixelorama source and deterministic builder.
+These untouched boards retain their original generation and selection history.
+Current authority was reconciled against Figma file `LHpXaKqFKksfF2uismDws5`,
+nodes `91:2` / `92:2`, on 2026-10-08. Direction B is **CANONICAL** for the five
+Mercenaries' identity, anatomy and material direction. The runtime 48×48 raster
+and editable Pixelorama sheets are **CANDIDATE** implementations, not visual
+authority. Source/export parity does not constitute owner approval.
 
-## Direction B — selected
+Source states are explicit: **CANONICAL** is approved direction; **CANDIDATE**
+requires runtime visual review; **DEPRECATED — DO NOT SHIP** is rejected work;
+**ARCHIVE — PROVENANCE ONLY** preserves history without present-tense authority.
+
+## Direction B — CANONICAL direction
 
 - File: `direction-b-selected.png`
 - SHA-256: `25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729`
@@ -13,7 +20,7 @@ editable Pixelorama source and deterministic builder.
   asymmetric satchel Weasel, straight-tailed optic Raptor and horn/gauge Ram
   remain separable without labels. The shapes translate cleanly to 48px actors.
 
-## Direction A — rejected
+## Direction A — DEPRECATED — DO NOT SHIP
 
 - File: `direction-a-rejected.png`
 - SHA-256: `5aad418b73bbefadb101d5474b8d36824ba57a0c00548cf08d33a0292200ac25`
@@ -22,7 +29,9 @@ editable Pixelorama source and deterministic builder.
   similar upright read, the Raptor has more ornamental noise, and dense armour
   would collapse sooner at the shipped actor scale.
 
-Both boards were inspected at native and reduced size. Neither board was
-copied directly into runtime assets; the checked-in builders preserve only the
-selected shape/material decisions under the established animation and anchor
-contract.
+The recorded generation prompts and rationales above describe historical
+selection, not a replacement production standard. Neither board is mechanically
+downsampled into runtime pixels. Production must be authored on the native grid,
+preserve the animation/anchor contract, and be reviewed at actual browser scale
+against the canonical direction. The current builders restore the checked-in
+native raster losslessly into PXO; they do not establish visual authority.

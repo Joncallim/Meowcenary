@@ -19,9 +19,19 @@ high-resolution portrait atlas from the same selected masters. This avoids
 enlarging tiny gameplay frames in menus while keeping actor frame geometry,
 anchors, collision, and logical display sizes unchanged.
 
+The table records source/export conformance, not product-owner visual approval.
+Mercenary runtime sheets remain **CANDIDATE**. The canonical roster direction
+is Figma `LHpXaKqFKksfF2uismDws5` nodes `91:2` / `92:2`, and Volt Lynx is
+`113:2`; native pixel masters and screenshot baselines cannot supersede those
+references. See the dated [crop repair](../implementation/mercenary-sprite-crop-2026-10-08.md)
+for the next evidence-led correction.
+
 The visual review target is the canonical 390×844 viewport at actual logical
-display size (characters ~28px, ordinary enemies ~26px, bosses according to
-the current binding). Loading success is not visual acceptance; reviewers must
+display size. The character binding is 28×28 logical pixels, but `actorView.ts`
+currently applies a 1.55 presentation factor, making the full character frame
+43.4 world pixels before camera/canvas scaling. Capture the actual viewport and
+transform instead of treating 28 pixels as the shipped screen size. Loading
+success is not visual acceptance; reviewers must
 inspect silhouettes and material accents in gameplay. Enemy actor textures use
 nearest-neighbour sampling, and the Junkyard roster is tested against the live
 floor luminance at display scale rather than judged only from enlarged source
