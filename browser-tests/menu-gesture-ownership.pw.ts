@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 
 type Point = { x: number; y: number };
@@ -33,7 +34,9 @@ async function sample(page: Page) {
     return { frames, diagnostic: seam.menuLoadoutDiagnostics(), neutral: seam.isMenuInputNeutral(),
       saved: localStorage.getItem('meowcenary.save.v2'),
       nativeCancel: canvas.dataset.gestureNativeCancel,
-      secondaryEnd: canvas.dataset.gestureSecondaryEnd };
+      secondaryEnd: canvas.dataset.gestureSecondaryEnd,
+      remainingTouchIds: canvas.dataset.gestureRemainingTouchIds,
+      releasedTouchIds: canvas.dataset.gestureReleasedTouchIds };
   });
 }
 
@@ -114,13 +117,18 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
       await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...inside, id: 1 }, secondary] });
       await observe('secondary-back-over-with-owner-held', ownerFocus.diagnostic);
       await page.evaluate(() => document.querySelector('canvas')!.addEventListener('touchend', event => {
-        document.querySelector('canvas')!.dataset.gestureSecondaryEnd = `${event.isTrusted}:${event.touches.length}`;
+        const canvas = document.querySelector('canvas')!;
+        canvas.dataset.gestureSecondaryEnd = `${event.isTrusted}:${event.touches.length}`;
+        canvas.dataset.gestureRemainingTouchIds = JSON.stringify(Array.from(event.touches, touch => touch.identifier));
+        canvas.dataset.gestureReleasedTouchIds = JSON.stringify(Array.from(event.changedTouches, touch => touch.identifier));
       }, { once: true }));
-      // CDP's active-point diff releases the omitted secondary, retaining the
-      // original finger. TouchEnd/TouchCancel themselves require empty lists.
-      await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...inside, id: 1 }] });
+      // Pinned Chromium's WebTouchEvents path releases the supplied END IDs.
+      // MOVE omission does not release a contact on that path. Observe the
+      // native remaining/changed IDs; protocol receipt alone is insufficient.
+      await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [secondary] });
       const secondaryReleased = await observe('secondary-back-release-with-owner-held', ownerFocus.diagnostic);
       expect(secondaryReleased.secondaryEnd).toBe('true:1'); expect(secondaryReleased.neutral).toBe(false);
+      expect(secondaryReleased.remainingTouchIds).toBe('[1]'); expect(secondaryReleased.releasedTouchIds).toBe('[2]');
       expect(secondaryReleased.diagnostic.scroll!.offset).toBe(cancelled.diagnostic.scroll!.offset);
       await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); held = false;
       expect((await observe('multitouch-owner-cancelled', ownerFocus.diagnostic)).neutral).toBe(true);
@@ -141,9 +149,10 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
       if (held) { if (session) await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); else await page.mouse.up(); }
     } finally {
       await session?.detach();
-      await testInfo.attach('menu-gesture-physical-evidence', { body: JSON.stringify({ profile: testInfo.project.name,
-        physical: touch ? 'touch + wheel; native cancel and multitouch' : 'mouse wheel/drag/tap', evidence }, null, 2),
-      contentType: 'application/json' });
+      const evidencePath = testInfo.outputPath('menu-gesture-physical-evidence.json');
+      await writeFile(evidencePath, JSON.stringify({ profile: testInfo.project.name,
+        physical: touch ? 'touch + wheel; native cancel and multitouch' : 'mouse wheel/drag/tap', evidence }, null, 2));
+      await testInfo.attach('menu-gesture-physical-evidence', { path: evidencePath, contentType: 'application/json' });
     }
   }
 });
