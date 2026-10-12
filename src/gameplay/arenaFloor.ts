@@ -17,4 +17,3 @@ export function floorArtIdForCell(
   if (!inMaterialPatch) return base;
   return artIds[1 + (Math.abs(coarseHash ^ fineHash) % (artIds.length - 1))]!;
 }
-

@@ -1,0 +1,158 @@
+[
+  {
+    "status": "active",
+    "timeMs": 99.99999999999997,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": -20.5,
+          "y": 416,
+          "traveled": 3.499999999999999,
+          "centerX": -20.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 116.66666666666663,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": -17,
+          "y": 416,
+          "traveled": 6.999999999999998,
+          "centerX": -17,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 166.6666666666666,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": -6.5,
+          "y": 416,
+          "traveled": 17.499999999999996,
+          "centerX": -6.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 233.33333333333323,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": 7.5,
+          "y": 416,
+          "traveled": 31.499999999999996,
+          "centerX": 7.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 333.3333333333333,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": 28.5,
+          "y": 416,
+          "traveled": 52.49999999999999,
+          "centerX": 28.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 433.3333333333334,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": 49.5,
+          "y": 416,
+          "traveled": 73.49999999999999,
+          "centerX": 49.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  }
+]

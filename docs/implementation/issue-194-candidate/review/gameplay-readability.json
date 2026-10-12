@@ -1,0 +1,108 @@
+{
+  "scope": "Separate gameplay/readability review of actual rendered images and matching JSON, independent from golden disposition.",
+  "images": [
+    {
+      "profile": "phone-390x844",
+      "arena": "junkyard-lot",
+      "seed": 1,
+      "contentVersion": "alpha3-2",
+      "hash": "7654ce2f",
+      "normal_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-ju-3c601-ches-live-collision-and-art-phone-390x844/junkyard-lot-1-actual-scale.png",
+      "overview_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-ju-3c601-ches-live-collision-and-art-phone-390x844/junkyard-lot-1-overview.png",
+      "disposition": "No blocking readability defect observed",
+      "notes": "Normal camera and corrected overview were both visually inspected. Cover and dressing positions vary; arena identity and clear start/open ingress remain legible. Overview changes camera for evidence and is not production framing."
+    },
+    {
+      "profile": "phone-390x844",
+      "arena": "junkyard-lot",
+      "seed": 42,
+      "contentVersion": "alpha3-2",
+      "hash": "e9d2b40f",
+      "normal_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-ju-2867c-ches-live-collision-and-art-phone-390x844/junkyard-lot-42-actual-scale.png",
+      "overview_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-ju-2867c-ches-live-collision-and-art-phone-390x844/junkyard-lot-42-overview.png",
+      "disposition": "No blocking readability defect observed",
+      "notes": "Normal camera and corrected overview were both visually inspected. Cover and dressing positions vary; arena identity and clear start/open ingress remain legible. Overview changes camera for evidence and is not production framing."
+    },
+    {
+      "profile": "phone-390x844",
+      "arena": "forge-foundry",
+      "seed": 1,
+      "contentVersion": "alpha3-2",
+      "hash": "801ff24c",
+      "normal_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-fo-e24f0-ches-live-collision-and-art-phone-390x844/forge-foundry-1-actual-scale.png",
+      "overview_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-fo-e24f0-ches-live-collision-and-art-phone-390x844/forge-foundry-1-overview.png",
+      "disposition": "No blocking readability defect observed",
+      "notes": "Normal camera and corrected overview were both visually inspected. Cover and dressing positions vary; arena identity and clear start/open ingress remain legible. Overview changes camera for evidence and is not production framing."
+    },
+    {
+      "profile": "phone-390x844",
+      "arena": "forge-foundry",
+      "seed": 42,
+      "contentVersion": "alpha3-2",
+      "hash": "50957a53",
+      "normal_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-fo-dbf23-ches-live-collision-and-art-phone-390x844/forge-foundry-42-actual-scale.png",
+      "overview_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-fo-dbf23-ches-live-collision-and-art-phone-390x844/forge-foundry-42-overview.png",
+      "disposition": "No blocking readability defect observed",
+      "notes": "Normal camera and corrected overview were both visually inspected. Cover and dressing positions vary; arena identity and clear start/open ingress remain legible. Overview changes camera for evidence and is not production framing."
+    },
+    {
+      "profile": "desktop-1280x720",
+      "arena": "junkyard-lot",
+      "seed": 1,
+      "contentVersion": "alpha3-2",
+      "hash": "7654ce2f",
+      "normal_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-ju-3c601-ches-live-collision-and-art-desktop-1280x720/junkyard-lot-1-actual-scale.png",
+      "overview_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-ju-3c601-ches-live-collision-and-art-desktop-1280x720/junkyard-lot-1-overview.png",
+      "disposition": "No blocking readability defect observed",
+      "notes": "Normal camera and corrected overview were both visually inspected. Cover and dressing positions vary; arena identity and clear start/open ingress remain legible. Overview changes camera for evidence and is not production framing."
+    },
+    {
+      "profile": "desktop-1280x720",
+      "arena": "junkyard-lot",
+      "seed": 42,
+      "contentVersion": "alpha3-2",
+      "hash": "e9d2b40f",
+      "normal_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-ju-2867c-ches-live-collision-and-art-desktop-1280x720/junkyard-lot-42-actual-scale.png",
+      "overview_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-ju-2867c-ches-live-collision-and-art-desktop-1280x720/junkyard-lot-42-overview.png",
+      "disposition": "No blocking readability defect observed",
+      "notes": "Normal camera and corrected overview were both visually inspected. Cover and dressing positions vary; arena identity and clear start/open ingress remain legible. Overview changes camera for evidence and is not production framing."
+    },
+    {
+      "profile": "desktop-1280x720",
+      "arena": "forge-foundry",
+      "seed": 1,
+      "contentVersion": "alpha3-2",
+      "hash": "801ff24c",
+      "normal_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-fo-e24f0-ches-live-collision-and-art-desktop-1280x720/forge-foundry-1-actual-scale.png",
+      "overview_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-fo-e24f0-ches-live-collision-and-art-desktop-1280x720/forge-foundry-1-overview.png",
+      "disposition": "No blocking readability defect observed",
+      "notes": "Normal camera and corrected overview were both visually inspected. Cover and dressing positions vary; arena identity and clear start/open ingress remain legible. Overview changes camera for evidence and is not production framing."
+    },
+    {
+      "profile": "desktop-1280x720",
+      "arena": "forge-foundry",
+      "seed": 42,
+      "contentVersion": "alpha3-2",
+      "hash": "50957a53",
+      "normal_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-fo-dbf23-ches-live-collision-and-art-desktop-1280x720/forge-foundry-42-actual-scale.png",
+      "overview_png": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/arena-final-browser/arena-composition.pw.ts-fo-dbf23-ches-live-collision-and-art-desktop-1280x720/forge-foundry-42-overview.png",
+      "disposition": "No blocking readability defect observed",
+      "notes": "Normal camera and corrected overview were both visually inspected. Cover and dressing positions vary; arena identity and clear start/open ingress remain legible. Overview changes camera for evidence and is not production framing."
+    }
+  ],
+  "observations": [
+    "Junkyard retains warm scrap palette and taller press/barrel cover silhouettes. Generated cover moves between upper/lower lanes across seeds.",
+    "Forge retains dark industrial palette, gray machinery silhouettes and sparse orange detailing. Floor wire/rail textures remain distinguishable from large solid machinery.",
+    "Phone crop is necessarily narrower; some cover enters beneath fixed controls at screen edges. No static screenshot proves combat readability or subjective fun.",
+    "Warning and active grates are visibly distinct: amber alpha0.75 at elapsed2450 with HP100; red alpha1 at elapsed3400 with HP99. Both profiles show the real bright grate against quieter surrounding floor."
+  ],
+  "caveat": "Initial arena-final-browser hazard images have stale separate PlayerView. Superseding grate-final-phone-results images were visually inspected at native resolution after fixture-only Player.update(0): actor visibly centered on grate in warning and active captures; JSON player(384,328), presentationBounds x362.3/y306.3/43.4x43.4, active HP99. Those phone images close actor-on-grate evidence. Original desktop phase captures establish cue appearance only.",
+  "human_gates": [
+    "Physical phone/controller playtesting unverified",
+    "Subjective fun and artistic acceptance require maintainer judgment"
+  ],
+  "source_review": {
+    "timer_fixture": "Paused synthetic ability art fixture alone resets timeMs to0 and refreshes HUD; browser asserts0. This removes elapsed asset-wait dependence without modifying production clock ownership. Await refreshed candidate to clear exact-image hold. Corrected phone screenshot regression passed with timeMs0 assertion; exact candidate hash unchanged.",
+    "prior_findings": "Reachable rect/ring witness search and single three-argument boss-safe resolver address both earlier P2 findings. Independent focused execution:36 tests passed across arenaLayoutWitnesses, arenaLayout and arenaLayoutSafety."
+  }
+}

@@ -1,0 +1,603 @@
+{
+  "scope": "Independent visual disposition; no golden promotion or repository edits. Every changed baseline/candidate viewed using contact sheets derived from original PNGs, extraction phone additionally at native resolution. All25 holds resolved with direct-main control and pinned-fixture evidence; authorizes only evidence classification, not human artistic approval or automatic golden promotion.",
+  "inventory_counts": {
+    "total": 105,
+    "unchanged": 80,
+    "changed": 25,
+    "actor_crops": 13,
+    "full_screens": 12
+  },
+  "accepted_explained": 25,
+  "held": 0,
+  "asset_scope_check": "git diff origin/main -- public/assets assets-src src/entities src/systems/actor* src/systems/visualArt.ts src/systems/visualDepths.ts: empty. arenaScenery is changed only for prepared floor-plan consumption/closure.",
+  "limits": [
+    "Browser emulation only; physical device/fun approval remains open.",
+    "Human artistic approval remains open. Fonts/icons are explicitly deferred.",
+    "This is disposition of exact candidate SHA-256 values, not blanket future-capture approval."
+  ],
+  "images": [
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/ability-effect-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        1280,
+        720
+      ],
+      "baseline_dimensions": [
+        1280,
+        720
+      ],
+      "differing_pixels": 161810,
+      "differing_bbox": [
+        160,
+        0,
+        1120,
+        720
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Seeded floor patches, small dressing and new upper-left barrel cover change. Player pose and facing, yellow ring/arrows, ability callout, HUD values and controls remain aligned.",
+      "baseline_sha256": "f47c716e7b2604c9265668403e23e8d5fcb007dfbb94496aadc1de6c5eb88231",
+      "candidate_sha256": "20b576efa3d40c9f4f9ecfe221bd69e975de5b90bc68b1234d76c0ef14a312d1",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/ability-effect-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/ability-effect-foldable-1114x720-linux.png",
+      "candidate_dimensions": [
+        1114,
+        720
+      ],
+      "baseline_dimensions": [
+        1114,
+        720
+      ],
+      "differing_pixels": 161789,
+      "differing_bbox": [
+        77,
+        0,
+        1037,
+        720
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Seeded floor patches, small dressing and new upper-left barrel cover change. Player pose and facing, yellow ring/arrows, ability callout, HUD values and controls remain aligned.",
+      "baseline_sha256": "dab5913c8b82aabdbcddd655c42b11e109b80fe677cc6bb037d8b85e7e86e901",
+      "candidate_sha256": "23bd03eabdae8d40832463500ea22889f4f235a6d50ea5a20d18a69239e31ffd",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/ability-effect-foldable-1114x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/ability-effect-phone-390x844-linux.png",
+      "candidate_dimensions": [
+        390,
+        844
+      ],
+      "baseline_dimensions": [
+        390,
+        844
+      ],
+      "differing_pixels": 71338,
+      "differing_bbox": [
+        0,
+        0,
+        390,
+        844
+      ],
+      "disposition": "accept-explained-arena-and-pinned-fixture-clock",
+      "justification": "Visual comparison preserves actor pose, yellow ability geometry and controls; changed world pixels are expected seeded composition. Original golden timer0:01 versus candidate0:00 came from wall-clock asset-readiness waiting in the synthetic effect fixture. Reviewed fix requires paused GameScene, explicitly sets this art-reference timeMs0, updates HUD0, and browser assertion checks0. visual-timer-pinned.log records1 passed against this exact external candidate with unchanged screenshot thresholds. Production clock code untouched.",
+      "baseline_sha256": "0e96800a94a33797086ddddb2d32eef0d72280d8031d8c14b2dd31b6ab4b4299",
+      "candidate_sha256": "592c7fdca5fec0ccf536cee9afb2aeff0bf30ab81c314d14014eb0c31a1147a5",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/ability-effect-phone-390x844-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/boss-gameplay-actor-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1116,
+      "differing_bbox": [
+        56,
+        58,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: added lower-right scrap heap accounts for differences; all pixels outside lower-right [56,58,96,96] are byte-identical. Actor silhouette, position, facing and pose unchanged; central [32,32,64,64] byte-identical.",
+      "baseline_sha256": "df087ebcc9be4b5347f0666a294183119ee4c1075f975c345fea790f4daa1f73",
+      "candidate_sha256": "a596a393b383afbb10e0a4e63fd180089d888b8c3c0b035af6dcfc25d13a4dd8",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-actor-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/boss-gameplay-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        1280,
+        720
+      ],
+      "baseline_dimensions": [
+        1280,
+        720
+      ],
+      "differing_pixels": 161608,
+      "differing_bbox": [
+        160,
+        0,
+        1120,
+        720
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Seeded floor patches, upper-left generated barrel cover and small props change. Boss silhouette/pose/location, health bar, HUD values and ability control remain aligned.",
+      "baseline_sha256": "bcc902266d82983e841529e146c15e0bfae0b0f0e2e9bb56ebc97cf6b87e3674",
+      "candidate_sha256": "f6e321d1419e3e1bc352382e8b27bf57c389ca2a869c7c2107c40a2f84d60af9",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/extraction-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        1280,
+        720
+      ],
+      "baseline_dimensions": [
+        1280,
+        720
+      ],
+      "differing_pixels": 375645,
+      "differing_bbox": [
+        0,
+        0,
+        1280,
+        720
+      ],
+      "disposition": "accept-explained-arena-and-inherited-baseline-difference",
+      "justification": "Native visual inspection shows stable extraction modal position, label/button, HUD values and pause control. World changes are seeded floor/dressing. Opaque-to-translucent HUD is an inherited stale golden: this PNG was last changed at 8620e83 (2026-09-29), before main commit77ab149 (2026-09-30) intentionally changed HUD backing fillAlpha1 to0.42 and frame alpha0.9 to0.48. Current branch has zero diff against origin/main in hud.ts, worldUiReadability.ts and controls.ts. WorldUiReadability only attenuates overlap and cannot produce the old opaque authored fill. Candidate matches current main authored transparency. No camera/facing shift was confirmed. Direct current-main control now independently viewed: main also renders a transparent HUD. Native phone samples baseline/main/candidate at(190,15) are(21,39,52)/(44,48,53)/(44,48,53); at(190,125) are(21,39,52)/(32,43,52)/(32,43,52). Historical PNG can pass unchanged perceptual screenshot threshold despite visible low-magnitude RGB differences. The control confirms inherited HUD appearance; source lineage alone was insufficient. Main/candidate retain matching modal and foreground positions.",
+      "baseline_sha256": "e749ca612f264e0956aa53f563b9907e12506c2f7573b6a7715987f58df2c2e7",
+      "candidate_sha256": "bd327f944943338c6c7c559839a14ac2c2fbf2fd992365356598ac7e48dd5150",
+      "baseline_history_commit": "8620e83",
+      "explaining_main_commit": "77ab1490d8e589e0792594ed0dab70fd08adbd67",
+      "direct_main_reference": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/main-reference-desktop-1280x720-extraction.png",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/extraction-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/extraction-phone-390x844-linux.png",
+      "candidate_dimensions": [
+        390,
+        844
+      ],
+      "baseline_dimensions": [
+        390,
+        844
+      ],
+      "differing_pixels": 185719,
+      "differing_bbox": [
+        0,
+        0,
+        390,
+        844
+      ],
+      "disposition": "accept-explained-arena-and-inherited-baseline-difference",
+      "justification": "Native visual inspection shows stable extraction modal position, label/button, HUD values and pause control. World changes are seeded floor/dressing. Opaque-to-translucent HUD is an inherited stale golden: this PNG was last changed at 0447302 (2026-09-29), before main commit77ab149 (2026-09-30) intentionally changed HUD backing fillAlpha1 to0.42 and frame alpha0.9 to0.48. Current branch has zero diff against origin/main in hud.ts, worldUiReadability.ts and controls.ts. WorldUiReadability only attenuates overlap and cannot produce the old opaque authored fill. Candidate matches current main authored transparency. No camera/facing shift was confirmed. Direct current-main control now independently viewed: main also renders a transparent HUD. Native phone samples baseline/main/candidate at(190,15) are(21,39,52)/(44,48,53)/(44,48,53); at(190,125) are(21,39,52)/(32,43,52)/(32,43,52). Historical PNG can pass unchanged perceptual screenshot threshold despite visible low-magnitude RGB differences. The control confirms inherited HUD appearance; source lineage alone was insufficient. Main/candidate retain matching modal and foreground positions.",
+      "baseline_sha256": "dadf65b23bd1fa4d73fa39e750382008ad6ade3e2e1a4c994ce566a50e0c2b35",
+      "candidate_sha256": "a6071b9fec504205e2c4a2a3d8fe97ca57463b8672dc5a66950f70540150689a",
+      "baseline_history_commit": "0447302",
+      "explaining_main_commit": "77ab1490d8e589e0792594ed0dab70fd08adbd67",
+      "direct_main_reference": "/home/jon/projects/meowcenary-evidence/issue-194-current-main/main-reference-phone-390x844-extraction.png",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/extraction-phone-390x844-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/forge-gameplay-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        1280,
+        720
+      ],
+      "baseline_dimensions": [
+        1280,
+        720
+      ],
+      "differing_pixels": 59383,
+      "differing_bbox": [
+        160,
+        0,
+        1120,
+        720
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Seeded floor tracks/wires, small props and generated lower-right machinery change. Heat grate is dim/cool in the new initial safe phase, as authored. Boss pose/location/health bar, HUD values and ability control remain aligned.",
+      "baseline_sha256": "7d780a62ef80a0ac9c0492e2516229489e42af7106a9b7a271dc43b5e6b4bb2a",
+      "candidate_sha256": "d22c9ae7282e8377af025d9f7343bac39802ead593c1da7dd49b96067dd53aa9",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/forge-gameplay-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/forge-warden-gameplay-actor-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 86,
+      "differing_bbox": [
+        53,
+        15,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed native-source-derived 3x nearest-neighbor pair and pixel difference: only new orange/gray floor wire above/right of actor and small bottom-edge floor pixels change. Warden silhouette, lit furnace, limbs, facing and central actor pixels remain unchanged.",
+      "baseline_sha256": "427df11f6d111ebaefe612a41017eaf4e10f73d7f546674aaa00eda1f3625b4d",
+      "candidate_sha256": "6a15da353abe7ba8abcb74a6c78e5a7c668a2d0c2b12b1fd6b9b2dbe4c9ab66a",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/forge-warden-gameplay-actor-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/gameplay-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        1280,
+        720
+      ],
+      "baseline_dimensions": [
+        1280,
+        720
+      ],
+      "differing_pixels": 166304,
+      "differing_bbox": [
+        160,
+        0,
+        1120,
+        720
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Seeded floor patches, generated upper-left cover (where visible) and small props change. Focused enemy pose/location, HUD values and control geometry remain aligned.",
+      "baseline_sha256": "f9a20bff42be760e99089bd1a31df06c5c450fecaf59e5cecf397e6e3d80ca46",
+      "candidate_sha256": "7338bce3859135e8039cca548ae220be8ff9fddce6fdec884e9512d29e1f5aa8",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/gameplay-foldable-1114x720-linux.png",
+      "candidate_dimensions": [
+        1114,
+        720
+      ],
+      "baseline_dimensions": [
+        1114,
+        720
+      ],
+      "differing_pixels": 166289,
+      "differing_bbox": [
+        77,
+        0,
+        1037,
+        720
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Seeded floor patches, generated upper-left cover (where visible) and small props change. Focused enemy pose/location, HUD values and control geometry remain aligned.",
+      "baseline_sha256": "4fbaae1bb868463148d3642fe229a6dbcc1943dbf4f6099c8f6c9b5f6dc14b75",
+      "candidate_sha256": "aee0d3cc4eccde247372aa6de92595b3f23a58e61a33094db9a0276e0203cda0",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-foldable-1114x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/gameplay-phone-390x844-linux.png",
+      "candidate_dimensions": [
+        390,
+        844
+      ],
+      "baseline_dimensions": [
+        390,
+        844
+      ],
+      "differing_pixels": 71583,
+      "differing_bbox": [
+        0,
+        0,
+        390,
+        844
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Seeded floor patches, generated upper-left cover (where visible) and small props change. Focused enemy pose/location, HUD values and control geometry remain aligned.",
+      "baseline_sha256": "b9c54dc00bf6f70ae81a139f5a8d89e4438bc1446934c12e516d02c8244d880f",
+      "candidate_sha256": "42ed6cdba67dca6d78bfc950441a782ba1d166f1626a531f22b33dd261e11966",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-phone-390x844-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/mercenary-gameplay-bolt-hound-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1171,
+      "differing_bbox": [
+        56,
+        58,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: added lower-right scrap heap accounts for differences; all pixels outside lower-right [56,58,96,96] are byte-identical. Actor silhouette, position, facing and pose unchanged; central [32,32,64,64] byte-identical.",
+      "baseline_sha256": "1b4ccb314fc23505d14e8d420e067b2ac9d8fd24680f98621e19b691449d4e71",
+      "candidate_sha256": "ca690f6b6a1c7d3ec1a71f271abe4036c440c36e2cedabd6469eeee078895286",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-bolt-hound-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/mercenary-gameplay-brass-boar-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1171,
+      "differing_bbox": [
+        56,
+        58,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: added lower-right scrap heap accounts for differences; all pixels outside lower-right [56,58,96,96] are byte-identical. Actor silhouette, position, facing and pose unchanged; central [32,32,64,64] byte-identical.",
+      "baseline_sha256": "49d217609ac2772eedcc8c3e533b4d744c88487fac7eedfe3e51e347ca53f203",
+      "candidate_sha256": "d85b3fabaafea514b247413fda6cc9594d2e06bcf29c02acd898239539aaea03",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-brass-boar-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/mercenary-gameplay-ember-cougar-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1171,
+      "differing_bbox": [
+        56,
+        58,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: added lower-right scrap heap accounts for differences; all pixels outside lower-right [56,58,96,96] are byte-identical. Actor silhouette, position, facing and pose unchanged; central [32,32,64,64] byte-identical.",
+      "baseline_sha256": "1823d0f9348266dd834c61a2d26493e438306c7375b276842e9d79dca5d80a14",
+      "candidate_sha256": "cc74bbb6ccb90187ffb200f72981fa799ea986255365ea15755a961514cf35fe",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-ember-cougar-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/mercenary-gameplay-piston-ram-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1150,
+      "differing_bbox": [
+        56,
+        58,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: added lower-right scrap heap accounts for differences; all pixels outside lower-right [56,58,96,96] are byte-identical. Actor silhouette, position, facing and pose unchanged; central [32,32,64,64] byte-identical.",
+      "baseline_sha256": "9c136a286357a9449fd0808d58124f86b5457e962c3d20455fb10319479d7fc4",
+      "candidate_sha256": "03a7ec68567836ad6b9b2d762e4c96a3cd33893a527b7df9a00fe16bfcbda583",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-piston-ram-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/mercenary-gameplay-rattle-raptor-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1171,
+      "differing_bbox": [
+        56,
+        58,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: added lower-right scrap heap accounts for differences; all pixels outside lower-right [56,58,96,96] are byte-identical. Actor silhouette, position, facing and pose unchanged; central [32,32,64,64] byte-identical.",
+      "baseline_sha256": "00bfe1d90dc2c9830f5079c9be71b99c7ed4f49f491617341f7c498feedef30f",
+      "candidate_sha256": "447b4915a4ce8d690cd5be37a7d911e81d1f9d3a5fbf5ea683781506d48a8658",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-rattle-raptor-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/mercenary-gameplay-scrap-tabby-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1171,
+      "differing_bbox": [
+        56,
+        58,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: added lower-right scrap heap accounts for differences; all pixels outside lower-right [56,58,96,96] are byte-identical. Actor silhouette, position, facing and pose unchanged; central [32,32,64,64] byte-identical.",
+      "baseline_sha256": "56bf7baa349fed593fd66bb9dec34835eef00d72a81b018c06611212e7e1ccf9",
+      "candidate_sha256": "4302c206e999b209db542f3ad90eb8ee554cf8b546e774385380ed38e4c153e4",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-scrap-tabby-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/mercenary-gameplay-scrap-weasel-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1171,
+      "differing_bbox": [
+        56,
+        58,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: added lower-right scrap heap accounts for differences; all pixels outside lower-right [56,58,96,96] are byte-identical. Actor silhouette, position, facing and pose unchanged; central [32,32,64,64] byte-identical.",
+      "baseline_sha256": "5b697659373a34d11487f9a9912110a5930af3f8d5f7d8e613ee6e063235388f",
+      "candidate_sha256": "ca4d4531e200a22060f28f032b377ebe436895edd15218718fe365d8da6eb2aa",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-scrap-weasel-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/mercenary-gameplay-volt-lynx-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1171,
+      "differing_bbox": [
+        56,
+        58,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: added lower-right scrap heap accounts for differences; all pixels outside lower-right [56,58,96,96] are byte-identical. Actor silhouette, position, facing and pose unchanged; central [32,32,64,64] byte-identical.",
+      "baseline_sha256": "42dcef86ff9e84dd95e66e81b0823789c2fcb2277bd6b54d4054c4293a9c7caf",
+      "candidate_sha256": "76e5c4288bd933c4535c1481381adfbc17dd5cf647958c26dfc3a7b0f702de8f",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-volt-lynx-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/ordinary-gameplay-actor-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1176,
+      "differing_bbox": [
+        56,
+        58,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: added lower-right scrap heap accounts for differences; all pixels outside lower-right [56,58,96,96] are byte-identical. Actor silhouette, position, facing and pose unchanged; central [32,32,64,64] byte-identical.",
+      "baseline_sha256": "e52ee9c3f7a44880115b1e6979efd6580d178485e808ef234b717d6ab57ca01b",
+      "candidate_sha256": "187e5f6568d12f8f22293ad776d5c822cc3bb74c5ed1ff21b9cee6dcb1ce19be",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/ordinary-gameplay-actor-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/ordinary-gameplay-actor-foldable-1114x720-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1917,
+      "differing_bbox": [
+        0,
+        0,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: new lower-right scrap heap, actor silhouette/pose stable. Meaningful channel delta >2 is confined to [57,59,96,96]. Outside lower-right region, 738 changed pixels each differ by at most 1 RGB level, consistent with raster quantization; no displaced actor features. Existing screenshot threshold unchanged.",
+      "baseline_sha256": "6a694936ded88c6ff328da11b63a230969009707a6989b4dfb367b2c0f6ea95e",
+      "candidate_sha256": "420b509fa34d48bdafec445f04b88abd87fa29220a45af5748cadd95f792709c",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/ordinary-gameplay-actor-foldable-1114x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/ordinary-gameplay-actor-phone-390x844-linux.png",
+      "candidate_dimensions": [
+        96,
+        96
+      ],
+      "baseline_dimensions": [
+        96,
+        96
+      ],
+      "differing_pixels": 1151,
+      "differing_bbox": [
+        56,
+        59,
+        96,
+        96
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "Viewed pair and difference: added lower-right scrap heap accounts for differences; all pixels outside lower-right [56,58,96,96] are byte-identical. Actor silhouette, position, facing and pose unchanged; central [32,32,64,64] byte-identical.",
+      "baseline_sha256": "f238860fbf596090bf0534e6be0614107917d37e1082d68a5672f25868c0d7ab",
+      "candidate_sha256": "c24a5023b4af0ffdce317a078860fe6f38d53232641f57ccce01958a3773c553",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/ordinary-gameplay-actor-phone-390x844-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/upgrade-chooser-desktop-1280x720-linux.png",
+      "candidate_dimensions": [
+        1280,
+        720
+      ],
+      "baseline_dimensions": [
+        1280,
+        720
+      ],
+      "differing_pixels": 70767,
+      "differing_bbox": [
+        0,
+        0,
+        1280,
+        720
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "World floor/dressing changes behind translucent modal and along its edges; four card order, art, text, geometry and modal title remain aligned. No card selection, timing or facing shift visible.",
+      "baseline_sha256": "3de58575929dc87d1c20305fa18ef953fc83979eec1a06317942495cdf19ad7e",
+      "candidate_sha256": "5e27bf2909572613cc3721993aeaada5ab3d04638291a08bbf64291841b84750",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/upgrade-chooser-desktop-1280x720-linux.png"
+    },
+    {
+      "file": "visual-fidelity.pw.ts-snapshots/upgrade-chooser-phone-390x844-linux.png",
+      "candidate_dimensions": [
+        390,
+        844
+      ],
+      "baseline_dimensions": [
+        390,
+        844
+      ],
+      "differing_pixels": 20323,
+      "differing_bbox": [
+        0,
+        0,
+        390,
+        844
+      ],
+      "disposition": "accept-explained-arena-difference",
+      "justification": "World floor/dressing changes behind translucent modal and along its edges; four card order, art, text, geometry and modal title remain aligned. No card selection, timing or facing shift visible.",
+      "baseline_sha256": "c786e33212ebf5ee72e8fbf24fd50225fee23de7402f6f4ea2a06365d511390d",
+      "candidate_sha256": "fa718d1b0ffb265273903d54e2e32b23e73448d78622181d8a269d84f4bfea4a",
+      "baseline_repository_path": "browser-tests/visual-fidelity.pw.ts-snapshots/upgrade-chooser-phone-390x844-linux.png"
+    }
+  ],
+  "candidate_sha256_drift": [],
+  "baseline_commit": "4f79d6210c3b028b995d67a5cc6e35318b17b2ee"
+}

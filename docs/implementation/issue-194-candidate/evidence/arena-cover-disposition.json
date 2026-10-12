@@ -1,0 +1,35 @@
+{
+  "classification": "Browser fixture wall-clock/simulation-clock mismatch; no gameplay collision change.",
+  "originalMatrix": "arena-final-matrix.log: 47/48 passed; desktop1920 covered projectile remained active at five-wall-second timeout.",
+  "red": "arena-cover-repeat.log: six repeated failures with original wall-clock poll; arena-cover-sampled.log reproduces and stores concrete trajectory.",
+  "diagnosticEvidence": "arena-cover-sampled-results/arena-composition.pw.ts-ra-88aaa-r-is-hit-after-pooled-reuse-desktop-1920x1080/cover-projectile-samples.json",
+  "measuredFailure": {
+    "status": "active",
+    "loopRunning": true,
+    "physicsPaused": false,
+    "visibility": "visible",
+    "firstObservedTimeMs": 100,
+    "lastObservedTimeMs": 433.3333333333334,
+    "firstObservedTravel": 3.5,
+    "lastObservedTravel": 73.5,
+    "velocityX": 210,
+    "neededCoverTravel": 114,
+    "approxTotalSimulatedMsSinceShot": 350
+  },
+  "fix": "Join at most40 real POST_STEP frames before original unchanged five-second projectile poll. No synthetic physics owner or gameplay alteration. Guard consumed within750 simulationms, before330px range expiry; uncovered positive control joins at most24 frames and retains -6 health/zero active assertions.",
+  "worldValidity": "Old shot origin cover.x96 -120 = -24 lay outside world. New origin96 -64 =32 lies inside. Exposed target56 is24px from origin, beyond combined20px hit radius, requiring actual travel rather than immediate overlap.",
+  "pooling": "Capture shot facts/index synchronously with emission to avoid a browser roundtrip race on the short positive control. Assert second shot reuses same slot.",
+  "hazardPose": "Read actual Player.writePresentationBounds output; warning and active tests require view bounds contain real on-grate player center. Root source change player.update(0) in stepArenaHazardTest preserved.",
+  "green": "arena-cover-final.log: cover and hazard desktop1920 each repeated twice, all four pass. Both cover trajectories consume after283.333 simulationms; highest observed active travel52.5px, well before330px expiry.",
+  "validation": [
+    "arena-cover-final-build.log: visual build including source typecheck passes.",
+    "arena-browser-typecheck.log: explicit tsc includes changed browser test (repository tsconfig excludes browser-tests), exits0.",
+    "git diff --check exits0."
+  ],
+  "remaining": "Root owns final all-viewport browser matrix and independent integration review.",
+  "files": [
+    "browser-tests/arena-composition.pw.ts",
+    "src/main.ts: arenaLayoutDiagnostics only"
+  ],
+  "noCommits": true
+}

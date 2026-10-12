@@ -1,0 +1,300 @@
+[
+  {
+    "status": "active",
+    "timeMs": 99.99999999999997,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100,
+      "presentationBounds": {
+        "x": 218.3,
+        "y": 394.3,
+        "width": 43.400000000000034,
+        "height": 43.400000000000034
+      }
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": 35.5,
+          "y": 416,
+          "traveled": 3.499999999999999,
+          "centerX": 35.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 133.3333333333333,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100,
+      "presentationBounds": {
+        "x": 218.3,
+        "y": 394.3,
+        "width": 43.400000000000034,
+        "height": 43.400000000000034
+      }
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": 42.5,
+          "y": 416,
+          "traveled": 10.499999999999996,
+          "centerX": 42.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 166.6666666666666,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100,
+      "presentationBounds": {
+        "x": 218.3,
+        "y": 394.3,
+        "width": 43.400000000000034,
+        "height": 43.400000000000034
+      }
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": 49.5,
+          "y": 416,
+          "traveled": 17.499999999999996,
+          "centerX": 49.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 199.99999999999991,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100,
+      "presentationBounds": {
+        "x": 218.3,
+        "y": 394.3,
+        "width": 43.400000000000034,
+        "height": 43.400000000000034
+      }
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": 56.5,
+          "y": 416,
+          "traveled": 24.499999999999996,
+          "centerX": 56.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 233.33333333333323,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100,
+      "presentationBounds": {
+        "x": 218.3,
+        "y": 394.3,
+        "width": 43.400000000000034,
+        "height": 43.400000000000034
+      }
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": 63.5,
+          "y": 416,
+          "traveled": 31.499999999999996,
+          "centerX": 63.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 266.6666666666666,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100,
+      "presentationBounds": {
+        "x": 218.3,
+        "y": 394.3,
+        "width": 43.400000000000034,
+        "height": 43.400000000000034
+      }
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": 70.5,
+          "y": 416,
+          "traveled": 38.49999999999999,
+          "centerX": 70.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 299.99999999999994,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100,
+      "presentationBounds": {
+        "x": 218.3,
+        "y": 394.3,
+        "width": 43.400000000000034,
+        "height": 43.400000000000034
+      }
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": 77.5,
+          "y": 416,
+          "traveled": 45.49999999999999,
+          "centerX": 77.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 333.3333333333333,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100,
+      "presentationBounds": {
+        "x": 218.3,
+        "y": 394.3,
+        "width": 43.400000000000034,
+        "height": 43.400000000000034
+      }
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": [
+        {
+          "index": 0,
+          "x": 84.5,
+          "y": 416,
+          "traveled": 52.49999999999999,
+          "centerX": 84.5,
+          "centerY": 416,
+          "velocityX": 210,
+          "velocityY": 0
+        }
+      ]
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 366.6666666666667,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100,
+      "presentationBounds": {
+        "x": 218.3,
+        "y": 394.3,
+        "width": 43.400000000000034,
+        "height": 43.400000000000034
+      }
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": []
+    }
+  },
+  {
+    "status": "active",
+    "timeMs": 383.33333333333337,
+    "player": {
+      "x": 240,
+      "y": 416,
+      "health": 100,
+      "presentationBounds": {
+        "x": 218.3,
+        "y": 394.3,
+        "width": 43.400000000000034,
+        "height": 43.400000000000034
+      }
+    },
+    "simulation": {
+      "loopRunning": true,
+      "physicsPaused": false,
+      "visibility": "visible",
+      "active": []
+    }
+  }
+]
