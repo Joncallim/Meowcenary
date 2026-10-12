@@ -1,40 +1,105 @@
 # #235 progression candidate delivery
 
-Status: implemented and focused-tested; **not accepted**. Related #235. Baseline `a100e053`.
+Status: reconciled candidate; **not merged, deployed or product-accepted**.
+Implementation authority remains main
+`4f79d6210c3b028b995d67a5cc6e35318b17b2ee`. The candidate is stacked on the
+Contracts recovery `5b6622b9d9708bc512e158e03b3f6d70d743023e` (#240).
 
-## Implemented
+## Resulting behavior
 
-27 active achievements, preserving all ten existing definitions and rewards. New goals cover mastery across the roster, campaign exploration, distinct timed clears, simultaneous engineered families, effective hybrid traits, and upgraded equipment. Four registered derived metrics read existing facts; no save fields or duplicate counters. Workshop actions and milestone rewards share one durable candidate. Unlock permissions, fabrication, and owned-instance rewards now have separate copy.
+There are 27 active achievements, including the five optional post-Warden
+ladder/finale goals. All ten original definitions, stable IDs, conditions,
+targets and rewards remain unchanged. Campaign Surveyor requires the ten
+campaign Contracts; the optional finale requires the four optional Contracts.
+Neither completion is substituted for the other.
 
-Architecture and sourced product rationale: [redesign-progression-depth.md](../architecture/redesign-progression-depth.md).
+Goals also cover roster mastery, distinct timed non-survival clears,
+simultaneously engineered families, effective hybrid traits and upgraded
+Equipment. Four registered metrics derive facts from canonical state without
+new save fields or counters. Unfinished workshop goals show current progress;
+completed goals remain terminal. Workshop mutations, completion receipts and
+explicit rewards use one durable candidate and publish after successful save.
+Platform reporting retains #228's obsolete-context acknowledgement protection.
 
-## Checks and evidence
+Acquisition copy distinguishes unlock/blueprint permission, fabrication and
+owned-instance rewards. Owned Equipment describes historical blueprint cost
+and explicitly rejects fabrication of an additional copy. Existing acquisition,
+preview and persistence semantics remain authoritative under #197/#193.
 
-- TypeScript lint: PASS.
-- Production build: PASS.
-- Ten focused suites: 183 tests PASS, including nine new depth/persistence tests.
-- Achievement art suite: four checks PASS; byte-for-byte builder parity fails locally. Coordinator reproduced the same unchanged-baseline failure with pinned Pillow 12.1.1; sampled pixel comparison was identical while local PNG compression differs. No production art is modified here.
-- `content:validate`: logical bindings/resources pass; existing weapon PNG builder parity blocks the art-dependent tail in the same local environment.
-- Existing aggregate content validation and second data-only engineering fixture: PASS in focused tests.
-- Actual Chromium at 390×844 and 1280×720: achievement gallery, Equipment and Gunsmith captured with no page errors. Keyboard spatial navigation reaches Full Workshop and blueprint detail; desktop Enter and emulated phone touch select them. New goal/reward copy is visible. Acquisition copy was moved inside the equipment inspection card after capture showed desktop focus scrolling a preceding paragraph out of view.
-- Local screenshots and diagnostics are under `output/playwright/`: `phone/desktop-workshop-goal.png`, `phone/desktop-equipment-route.png`, `phone/desktop-parts.png`, plus initial surface captures. These are local verification artifacts, not new runtime assets.
+Architecture and product rationale:
+[redesign-progression-depth.md](../architecture/redesign-progression-depth.md).
 
-The CLI wrapper could not fetch its package in the network-restricted sandbox; the installed Playwright SDK and already cached Chromium executable provided the actual browser check. Initial preview used local loopback port 4176; final selected-source/lifecycle capture uses static preview port 4178 to avoid HMR triggered by evidence writes.
+## Ancestry reconciliation and RED/GREEN evidence
 
-## Independent review
+The old PR head `aa0bdcd664ded0ca94124432f07a319a53e38f55` was based on an
+older Contracts candidate. Its actual common ancestor with its advancing PR
+base was `28843128ba3e08f441a05f2c69a3ec3034cf3fe0`, rather than the displayed
+base tip `47dec8e4d8e7e066ffe35c71fcead74fac1511da`. Comparing against that
+tip included reverse changes to Arena-family types and validation that were
+not Progression work.
 
-Read-only adversarial review found four P2 defects in the first candidate: skipped upgrade evaluation, stale simultaneous-loadout progress, blueprint source text omitted, and delayed platform mirror dispatch. All four were fixed; the new tests cover current-progress truth, atomic fourth-T4 upgrade with failed save/retry/reload, and mirror-after-persistence behavior. The copy mismatch between ordinary parts and trait cores was resolved by explicitly naming non-trait parts; distinct effective traits have separate goals using the combat resolver.
+Recovery replays only the four Progression commits (`1dc791b`, `6907691`,
+`3e89fa1`, `aa0bdcd`) onto the repaired Contracts base. It retains the intended
+18-file scope and excludes obsolete Contracts/Arena ancestors. Shared types,
+stage definitions, encounter data, save schema and scenes are not replaced.
 
-## Product-review follow-up
+The eight originally failing unit files were run at the old head: **10 failed,
+354 passed**. The same eight files pass **389 tests** on the reconciled head.
+Four failures came from older owning-boundary fixes absent at the old head;
+six came from stale catalog/frontier/ordering assumptions superseded by the
+ten-campaign/four-optional contract. The repaired Contracts base already has
+the authoritative assertions, including explicit catalog coverage, separate
+completion, optional timing and preserved negative validation cases. Recovery
+does not remove assertions or change balance to make these tests pass.
 
-Fresh independent product review rejected full acceptance at `47d54ff`: owned gear suggested prohibited duplicate fabrication, mastery goals dominated the additions, survival speed goals overstated skill, and selected Parts/lifecycle evidence was missing. The first implementation-correctness review's four fixes do not close these product findings.
+The separate product review reproduced a wording defect: Forge Champion said
+“every Forge chapter Contract” despite requiring only its five campaign clears.
+A RED regression earns it with optional Forge missions uncleared and checks
+that the player-facing description matches that boundary. The one-line copy
+correction makes it GREEN; conditions, rewards and the original ten definitions
+are unchanged. It is a candidate product-copy defect, not a new #201 runtime
+invariant violation.
 
-Follow-up `51366ad` changes owned gear to historical blueprint cost and an explicit no-additional-copy statement, with real fabrication/reload/duplicate-rejection coverage. Timed goals now require non-survival Contracts. The two affected CI fixture suites pass 196 tests; depth/context/equipment suites pass 83. The preservation tests capture the canonical post-reconciliation baseline rather than hardcoding pre-reconciliation currency. Hosted CI at `47d54ff` passed art/content/lint and failed 18 stale expectations now corrected; final exact-head CI remains required.
+Additional focused domain/persistence/controller suites pass 183 tests,
+including the existing #229 Scavenge Pulse transaction. A further five-file
+run passes 91 tests covering the new copy regression, #228 acknowledgement
+protection and retained achievement/Scavenge boundaries. Full exact-head closeout and hosted CI results
+are recorded in the PR/issue comments; focused counts alone are not acceptance.
 
-Selected Parts captures now cover locked, available, owned-and-fitted, and reward-only states. The detail heading was moved beside its source after inspection found keyboard/touch focus hid the title above the artwork. A seeded late-game browser save exercises the actual fourth-T4 upgrade button: cost 200, completion reward 200, one receipt, unchanged currency after reload. This is mutation/persistence evidence, not evidence of a played-through career. Phone and desktop artifacts are `*-part-*-detail.png`, `*-old-owned-equipment-detail.png`, `*-milestone-before-upgrade.png`, `*-milestone-earned.png`, `*-milestone-reloaded.png`, and `*-product-lifecycle.json` under `output/playwright/`.
+Reproducible external logs for the 12 October recovery are under
+`/home/jon/projects/meowcenary-evidence/issue-burn-2026-10-12/`:
+`pr236-original-red.log`, `pr236-reconciled-focused.log`,
+`pr236-domain-focused.log`, `pr236-forge-copy-red.log` and
+`pr236-forge-copy-and-retained-boundaries-green.log`. This is an agent-workspace
+artifact location, not a portable runtime asset or an owner playtest record.
 
-Eight unreleased per-mercenary tier-5 rows have been removed; roster-wide tier-2/tier-5 and Tabby specialization remain. This leaves 27 active goals before the five approved post-Warden goals are integrated from the contracts dependency. Removed candidate history remains load-safe through the existing historical-achievement behavior. The optional ladder remains pending that dependency. No full product acceptance is claimed.
+## Independent review and evidence limits
+
+A fresh read-only Astra domain/save review at
+`52cbdd94c77daab985d3204741c074bf0da5a39b` found no concrete production
+blocker: the original ten definitions are identical, campaign/optional goals
+are separate, workshop receipts and rewards share one commit, and #228 is
+preserved. A separate Astra product review found the Forge description defect
+above and otherwise passed its bounded code inspection. Read-only follow-up
+confirmed the correction and regression, returning PASS. The full candidate
+gates remain independent checks.
+
+Earlier candidate reviews found and corrected skipped upgrade evaluation,
+stale simultaneous-loadout progress, omitted blueprint sources, delayed
+mirror dispatch and misleading duplicate-fabrication copy. Earlier browser
+captures of goal/Parts/Equipment copy and fourth-T4 upgrade/reload are historical
+evidence of those corrections. They do not establish current exact-head
+viewport behavior, integrated optional-Contract pacing or sustained enjoyment.
+Earlier local PNG-compression tooling failures are also historical; the
+current pinned art-tooling gate must be run afresh.
 
 ## Remaining acceptance gates
 
-Fresh independent product-quality review; integrated optional post-Warden Contract playthrough; exact draft-head hosted CI/full closeout; physical phone/controller and reconnect evidence; sustained-play evaluation of speed thresholds and mastery/reward pacing. Browser viewport emulation and correctness tests do not establish that the candidate is fun. No merge or deployment is authorized by this record.
+Require the full ordinary suite, allocation/runner probes, lint, content and
+complete art/source/export validation, production/resource/diagnostic checks,
+six-profile browser matrix and exact draft-head hosted CI. Require independent
+review confirmation, integrated optional post-Warden playthrough, physical
+phone/controller/reconnect evidence, and sustained-play evaluation of speed
+thresholds, roster repetition, optional rewards and T4 cost pacing. Correctness
+tests and browser emulation do not establish that the career is fun. Main and
+production remain unchanged; no merge or deployment is authorized by this record.

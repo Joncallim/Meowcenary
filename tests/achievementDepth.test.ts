@@ -30,6 +30,19 @@ function harness(initial = createDefaultSaveV4(), storage = new Storage(), achie
 function metric(id: string, facts: AchievementFacts) { return metricExtractor(`metric:${id}`)!(facts); }
 
 describe('long-term achievement facts and atomic workshop rewards', () => {
+  it('describes Forge Champion as the five campaign clears without requiring optional Forge missions', () => {
+    const initial = createDefaultSaveV4();
+    const campaignIds = ['stage:forge-01', 'stage:forge-02', 'stage:forge-03', 'stage:forge-04', 'stage:junkyard-06'];
+    const { context, data } = harness({ ...initial,
+      stages: Object.fromEntries(campaignIds.map((id) => [id, { completed: true }])) });
+    expect(context.saveData.achievements['achievement:chapter-forge']?.completed).toBe(true);
+    expect(context.saveData.stages['stage:forge-shatterline']?.completed).not.toBe(true);
+    expect(context.saveData.stages['stage:forge-pressure-test']?.completed).not.toBe(true);
+    expect(context.saveData.achievements['achievement:postgame-complete']?.completed).not.toBe(true);
+    const view = new AchievementsController(context, new DataAchievementRegistry({ achievements: data.achievements }))
+      .snapshot().achievements.find((row) => row.id === 'achievement:chapter-forge');
+    expect(view?.description).toBe('Clear all five Forge campaign Contracts.');
+  });
   it('uses the combat trait resolver for distinct hybrid traits, including slotted cores', () => {
     const data = loadGameData();
     const facts: AchievementFacts = { metrics: {}, catalog: data, gunsmith: {

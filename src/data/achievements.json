@@ -346,7 +346,7 @@
   {
     "id": "achievement:chapter-forge",
     "name": "Forge Champion",
-    "description": "Clear every Forge chapter Contract.",
+    "description": "Clear all five Forge campaign Contracts.",
     "kind": "standard",
     "presentation": {
       "iconArtId": "achievement-icon:boss-forge"

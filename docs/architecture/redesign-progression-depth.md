@@ -1,7 +1,9 @@
 # Achievement depth and acquisition clarity (#235)
 
-Status: implemented candidate; independent product and integrated acceptance remain separate gates.
-Baseline: main `a100e053ce4e2bc48bc4b8844e7da5010d562096`.
+Status: reconciled candidate; independent product and integrated acceptance remain separate gates.
+Implementation authority: main `4f79d6210c3b028b995d67a5cc6e35318b17b2ee`.
+Candidate dependency: Contracts recovery `5b6622b9d9708bc512e158e03b3f6d70d743023e` (#240).
+The original design baseline was `a100e053`; it is historical, not current implementation authority.
 
 ## Authority and domain flow
 
