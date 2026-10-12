@@ -2,9 +2,12 @@
 
 12 October 2026. This slice builds on the four-file #239 lifecycle candidate
 `848b23cf5b34ff8d337ec5a91a38ba4d00972f72`. Its original branch and protected
-main are unchanged. The coordinator will replay the lifecycle foundation and
-this fix onto current main before full closeout; focused evidence below is
-from the allocated candidate worktree before that replay. No merge, deployment,
+main are unchanged. The coordinator replayed the lifecycle foundation onto
+protected main `4f79d6210c3b028b995d67a5cc6e35318b17b2ee` as `f3113e5`,
+then replayed this bounded fix. The four-file lifecycle patch is identical to
+#239; newer #196 scene/input/resource owners remain intact. Focused evidence
+below was captured before that replay; full closeout must use the final replayed
+head. No merge, deployment,
 audio asset replacement, gameplay change or issue closure is claimed.
 
 Authority: current #237 maintainer instructions and the genuine native RED
