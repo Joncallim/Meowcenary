@@ -24,30 +24,40 @@ const seed = {
   pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
 };
 
-async function sample(page: Page) {
-  return page.evaluate(async () => {
+async function sample(page: Page, prepare = false) {
+  return page.evaluate(async prepare => {
     const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__;
+    let homeSettled: boolean | undefined, shown: boolean | undefined, equipmentSettled: boolean | undefined;
+    if (prepare) {
+      homeSettled = await seam.waitForMenuPresentation();
+      if (homeSettled !== true) return { homeSettled };
+      shown = seam.showMenu('equipment');
+      if (shown !== true) return { homeSettled, shown };
+      equipmentSettled = await seam.waitForMenuPresentation();
+      if (equipmentSettled !== true) return { homeSettled, shown, equipmentSettled };
+    }
     // Observe real owner updates, including Phaser's late input poll. No
     // manual stepping, input reset, retained objects or production globals.
     const frames = [await seam.waitForInputFrame(), await seam.waitForInputFrame()];
     const canvas = document.querySelector('canvas')!;
-    return { frames, diagnostic: seam.menuLoadoutDiagnostics(), neutral: seam.isMenuInputNeutral(),
+    return { homeSettled, shown, equipmentSettled, frames, diagnostic: seam.menuLoadoutDiagnostics(), neutral: seam.isMenuInputNeutral(),
       saved: localStorage.getItem('meowcenary.save.v2'),
       nativeCancel: canvas.dataset.gestureNativeCancel,
       secondaryEnd: canvas.dataset.gestureSecondaryEnd,
       remainingTouchIds: canvas.dataset.gestureRemainingTouchIds,
       releasedTouchIds: canvas.dataset.gestureReleasedTouchIds };
-  });
+  }, prepare);
 }
 
 test('current Menu rectangle owns wheel, drag, cancellation and physical release', async ({ page }, testInfo) => {
   await page.addInitScript(save => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), seed);
   await page.goto('/?visual-test=1&perf-test=1');
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as Partial<Globals>).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
-  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
-  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
-  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
-  const baseline = await sample(page), region = baseline.diagnostic.scroll!;
+  const prepared = await sample(page, true);
+  expect(prepared.homeSettled).toBe(true); expect(prepared.shown).toBe(true); expect(prepared.equipmentSettled).toBe(true);
+  expect(prepared.diagnostic).toBeDefined();
+  const baseline = prepared as Required<Pick<typeof prepared, 'diagnostic' | 'frames' | 'neutral' | 'saved'>> & typeof prepared;
+  const region = baseline.diagnostic.scroll!;
   expect(baseline.frames).toEqual([true, true]); expect(baseline.neutral).toBe(true);
   expect(region).toBeDefined(); expect(region.contentHeight).toBeGreaterThan(region.bottom - region.top);
   expect(baseline.diagnostic.buttons.filter(button => button.key?.startsWith('equipment-candidate:'))).toHaveLength(20);
@@ -55,13 +65,14 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
   const outside = { x: width * 0.9, y: region.top - 12 };
   const inside = { x: width * 0.9, y: region.top + Math.min(80, (region.bottom - region.top) / 4) };
   const evidence: Array<{ phase: string; state: Awaited<ReturnType<typeof sample>> }> = [];
-  const unchanged = (state: Awaited<ReturnType<typeof sample>>, focus?: Pick<Diagnostic, 'focusedKey'>) => {
+  const unchanged = (state: typeof baseline, focus?: Pick<Diagnostic, 'focusedKey'>) => {
     expect(state.frames).toEqual([true, true]); expect(state.saved).toBe(baseline.saved);
     expect(state.diagnostic.panel).toBe('equipment'); expect(state.diagnostic.equipment).toEqual(baseline.diagnostic.equipment);
     if (focus) expect(state.diagnostic.focusedKey).toBe(focus.focusedKey);
   };
   const observe = async (phase: string, focus?: Pick<Diagnostic, 'focusedKey'>) => {
-    const state = await sample(page); evidence.push({ phase, state }); unchanged(state, focus); return state;
+    const observed = await sample(page); expect(observed.diagnostic).toBeDefined();
+    const state = observed as typeof baseline; evidence.push({ phase, state }); unchanged(state, focus); return state;
   };
   // Wheel remains genuine mouse input on touch profiles too; the header must
   // never route it into the collection underneath.
@@ -135,7 +146,8 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
       expect(secondaryReleased.remainingTouchIds).toBe('[1]'); expect(secondaryReleased.releasedTouchIds).toBe('[2]');
       expect(secondaryReleased.diagnostic.scroll!.offset).toBe(cancelled.diagnostic.scroll!.offset);
       await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); held = false;
-      expect((await observe('multitouch-owner-cancelled', ownerFocus.diagnostic)).neutral).toBe(true);
+      const finished = await observe('multitouch-owner-cancelled', ownerFocus.diagnostic);
+      expect(finished.neutral).toBe(true);
     }
     const beforeFresh = (await observe('before-fresh-scroll')).diagnostic.scroll!.offset;
     await down(inside); await move({ ...inside, y: inside.y - 40 }); await up();
@@ -146,7 +158,8 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
     const point = { x: back.bounds.x + back.bounds.width / 2, y: back.bounds.y + back.bounds.height / 2 };
     if (touch) await page.touchscreen.tap(point.x, point.y); else await page.mouse.click(point.x, point.y);
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
-    const finished = await sample(page); evidence.push({ phase: 'fresh-back-tap', state: finished });
+    const last = await sample(page); expect(last.diagnostic).toBeDefined();
+    const finished = last as typeof baseline; evidence.push({ phase: 'fresh-back-tap', state: finished });
     expect(finished.diagnostic.panel).toBe('loadout'); expect(finished.saved).toBe(baseline.saved); expect(finished.neutral).toBe(true);
   } finally {
     try {

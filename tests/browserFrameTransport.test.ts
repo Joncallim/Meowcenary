@@ -76,3 +76,99 @@ it.each([null, 'stale-owner'])('a malformed %s frame stops before any following 
   await expect(h.run(4)).rejects.toThrow();
   expect(waits).toHaveBeenCalledTimes(1);
 });
+
+function menuGestureSampleHarness(homeSettled = true) {
+  const path = 'browser-tests/menu-gesture-ownership.pw.ts';
+  const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
+  const fn = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'sample');
+  if (!fn) throw new Error('Missing actual gesture observation helper');
+  const calls: string[] = [];
+  const seam = {
+    waitForMenuPresentation: async () => { calls.push('menu'); return homeSettled; },
+    showMenu: (panel: string) => { calls.push(panel); return true; },
+    waitForInputFrame: async () => { calls.push('frame'); return true; },
+    menuLoadoutDiagnostics: () => { calls.push('diagnostic'); return { panel: 'equipment' }; },
+    isMenuInputNeutral: () => true,
+  };
+  const run = runInNewContext(ts.transpileModule(fn.getText(source) + '\nsample;', {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText, { __MEOWCENARY_VISUAL_TEST__: seam,
+    document: { querySelector: () => ({ dataset: {} }) }, localStorage: { getItem: () => 'same durable save' } }) as
+    (page: unknown, prepare: boolean) => Promise<{ homeSettled: boolean; shown?: boolean; equipmentSettled?: boolean }>;
+  const evaluate = vi.fn(async (callback: (prepare: boolean) => unknown, prepare: boolean) => callback(prepare));
+  return { run: () => run({ evaluate }, true), evaluate, calls };
+}
+
+it('joins Home readiness, Equipment hydration and both real owner frames in one gesture-setup transport', async () => {
+  const h = menuGestureSampleHarness();
+  expect(await h.run()).toMatchObject({ homeSettled: true, shown: true, equipmentSettled: true });
+  expect(h.calls).toEqual(['menu', 'equipment', 'menu', 'frame', 'frame', 'diagnostic']);
+  expect(h.evaluate).toHaveBeenCalledTimes(1);
+});
+
+it('failed Home readiness cannot mount Equipment or read a fabricated gesture baseline', async () => {
+  const h = menuGestureSampleHarness(false);
+  expect(await h.run()).toMatchObject({ homeSettled: false });
+  expect(h.calls).toEqual(['menu']);
+});
+
+function abilityObservationHarness(waits: Array<() => Promise<boolean>>, owner: unknown = { status: 'intro', timeMs: 0 }) {
+  const path = 'browser-tests/ability-comprehension.pw.ts';
+  const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
+  const fn = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'observeAbilityFrame');
+  if (!fn) throw new Error('Missing actual same-frame Ability observer');
+  const state = vi.fn(() => owner), saved = vi.fn(() => 'durable'), frame = vi.fn(() => waits.shift()!());
+  const observe = runInNewContext(ts.transpileModule(fn.getText(source) + '\nobserveAbilityFrame;', {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText, { expect, localStorage: { getItem: saved }, __TOUCH_REPAIR_EVENTS__: [{ type: 'touchcancel', trusted: true }],
+    __MEOWCENARY_VISUAL_TEST__: { waitForInputFrame: frame, runStartIntroDiagnostics: state } }) as
+    (page: unknown, count: number) => Promise<{ state: unknown; saved: string; contacts: unknown[] }>;
+  const evaluate = vi.fn(async (callback: (count: number) => unknown, count: number) => callback(count));
+  return { run: (count: number) => observe({ evaluate }, count), state, saved, frame, evaluate };
+}
+
+it('preserves immediate cancellation facts before the separate admission owner frame', async () => {
+  const h = abilityObservationHarness([async () => true]);
+  h.state.mockReturnValueOnce({ status: 'intro', timeMs: 0, inputNeutral: false });
+  const immediate = await h.run(0);
+  expect(immediate.state).toMatchObject({ status: 'intro', timeMs: 0, inputNeutral: false });
+  expect(immediate.contacts).toEqual([{ type: 'touchcancel', trusted: true }]);
+  expect(immediate.saved).toBe('durable');
+  expect(h.frame).not.toHaveBeenCalled();
+  h.state.mockReturnValueOnce({ status: 'intro', timeMs: 0, inputNeutral: true });
+  const admitted = await h.run(1);
+  expect(admitted.state).toMatchObject({ inputNeutral: true });
+  expect(h.frame).toHaveBeenCalledOnce();
+  expect(h.evaluate).toHaveBeenCalledTimes(2);
+  expect(immediate.state).toMatchObject({ inputNeutral: false });
+});
+
+it('captures state, save and physical contacts only after every sequential owner frame, in one transport', async () => {
+  let finishFirst!: (value: boolean) => void, finishSecond!: (value: boolean) => void;
+  const first = new Promise<boolean>(resolve => { finishFirst = resolve; });
+  const second = new Promise<boolean>(resolve => { finishSecond = resolve; });
+  let secondEntered!: () => void;
+  const entered = new Promise<void>(resolve => { secondEntered = resolve; });
+  const h = abilityObservationHarness([() => first, () => { secondEntered(); return second; }]);
+  const pending = h.run(2);
+  expect(h.frame).toHaveBeenCalledTimes(1); expect(h.state).not.toHaveBeenCalled();
+  finishFirst(true); await entered;
+  expect(h.frame).toHaveBeenCalledTimes(2); expect(h.state).not.toHaveBeenCalled();
+  finishSecond(true);
+  expect(await pending).toMatchObject({ state: { status: 'intro', timeMs: 0 }, saved: 'durable', contacts: [{ type: 'touchcancel', trusted: true }] });
+  expect(h.state).toHaveBeenCalledOnce(); expect(h.saved).toHaveBeenCalledOnce(); expect(h.evaluate).toHaveBeenCalledOnce();
+});
+
+it.each([false, null, 'stale-owner'])('a %s owner frame cannot become an Ability receipt or read durable state', async value => {
+  const h = abilityObservationHarness([async () => value as boolean, async () => true]);
+  await expect(h.run(2)).rejects.toThrow();
+  expect(h.frame).toHaveBeenCalledOnce(); expect(h.state).not.toHaveBeenCalled(); expect(h.saved).not.toHaveBeenCalled();
+});
+
+it('missing Ability state after a completed frame cannot produce a successful receipt', async () => {
+  const h = abilityObservationHarness([async () => true], undefined);
+  // Passing undefined explicitly uses the fixture default; remove the actual
+  // owner through its diagnostic return instead.
+  h.state.mockReturnValueOnce(undefined);
+  await expect(h.run(1)).rejects.toThrow();
+});

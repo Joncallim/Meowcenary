@@ -111,3 +111,61 @@ acceptance result. No screenshot golden was updated or promoted to art authority
 
 Main/public game remain `4f79d6210c3b028b995d67a5cc6e35318b17b2ee`.
 The release hold and original #242 playtest head remain unchanged.
+
+## Follow-up after hosted run 38300805044
+
+Head `2dca83a0fe62330e9ff3d5bfde38cdb6f5d538a8` passed the complete local
+six-profile matrix (602 passed, 64 existing scoped skips, no failures/flakes),
+but [hosted run38300805044](https://github.com/Joncallim/Meowcenary/actions/runs/38300805044)
+ended **595 passed /64 skips /7 failures**. Each failure was a desktop1920
+original30-second deadline: resized brief/relaunch, touch dialogue, performance
+CDP no-contact and owned interruption, native Menu gesture, five-position world
+contrast, and stopped-HUD warm return. The exact-size/SHA256-verified artifact,
+raw diagnostics and all seven failure images were inspected independently.
+The physical-owner evidence and completed contrast samples were not replaced
+with screenshots as success evidence; late facts do not prove timely completion.
+
+This follow-up changes browser/test observations only. A completed owner frame
+can return its diagnostic state in the same evaluation. Admission/completion
+polls use that first sample but retain their original predicates and fallback.
+The performance helper avoids a second active-status transport only when the
+final real frame already reports active; six pending-status cases prove the
+unchanged active predicate is still required. Performance endpoints remain
+unchanged. No keyboard release, CDP cancellation/detach, genuine pointer gesture
+or owner update is synthesized or removed.
+
+Ability launch and dialogue observations join state/save/contact facts after
+the original sequential real frames. Owned interruption keeps immediate
+cancelled contact/state/save assertions **before** its separate post-frame
+readiness assertion. Gesture setup joins the original Home closure, Equipment
+transition/closure and two real frames; every phase, including a fresh
+before-scroll observation, retains its save, panel, focus and physical checks.
+
+World placement joins its first framing predicate. A pending camera still uses
+the original five-second observation-only poll. Fresh capture-time framing and
+all four actual contrast readbacks/two oracle encodes happen afterward in one
+evaluation under the original enclosing test budget. HUD plate counts remain
+post-launch on all three visits, and real terminal input is followed by the
+original Menu-active poll before resource closure. The mocked unit readback
+counter verifies helper invocation only; real browser capture remains the
+pixel oracle.
+
+Independent review rejected and corrected four intermediate scope errors:
+reusing the fresh gesture sample, accepting truthy admissions, moving pixel
+capture into the camera poll, and merging immediate cancellation with its
+later readiness observation. Added negative tests require literal true,
+post-launch plate assertions, sequential frame completion, no stale receipt
+without a diagnostic, and capture outside the settle observation. Original
+helper and strict-admission RED logs are retained externally. The finalized
+focused helper/observation suite is **157 tests/3 files GREEN**. The new deferred
+capture case proves a settle observation does not await pixel work. Independent
+review PASS matches all eight final source/test hashes. All seven exact hosted
+failure classes pass on desktop1920 with the original budgets: five checks in
+63.81s and two touch checks in24.85s, with zero skips/failures/flakes. These are
+normal local runs, not proof of reduced-core or hosted recovery.
+
+No runtime, resource, save, art, golden, timeout, retry, image-threshold, viewport
+or scoped-skip changes are part of this follow-up. Full exact-head local gates,
+the six-profile matrix and hosted CI remain required. Compact Equipment and
+Gunsmith views are still separate unfinished product work; neither owning issue
+is closed by a test recovery. Main/production and the release hold are unchanged.

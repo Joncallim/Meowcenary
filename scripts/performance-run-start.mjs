@@ -59,13 +59,15 @@ export async function waitForPerformanceRunStart(page, input = 'keyboard') {
   const preparedRun = await page.evaluate(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun);
   if (preparedRun.status === 'active') return { preparedRun, compatibility: 'already-active' };
   const read = () => page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__.runStartIntroDiagnostics());
+  let presentedRunAtFrame;
   const frame = async () => {
     const sample = await page.evaluate(async () => {
       const seam = globalThis.__MEOWCENARY_VISUAL_TEST__;
       const completed = await seam.waitForInputFrame();
-      return { completed, state: completed ? seam.runStartIntroDiagnostics() : undefined };
+      return { completed, state: completed === true ? seam.runStartIntroDiagnostics() : undefined,
+        presentedRun: completed === true ? globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun : undefined };
     });
-    assert.equal(sample.completed, true); return sample.state;
+    assert.equal(sample.completed, true); presentedRunAtFrame = sample.presentedRun; return sample.state;
   };
   const release = async () => {
     await releaseRunStartKeys(page);
@@ -136,6 +138,7 @@ export async function waitForPerformanceRunStart(page, input = 'keyboard') {
   const dialogueCommands = [];
   if (initial.commands.some(row => row.command === 'continue')) dialogueCommands.push(await command('continue'));
   const start = await command('start');
-  await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun?.status === 'active');
+  if (presentedRunAtFrame?.status !== 'active')
+    await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun?.status === 'active');
   return { preparedRun, compatibility: 'explicit-intro', dialogueCommands, startCommandAtMs: start.commandAtMs, startedAtMs: start.startedAtMs };
 }

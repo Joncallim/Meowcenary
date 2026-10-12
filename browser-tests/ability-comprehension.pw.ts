@@ -68,6 +68,21 @@ async function frame(page: Page, count = 1): Promise<void> {
   }, count);
   expect(completed).toEqual(Array.from({ length: count }, () => true));
 }
+async function observeAbilityFrame(page: Page, count = 1): Promise<{ state: Diagnostics; saved: string | null; contacts: ContactEvent[] }> {
+  const observation = await page.evaluate(async count => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    const frames: boolean[] = [];
+    for (let index = 0; index < count; index++) {
+      const completed = await seam.waitForInputFrame(); frames.push(completed);
+      if (completed !== true) return { frames };
+    }
+    return { frames, state: seam.runStartIntroDiagnostics(), saved: localStorage.getItem('meowcenary.save.v2'),
+      contacts: (globalThis as Globals & { __TOUCH_REPAIR_EVENTS__?: ContactEvent[] }).__TOUCH_REPAIR_EVENTS__ ?? [] };
+  }, count);
+  expect(observation.frames).toEqual(Array.from({ length: count }, () => true));
+  expect(observation.state).toBeDefined();
+  return observation as { state: Diagnostics; saved: string | null; contacts: ContactEvent[] };
+}
 async function read(page: Page): Promise<Diagnostics> {
   const state = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics());
   expect(state).toBeDefined(); return state!;
@@ -84,8 +99,7 @@ async function launch(page: Page, character = 'scrap-tabby', keepLaunchHeld = fa
   await withRecordedCleanup(undefined, async () => {
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
   }, keepLaunchHeld ? [] : [['launch-key-up', () => page.keyboard.up('Enter')]]);
-  await frame(page, 2);
-  const state = await read(page);
+  const { state } = await observeAbilityFrame(page, 2);
   expect(state.visible).toBe(true); expect(state.status).toBe('intro'); expect(state.timeMs).toBe(0);
   expect(state.enemies).toBe(0);
   expect(state.commands.filter(row => row.command === 'return-menu')).toHaveLength(1);
@@ -240,8 +254,8 @@ test('resize revokes an unfinished Start pointer gesture and Back/relaunch leave
   await seed(page); await openMenu(page); const initial = await launch(page); const beforeSave = await save(page);
   const old = centre(introCommand(initial, 'start', page.viewportSize()!).bounds); await page.mouse.move(old.x, old.y); await page.mouse.down(); await frame(page);
   const viewport = page.viewportSize()!; await page.setViewportSize({ width: viewport.width + 20, height: viewport.height + 20 }); await frame(page, 2);
-  await page.mouse.up(); await frame(page, 2); expect((await read(page)).status).toBe('intro');
-  expect((await read(page)).timeMs).toBe(0); expect(await save(page)).toBe(beforeSave);
+  await page.mouse.up(); const restored = await observeAbilityFrame(page, 2); expect(restored.state.status).toBe('intro');
+  expect(restored.state.timeMs).toBe(0); expect(restored.saved).toBe(beforeSave);
   await capture(page, info, 'resized-frozen-brief');
   await pulse(page, 'Escape');
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
@@ -360,17 +374,18 @@ for (const input of ['keyboard', 'mouse', 'touch'] as const) {
     const beforeSave = await save(page);
     const boss = await activateIntroCommand(page, 'continue', input);
     expect(boss).toMatchObject({ phase: 'boss', revision: 1, status: 'intro', timeMs: 0, runStart: { count: 0 } });
-    const dialogue = await read(page); assertBriefFits(dialogue, page.viewportSize()!);
+    const dialogue = boss as Diagnostics; assertBriefFits(dialogue, page.viewportSize()!);
     expect(dialogue.enemies).toBe(0); expect(await save(page)).toBe(beforeSave);
     expect(dialogue.introText.some(row => row.text.includes(brief.model!.boss!.lines[0]))).toBe(true);
     if (dialogue.scroll!.max > 0) {
-      const body = centre(dialogue.body!); await page.mouse.move(body.x, body.y); await page.mouse.wheel(0, 10000); await frame(page, 2);
-      expect((await read(page)).scroll!.offset).toBe((await read(page)).scroll!.max);
+      const body = centre(dialogue.body!); await page.mouse.move(body.x, body.y); await page.mouse.wheel(0, 10000);
+      const scrolled = await observeAbilityFrame(page, 2);
+      expect(scrolled.state.scroll!.offset).toBe(scrolled.state.scroll!.max);
     }
     await capture(page, info, `boss-dialogue-${input}`);
-    await activateIntroCommand(page, 'start', input);
-    expect((await read(page)).runStart).toMatchObject({ count: 1, timeMs: 0 });
-    expect((await read(page)).enemies).toBeGreaterThanOrEqual(1);
+    const started = await activateIntroCommand(page, 'start', input) as Diagnostics;
+    expect(started.runStart).toMatchObject({ count: 1, timeMs: 0 });
+    expect(started.enemies).toBeGreaterThanOrEqual(1);
   });
 }
 
@@ -421,9 +436,6 @@ async function contactEvents(page: Page): Promise<ContactEvent[]> {
 function frozenIntro(state: Diagnostics, initial: Diagnostics): void {
   expect(state).toMatchObject({ visible: true, status: 'intro', phase: initial.phase, revision: initial.revision, timeMs: 0, runStart: { count: 0 }, terminalEvents: 0 });
   expect(state.identity).toEqual(initial.identity); expect(state.objective).toEqual(initial.objective);
-}
-async function assertPhysicalAdmission(page: Page): Promise<void> {
-  expect(await read(page)).toMatchObject({ visible: true, ready: true, inputNeutral: true, inputQuarantined: false });
 }
 
 // These wrappers observe real CDP calls. The interruption hook runs only after
@@ -485,9 +497,9 @@ for (const helper of ['browser', 'performance'] as const) test(`CDP owned interr
   const initial = await prepareContactProbe(page, false, record), beforeSave = await save(page), sessions: SessionEvent[] = [];
   const interruption = new Error('intentional interruption after a real admitted touchStart');
   const observed = observedContactPage(page, sessions, async () => {
-    await frame(page); frozenIntro(await read(page), initial);
-    expect((await read(page)).inputNeutral).toBe(false);
-    expect((await contactEvents(page)).some(event => event.type === 'touchstart' && event.contacts === 1 && event.trusted)).toBe(true);
+    const held = await observeAbilityFrame(page); frozenIntro(held.state, initial);
+    expect(held.state.inputNeutral).toBe(false);
+    expect(held.contacts.some(event => event.type === 'touchstart' && event.contacts === 1 && event.trusted)).toBe(true);
     throw interruption;
   });
   // Browser old target is Return, fresh target is Start. Performance old target
@@ -496,14 +508,16 @@ for (const helper of ['browser', 'performance'] as const) test(`CDP owned interr
   await expect(operation).rejects.toBe(interruption);
   const owner = sessions.find(event => event.type === 'touchStart')!.session;
   expect(sessions.filter(event => event.session === owner).map(event => event.type)).toEqual(['touchStart', 'send-error', 'touchCancel', 'detach']);
-  const contacts = await contactEvents(page);
+  const cancelled = await observeAbilityFrame(page, 0);
+  const contacts = cancelled.contacts;
   expect(contacts.some(event => event.type === 'touchcancel' && event.trusted && event.contacts === 0)).toBe(true);
   expect(contacts.some(event => event.type === 'pointercancel' && event.trusted)).toBe(true);
   expect(contacts.filter(event => event.type === 'touchend' || event.type === 'click')).toEqual([]);
-  frozenIntro(await read(page), initial); expect(await save(page)).toBe(beforeSave);
-  await frame(page); await assertPhysicalAdmission(page);
-  await activateIntroCommand(page, helper === 'browser' ? 'start' : 'return-menu', 'keyboard');
-  expect((await read(page)).runStart.count).toBe(helper === 'browser' ? 1 : 0);
+  frozenIntro(cancelled.state, initial); expect(cancelled.saved).toBe(beforeSave);
+  const released = await observeAbilityFrame(page);
+  expect(released.state).toMatchObject({ visible: true, ready: true, inputNeutral: true, inputQuarantined: false });
+  const after = await activateIntroCommand(page, helper === 'browser' ? 'start' : 'return-menu', 'keyboard');
+  expect(after.runStart.count).toBe(helper === 'browser' ? 1 : 0);
   record!.note('owned-contact-order', { sessions, contacts });
 }));
 
