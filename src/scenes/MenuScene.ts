@@ -2432,16 +2432,10 @@ export class MenuScene extends Phaser.Scene {
   private syncScrollFocus(focusedIndex: number): void {
     const localIndex = this.scrollLocalIndexByFocusIndex.get(focusedIndex);
     if (!this.scrollRegion || localIndex === undefined) return;
-    // ScrollableFocusRegion intentionally has no mutable-index escape hatch:
-    // move it through the same deterministic navigation path as real input.
-    while (this.scrollRegion.focusedIndex < localIndex) this.scrollRegion.moveFocus('down');
-    while (this.scrollRegion.focusedIndex > localIndex) this.scrollRegion.moveFocus('up');
-    // The region and global navigator both begin at zero. Moving between
-    // indexes therefore cannot reveal an initially focused first action that
-    // follows a tall, non-focusable summary. Apply the same visibility rule
-    // even when their indexes already agree; Up can still deliberately reveal
-    // that prefix and the next Down restores this retained action.
-    this.scrollRegion.ensureVisible(localIndex);
+    // Semantic scene focus is already resolved. Directional traversal can
+    // stay in another grid column forever; assign the exact mapped index.
+    // The region also reveals an unchanged first action below summary text.
+    this.scrollRegion.setFocusedIndex(localIndex);
   }
 
   private applyScrollViewport(): void {
