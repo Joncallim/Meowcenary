@@ -3,6 +3,7 @@ import { resolveDropPresentation } from '../src/presentation/dropPresentation';
 import { loadGameData } from '../src/systems/validation';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
+import { resolveRunPhysicalResources } from '../src/systems/resourceLoader';
 
 const data = loadGameData();
 const weaponRegistry = new DataWeaponRegistry(data);
@@ -15,6 +16,21 @@ const artByKind = {
 };
 
 describe('drop grant presentation resolution', () => {
+  it('closes every exact pickup resource for both authored biomes before spawning', () => {
+    for (const arena of data.arenas) {
+      const resources = resolveRunPhysicalResources({ data, arena,
+        characterId: 'scrap-tabby', encounterEnemyIds: [] });
+      const keys = new Set(resources.map(resource => resource.textureKey));
+      const grants = [{ kind: 'xp', amount: 1 }, { kind: 'scrap', amount: 1 },
+        { kind: 'chest', amount: 0, tableId: 'chest-standard' },
+        ...data.weapons.map(definition => ({ kind: 'weapon', definitionId: definition.id }))] as import('../src/gameplay/loot').LootGrant[];
+      for (const grant of grants) {
+        const plan = resolveDropPresentation(grant, { weaponRegistry, visualArt });
+        expect(keys.has(plan.binding.textureKey), `${arena.id}: ${plan.artId}`).toBe(true);
+      }
+      expect(keys.size).toBe(resources.length);
+    }
+  });
   it.each(data.weapons.map((definition) => [definition.id, definition] as const))(
     'resolves %s to its registered exact tier icon without creating an instance',
     (definitionId, definition) => {

@@ -1,6 +1,8 @@
 # #200 drop presentation and pooled view foundation
 
-This bounded recovery starts from current main `4f79d62`. It adds a pure,
+This bounded recovery was authored from protected main `4f79d62` and is now
+stacked on Contracts #240 `5b6622b`. Reconciliation retained the newer
+GameScene `ownSystem` lifecycle boundary and changed only DropSystem options. It adds a pure,
 immutable grant-to-presentation resolver and integrates one reusable authored
 sprite into the existing Drop pool. GameScene passes its existing shared
 visual-art registry to that owner. Loot grants, data, RNG, pool machinery,
@@ -99,3 +101,37 @@ Native artwork, editable-source/export parity, art validation, actual-size
 Junkyard/Forge and grayscale readability, phone/desktop browser evidence, and
 product-owner visual approval remain separate delivery gates. The oversized
 generated candidate atlas is not promoted as accepted native production art.
+
+## Real pooled browser proof contract
+
+A visual-test-build-only, synchronous Training fixture drives the actual
+DropSystem pool and returns scalar snapshots. It retains no entity references,
+listeners or delayed callbacks. A six-profile browser regression uses ordinary
+prepared-run resources and the shared physical intro confirmation before
+Pistol T1 → reset → Shotgun T3 → blocked → unblocked → reset → Scrap, then
+XP, Chest and a final static Pistol. It asserts unchanged configured physics
+radius, one reusable Sprite, exact registered textures/frames, stopped versus
+playing animation, reset transforms/markers, allocation bounds and unchanged
+save. It captures actual viewport artifacts without adding screenshot goldens.
+The focused test passes all six profiles (39.2 seconds); this is not native-art
+approval. All 36 actual viewport/state captures were independently checked.
+The coordinator inspected full viewport samples and the complete contact sheet.
+Current XP/Scrap/Chest pixels remain legacy validated art, pending re-authoring.
+Both authored-biome resource closures are separately checked against all
+registered grant presentations. Production exclusion must also cover the new
+fixture method. Exact-head full gates, hosted matrix and device/visual review
+remain required; focused tests alone do not close #200.
+
+Independent review reproduced a test-helper defect using installed Phaser: the
+existing visual freeze normalized stopped `currentAnim` metadata and could
+overwrite a reset/reused static texture. A real phone browser RED now asserts
+post-freeze state and fails on Scrap → reset (`art-drop-scrap` rather than
+`__DEFAULT`). The helper now rewinds only playing animations. Global animation
+pause preserves `isPlaying`, so current running-animation normalization remains.
+This is diagnostic evidence repair, not a production gameplay defect. The
+blocked pose uses actual capacity-checked run-rack grants so normal next-frame
+unblocking cannot conceal the presentation state. No durable loadout changes.
+
+Independent core and corrected fixture review: PASS. Focused mechanics/pool/resource
+suites pass 182 tests in five files; ordinary TypeScript passes. Exact final-head
+full repository and hosted matrix results are recorded in issue/PR evidence.

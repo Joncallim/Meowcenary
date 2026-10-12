@@ -16,11 +16,14 @@ import { resolveAbilityEffectPresentation } from './presentation/abilityEffectPr
 import type { GameContext } from './engine/context';
 import type { ComposedRunRequest } from './gameplay/runRequest';
 import { responsiveArenaPresentationBounds } from './gameplay/responsiveArenaPresentation';
-import { createWeaponInstance } from './gameplay/weapons';
+import { createWeaponInstance, type WeaponRegistry } from './gameplay/weapons';
+import { grantWeaponToRack, WEAPON_RACK_CAPACITY } from './gameplay/weaponRack';
 import type { RunState } from './gameplay/runState';
 import type { UpgradeSystem } from './systems/UpgradeSystem';
 import type { UpgradeChooser } from './ui/UpgradeChooser';
 import { DataVisualArtRegistry } from './systems/visualArt';
+import type { Drop } from './entities/Drop';
+import type { LootGrant } from './gameplay/loot';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -368,11 +371,14 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         const animated = child as unknown as {
           anims?: {
             currentAnim?: { frames?: readonly unknown[] };
+            isPlaying: boolean;
             setCurrentFrame?(frame: unknown): void;
           };
         };
         const firstFrame = animated.anims?.currentAnim?.frames?.[0];
-        if (firstFrame) animated.anims?.setCurrentFrame?.(firstFrame);
+        // Phaser retains currentAnim after stop(). Rewinding that metadata
+        // would overwrite a reused static texture or a cleared pooled view.
+        if (firstFrame && animated.anims?.isPlaying) animated.anims.setCurrentFrame?.(firstFrame);
       }
     }
     game.anims.pauseAll();
@@ -439,6 +445,63 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         game.loop.wake();
       },
       isSceneActive: (key: string): boolean => game.scene.isActive(key),
+      pickupPresentationFixture: (command:
+        | { kind: 'spawn'; grant: LootGrant }
+        | { kind: 'reset' | 'inspect'; debugId: number }
+        | { kind: 'blocked'; debugId: number; blocked: boolean }): Record<string, unknown> | undefined => {
+        // Synchronous, Training-only proof through the real pool. Retain no
+        // entity, listener or asynchronous completion between fixture calls.
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          isTraining?: boolean; runState?: RunState; player?: { x: number; y: number };
+          dropSystem?: { spawnDrop(x: number, y: number, grant: LootGrant): Drop;
+            releaseDrop(drop: Drop): void; ownedDrops: readonly Drop[]; weaponRegistry: WeaponRegistry;
+            activeDropCount: number; allocatedDropCount: number };
+        };
+        const owner = scene.dropSystem;
+        if (!game.scene.isActive('GameScene') || !scene.isTraining
+          || scene.runState?.status !== 'active' || !scene.player || !owner) return undefined;
+        const drop = command.kind === 'spawn'
+          ? owner.spawnDrop(scene.player.x + 64, scene.player.y + 64, command.grant)
+          : owner.ownedDrops.find(candidate => candidate.debugId === command.debugId);
+        if (!drop) return undefined;
+        if (command.kind === 'reset') owner.releaseDrop(drop);
+        if (command.kind === 'blocked') {
+          if (!drop.active || drop.grant?.kind !== 'weapon') return undefined;
+          // Establish a real full-rack precondition; otherwise the normal
+          // next update correctly clears this presentation pose.
+          if (command.blocked) {
+            while (scene.runState.equipped.length < WEAPON_RACK_CAPACITY) {
+              if (grantWeaponToRack(scene.runState, drop.grant.definitionId,
+                owner.weaponRegistry).status !== 'added') return undefined;
+            }
+          } else if (scene.runState.equipped.length === WEAPON_RACK_CAPACITY) {
+            scene.runState.equipped.pop();
+          }
+          drop.setPickupBlocked(command.blocked);
+        }
+        const view = (drop as unknown as { artSprite?: Phaser.GameObjects.Sprite;
+          glint: Phaser.GameObjects.Arc });
+        const art = view.artSprite;
+        return {
+          debugId: drop.debugId, active: drop.active, blocked: drop.pickupBlocked,
+          grant: drop.grant ? { ...drop.grant } : undefined,
+          allocated: owner.allocatedDropCount, activeCount: owner.activeDropCount,
+          rackCount: scene.runState.equipped.length,
+          configuredRadius: RuntimeConfig.gameplay.drop.radius,
+          artNodes: owner.ownedDrops.filter(candidate =>
+            Boolean((candidate as unknown as { artSprite?: unknown }).artSprite)).length,
+          body: { radius: drop.body.radius, enabled: drop.body.enable,
+            isCircle: drop.body.isCircle, velocity: { x: drop.body.velocity.x, y: drop.body.velocity.y } },
+          art: art ? { texture: art.texture.key, frame: art.frame.name,
+            animation: art.anims.currentAnim?.key, playing: art.anims.isPlaying,
+            width: art.displayWidth, height: art.displayHeight, alpha: art.alpha,
+            tint: art.tintTopLeft, flipX: art.flipX, flipY: art.flipY,
+            rotation: art.rotation, originX: art.originX, originY: art.originY,
+            x: art.x, y: art.y, visible: art.visible, active: art.active } : undefined,
+          marker: { visible: view.glint.visible, active: view.glint.active,
+            colour: view.glint.fillColor },
+        };
+      },
       waitForInputFrame: (): Promise<boolean> => new Promise((resolve) => {
         if (!game.isRunning || !game.loop.running) { resolve(false); return; }
         const finish = (result: boolean): void => {
