@@ -5209,6 +5209,57 @@ describe('Menu scroll gesture rectangle ownership', () => {
     owner.release(); expect(events).toHaveBeenCalledOnce();
   });
 
+  it.each(['distinct', 'same'] as const)('preserves owner focus through secondary native-order hover/release on a %s target', target => {
+    const { h, scene, before, events } = scrolling('equipment');
+    const row = scene.focusables.find((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportBottom)!;
+    const owner = gesture(h, row, 96);
+    // Phaser TOUCH_START dispatches object/scene DOWN before object OVER.
+    row.state.handlers.pointerover?.(owner.pointer);
+    const focus = { index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex };
+    const secondaryTarget = target === 'same' ? row : h.buttonByLabel('Back')!;
+    const bounds = secondaryTarget.getBounds();
+    const secondary = { id: 97, x: bounds.centerX, y: bounds.centerY, isDown: true };
+    secondaryTarget.state.handlers.pointerdown?.(secondary); h.input.emit('pointerdown', secondary, [secondaryTarget]);
+    secondaryTarget.state.handlers.pointerover?.(secondary);
+    // TOUCH_END dispatches object UP, scene UP, then object OUT.
+    secondary.isDown = false;
+    secondaryTarget.state.handlers.pointerup?.(secondary); h.input.emit('pointerup', secondary);
+    secondaryTarget.state.handlers.pointerout?.(secondary);
+    expect(scene.pointerGesture?.id).toBe(owner.pointer.id);
+    expect(scene.controller.snapshot()).toEqual(before.snapshot); expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset); expect(events).not.toHaveBeenCalled();
+    expect({ index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex }).toEqual(focus);
+    // Ending ownership restores ordinary hover on the existing target.
+    h.input.emit('pointerup', { ...owner.pointer, wasCanceled: true, isDown: false }); scene.update(0, 0);
+    secondaryTarget.state.handlers.pointerover?.(secondary);
+    expect(scene.navigator.index).toBe(scene.focusables.indexOf(secondaryTarget));
+    expect(scene.hoveredIndex).toBe(scene.focusables.indexOf(secondaryTarget));
+    secondaryTarget.state.handlers.pointerout?.(secondary); expect(scene.hoveredIndex).toBe(-1);
+  });
+
+  it.each(['body', 'button'] as const)('rejects secondary native OUT on the primary hovered row with a %s owner', admission => {
+    const { h, scene, events } = scrolling('equipment');
+    const row = scene.focusables.find((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportBottom)!;
+    const bounds = row.getBounds();
+    const owner = { id: 98, x: bounds.centerX, y: bounds.centerY, isDown: true };
+    if (admission === 'button') row.state.handlers.pointerdown?.(owner);
+    h.input.emit('pointerdown', owner, admission === 'button' ? [row] : []);
+    row.state.handlers.pointerover?.(owner);
+    const focus = { index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex };
+    const secondary = { ...owner, id: 99 };
+    row.state.handlers.pointerdown?.(secondary); h.input.emit('pointerdown', secondary, [row]);
+    row.state.handlers.pointerover?.(secondary);
+    secondary.isDown = false;
+    row.state.handlers.pointerup?.(secondary); h.input.emit('pointerup', secondary);
+    row.state.handlers.pointerout?.(secondary);
+    expect(scene.pointerGesture?.id).toBe(owner.id); expect(events).not.toHaveBeenCalled();
+    expect({ index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex }).toEqual(focus);
+  });
+
   it('does not let secondary movement or outside up end or reanchor the owner', () => {
     const { h, scene, before } = scrolling('equipment');
     const owner = { id: 93, x: 120, y: scene.scrollViewportTop + 90, isDown: true };
