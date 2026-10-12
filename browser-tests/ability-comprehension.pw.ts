@@ -374,7 +374,7 @@ test('Skip is deliberate and Return abandons a dialogue intro without facts', as
 });
 
 type ContactEvent = { type: string; atMs: number; contacts: number; trusted: boolean };
-type ReleaseObservation = { touchCancelAtMs?: number; touchFrameAtMs?: number; padReleaseAtMs?: number; padFrameAtMs?: number };
+type ReleaseObservation = { touchCancelAtMs?: number; touchFrameAtMs?: number; padReleaseAtMs?: number; padFrameAtMs?: number; padNeutralEvidence?: unknown };
 type ContactAdmission = { release: ReleaseObservation; dispatches: Array<ReleaseObservation & { key: string; atMs: number; state?: Diagnostics; saved: string | null }> };
 type ContactGlobals = Globals & { __TOUCH_REPAIR_EVENTS__?: ContactEvent[]; __TOUCH_REPAIR_ADMISSION__?: ContactAdmission;
   __MEOWCENARY_TEST_RECORD__?: (phase: string, facts: unknown) => Promise<void> };
@@ -501,6 +501,16 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
   await installPad(page); const initial = await prepareContactProbe(page, false, record), beforeSave = await save(page);
   const owner = await page.context().newCDPSession(page), sessions: SessionEvent[] = [];
   let settled = false;
+  const heldObservation = () => page.evaluate(async () => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    const frames: boolean[] = [];
+    // Observe the same three actual frame boundaries without a driver round
+    // trip per frame/read while the separate physical owner is held.
+    for (let index = 0; index < 3; index++) frames.push(await seam.waitForInputFrame());
+    return { frames, state: seam.runStartIntroDiagnostics()!,
+      saved: localStorage.getItem('meowcenary.save.v2'),
+      contacts: (globalThis as ContactGlobals).__TOUCH_REPAIR_EVENTS__ ?? [] };
+  });
   await page.evaluate(() => {
     const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
     const evidence: ContactAdmission = { release: {}, dispatches: [] };
@@ -536,23 +546,45 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
     // Attach both outcomes immediately while retaining the original rejection.
     void pending.then(() => { settled = true; }, () => { settled = true; });
     await expect.poll(() => sessions.some(event => isNoActiveCdpTouchMessage(event.error))).toBe(true);
-    await frame(page, 3); expect(settled).toBe(false); frozenIntro(await read(page), initial);
-    expect((await read(page)).inputNeutral).toBe(false); expect(await save(page)).toBe(beforeSave);
-    expect((await contactEvents(page)).filter(event => event.type === 'touchcancel')).toEqual([]);
+    const touchHeld = await heldObservation();
+    expect(touchHeld.frames).toEqual([true, true, true]); expect(settled).toBe(false);
+    frozenIntro(touchHeld.state, initial); expect(touchHeld.state.inputNeutral).toBe(false);
+    expect(touchHeld.saved).toBe(beforeSave);
+    expect(touchHeld.contacts.filter(event => event.type === 'touchcancel')).toEqual([]);
     await owner.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
     expect((await contactEvents(page)).some(event => event.type === 'touchcancel' && event.trusted)).toBe(true);
     if (holdPad) {
       // The pad still owns a physical hold here, so these pre-release frozen
       // assertions cannot race with a correctly admitted command.
-      await frame(page, 3); expect(settled).toBe(false); frozenIntro(await read(page), initial);
-      expect((await read(page)).inputNeutral).toBe(false); expect(await save(page)).toBe(beforeSave);
+      const padHeld = await heldObservation();
+      expect(padHeld.frames).toEqual([true, true, true]); expect(settled).toBe(false);
+      frozenIntro(padHeld.state, initial); expect(padHeld.state.inputNeutral).toBe(false);
+      expect(padHeld.saved).toBe(beforeSave);
       await page.evaluate(() => {
         (globalThis as Globals).__ABILITY_PAD__!(2, false);
         const evidence = (globalThis as ContactGlobals).__TOUCH_REPAIR_ADMISSION__!;
         evidence.release.padReleaseAtMs = performance.now();
         void (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame().then(completed => {
           if (completed) { evidence.release.padFrameAtMs = performance.now();
-            void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('pad.release-frame', evidence.release).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ }); }
+            const state = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics() as Diagnostics & {
+              inputPhysicalEvidence?: { core?: boolean; keyboard?: boolean; pointer?: boolean; gamepad?: boolean;
+                nativePads?: Array<{ buttons: Array<{ pressed: boolean; value: number }> } | null>;
+                phaserPads?: Array<{ buttons: Array<{ pressed: boolean; value: number }> } | null> };
+            };
+            const physical = state.inputPhysicalEvidence;
+            evidence.release.padNeutralEvidence = { neutral: state.inputNeutral, quarantined: state.inputQuarantined,
+              core: physical?.core, keyboard: physical?.keyboard, pointer: physical?.pointer, gamepad: physical?.gamepad,
+              nativeButton: physical?.nativePads?.[0]?.buttons[2], phaserButton: physical?.phaserPads?.[0]?.buttons[2] };
+            void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('pad.release-frame', evidence.release).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ });
+            void (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame().then(nextCompleted => {
+              if (!nextCompleted) return;
+              const next = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics() as Diagnostics & {
+                inputPhysicalEvidence?: { core?: boolean; gamepad?: boolean } };
+              void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('pad.next-release-frame', {
+                atMs: performance.now(), neutral: next.inputNeutral, core: next.inputPhysicalEvidence?.core,
+                gamepad: next.inputPhysicalEvidence?.gamepad,
+              }).catch(() => { /* Observation cannot delay or gate input. */ });
+            }); }
         });
       });
     }

@@ -139,3 +139,37 @@ no valid final aggregate. Its archived artifacts and exact RED/GREEN logs
 remain in the external recovery evidence directory. The changed final head
 requires a complete browser matrix and hosted CI; earlier partial execution
 is not acceptance.
+
+## Separate-owner controller fixture and event evidence
+
+Hosted `38230971709` completed at historical `1f8bec1`: 585 passed, 64
+existing scoped skips and 11 failures. Ten are the vocabulary/four images
+above. The eleventh was the five-second neutral-input precondition in the
+separate-CDP-owner/held-controller fixture, before any keyboard command was
+dispatched; it was not the overall thirty-second deadline. The fixture was
+consuming that budget with redundant driver observation round trips while
+deliberately holding the final physical owner.
+
+Each held phase now awaits the same three actual input frames inside one
+page evaluation, then returns one diagnostic/save/contact snapshot. All
+non-neutral, pending-unsatisfied, frozen intro, trusted cancellation and
+unchanged-save assertions remain. The owning input adapter and game logic
+are unchanged; no timeout, retry or skip was increased.
+
+Read-only test-build evidence compares native controller buttons, Phaser
+wrappers and individual input-owner neutrality. Across all six held-controller
+profiles the first post-release POST_STEP shows released native/wrapper buttons
+while the previous logical sample is still held; the next POST_STEP is neutral.
+The actual fresh Enter dispatch independently records a neutral boundary.
+This is bounded normal frame ordering, not a reproduced persistent input hang.
+The next-frame observation never gates or delays the helper.
+
+Both ownership variants pass all six profiles: 12 focused browser tests in
+1.1 minutes, with physical touch admission/cancellation intact. The existing
+VM test executes the real diagnostic arrow; adding native/wrapper evidence
+initially exposed its missing navigator fixture (RED), now repaired with
+realistic read-only stubs and detached-snapshot assertions. Intro/input suites
+pass 97 tests. Ordinary production exclusion explicitly checks the new
+`inputPhysicalEvidence`, `nativePads` and `phaserPads` markers. Full final-head
+gates remain independently required. This tranche records no new #201 runtime
+invariant defect.

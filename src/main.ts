@@ -535,7 +535,26 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         const body = view?.root ? project(Phaser.GameObjects.GetCalcMatrix(view.root, camera, view.root.parentContainer?.getWorldTransformMatrix()).calc,
           view.contentBounds.x, view.contentBounds.y, view.contentBounds.width, view.contentBounds.height) : undefined;
         const fx = scene.abilityPresentationSystem;
-        return { visible: Boolean(view?.root), phase: state?.phase ?? (scene.recovering ? 'cancelled' : 'consumed'), revision: state?.revision ?? null,
+        // Read-only physical evidence at this exact diagnostic call. Never
+        // refresh an adapter or alter held/quarantine state while observing.
+        const controller = scene.inputController as typeof scene.inputController & {
+          core?: { isNeutral(): boolean }; keyboardAdapter?: { isNeutral(): boolean };
+          pointerAdapter?: { isNeutral(): boolean }; gamepadAdapter?: { isNeutral(): boolean };
+        };
+        const actualScene = game.scene.getScene('GameScene');
+        const inputPhysicalEvidence = {
+          core: controller?.core?.isNeutral(), keyboard: controller?.keyboardAdapter?.isNeutral(),
+          pointer: controller?.pointerAdapter?.isNeutral(), gamepad: controller?.gamepadAdapter?.isNeutral(),
+          nativePads: Array.from(navigator.getGamepads?.() ?? [], pad => pad ? {
+            index: pad.index, connected: pad.connected, axes: [...pad.axes],
+            buttons: pad.buttons.map(button => ({ value: button.value, pressed: button.pressed })),
+          } : null),
+          phaserPads: (actualScene.input.gamepad?.gamepads ?? []).map(pad => pad ? {
+            index: pad.index, connected: pad.connected, axes: pad.axes.map(axis => axis.value),
+            buttons: pad.buttons.map(button => ({ value: button.value, pressed: button.pressed })),
+          } : null),
+        };
+        return { inputPhysicalEvidence, visible: Boolean(view?.root), phase: state?.phase ?? (scene.recovering ? 'cancelled' : 'consumed'), revision: state?.revision ?? null,
           status: scene.runState.status, timeMs: scene.runState.timeMs, identity: observedIntroIdentity, objective: observedIntroObjective,
           focusedCommand: view?.focusedCommand(), ready, commands, body, scroll: view ? { offset: view.scrollOffset, max: view.maxScroll } : undefined,
           runStart: { ...observedRunStart }, terminalEvents: observedTerminalEvents,

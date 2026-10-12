@@ -338,20 +338,33 @@ it('observes the exact test-only semantic diagnostic without becoming an intro o
   const target = { width: 120, height: 44, displayOriginX: 0, displayOriginY: 0, parentContainer: content };
   let active = true, physicalNeutral = false, quarantined = true;
   const run = createRunState({ ...request, arenaId: plan.arenaId });
-  const scene: any = { runState: run, getContext: () => ({ bus }), introModel: model, introController: controller,
+  const nativePad = { index: 0, connected: true, axes: [0, 0], buttons: [{ value: 0, pressed: false }] };
+  const phaserPad = { index: 0, connected: true, axes: [{ value: 0 }, { value: 0 }], buttons: [{ value: 0, pressed: false }] };
+  const scene: any = { input: { gamepad: { gamepads: [phaserPad] } },
+    runState: run, getContext: () => ({ bus }), introModel: model, introController: controller,
     introView: { root: { list: [content] }, content, contentBounds: { x: 2, y: 3, width: 150, height: 220 },
       scrollOffset: 7, maxScroll: 80, focusedCommand: () => 'continue', buttons: [{ command: 'continue', label: 'Continue', rect: target }] },
-    inputController: { getInputMode: () => 'keyboard', isNeutral: () => physicalNeutral, isQuarantined: () => quarantined },
+    inputController: { getInputMode: () => 'keyboard', isNeutral: () => physicalNeutral, isQuarantined: () => quarantined,
+      core: { isNeutral: () => physicalNeutral }, keyboardAdapter: { isNeutral: () => true },
+      pointerAdapter: { isNeutral: () => true }, gamepadAdapter: { isNeutral: () => physicalNeutral } },
     canInteractWithIntro: () => active && run.status === 'intro' && !quarantined, cameras: { main: {} },
     abilityPresentationSystem: { banner: { text: 'Actual receipt' }, transient: { kind: 'loot-pulse', radius: 160 } },
   };
   const game = { scene: { getScene: () => scene, isActive: () => active },
     canvas: { getBoundingClientRect: () => ({ left: 5, top: 7, width: 200, height: 320 }) }, scale: { gameSize: { width: 400, height: 640 } } };
-  const read = runInNewContext(js, { game, performance: { now: () => 123 }, Phaser: { GameObjects: { Text,
+  const read = runInNewContext(js, { game, navigator: { getGamepads: () => [nativePad] }, performance: { now: () => 123 }, Phaser: { GameObjects: { Text,
     GetCalcMatrix: () => ({ calc: { transformPoint: (x: number, y: number) => ({ x: 2 * x + 10, y: 2 * y + 20 }) } }) } } });
   expect(read()).toMatchObject({ phase: 'brief', revision: 0, inputNeutral: false, inputQuarantined: true, ready: false,
     runStart: { count: 0 }, commands: [{ command: 'continue', label: 'Continue', enabled: false, bounds: { x: 10, y: 17, width: 120, height: 44 } }],
     introText: [{ text: 'Nested objective', inScrollBody: true }], body: { x: 12, y: 20, width: 150, height: 220 }, scroll: { offset: 7, max: 80 } });
+  const physical = read().inputPhysicalEvidence;
+  expect(physical).toEqual({ core: false, keyboard: true, pointer: true, gamepad: false,
+    nativePads: [nativePad], phaserPads: [{ ...phaserPad, axes: [0, 0] }] });
+  nativePad.buttons[0].pressed = true; phaserPad.buttons[0].pressed = true;
+  expect(physical.nativePads[0].buttons[0].pressed).toBe(false);
+  expect(physical.phaserPads[0].buttons[0].pressed).toBe(false);
+  expect(read().inputPhysicalEvidence.nativePads[0].buttons[0].pressed).toBe(true);
+  nativePad.buttons[0].pressed = false; phaserPad.buttons[0].pressed = false;
   physicalNeutral = true; quarantined = false;
   expect(read()).toMatchObject({ inputNeutral: true, inputQuarantined: false, ready: true });
   controller.command('continue', 0);
