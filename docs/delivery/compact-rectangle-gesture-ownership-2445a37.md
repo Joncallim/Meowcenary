@@ -46,3 +46,23 @@ Browser execution, full test/build gates, independent adversarial review and hos
 RED/GREEN logs and the read-only current-path probe are external under `/home/jon/projects/meowcenary-evidence/issue-burn-2026-10-12/`: `compact-rectangle-current-red-plan.md`, `compact-gesture-admission-red.log`, `compact-gesture-contract-red.log`, `compact-gesture-secondary-red.log`, `compact-gesture-secondary-out-red.log`, `compact-gesture-focused-green.log`, `compact-gesture-lint.log`, and `compact-gesture-browser-typecheck.log`.
 
 The bounded review correction records `compact-gesture-secondary-focus-owning-red.log`, `compact-gesture-secondary-focus-focused-green.log`, `compact-gesture-secondary-focus-lint.log` and `compact-gesture-secondary-focus-browser-typecheck.log`.
+
+## Separate physical-owner observation boundary
+
+PR #246 hosted run 38240675904 at `24a01fc` passed 601 browser cases and
+failed one held-pad fixture before any keyboard dispatch. The actual CDP
+touch cancellation succeeded; the deliberately held pad still kept input
+non-neutral and the helper rejected its unchanged five-second neutral wait.
+The fixture is designed to prove that wait, then release its final owner;
+it must not bypass neutrality or remove the intentional held phase.
+
+The already reviewed #236 correction groups each held phase's same three
+actual POST_STEP observations and state/save/contact snapshots into one page
+evaluation. This removes redundant driver round trips before planned release.
+All original frozen-intro, no-start, non-neutral, no-save, trusted cancellation
+and release-before-dispatch assertions remain; each frame must explicitly
+complete. No timeout, protocol-error classification, input owner, runtime,
+screenshot, retry, or scoped skip changes. The hosted trace proves rejection
+before release; it does not isolate every component of driver latency.
+Focused physical-owner tests, complete final-head gates and exact-head hosted
+CI remain required; this fixture correction adds no #201 runtime finding.

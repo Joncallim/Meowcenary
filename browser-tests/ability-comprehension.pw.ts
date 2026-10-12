@@ -501,6 +501,16 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
   await installPad(page); const initial = await prepareContactProbe(page, false, record), beforeSave = await save(page);
   const owner = await page.context().newCDPSession(page), sessions: SessionEvent[] = [];
   let settled = false;
+  const heldObservation = () => page.evaluate(async () => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    const frames: boolean[] = [];
+    // Observe the same three actual frame boundaries without a driver round
+    // trip per frame/read while the separate physical owner is held.
+    for (let index = 0; index < 3; index++) frames.push(await seam.waitForInputFrame());
+    return { frames, state: seam.runStartIntroDiagnostics()!,
+      saved: localStorage.getItem('meowcenary.save.v2'),
+      contacts: (globalThis as ContactGlobals).__TOUCH_REPAIR_EVENTS__ ?? [] };
+  });
   await page.evaluate(() => {
     const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
     const evidence: ContactAdmission = { release: {}, dispatches: [] };
@@ -536,16 +546,20 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
     // Attach both outcomes immediately while retaining the original rejection.
     void pending.then(() => { settled = true; }, () => { settled = true; });
     await expect.poll(() => sessions.some(event => isNoActiveCdpTouchMessage(event.error))).toBe(true);
-    await frame(page, 3); expect(settled).toBe(false); frozenIntro(await read(page), initial);
-    expect((await read(page)).inputNeutral).toBe(false); expect(await save(page)).toBe(beforeSave);
-    expect((await contactEvents(page)).filter(event => event.type === 'touchcancel')).toEqual([]);
+    const touchHeld = await heldObservation();
+    expect(touchHeld.frames).toEqual([true, true, true]); expect(settled).toBe(false);
+    frozenIntro(touchHeld.state, initial); expect(touchHeld.state.inputNeutral).toBe(false);
+    expect(touchHeld.saved).toBe(beforeSave);
+    expect(touchHeld.contacts.filter(event => event.type === 'touchcancel')).toEqual([]);
     await owner.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
     expect((await contactEvents(page)).some(event => event.type === 'touchcancel' && event.trusted)).toBe(true);
     if (holdPad) {
       // The pad still owns a physical hold here, so these pre-release frozen
       // assertions cannot race with a correctly admitted command.
-      await frame(page, 3); expect(settled).toBe(false); frozenIntro(await read(page), initial);
-      expect((await read(page)).inputNeutral).toBe(false); expect(await save(page)).toBe(beforeSave);
+      const padHeld = await heldObservation();
+      expect(padHeld.frames).toEqual([true, true, true]); expect(settled).toBe(false);
+      frozenIntro(padHeld.state, initial); expect(padHeld.state.inputNeutral).toBe(false);
+      expect(padHeld.saved).toBe(beforeSave);
       await page.evaluate(() => {
         (globalThis as Globals).__ABILITY_PAD__!(2, false);
         const evidence = (globalThis as ContactGlobals).__TOUCH_REPAIR_ADMISSION__!;
