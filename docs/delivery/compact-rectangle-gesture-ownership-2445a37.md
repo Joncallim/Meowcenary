@@ -66,3 +66,48 @@ screenshot, retry, or scoped skip changes. The hosted trace proves rejection
 before release; it does not isolate every component of driver latency.
 Focused physical-owner tests, complete final-head gates and exact-head hosted
 CI remain required; this fixture correction adds no #201 runtime finding.
+
+## Desktop observer recovery after run 38281514365
+
+At `04e21fad0c21f2d5843d343af212f764543ac3b4`, hosted CI passed the preceding
+repository gates but ended with **17 failures / 585 passed / 64 existing scoped
+skips**. All failures were desktop1920 whole-test deadlines. The complete raw
+log and failure ZIP were inspected separately from the physical input contract.
+Seven Ability activation receipts contained the expected one start/activation
+and authoritative result. All five world-readability contrast samples exceeded
+0.6. Owned interruption recorded trusted cancellation, zero remaining contacts
+and no admitted start. The camera failure recorded zero completed poll samples;
+it did not demonstrate a wrong clamp. These are not new #201 runtime defects.
+
+The recorded renderer was around3fps. Four representative unmodified desktop
+checks passed locally. JavaScript throttling4 also passed12 checks and did not
+reproduce the hosted render cost. A controlled two-core-affinity run reproduced
+six original30s deadlines near2fps. The first transport candidate also failed
+all six under that more severe condition. These stress failures remain evidence;
+there is no claim of improved gameplay FPS or a passing stress matrix.
+
+The correction is limited to test observation: reuse the successful immutable
+poll sample, join the same sequential owner-frame waits through one transport,
+read diagnostics and DPR together, and batch placement with the first camera
+observation. A miss still polls the unchanged original readiness predicate.
+Capture-time framing/readbacks remain fresh. Exact duplicate pre-DOWN mouse
+moves are omitted; every nonzero jitter/drag, release, cancellation, detach,
+neutrality check and touch path remains. Assertions, images, deadlines, retries,
+thresholds and scoped skips are unchanged.
+
+Twelve new exported-helper regressions were RED on the preceding source
+(97 existing checks passed). New deferred-frame tests prove sequential ownership,
+false/malformed/rejected-frame short circuiting and unchanged cleanup. Independent
+review caught a missing diagnostics assertion during capture batching; its
+actual-source regression was RED before that guard was restored. The expanded
+focused set is **186 tests/5 files GREEN**, and typecheck passes. Source review
+PASS covers unchanged admission/completion predicates and physical cleanup.
+All44 normal desktop1920 cases across Ability/input, actor framing, world/HUD
+and native Menu gestures pass with no skips or flakes (442.67s). This covers all
+17 hosted failure classes; it is not a passing reduced-core stress experiment.
+Full exact-head repository/browser and hosted gates must still pass before this
+held candidate is engineering-ready. The two-core experiment is not a device
+acceptance result. No screenshot golden was updated or promoted to art authority.
+
+Main/public game remain `4f79d6210c3b028b995d67a5cc6e35318b17b2ee`.
+The release hold and original #242 playtest head remain unchanged.

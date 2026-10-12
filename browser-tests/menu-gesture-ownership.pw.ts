@@ -66,6 +66,7 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
   // Wheel remains genuine mouse input on touch profiles too; the header must
   // never route it into the collection underneath.
   await page.mouse.move(outside.x, outside.y); await page.mouse.wheel(0, 80);
+  let mousePoint = outside;
   expect((await observe('outside-header-wheel')).diagnostic.scroll!.offset).toBe(region.offset);
 
   const touch = Boolean(testInfo.project.use.hasTouch);
@@ -73,12 +74,15 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
   let held = false;
   const down = async (point: Point) => {
     if (session) await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...point, id: 1 }] });
-    else { await page.mouse.move(point.x, point.y); await page.mouse.down(); }
+    else {
+      if (mousePoint.x !== point.x || mousePoint.y !== point.y) await page.mouse.move(point.x, point.y);
+      mousePoint = point; await page.mouse.down();
+    }
     held = true;
   };
   const move = async (point: Point) => {
     if (session) await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...point, id: 1 }] });
-    else await page.mouse.move(point.x, point.y);
+    else { await page.mouse.move(point.x, point.y); mousePoint = point; }
   };
   const up = async () => {
     if (session) await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
