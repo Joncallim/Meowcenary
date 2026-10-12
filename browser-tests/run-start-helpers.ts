@@ -1,10 +1,13 @@
 import { expect, type CDPSession, type Page } from '@playwright/test';
+// @ts-expect-error standalone JavaScript tooling has no declaration file
+import { isNoActiveCdpTouchMessage, releaseRunStartKeys } from '../scripts/performance-run-start.mjs';
+export { isNoActiveCdpTouchMessage };
 
 // The no-contact response describes this CDP session, never page neutrality.
 async function cancelOwnedTouch(session: CDPSession): Promise<void> {
   try { await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); }
   catch (error) {
-    if (!(error instanceof Error) || error.message !== 'cdpSession.send: Protocol error (Input.dispatchTouchEvent): Must send a TouchStart first to start a new touch.') throw error;
+    if (!(error instanceof Error) || !isNoActiveCdpTouchMessage(error.message)) throw error;
   }
 }
 async function withOwnedTouchSession(page: Page, operation?: (session: CDPSession) => Promise<void>): Promise<void> {
@@ -44,7 +47,7 @@ async function inputFrame(page: Page): Promise<void> {
   expect(await page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
 }
 async function releasePreviousGestures(page: Page): Promise<void> {
-  for (const key of ['Enter', 'Space', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', 'q', 'p', 'i']) await page.keyboard.up(key);
+  await releaseRunStartKeys(page);
   // An interrupted old press is cancelled outside its target, not released as
   // a new command. No diagnostic clears the adapter's physical state.
   await page.mouse.move(-1, -1); await page.mouse.up();

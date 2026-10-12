@@ -16,7 +16,9 @@ vi.mock('@playwright/test', async () => {
 });
 
 const NO_CONTACT = 'cdpSession.send: Protocol error (Input.dispatchTouchEvent): Must send a TouchStart first to start a new touch.';
-type Options = { dialogue?: boolean; heldPad?: boolean; cancelFailure?: unknown; createFailure?: unknown; detachFailure?: unknown;
+const WRAPPED_NO_CONTACT = NO_CONTACT.replace('cdpSession.send:', 'cdpSession.apply:');
+const NO_CONTACT_VARIANTS = [NO_CONTACT, WRAPPED_NO_CONTACT];
+type Options = { noContactMessage?: string; dialogue?: boolean; heldPad?: boolean; cancelFailure?: unknown; createFailure?: unknown; detachFailure?: unknown;
   interrupt?: 'touchStart' | 'touchEnd' | 'frame'; operationFailure?: unknown; ownedCancelFailure?: unknown };
 
 function harness(options: Options = {}) {
@@ -66,7 +68,7 @@ function harness(options: Options = {}) {
         if (type === options.interrupt && type !== 'frame') { options.interrupt = undefined; throw options.operationFailure; }
         if (type === 'touchStart') contacts.set(id, neutral() && !quarantined ? hit(touchPoints[0].x, touchPoints[0].y) : undefined);
         else {
-          if (!contacts.has(id)) throw new Error(NO_CONTACT);
+          if (!contacts.has(id)) throw new Error(options.noContactMessage ?? NO_CONTACT);
           const command = contacts.get(id); contacts.delete(id);
           if (type === 'touchEnd') activate(command);
           else events.push({ event: 'actualCancel', session: id });
@@ -100,24 +102,69 @@ function harness(options: Options = {}) {
 
 for (const helper of ['browser', 'performance'] as const) describe(`${helper} exported helper touch ownership`, () => {
   const complete = (page: Page, input: 'keyboard' | 'mouse' | 'touch' = 'keyboard') => helper === 'browser' ? completeRunStartIntro(page, input) : waitForPerformanceRunStart(page, input);
-  for (const input of ['keyboard', 'mouse', 'touch'] as const) for (const dialogue of [false, true]) it(`admits ${input}, dialogue=${dialogue}, despite session-local no-contact`, async () => {
-    const h = harness({ dialogue }); await complete(h.page, input);
+  it('releases independent keys together but admits no frame or command until every physical release settles', async () => {
+    const h = harness(), originalUp = h.page.keyboard.up.bind(h.page.keyboard);
+    const pending: Array<() => void> = []; let releaseOpen = false;
+    h.page.keyboard.up = async key => {
+      if (!releaseOpen) await new Promise<void>(resolve => pending.push(resolve));
+      await originalUp(key);
+    };
+    const completion = complete(h.page);
+    try {
+      for (let turn = 0; turn < 12; turn++) await Promise.resolve();
+      expect(pending).toHaveLength(14);
+      for (const resolve of pending.slice(0, -1)) resolve();
+      for (let turn = 0; turn < 12; turn++) await Promise.resolve();
+      expect(h.events).toEqual([]);
+      expect(h.read().runStart.count).toBe(0);
+    } finally {
+      releaseOpen = true; pending.forEach(resolve => resolve()); await completion;
+    }
+    expect(h.read().runStart.count).toBe(1);
+  });
+  for (const multiple of [false, true]) it(`joins failed key releases without admitting input or losing errors, multiple=${multiple}`, async () => {
+    const h = harness(), originalUp = h.page.keyboard.up.bind(h.page.keyboard);
+    const first = new Error('Enter release failed'), second = new Error('q release failed');
+    const attempted: string[] = [];
+    h.page.keyboard.up = async key => {
+      attempted.push(key);
+      if (key === 'Enter') throw first;
+      if (multiple && key === 'q') throw second;
+      await originalUp(key);
+    };
+    const error = await complete(h.page).catch((value: unknown) => value);
+    expect(attempted).toHaveLength(14);
+    if (multiple) {
+      expect(error).toBeInstanceOf(AggregateError);
+      expect((error as AggregateError).errors).toEqual([first, second]);
+    } else expect(error).toBe(first);
+    expect(h.events).toEqual([]);
+    expect(h.read().runStart.count).toBe(0);
+  });
+  for (const noContactMessage of NO_CONTACT_VARIANTS) for (const input of ['keyboard', 'mouse', 'touch'] as const) for (const dialogue of [false, true]) it(`admits ${input}, dialogue=${dialogue}, despite session-local ${noContactMessage.split(':')[0]} no-contact`, async () => {
+    const h = harness({ dialogue, noContactMessage }); await complete(h.page, input);
     expect(h.events.filter(e => e.event === 'command').map(e => e.command)).toEqual(dialogue ? ['continue', 'start'] : ['start']);
     expect(h.read().runStart).toMatchObject({ count: 1, timeMs: 0 });
     const detached = h.events.filter(e => e.event === 'detach'); expect(detached.length).toBe((dialogue ? 2 : 1) * (input === 'touch' ? 2 : 1));
     for (const { session } of detached) expect(h.events.filter(e => e.event === 'detach' && e.session === session)).toHaveLength(1);
   });
-  const failures = [new Error('unrelated transport failure'), new Error(NO_CONTACT + ' extra'), new Error(NO_CONTACT.replace('Input.dispatchTouchEvent', 'Other.method')), NO_CONTACT, { message: NO_CONTACT }];
+  const failures = [new Error('unrelated transport failure'), ...NO_CONTACT_VARIANTS.flatMap(message => [
+    new Error(message + ' extra'), new Error(message + '\n'),
+    new Error(message.replace('Input.dispatchTouchEvent', 'Other.method')),
+    new Error(message.replace('TouchStart first', 'TouchEnd first')),
+    new Error(message.replace(message.split(':')[0], 'cdpSession.detach')),
+    new Error('unexpected prefix ' + message), message, { message },
+  ])];
   for (const [index, failure] of failures.entries()) it(`propagates unrelated cancellation failure ${index} unchanged before admission`, async () => {
     const h = harness({ cancelFailure: failure }); await expect(complete(h.page)).rejects.toBe(failure);
     expect(h.events.map(e => e.event)).toEqual(['touchCancel', 'detach']);
   });
-  for (const mode of ['createFailure', 'detachFailure'] as const) it(`propagates ${mode} even with the exact benign message`, async () => {
-    const error = new Error(NO_CONTACT), h = harness({ [mode]: error }); await expect(complete(h.page)).rejects.toBe(error);
+  for (const noContactMessage of NO_CONTACT_VARIANTS) for (const mode of ['createFailure', 'detachFailure'] as const) it(`propagates ${mode} even with the exact ${noContactMessage.split(':')[0]} benign message`, async () => {
+    const error = new Error(noContactMessage), h = harness({ [mode]: error, noContactMessage }); await expect(complete(h.page)).rejects.toBe(error);
     expect(h.events.map(e => e.event)).toEqual(mode === 'createFailure' ? [] : ['touchCancel', 'detach']);
   });
-  for (const interrupt of ['touchStart', 'touchEnd', 'frame'] as const) it(`keeps ${interrupt} errors visible and cancels on the owning session before detach`, async () => {
-    const failure = new Error(NO_CONTACT), h = harness({ interrupt, operationFailure: failure });
+  for (const noContactMessage of NO_CONTACT_VARIANTS) for (const interrupt of ['touchStart', 'touchEnd', 'frame'] as const) it(`keeps ${interrupt} ${noContactMessage.split(':')[0]} errors visible and cancels on the owning session before detach`, async () => {
+    const failure = new Error(noContactMessage), h = harness({ interrupt, operationFailure: failure, noContactMessage });
     await expect(complete(h.page, 'touch')).rejects.toBe(failure);
     expect(h.read()).toMatchObject({ status: 'intro', phase: 'brief', revision: 0, runStart: { count: 0 }, terminalEvents: 0 });
     expect(h.contacts.size).toBe(0);
@@ -138,8 +185,8 @@ for (const helper of ['browser', 'performance'] as const) describe(`${helper} ex
     expect(error).toBeInstanceOf(AggregateError); expect((error as AggregateError).errors).toEqual([send, detach]);
     expect(h.events.map(e => e.event)).toEqual(['touchCancel', 'detach']);
   });
-  it('a separate session contact blocks admission until its original owner cancels and a frame completes', async () => {
-    const h = harness(); h.frame(); const owner = await h.newSession();
+  for (const noContactMessage of NO_CONTACT_VARIANTS) it(`a separate session contact blocks admission until its original owner cancels and a frame completes (${noContactMessage.split(':')[0]})`, async () => {
+    const h = harness({ noContactMessage }); h.frame(); const owner = await h.newSession();
     await owner.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 50, y: 40 }] });
     await expect(complete(h.page)).rejects.toThrow(); expect(h.read().inputNeutral).toBe(false); expect(h.contacts.size).toBe(1);
     expect(h.events.filter(e => e.event === 'command')).toEqual([]);
@@ -147,8 +194,8 @@ for (const helper of ['browser', 'performance'] as const) describe(`${helper} ex
     expect(h.read()).toMatchObject({ status: 'intro', phase: 'brief', revision: 0, inputNeutral: true });
     await complete(h.page); expect(h.events.filter(e => e.event === 'command').map(e => e.command)).toEqual(['start']);
   });
-  it('a held physical pad survives the benign cancellation response and blocks all commands', async () => {
-    const h = harness({ heldPad: true }); await expect(complete(h.page)).rejects.toThrow();
+  for (const noContactMessage of NO_CONTACT_VARIANTS) it(`a held physical pad survives the benign cancellation response and blocks all commands (${noContactMessage.split(':')[0]})`, async () => {
+    const h = harness({ heldPad: true, noContactMessage }); await expect(complete(h.page)).rejects.toThrow();
     expect(h.events.filter(e => e.event === 'command')).toEqual([]); expect(h.read().inputNeutral).toBe(false);
     h.options.heldPad = false; h.frame(); await complete(h.page); expect(h.read().runStart.count).toBe(1);
   });

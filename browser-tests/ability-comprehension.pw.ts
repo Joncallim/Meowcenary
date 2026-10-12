@@ -1,5 +1,5 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
-import { activateIntroCommand, completeRunStartIntro, introCommand, type IntroDiagnostics, type Rect } from './run-start-helpers';
+import { activateIntroCommand, completeRunStartIntro, introCommand, isNoActiveCdpTouchMessage, type IntroDiagnostics, type Rect } from './run-start-helpers';
 import type { RunStartIntroModel } from '../src/presentation/runStartIntro';
 import { writeFile } from 'node:fs/promises';
 import { withBrowserDiagnostics, withRecordedCleanup, type DiagnosticRecord } from './diagnostic-records';
@@ -373,7 +373,6 @@ test('Skip is deliberate and Return abandons a dialogue intro without facts', as
   expect(started).toMatchObject({ phase: 'consumed', runStart: { count: 1, timeMs: 0 } });
 });
 
-const NO_ACTIVE_CDP_TOUCH = 'cdpSession.send: Protocol error (Input.dispatchTouchEvent): Must send a TouchStart first to start a new touch.';
 type ContactEvent = { type: string; atMs: number; contacts: number; trusted: boolean };
 type ReleaseObservation = { touchCancelAtMs?: number; touchFrameAtMs?: number; padReleaseAtMs?: number; padFrameAtMs?: number };
 type ContactAdmission = { release: ReleaseObservation; dispatches: Array<ReleaseObservation & { key: string; atMs: number; state?: Diagnostics; saved: string | null }> };
@@ -459,7 +458,7 @@ for (const helper of ['browser', 'performance'] as const) for (const input of ['
     }
     const after = await read(page);
     expect(after).toMatchObject({ phase: 'consumed', revision: null, runStart: { count: 1, timeMs: 0 }, terminalEvents: 0 });
-    expect(sessions.some(event => event.error === NO_ACTIVE_CDP_TOUCH)).toBe(true);
+    expect(sessions.some(event => isNoActiveCdpTouchMessage(event.error))).toBe(true);
     const ids = new Set(sessions.map(event => event.session));
     for (const session of ids) expect(sessions.filter(event => event.session === session && event.type === 'detach')).toHaveLength(1);
     record!.note('cdp-no-contact-sessions', sessions);
@@ -536,7 +535,7 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
     pending = activateIntroCommand(observed, 'start', 'keyboard');
     // Attach both outcomes immediately while retaining the original rejection.
     void pending.then(() => { settled = true; }, () => { settled = true; });
-    await expect.poll(() => sessions.some(event => event.error === NO_ACTIVE_CDP_TOUCH)).toBe(true);
+    await expect.poll(() => sessions.some(event => isNoActiveCdpTouchMessage(event.error))).toBe(true);
     await frame(page, 3); expect(settled).toBe(false); frozenIntro(await read(page), initial);
     expect((await read(page)).inputNeutral).toBe(false); expect(await save(page)).toBe(beforeSave);
     expect((await contactEvents(page)).filter(event => event.type === 'touchcancel')).toEqual([]);
@@ -580,7 +579,7 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
   }, [
     ['owner-cancel', async () => {
       try { await owner.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); }
-      catch (error) { if (!(error instanceof Error) || error.message !== NO_ACTIVE_CDP_TOUCH) throw error; }
+      catch (error) { if (!(error instanceof Error) || !isNoActiveCdpTouchMessage(error.message)) throw error; }
     }],
     ['owner-detach', () => owner.detach()],
     ['pad-release', () => page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, false))],

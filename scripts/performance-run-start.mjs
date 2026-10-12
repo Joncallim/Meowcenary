@@ -1,10 +1,32 @@
 import assert from 'node:assert/strict';
 
+// Playwright names the public call site: direct calls use send, while the
+// diagnostic Proxy's Reflect.apply wrapper uses apply. Match both known call
+// prefixes with the exact Chromium method and no-contact meaning.
+const NO_ACTIVE_CDP_TOUCH_DETAIL = 'Protocol error (Input.dispatchTouchEvent): Must send a TouchStart first to start a new touch.';
+export function isNoActiveCdpTouchMessage(message) {
+  return message === `cdpSession.send: ${NO_ACTIVE_CDP_TOUCH_DETAIL}`
+    || message === `cdpSession.apply: ${NO_ACTIVE_CDP_TOUCH_DETAIL}`;
+}
+
+// Every independent key-up still reaches Playwright's physical keyboard. Join
+// all releases before observing a neutral frame; sequential protocol round
+// trips otherwise cost fourteen rendered frames on software-rendered CI.
+export async function releaseRunStartKeys(page) {
+  const results = await Promise.allSettled(
+    ['Enter', 'Space', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', 'q', 'p', 'i']
+      .map(async key => page.keyboard.up(key)),
+  );
+  const failures = results.filter(result => result.status === 'rejected').map(result => result.reason);
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) throw new AggregateError(failures, 'Physical key releases failed');
+}
+
 // The no-contact response describes this CDP session, never page neutrality.
 async function cancelOwnedTouch(session) {
   try { await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); }
   catch (error) {
-    if (!(error instanceof Error) || error.message !== 'cdpSession.send: Protocol error (Input.dispatchTouchEvent): Must send a TouchStart first to start a new touch.') throw error;
+    if (!(error instanceof Error) || !isNoActiveCdpTouchMessage(error.message)) throw error;
   }
 }
 async function withOwnedTouchSession(page, operation) {
@@ -39,7 +61,7 @@ export async function waitForPerformanceRunStart(page, input = 'keyboard') {
   const read = () => page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__.runStartIntroDiagnostics());
   const frame = async () => assert.equal(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__.waitForInputFrame()), true);
   const release = async () => {
-    for (const key of ['Enter', 'Space', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', 'q', 'p', 'i']) await page.keyboard.up(key);
+    await releaseRunStartKeys(page);
     await page.mouse.move(-1, -1); await page.mouse.up();
     await withOwnedTouchSession(page);
     await frame();
