@@ -1,3 +1,4 @@
+import { hazardActiveDuration, hazardPhase } from '../gameplay/arenaInteractions';
 import type { System } from '../engine/system';
 import type { EventBus } from '../engine/eventBus';
 import type { RunState } from '../gameplay/runState';
@@ -15,6 +16,7 @@ export interface HazardSystemOptions {
   readonly hazards: readonly HazardDefinition[];
   readonly hazardSkins?: readonly ArenaHazardSkinDefinition[];
   readonly visualArt?: VisualArtLookup;
+  readonly reducedMotion?: () => boolean;
 }
 
 export class HazardSystem implements System {
@@ -24,12 +26,16 @@ export class HazardSystem implements System {
   private readonly player: Player;
   private readonly visuals: Phaser.GameObjects.GameObject[] = [];
   private destroyed = false;
+  private elapsedMs = 0;
+  private readonly phaseVisuals = new Map<string, Phaser.GameObjects.TileSprite>();
+  private readonly reducedMotion: () => boolean;
 
   constructor(options: HazardSystemOptions) {
     this.hazards = options.hazards;
     this.runState = options.runState;
     this.bus = options.bus;
     this.player = options.player;
+    this.reducedMotion = options.reducedMotion ?? (() => false);
 
     if (options.scene.add && options.hazards.length > 0 && options.visualArt) {
       const skins = new Map((options.hazardSkins ?? []).map((skin) => [skin.hazardId, skin]));
@@ -48,6 +54,8 @@ export class HazardSystem implements System {
           binding.frameKey,
         ).setDepth(VisualDepth.groundDecoration);
         this.visuals.push(tile);
+        this.phaseVisuals.set(h.id, tile);
+        if (h.pulse) this.paintPhase(h, tile);
       }
     } else if (options.scene.add && options.hazards.length > 0) {
       // Headless/legacy geometry diagnostics do not supply the production art
@@ -68,6 +76,13 @@ export class HazardSystem implements System {
     if (this.hazards.length === 0) return;
     if (!this.player.active) return;
 
+    const startMs = this.elapsedMs;
+    this.elapsedMs += dtMs;
+    for (const hazard of this.hazards) {
+      if (!hazard.pulse) continue;
+      const tile = this.phaseVisuals.get(hazard.id);
+      if (tile) this.paintPhase(hazard, tile);
+    }
     const px = this.player.x;
     const py = this.player.y;
     const r = this.player.bodyRadius;
@@ -84,7 +99,7 @@ export class HazardSystem implements System {
 
       if (!inHazard) continue;
 
-      const damage = hazard.damagePerSecond * dtMs / 1000;
+      const damage = hazard.damagePerSecond * hazardActiveDuration(hazard, startMs, this.elapsedMs) / 1000;
       if (!Number.isFinite(damage) || damage <= 0) continue;
       this.player.takeEnvironmentalDamage(damage);
       this.bus.emit('hazard:triggered', {
@@ -96,11 +111,19 @@ export class HazardSystem implements System {
     }
   }
 
+  private paintPhase(hazard: HazardDefinition, tile: Phaser.GameObjects.TileSprite): void {
+    const phase = hazardPhase(hazard, this.elapsedMs);
+    tile.setAlpha(phase === 'safe' ? 0.25 : phase === 'warning'
+      ? (this.reducedMotion() ? 0.75 : 0.55 + 0.25 * Math.sin(this.elapsedMs / 70)) : 1);
+    tile.setTint(phase === 'warning' ? 0xffd65c : phase === 'active' ? 0xff7156 : 0x829aa0);
+  }
+
   destroy(): void {
     this.destroyed = true;
     for (const rect of this.visuals) {
       rect.destroy();
     }
     this.visuals.length = 0;
+    this.phaseVisuals.clear();
   }
 }

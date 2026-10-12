@@ -4703,6 +4703,96 @@ describe('MenuScene', () => {
     expect(harness.textContents()).toContain('Retry Loading Contract');
   });
 
+  it('preserves one prepared layout on load retry and abandons it on navigation', async () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as any;
+    harness.buttonByLabel('Play Contract')!.state.handlers['pointerup']!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(layout).toBeDefined();
+    harness.buttonByLabel('Retry Loading Contract')!.state.handlers['pointerup']!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    harness.buttonByLabel('Mercenary')!.state.handlers['pointerup']!();
+    expect(scene.capturedLaunch).toBeUndefined();
+    expect(scene.preparedArenaLayout).toBeUndefined();
+    expect(scene.runLaunchState).toBe('idle');
+  });
+
+  it('replays a terminal Stage with the same composition, one fresh Menu seed, and a retryable captured launch', async () => {
+    const harness = createHarness({ create: false });
+    const menuRng = { int: vi.fn(() => 0x1234) };
+    (harness.context as unknown as { menuRng: typeof menuRng }).menuRng = menuRng;
+    const request = {
+      kind: 'stage' as const,
+      characterId: harness.context.characters.defaultCharacterId(),
+      stageId: harness.context.stages.allStages()[0]!.id,
+      seed: 7,
+    };
+
+    harness.menuScene.create({ replayRequest: request, isTraining: false });
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const scene = harness.menuScene as any;
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+    expect(menuRng.int).toHaveBeenCalledWith(0, 0xffff_ffff);
+    expect(captured).toEqual({
+      request: { ...request, seed: 0x1234 },
+      isTraining: false,
+    });
+    expect(layout).toBeDefined();
+    expect(harness.textContents()).toContain('Retry Loading Contract');
+
+    harness.buttonByLabel('Retry Loading Contract')!.state.handlers.pointerup!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps terminal Training replay on Training after load failure, retries the exact launch, and abandons it on Back', async () => {
+    const harness = createHarness({ create: false });
+    const menuRng = { int: vi.fn(() => 0x5678) };
+    (harness.context as unknown as { menuRng: typeof menuRng }).menuRng = menuRng;
+    const request = {
+      kind: 'legacy-arena' as const,
+      characterId: harness.context.characters.defaultCharacterId(),
+      arenaId: harness.context.arenas.defaultArenaId(),
+      seed: 9,
+    };
+
+    harness.menuScene.create({ replayRequest: request, isTraining: true });
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const scene = harness.menuScene as any;
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+    expect(captured).toEqual({
+      request: { ...request, seed: 0x5678 },
+      isTraining: true,
+    });
+    expect(layout).toBeDefined();
+    expect(harness.textContents()).toContain('Training');
+    expect(harness.textContents()).toContain('Retry Training');
+    expect(harness.textContents()).toContain("Couldn't load Training. Retry or go Back.");
+
+    harness.buttonByLabel('Retry Training')!.state.handlers.pointerup!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+
+    harness.buttonByLabel('Back')!.state.handlers.pointerup!();
+    expect(scene.capturedLaunch).toBeUndefined();
+    expect(scene.preparedArenaLayout).toBeUndefined();
+    expect(scene.runLaunchState).toBe('idle');
+  });
+
   it('places a wrapped Contract loading error above Retry without overlap at the narrow viewport', async () => {
     const harness = createHarness({ create: false });
     const scale = harness.menuScene.scale as unknown as { width: number; displaySize: { width: number } };

@@ -27,6 +27,7 @@ type VisualTestSeam = {
   focusFirstEnemy(bossOnly?: boolean): boolean;
   focusPlayer(): boolean;
   showAbilityEffect(): boolean;
+  arenaLayoutDiagnostics(): { timeMs: number } | undefined;
   focusedActorScreenPoint(): { x: number; y: number } | undefined;
   showMenu(panel: string): boolean;
   showUpgradeChooser(): boolean;
@@ -217,6 +218,8 @@ test('fixed art reference compositions retain the Meowcenary visual system', asy
       .__MEOWCENARY_VISUAL_TEST__;
     return seam?.showAbilityEffect() ?? false;
   }), { timeout: visualReadyTimeoutMs }).toBe(true);
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam })
+    .__MEOWCENARY_VISUAL_TEST__?.arenaLayoutDiagnostics()?.timeMs)).toBe(0);
   await page.evaluate(() => {
     const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam })
       .__MEOWCENARY_VISUAL_TEST__;

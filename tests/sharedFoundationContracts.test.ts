@@ -16,7 +16,8 @@ import { assertContentVersion, stampContentVersion } from '../src/engine/content
 
 describe('Alpha 3 shared foundation canonical contracts', () => {
   it('keeps catalog version diagnostic-only and outside the Save V4 shape', () => {
-    expect(loadGameData().contentVersion).toBe('alpha3-1');
+    // Seeded Arena composition/tactical interactions are a new content revision; Save V4 stays unchanged.
+    expect(loadGameData().contentVersion).toBe('alpha3-2');
     expect(JSON.stringify(createDefaultSaveV4())).not.toContain('contentVersion');
   });
 
