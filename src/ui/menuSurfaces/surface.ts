@@ -5,6 +5,13 @@ import type { UiVisualChrome } from '../visualChrome';
 import { MenuSurfaceMount } from './mount';
 
 export type LoadoutMenuPanel = 'loadout' | 'equipment' | 'gunsmith';
+/** Logical Phaser coordinates; one Scene-owned rectangle clips and admits input. */
+export interface MenuScrollRectangle {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
 export interface MenuSurfaceLayout {
   readonly width: number;
   readonly height: number;
@@ -33,7 +40,7 @@ export interface MenuSurfaceControls {
     maxWidth: number, maxHeight: number, ownerIndex?: number, framingIds?: readonly string[]): void;
   addPanelArt(root: Phaser.GameObjects.Container, x: number, y: number, id: string, size: number,
     subdued?: boolean, animate?: boolean, ownerIndex?: number): void;
-  beginScrollableRegion(top: number, bottom: number): void;
+  beginScrollableRegion(rectangleOrTop: Readonly<MenuScrollRectangle> | number, bottom?: number): void;
   endScrollableRegion(): void;
   registerScrollObject(object: Phaser.GameObjects.GameObject, ownerIndex?: number): void;
   buttonIndex(button: Phaser.GameObjects.Text): number;
