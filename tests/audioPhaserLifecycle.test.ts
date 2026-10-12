@@ -621,8 +621,16 @@ describe('issue #237 budget against installed Phaser handle ownership', () => {
     const sound = new BackendManager('web'); const audio = initialize(sound);
     for (let i = 0; i < 256; i++) audio.play('sfx-test');
     expect(sound.sounds).toHaveLength(32); expect(sound.sounds.every(v => v.isPlaying)).toBe(true);
-    for (const voice of [...sound.sounds]) { voice.isPlaying = false; voice.emit('complete'); }
-    for (let i = 0; i < 256; i++) { audio.play('sfx-test'); const voice = sound.sounds.at(-1)!; voice.isPlaying = false; voice.emit('complete'); }
+    // Drive the installed WebAudio onended -> update -> complete path,
+    // without a manager sweep (which would free the retired handles).
+    sound.sounds.forEach((voice, i) => { const node = sound.nodes[i]; node.onended?.({ target: node }); voice.update(0); });
+    for (let i = 0; i < 256; i++) {
+      const created = sound.nodes.length; audio.play('sfx-test');
+      if (sound.nodes.length > created) {
+        const node = sound.nodes.at(-1)!; node.onended?.({ target: node });
+        sound.sounds.at(-1)!.update(0);
+      }
+    }
     expect(sound.sounds).toHaveLength(64); expect(sound.sounds.every(v => v.pendingRemove)).toBe(true);
     sound.tick(); audio.update(16); audio.play('sfx-test');
     expect(sound.sounds).toHaveLength(1); expect(sound.sounds[0].isPlaying).toBe(true);

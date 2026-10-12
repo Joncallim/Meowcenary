@@ -72,8 +72,16 @@ No additional queue, listener, timer, source pool or adaptive stem engine.
 - Installed Phaser 3.90 WebAudio/HTML5 objects prove finite retained counts and
   actual backend-sweep recovery. A priority cue requested inside real
   `BaseSoundManager.update` must still visit all 32 original sounds in order.
-- Full exact-head local/hosted gates and independent adversarial review are
-  **pending**, and are reported separately when completed. No test timeout,
+- Independent adversarial review passes after the retained handoff fix.
+- First hosted candidate `a0ba76e` failed typecheck: the new real-backend test
+  assigned Phaser's readonly `isPlaying` field. A combined local command hid
+  that failure behind its succeeding diff check; the local typecheck claim
+  was incorrect. The corrected fixture drives installed WebAudio's
+  `onended -> update -> complete` path for newly admitted sources, with all
+  count/order/recovery assertions preserved. Typecheck is now run as its
+  own gate. No production code is changed by this test correction.
+- Full exact-head local/hosted gates are **pending** and reported separately
+  when completed. No test timeout,
   assertion, retry, scope, skip, screenshot or threshold has been relaxed.
 
 ## Remaining issue acceptance
