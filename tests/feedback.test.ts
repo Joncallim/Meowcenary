@@ -85,6 +85,7 @@ function createSystem(reducedMotion = false): { bus: EventBus; renderer: ReturnT
     musicVolume: 0.5,
     sfxVolume: 0.5,
     reducedMotion,
+    abilityButtonSide: 'left', // #241 §3.1: required Settings default.
   };
   const renderer = createFakeRenderer();
   const system = new FeedbackSystem({ bus, settings, renderer });
@@ -235,7 +236,7 @@ describe('FeedbackSystem', () => {
   it('updates reduced motion live from settings:changed and cancels heavy motion when enabling it', () => {
     const { bus, renderer } = createSystem(false);
     bus.emit('settings:changed', {
-      settings: { muted: false, musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: true },
+      settings: { muted: false, musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: true, abilityButtonSide: 'left' },
     });
 
     expect(renderer.cancelHeavyMotionCalls).toBe(1);
@@ -247,7 +248,7 @@ describe('FeedbackSystem', () => {
   it('does not cancel heavy motion when settings:changed keeps reduced motion off', () => {
     const { bus, renderer } = createSystem(false);
     bus.emit('settings:changed', {
-      settings: { muted: true, musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: false },
+      settings: { muted: true, musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: false, abilityButtonSide: 'left' },
     });
 
     expect(renderer.cancelHeavyMotionCalls).toBe(0);
@@ -256,7 +257,7 @@ describe('FeedbackSystem', () => {
   it('does not cancel heavy motion when reduced motion was already on', () => {
     const { bus, renderer } = createSystem(true);
     bus.emit('settings:changed', {
-      settings: { muted: false, musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: true },
+      settings: { muted: false, musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: true, abilityButtonSide: 'left' },
     });
 
     expect(renderer.cancelHeavyMotionCalls).toBe(0);

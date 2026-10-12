@@ -175,11 +175,13 @@ describe('V1 → V4 migration chain', () => {
     };
     const v4 = migrate(v1, limits) as SaveDataV4;
     expect(v4.version).toBe(4);
+    // #241 §3.1: historical settings retain their values and gain default Left.
     expect(v4.settings).toEqual({
       muted: true,
       musicVolume: 0.4,
       sfxVolume: 0.6,
       reducedMotion: true,
+      abilityButtonSide: 'left',
     });
     expect(v4.progression.scrap).toBe(0);
     expect(v4.progression.unlocks).toEqual([]);

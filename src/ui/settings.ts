@@ -37,6 +37,7 @@ export class SettingsController {
       musicVolume: settings.musicVolume,
       sfxVolume: settings.sfxVolume,
       reducedMotion: settings.reducedMotion,
+      abilityButtonSide: settings.abilityButtonSide,
       storageAvailable: this.storageAvailable,
     });
   }

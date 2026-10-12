@@ -1552,7 +1552,7 @@ describe('PhaserUpgradeChooserView pointer funnel (§3-G)', () => {
     };
     const feedback = new FeedbackSystem({
       bus,
-      settings: { muted: false, musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: false },
+      settings: { muted: false, musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: false, abilityButtonSide: 'left' },
       renderer,
     });
     const chooser = new UpgradeChooser(

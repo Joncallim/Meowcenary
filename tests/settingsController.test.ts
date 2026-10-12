@@ -12,6 +12,7 @@ import {
 } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 import { cycleVolumeStep, SettingsController } from '../src/ui/settings';
+import { MainMenuController } from '../src/ui/menus';
 
 function setup(storage?: StorageAdapter) {
   const data = loadGameData();
@@ -49,7 +50,60 @@ describe('SettingsController', () => {
     expect(snapshot.musicVolume).toBe(context.settings.musicVolume);
     expect(snapshot.sfxVolume).toBe(context.settings.sfxVolume);
     expect(snapshot.reducedMotion).toBe(context.settings.reducedMotion);
+    // #241 §3.1 requires the enum in the explicit frozen snapshot shape.
+    expect(snapshot.abilityButtonSide).toBe('left');
     expect(snapshot.storageAvailable).toBeNull();
+  });
+
+  it('publishes one side change and keeps no-op/invalid Right patches at the same identity', () => {
+    const { context, controller } = setup();
+    const update = vi.spyOn(context, 'updateSettings');
+    const changed = vi.fn(({ settings }: { readonly settings: typeof context.settings }) => { expect(context.settings).toBe(settings); });
+    const unsubscribe = context.bus.on('settings:changed', changed);
+    try {
+      const before = controller.snapshot();
+      const result = controller.set({ abilityButtonSide: 'right' });
+      expect(update).toHaveBeenCalledTimes(1);
+      expect(result.changed).toBe(true);
+      expect(result.persisted).toBe(true);
+      expect(result.settings.abilityButtonSide).toBe('right');
+      expect(changed).toHaveBeenCalledTimes(1);
+      expect(changed).toHaveBeenCalledWith({ settings: result.settings });
+      expect(controller.snapshot().abilityButtonSide).toBe('right');
+      expect(before.abilityButtonSide).toBe('left');
+      expect(Object.isFrozen(controller.snapshot())).toBe(true);
+      for (const patch of [{}, { abilityButtonSide: 'right' }, { abilityButtonSide: 'RIGHT' }]) {
+        const noOp = controller.set(patch as Parameters<SettingsController['set']>[0]);
+        expect(noOp.settings).toBe(result.settings);
+        expect(noOp.changed).toBe(false);
+        expect(noOp.persisted).toBe(true);
+      }
+      expect(changed).toHaveBeenCalledTimes(1);
+    } finally { unsubscribe(); }
+  });
+
+  it('keeps failed side writes session-only and preserves the existing menu notice', () => {
+    const storage = new FailingStorageAdapter();
+    const { context, controller } = setup(storage);
+    const changed = vi.fn();
+    const unsubscribe = context.bus.on('settings:changed', changed);
+    try {
+      const result = controller.set({ abilityButtonSide: 'right' });
+      expect(result.changed).toBe(true);
+      expect(result.persisted).toBe(false);
+      expect(context.settings).toBe(result.settings);
+      expect(controller.snapshot().abilityButtonSide).toBe('right');
+      expect(controller.snapshot().storageAvailable).toBe(false);
+      expect(changed).toHaveBeenCalledTimes(1);
+      expect(setup(storage).controller.snapshot().abilityButtonSide).toBe('left');
+      const menu = new MainMenuController(context);
+      menu.open('settings');
+      const snapshot = menu.setSettings({ abilityButtonSide: 'right' });
+      expect(snapshot.settings.abilityButtonSide).toBe('right');
+      expect(snapshot.settings.storageAvailable).toBe(false);
+      expect(snapshot.notice).toBe('Saved for this session only');
+      expect(changed).toHaveBeenCalledTimes(1);
+    } finally { unsubscribe(); }
   });
 
   it('calls updateSettings exactly once per set and reports change by identity', () => {
