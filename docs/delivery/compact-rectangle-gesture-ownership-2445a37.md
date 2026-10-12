@@ -8,6 +8,8 @@ Current Equipment and Gunsmith at 360×640 have real overflowing bodies. A wheel
 
 Additional owning regressions reproduced scrolling before 8 CSS pixels, accumulated jitter becoming a drag, secondary button activation, and stale drag movement after resize, render, unmount, shutdown or orientation blocking. A same-button secondary down/up/out also erased the original button's admission; separate failing evidence records that case. Existing canceled-up and blur rejection were preserved.
 
+Independent review of `6d5c71b` then reproduced secondary OVER redirecting logical focus despite rejected DOWN/UP. Committed RED `ce07522` follows actual Phaser object/scene DOWN→OVER and object/scene UP→OUT order: three failures and one passing case. It also reproduces secondary OUT clearing primary hover, and the former button-local OUT guard blocking fresh hover cleanup after the owner ends. Focus-affecting OVER/OUT now use the active scene pointer owner; normal fresh hover resumes after ownership ends.
+
 ## Resulting boundary
 
 `MenuScene` owns one immutable `{ x, y, width, height }` rectangle. The existing top/bottom callers still create their current full-width strips. A rectangle argument enters the same scroll region; the scene copies and validates it before mutation. Its half-open edges govern the single stencil, wheel/down admission, clipped command release and horizontal hit-area eligibility. This slice changes no Equipment/Gunsmith layout or authored geometry.
@@ -31,12 +33,16 @@ PATH=/opt/node22/bin:$PATH npm run lint
 /opt/node22/bin/node node_modules/typescript/bin/tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler --lib ES2022,DOM --types node --skipLibCheck browser-tests/menu-gesture-ownership.pw.ts
 ```
 
-The focused run passes **238 tests** across four files, including 20 rectangle/gesture cases. Lint passes. The browser file receives its own strict type check because the repository's normal lint excludes `browser-tests`.
+The final focused run passes **242 tests** across four files, including 24 rectangle/gesture cases. Lint passes. The browser file receives its own strict type check because the repository's normal lint excludes `browser-tests`.
 
 `browser-tests/menu-gesture-ownership.pw.ts` adds one case per existing profile, without skips, custom budgets or new production diagnostic hooks. Twenty valid stored helmet instances force real overflow. All six profiles check native outside-header wheel, outside-start drag, subthreshold jitter, threshold scrolling, return-to-origin rejection, fresh scrolling and fresh Back activation against unchanged post-boot save bytes. The four existing touch profiles additionally dispatch real CDP cancellation and secondary Back release while the first finger remains held, observing trusted canvas delivery and the existing physical-neutral boundary. Both desktop profiles retain mouse authority; touch emulation is not enabled. No claim is made about unavailable native Phaser flags.
+
+The browser ownership phases also require the exact semantic focused key captured after the primary down to survive secondary contact, release and cancellation. The expectation is captured after legitimate primary hover, preserving ordinary mouse/touch focus behavior rather than requiring a whole-test focus freeze.
 
 CDP's [official active-touch-point contract](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/Input.pdl) generates changes from the supplied active list; the test removes only the secondary via `touchMove` and asserts a trusted native end with one remaining touch. `touchEnd` and `touchCancel` use empty lists.
 
 Browser execution, full test/build gates, independent adversarial review and hosted CI remain coordinator-owned and unverified in this writer's work. The browser test must pass on the six unchanged profiles, including actual touch cancellation on the four touch profiles, before native acceptance is claimed. No browser server or port4173 was used by this writer.
 
 RED/GREEN logs and the read-only current-path probe are external under `/home/jon/projects/meowcenary-evidence/issue-burn-2026-10-12/`: `compact-rectangle-current-red-plan.md`, `compact-gesture-admission-red.log`, `compact-gesture-contract-red.log`, `compact-gesture-secondary-red.log`, `compact-gesture-secondary-out-red.log`, `compact-gesture-focused-green.log`, `compact-gesture-lint.log`, and `compact-gesture-browser-typecheck.log`.
+
+The bounded review correction records `compact-gesture-secondary-focus-owning-red.log`, `compact-gesture-secondary-focus-focused-green.log`, `compact-gesture-secondary-focus-lint.log` and `compact-gesture-secondary-focus-browser-typecheck.log`.

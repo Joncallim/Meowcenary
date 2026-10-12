@@ -1714,6 +1714,7 @@ export class MenuScene extends Phaser.Scene {
       this.rebuildScrollItems();
     }
     text.on(Phaser.Input.Events.POINTER_OVER, (pointer: Phaser.Input.Pointer) => {
+      if (this.pointerGesture && this.pointerGesture.id !== pointer.id) return;
       const focusIndex = this.focusables.indexOf(text);
       if (this.scrollItemIndexes.has(focusIndex)
         && !this.isInsideScrollRectangle(pointer)) return;
@@ -1725,7 +1726,7 @@ export class MenuScene extends Phaser.Scene {
       this.applyFocus();
     });
     text.on(Phaser.Input.Events.POINTER_OUT, (pointer?: Phaser.Input.Pointer) => {
-      if (pointer && admitted && pointer.id !== admitted.id) return;
+      if (pointer && this.pointerGesture && pointer.id !== this.pointerGesture.id) return;
       admitted = undefined;
       if (this.hoveredIndex === index) this.hoveredIndex = -1;
       this.applyFocus();

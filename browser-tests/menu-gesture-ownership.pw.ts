@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 type Point = { x: number; y: number };
 type Button = { key?: string; visible: boolean; interactive: boolean;
   bounds: { x: number; y: number; width: number; height: number } };
-type Diagnostic = { panel: string; buttons: Button[];
+type Diagnostic = { panel: string; focusedKey?: string; buttons: Button[];
   scroll?: { top: number; bottom: number; offset: number; contentHeight: number };
   equipment?: { selectedSlot: string; selectedInstanceId?: string; equipped: Record<string, string> } };
 type Globals = typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: {
@@ -52,12 +52,13 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
   const outside = { x: width * 0.9, y: region.top - 12 };
   const inside = { x: width * 0.9, y: region.top + Math.min(80, (region.bottom - region.top) / 4) };
   const evidence: Array<{ phase: string; state: Awaited<ReturnType<typeof sample>> }> = [];
-  const unchanged = (state: Awaited<ReturnType<typeof sample>>) => {
+  const unchanged = (state: Awaited<ReturnType<typeof sample>>, focus?: Pick<Diagnostic, 'focusedKey'>) => {
     expect(state.frames).toEqual([true, true]); expect(state.saved).toBe(baseline.saved);
     expect(state.diagnostic.panel).toBe('equipment'); expect(state.diagnostic.equipment).toEqual(baseline.diagnostic.equipment);
+    if (focus) expect(state.diagnostic.focusedKey).toBe(focus.focusedKey);
   };
-  const observe = async (phase: string) => {
-    const state = await sample(page); evidence.push({ phase, state }); unchanged(state); return state;
+  const observe = async (phase: string, focus?: Pick<Diagnostic, 'focusedKey'>) => {
+    const state = await sample(page); evidence.push({ phase, state }); unchanged(state, focus); return state;
   };
   // Wheel remains genuine mouse input on touch profiles too; the header must
   // never route it into the collection underneath.
@@ -97,26 +98,32 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
         document.querySelector('canvas')!.dataset.gestureNativeCancel = String(event.isTrusted);
       }, { once: true }));
       await down(inside);
+      const cancelOwner = await observe('native-touch-owner-focus');
       await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); held = false;
-      const cancelled = await observe('native-touch-cancel');
+      const cancelled = await observe('native-touch-cancel', cancelOwner.diagnostic);
       expect(cancelled.nativeCancel).toBe('true'); expect(cancelled.neutral).toBe(true);
       expect(cancelled.diagnostic.scroll!.offset).toBe(returned.diagnostic.scroll!.offset);
       const back = cancelled.diagnostic.buttons.find(button => button.key === 'back')!;
       expect(back).toBeDefined(); expect(back.interactive).toBe(true);
       const secondary = { id: 2, x: back.bounds.x + back.bounds.width / 2, y: back.bounds.y + back.bounds.height / 2 };
       await down(inside);
+      // Primary OVER may legitimately focus its own target. Capture that
+      // semantic authority before the ignored secondary enters Back.
+      const ownerFocus = await observe('multitouch-primary-owned-focus');
+      expect(ownerFocus.diagnostic.focusedKey).toBeDefined();
       await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...inside, id: 1 }, secondary] });
+      await observe('secondary-back-over-with-owner-held', ownerFocus.diagnostic);
       await page.evaluate(() => document.querySelector('canvas')!.addEventListener('touchend', event => {
         document.querySelector('canvas')!.dataset.gestureSecondaryEnd = `${event.isTrusted}:${event.touches.length}`;
       }, { once: true }));
       // CDP's active-point diff releases the omitted secondary, retaining the
       // original finger. TouchEnd/TouchCancel themselves require empty lists.
       await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...inside, id: 1 }] });
-      const secondaryReleased = await observe('secondary-back-release-with-owner-held');
+      const secondaryReleased = await observe('secondary-back-release-with-owner-held', ownerFocus.diagnostic);
       expect(secondaryReleased.secondaryEnd).toBe('true:1'); expect(secondaryReleased.neutral).toBe(false);
       expect(secondaryReleased.diagnostic.scroll!.offset).toBe(cancelled.diagnostic.scroll!.offset);
       await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); held = false;
-      expect((await observe('multitouch-owner-cancelled')).neutral).toBe(true);
+      expect((await observe('multitouch-owner-cancelled', ownerFocus.diagnostic)).neutral).toBe(true);
     }
     const beforeFresh = (await observe('before-fresh-scroll')).diagnostic.scroll!.offset;
     await down(inside); await move({ ...inside, y: inside.y - 40 }); await up();
