@@ -173,3 +173,29 @@ pass 97 tests. Ordinary production exclusion explicitly checks the new
 `inputPhysicalEvidence`, `nativePads` and `phaserPads` markers. Full final-head
 gates remain independently required. This tranche records no new #201 runtime
 invariant defect.
+
+## Keyboard receipt versus scene-owned sampling
+
+The exact `dd8bbc597ced16231230cd66a3e1967be86dd1fb` local full matrix
+completed with 595 passes, 64 existing scoped skips and one failure: phone360
+Career→Achievements→Career→Home stayed on Career after the final Escape.
+The five-second destination predicate failed; the screenshot remained Career
+with Next Goals focused. Neither the resource wait nor the test budget failed.
+
+An independent real InputController/game-manager queue probe reproduced the
+helper's false acknowledgement: native key receipt changed physical neutrality
+before a scene update, allowing both down/up predicates to pass with zero Back
+commands. The historical browser run has no per-key timeline, so its exact
+scheduling is not claimed proven. No runtime or #201 invariant defect is inferred.
+
+Committed RED `f9c21b1` executes all three actual responsive press closures,
+extracted through the TypeScript AST, against that owning adapter rather than
+a copied helper. Twelve cases failed and four positive/cleanup cases passed.
+The helpers now require an already neutral/unquarantined boundary, hold the
+physical key across the existing real POST_STEP observation, and observe a
+frame after release before their unchanged neutral checks. All 16 owning
+regressions pass, including false/throwing frame observations and finally release.
+The 4-second input predicates, 5-second destination predicate, 60-second
+journey budget and all journey assertions remain unchanged. Gameplay/input
+production code is unchanged. Native journeys, full exact-head gates, independent
+review and hosted CI remain required before this candidate is ready.

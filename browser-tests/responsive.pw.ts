@@ -241,8 +241,19 @@ test('keyboard player journey reaches Mercenary and returns Home on the real can
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
   const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
   const press = async (key: string) => step(`key ${key}`, async () => {
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
     await page.keyboard.down(key);
     try {
+      // Native key receipt can change physical neutrality before Menu polls.
+      // Keep the key held across a real scene-owned sample before releasing.
+      expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
       // A fixed key hold can end between Phaser polls under CI load. Keep
       // the real key down until the scene-owned core has sampled that edge.
       await expect.poll(() => page.evaluate(() => {
@@ -258,6 +269,9 @@ test('keyboard player journey reaches Mercenary and returns Home on the real can
     } finally {
       await page.keyboard.up(key);
     }
+    expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+    }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
     // Keyboard actions are polled: give the input owner its neutral edge
     // before another press of the same key. This checks the logical input
     // state after InputController's own per-frame keyboard poll.
@@ -320,8 +334,19 @@ test('keyboard player launches the prepared Contract on the real canvas', async 
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
   const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
   const press = async (key: string) => step(`key ${key}`, async () => {
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
     await page.keyboard.down(key);
     try {
+      // Native key receipt can change physical neutrality before Menu polls.
+      // Keep the key held across a real scene-owned sample before releasing.
+      expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
       // A fixed key hold can end between Phaser polls under CI load. Keep
       // the real key down until the scene-owned core has sampled that edge.
       await expect.poll(() => page.evaluate(() => {
@@ -337,6 +362,9 @@ test('keyboard player launches the prepared Contract on the real canvas', async 
     } finally {
       await page.keyboard.up(key);
     }
+    expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+    }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
     // Keyboard actions are polled: give the input owner its neutral edge
     // before another press of the same key. This checks the logical input
     // state after InputController's own per-frame keyboard poll.
@@ -382,8 +410,19 @@ test('keyboard player journey reaches Career and Achievements on the real canvas
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
   const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
   const press = async (key: string) => step(`key ${key}`, async () => {
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
     await page.keyboard.down(key);
     try {
+      // Native key receipt can change physical neutrality before Menu polls.
+      // Keep the key held across a real scene-owned sample before releasing.
+      expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
       // A fixed key hold can end between Phaser polls under CI load. Keep
       // the real key down until the scene-owned core has sampled that edge.
       await expect.poll(() => page.evaluate(() => {
@@ -399,6 +438,9 @@ test('keyboard player journey reaches Career and Achievements on the real canvas
     } finally {
       await page.keyboard.up(key);
     }
+    expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+    }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
     // Keyboard actions are polled; wait for Phaser's next frame to observe the
     // neutral edge before another press of the same key.
     await expect.poll(() => page.evaluate(() => {
