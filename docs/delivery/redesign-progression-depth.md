@@ -75,6 +75,16 @@ artifact location, not a portable runtime asset or an owner playtest record.
 
 ## Independent review and evidence limits
 
+Local closeout at `dfefffdc4e81f643acd1018f940cec58ce7dd2db` passes lint,
+content validation, the complete art/source/export command, the ordinary unit
+suite and all nine allocation gates plus nine runner probes. The runner exited
+zero (recorded status and complete log); no incomplete wrapper is counted.
+All 18 browser TypeScript modules pass individual strict checks. The ordinary
+production build and resource verification pass: 619 logical bindings, 96
+unique physical textures, 134 packaged files identical to their sources, and
+test/diagnostic globals excluded. Browser-matrix and hosted results remain
+separate exact-head gates; neither is inferred from these local checks.
+
 A fresh read-only Astra domain/save review at
 `52cbdd94c77daab985d3204741c074bf0da5a39b` found no concrete production
 blocker: the original ten definitions are identical, campaign/optional goals
