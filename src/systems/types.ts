@@ -374,6 +374,8 @@ export interface AudioAssetCatalog {
   readonly music: readonly AudioMusicAsset[];
 }
 
+export type AudioPriority = 'combat' | 'feedback' | 'alert' | 'terminal';
+
 /** One event → audio action row in audio-map.json (Epic 10 §6.2). */
 export interface AudioMapEntry {
   readonly event: GameEventKey;
@@ -383,6 +385,8 @@ export interface AudioMapEntry {
    *  `sfxKey` when the family has no entry here. */
   readonly sfxKeyByFamily?: Readonly<Record<string, string>>;
   readonly cooldownMs?: number;
+  /** Finite presentation-only overflow priority; absent means feedback. */
+  readonly priority?: AudioPriority;
   readonly stopMusic?: boolean;
   readonly musicFadeMs?: number;
 }

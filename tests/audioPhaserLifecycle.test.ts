@@ -614,3 +614,45 @@ describe('AudioManager real HTML5 interruption and reentrant ownership', () => {
   });
 
 });
+
+
+describe('issue #237 budget against installed Phaser handle ownership', () => {
+  it('bounds live WebAudio SFX, counts deferred completion, and recovers after the actual backend sweep', () => {
+    const sound = new BackendManager('web'); const audio = initialize(sound);
+    for (let i = 0; i < 256; i++) audio.play('sfx-test');
+    expect(sound.sounds).toHaveLength(32); expect(sound.sounds.every(v => v.isPlaying)).toBe(true);
+    for (const voice of [...sound.sounds]) { voice.isPlaying = false; voice.emit('complete'); }
+    for (let i = 0; i < 256; i++) { audio.play('sfx-test'); const voice = sound.sounds.at(-1)!; voice.isPlaying = false; voice.emit('complete'); }
+    expect(sound.sounds).toHaveLength(64); expect(sound.sounds.every(v => v.pendingRemove)).toBe(true);
+    sound.tick(); audio.update(16); audio.play('sfx-test');
+    expect(sound.sounds).toHaveLength(1); expect(sound.sounds[0].isPlaying).toBe(true);
+    audio.destroy(); sound.tick(); expect(sound.sounds).toHaveLength(0);
+  });
+
+  it.each(['web', 'html'] as const)('%s: keeps one playing music loop while bounding retained replacement handles', backend => {
+    const sound = new BackendManager(backend); const audio = initialize(sound);
+    for (let i = 0; i < 257; i++) audio.playMusic(i % 2 ? 'music-run' : 'music-menu');
+    expect(sound.sounds).toHaveLength(64); expect(sound.sounds.filter(v => v.isPlaying)).toHaveLength(1);
+    sound.tick(); audio.update(16);
+    expect(sound.sounds.filter(v => v.isPlaying).map(v => v.key)).toEqual(['music-menu']);
+    audio.destroy(); sound.tick(); expect(sound.sounds).toHaveLength(0);
+  });
+
+  it('does not splice Phaser iteration when a higher-priority cue is requested inside sound update', () => {
+    const sound = new BackendManager('web'); const bus = createEventBus();
+    const audio = new AudioManager({ sound, cache: { audio: { exists: () => true } } } as never);
+    audio.init(bus, settings, { assets: { sfx: [], music: [] }, map: [
+      { event: 'weapon:fired', sfxKey: 'sfx-combat', priority: 'combat' },
+      { event: 'run:won', sfxKey: 'sfx-terminal', priority: 'terminal' },
+    ] });
+    for (let i = 0; i < 32; i++) audio.play('sfx-combat');
+    const original = [...sound.sounds]; const visited: string[] = [];
+    original.forEach((voice, index) => vi.spyOn(voice, 'update').mockImplementation(() => {
+      visited.push(String(index)); if (index === 0) audio.play('sfx-terminal');
+    }));
+    sound.tick(); expect(visited).toEqual(Array.from({ length: 32 }, (_, i) => String(i)));
+    expect(sound.sounds).toHaveLength(33); expect(original[0].pendingRemove).toBe(true);
+    expect(sound.sounds.filter(v => v.isPlaying)).toHaveLength(32);
+    audio.destroy(); sound.tick(); expect(sound.sounds).toHaveLength(0);
+  });
+});

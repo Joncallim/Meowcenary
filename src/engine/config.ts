@@ -80,6 +80,10 @@ export const RuntimeConfig = {
     maxFeedbackEffects: 96,
     maxHeavyFeedbackEffects: 72,
     maxDefeatPresentations: 24,
+    // Safety ceilings, including paused SFX and handles awaiting backend removal.
+    // These are not an audible mix target or physical-device acceptance.
+    maxSfxVoices: 32,
+    maxAudioOwnedHandles: 64,
   },
   storageKey: 'meowcenary.save.v2',
   isDev: import.meta.env.DEV,
