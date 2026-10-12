@@ -113,3 +113,29 @@ phone/controller/reconnect evidence, and sustained-play evaluation of speed
 thresholds, roster repetition, optional rewards and T4 cost pacing. Correctness
 tests and browser emulation do not establish that the career is fun. Main and
 production remain unchanged; no merge or deployment is authorized by this record.
+
+## Browser recovery: Equipment vocabulary and reviewed catalogue images
+
+The first reconciled head `1f8bec1` passed all non-browser gates but exposed
+a real Equipment row regression: eligible blueprints said BLUEPRINT instead
+of #197's required FABRICABLE state. The existing browser assertion remains
+unchanged. A unit regression failed on the previous copy and passes with
+`FABRICABLE • NOT OWNED`; 212 focused Menu/Equipment tests pass. Eligibility,
+acquisition, costs, preview and commit semantics are unchanged.
+
+Four screenshot baselines were individually inspected against actual output.
+Phone Achievements changes only 0/10 to 0/27 and the longer catalogue's shorter
+scroll thumb. Foldable and desktop Achievements additionally show Champion's
+mechanically derived five-requirement progress (0/5) and the tops of two new
+second/third-column cards in the existing fourth row. Compact Next Goals
+changes only its Achievement denominator to 27. Independent RGBA comparisons
+found zero changed pixels outside those explained regions. No unrelated image,
+timeout, retry, comparison threshold or skip was changed. These images record
+candidate catalogue truth; they do not establish new art authority.
+
+The initial local matrix was interrupted at test 644/660 (exit 143), after
+observing six Equipment-label failures and these four image failures. It has
+no valid final aggregate. Its archived artifacts and exact RED/GREEN logs
+remain in the external recovery evidence directory. The changed final head
+requires a complete browser matrix and hosted CI; earlier partial execution
+is not acceptance.

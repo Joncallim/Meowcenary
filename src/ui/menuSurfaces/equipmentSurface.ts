@@ -117,7 +117,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const blueprints = equipment.blueprints.filter((piece) => piece.slot === equipment.selectedSlot);
     if (blueprints.length) put('AVAILABLE BLUEPRINTS');
     for (const blueprint of blueprints) {
-      const row = this.button(root, left, y, `${blueprint.name}\nBLUEPRINT • NOT OWNED • ${blueprint.fabricationCost} Scrap`, Math.max(hitTarget, this.equipmentMediaExtent() + 24), () => {
+      const row = this.button(root, left, y, `${blueprint.name}\nFABRICABLE • NOT OWNED • ${blueprint.fabricationCost} Scrap`, Math.max(hitTarget, this.equipmentMediaExtent() + 24), () => {
         this.environment.controls.focusNext(`equipment-blueprint-detail:${blueprint.equipmentId}`, true);
         this.environment.onSnapshot(this.commands.selectEquipmentBlueprint(blueprint.equipmentId), 'equipment-selection');
       }, 'ui:confirm', contentWidth, undefined, 48, this.equipmentMediaExtent() + 24, true, 'left');
