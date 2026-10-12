@@ -61,6 +61,7 @@ try {
       const r=region(Candidate,count,columns,mode);r.navigator.setIndex(start);
       r.moveFocus=()=>{throw new Error('Direct reconciliation called directional navigation');};
       for (let target=0;target<count;target++) {
+        r.navigator.setIndex(start); // reset for every start/target pair
         r.setScrollOffset(52);const offset=r.scrollOffset;
         r.setFocusedIndex(target,{reveal:false});assert.equal(r.focusedIndex,target);assert.equal(r.scrollOffset,offset);directCases++;
         r.setFocusedIndex(target);assert.equal(r.focusedIndex,target);
