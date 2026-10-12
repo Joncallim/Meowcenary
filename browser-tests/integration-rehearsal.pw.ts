@@ -11,7 +11,7 @@ type Scenario = 'normal' | 'required-resource-retry' | 'terminal-neutral-warm-re
 type Intro = IntroDiagnostics & { confirmHeld: boolean; inputMode: string; enemies: number;
   identity: { characterId: string; stageId?: string; arenaId: string; seed: number; contentVersion: string } };
 type Action = { label?: string; bounds: Rect; focused: boolean; enabled: boolean };
-type Menu = { panel: string; focusedKey?: string; buttons: Array<{ key?: string; text: string;
+type Menu = { panel: string; focusedKey?: string; copy: string[]; buttons: Array<{ key?: string; text: string;
   visible: boolean; interactive: boolean; focused: boolean; bounds: Rect }> };
 type Preparation = { active: boolean; state: 'idle' | 'loading' | 'failed'; request?: ComposedRunRequest; layout?: ResolvedArenaLayout };
 type Seam = {
@@ -332,6 +332,8 @@ for (const biome of biomes) for (const input of ['touch', 'keyboard', 'controlle
           expect(failed).toMatchObject({ active: true, state: 'failed', request }); expect(failed.layout).toBeDefined();
           expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(false);
           expect(expectedResourceErrors.length).toBeGreaterThan(0); expect(await saved(page)).toBe(beforeSave);
+          const failedCopy = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.menuLoadoutDiagnostics().copy);
+          expect(failedCopy).toContain(stageCatalog.find(stage => stage.id === biome.stageId)!.name);
           await capture(page, info, 'required-resource-failure', { request, beforeSave, failed, expectedResourceErrors });
           // Remove the failure route before real Retry; it must retain the same
           // captured request/layout instead of resolving a new seed.

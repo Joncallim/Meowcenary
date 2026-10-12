@@ -676,7 +676,9 @@ export class MenuScene extends Phaser.Scene {
     const firstHomeChild = root.list.length;
     const selectedCharacter = snapshot.character.characters.find((c) => c.selected);
     const frontier = snapshot.stage.frontier;
-    const selectedStage = snapshot.stage.stages.find((s) => s.id === frontier.stageId)
+    const pendingStageId = this.runLaunchState !== 'idle' && this.capturedLaunch?.request.kind === 'stage'
+      ? this.capturedLaunch.request.stageId : frontier.stageId;
+    const selectedStage = snapshot.stage.stages.find((s) => s.id === pendingStageId)
       ?? snapshot.stage.stages.find((s) => s.selected);
     const campaignComplete = snapshot.stage.completion.campaignComplete;
     const optional = selectedStage?.campaignRole === 'optional';

@@ -4751,6 +4751,52 @@ describe('MenuScene', () => {
     expect(scene.runLaunchState).toBe('idle');
   });
 
+  it('shows the captured Replay Contract after a first clear advances the frontier, then restores the frontier on Back', async () => {
+    const harness = createHarness({ create: false });
+    const stageId = harness.context.selectedStageId;
+    const request = Object.freeze({ kind: 'stage' as const, characterId: harness.context.selectedCharacterId, stageId, seed: 42 });
+    expect(harness.context.settleRunTerminal({ terminalStatus: 'win', runScrap: 0,
+      characterId: request.characterId, runDurationMs: 60_000, stageId })).toMatchObject({ ok: true, firstClear: true });
+    // First-clear platform acknowledgements legitimately update the outbox.
+    // Capture the durable baseline after those completions, before Replay.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const settledSave = harness.context.saveData;
+    const frontierId = harness.context.selectedStageId;
+    expect(frontierId).not.toBe(stageId);
+    const replayStage = harness.context.stages.stageById(stageId)!;
+    const frontierStage = harness.context.stages.stageById(frontierId)!;
+    const seed = vi.spyOn(harness.context.menuRng, 'int');
+    harness.menuScene.create({ replayRequest: request, isTraining: false });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const scene = harness.menuScene as any;
+    expect(scene.runLaunchState).toBe('failed');
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(captured.request.stageId).toBe(stageId);
+    expect(harness.textContents()).toContain('Retry Loading Contract');
+    expect(harness.textContents()).toContain(replayStage.name);
+    expect(harness.textContents()).not.toContain(frontierStage.name);
+    expect(harness.textContents()).toContain('Junkyard Lot  •  Eliminate 25 threats');
+    expect(harness.textContents()).toContain('BEST  1:00');
+    expect(harness.textContents().some(copy => copy.startsWith('FIRST CLEAR'))).toBe(false);
+    harness.buttonByLabel('Retry Loading Contract')!.state.handlers.pointerup!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(harness.textContents()).toContain(replayStage.name);
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    expect(seed).toHaveBeenCalledTimes(1);
+    expect(harness.context.saveData).toBe(settledSave);
+    expect(harness.context.selectedStageId).toBe(frontierId);
+    harness.buttonByLabel('Back')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain(frontierStage.name);
+    expect(harness.textContents()).not.toContain(replayStage.name);
+    expect(harness.textContents()).not.toContain('Retry Loading Contract');
+    expect(scene.capturedLaunch).toBeUndefined();
+    expect(scene.preparedArenaLayout).toBeUndefined();
+    expect(harness.context.saveData).toBe(settledSave);
+    expect(harness.context.selectedStageId).toBe(frontierId);
+  });
+
   it('replays a terminal Stage with the same composition, one fresh Menu seed, and a retryable captured launch', async () => {
     const harness = createHarness({ create: false });
     const menuRng = { int: vi.fn(() => 0x1234) };
