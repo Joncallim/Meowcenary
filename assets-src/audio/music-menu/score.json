@@ -1,0 +1,398 @@
+{
+  "schemaVersion": 1,
+  "key": "music-menu",
+  "title": "Workbench at dusk",
+  "productionAccepted": false,
+  "provenance": {
+    "method": "Original score and deterministic additive/noise synthesis; no external samples, models or downloads.",
+    "author": "Meowcenary issue 237 original audio workstream",
+    "created": "2026-10-12",
+    "thirdPartySources": []
+  },
+  "rendererVersion": 1,
+  "sampleRate": 24000,
+  "channels": 1,
+  "bitsPerSample": 16,
+  "bpm": 80,
+  "beatsPerBar": 4,
+  "bars": 4,
+  "seed": 237,
+  "patches": {
+    "pluck": {
+      "partials": [
+        {
+          "ratio": 1,
+          "gain": 1
+        },
+        {
+          "ratio": 2,
+          "gain": 0.32
+        },
+        {
+          "ratio": 3,
+          "gain": 0.1
+        }
+      ],
+      "gain": 0.15,
+      "attackSeconds": 0.006,
+      "releaseSeconds": 0.025,
+      "decay": 5,
+      "noiseMix": 0
+    },
+    "bass": {
+      "partials": [
+        {
+          "ratio": 1,
+          "gain": 1
+        },
+        {
+          "ratio": 2,
+          "gain": 0.4
+        },
+        {
+          "ratio": 3,
+          "gain": 0.14
+        }
+      ],
+      "gain": 0.13,
+      "attackSeconds": 0.008,
+      "releaseSeconds": 0.045,
+      "decay": 2.5,
+      "noiseMix": 0
+    },
+    "tick": {
+      "partials": [
+        {
+          "ratio": 1,
+          "gain": 1
+        },
+        {
+          "ratio": 2.4,
+          "gain": 0.3
+        }
+      ],
+      "gain": 0.045,
+      "attackSeconds": 0.002,
+      "releaseSeconds": 0.008,
+      "decay": 6,
+      "noiseMix": 0.78
+    },
+    "metal": {
+      "partials": [
+        {
+          "ratio": 1,
+          "gain": 1
+        },
+        {
+          "ratio": 2.01,
+          "gain": 0.3
+        },
+        {
+          "ratio": 3.98,
+          "gain": 0.08
+        }
+      ],
+      "gain": 0.075,
+      "attackSeconds": 0.007,
+      "releaseSeconds": 0.045,
+      "decay": 4.5,
+      "noiseMix": 0
+    }
+  },
+  "events": [
+    {
+      "beat": 0,
+      "patch": "pluck",
+      "note": 69,
+      "durationSeconds": 0.46,
+      "velocity": 0.92
+    },
+    {
+      "beat": 0,
+      "patch": "bass",
+      "note": 45,
+      "durationSeconds": 0.58,
+      "velocity": 0.85
+    },
+    {
+      "beat": 0.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.65
+    },
+    {
+      "beat": 1.5,
+      "patch": "pluck",
+      "note": 72,
+      "durationSeconds": 0.46,
+      "velocity": 0.72
+    },
+    {
+      "beat": 1.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.9
+    },
+    {
+      "beat": 2,
+      "patch": "bass",
+      "note": 52,
+      "durationSeconds": 0.58,
+      "velocity": 0.85
+    },
+    {
+      "beat": 2.5,
+      "patch": "pluck",
+      "note": 76,
+      "durationSeconds": 0.46,
+      "velocity": 0.72
+    },
+    {
+      "beat": 2.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.65
+    },
+    {
+      "beat": 3.25,
+      "patch": "pluck",
+      "note": 72,
+      "durationSeconds": 0.46,
+      "velocity": 0.72
+    },
+    {
+      "beat": 3.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.9
+    },
+    {
+      "beat": 3.75,
+      "patch": "metal",
+      "note": 76,
+      "durationSeconds": 0.52,
+      "velocity": 0.65
+    },
+    {
+      "beat": 4,
+      "patch": "pluck",
+      "note": 69,
+      "durationSeconds": 0.46,
+      "velocity": 0.92
+    },
+    {
+      "beat": 4,
+      "patch": "bass",
+      "note": 41,
+      "durationSeconds": 0.58,
+      "velocity": 0.85
+    },
+    {
+      "beat": 4.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.65
+    },
+    {
+      "beat": 5.5,
+      "patch": "pluck",
+      "note": 67,
+      "durationSeconds": 0.46,
+      "velocity": 0.72
+    },
+    {
+      "beat": 5.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.9
+    },
+    {
+      "beat": 6,
+      "patch": "bass",
+      "note": 48,
+      "durationSeconds": 0.58,
+      "velocity": 0.85
+    },
+    {
+      "beat": 6.5,
+      "patch": "pluck",
+      "note": 64,
+      "durationSeconds": 0.46,
+      "velocity": 0.72
+    },
+    {
+      "beat": 6.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.65
+    },
+    {
+      "beat": 7.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.9
+    },
+    {
+      "beat": 7.75,
+      "patch": "metal",
+      "note": 72,
+      "durationSeconds": 0.52,
+      "velocity": 0.65
+    },
+    {
+      "beat": 8,
+      "patch": "pluck",
+      "note": 67,
+      "durationSeconds": 0.46,
+      "velocity": 0.92
+    },
+    {
+      "beat": 8,
+      "patch": "bass",
+      "note": 48,
+      "durationSeconds": 0.58,
+      "velocity": 0.85
+    },
+    {
+      "beat": 8.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.65
+    },
+    {
+      "beat": 9.5,
+      "patch": "pluck",
+      "note": 72,
+      "durationSeconds": 0.46,
+      "velocity": 0.72
+    },
+    {
+      "beat": 9.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.9
+    },
+    {
+      "beat": 10,
+      "patch": "bass",
+      "note": 55,
+      "durationSeconds": 0.58,
+      "velocity": 0.85
+    },
+    {
+      "beat": 10.5,
+      "patch": "pluck",
+      "note": 76,
+      "durationSeconds": 0.46,
+      "velocity": 0.72
+    },
+    {
+      "beat": 10.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.65
+    },
+    {
+      "beat": 11.25,
+      "patch": "pluck",
+      "note": 74,
+      "durationSeconds": 0.46,
+      "velocity": 0.72
+    },
+    {
+      "beat": 11.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.9
+    },
+    {
+      "beat": 11.75,
+      "patch": "metal",
+      "note": 79,
+      "durationSeconds": 0.52,
+      "velocity": 0.65
+    },
+    {
+      "beat": 12,
+      "patch": "pluck",
+      "note": 71,
+      "durationSeconds": 0.46,
+      "velocity": 0.92
+    },
+    {
+      "beat": 12,
+      "patch": "bass",
+      "note": 43,
+      "durationSeconds": 0.58,
+      "velocity": 0.85
+    },
+    {
+      "beat": 12.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.65
+    },
+    {
+      "beat": 13.5,
+      "patch": "pluck",
+      "note": 67,
+      "durationSeconds": 0.46,
+      "velocity": 0.72
+    },
+    {
+      "beat": 13.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.9
+    },
+    {
+      "beat": 14,
+      "patch": "bass",
+      "note": 50,
+      "durationSeconds": 0.58,
+      "velocity": 0.85
+    },
+    {
+      "beat": 14.5,
+      "patch": "pluck",
+      "note": 64,
+      "durationSeconds": 0.46,
+      "velocity": 0.72
+    },
+    {
+      "beat": 14.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.65
+    },
+    {
+      "beat": 15.5,
+      "patch": "tick",
+      "note": 60,
+      "durationSeconds": 0.048,
+      "velocity": 0.9
+    },
+    {
+      "beat": 15.75,
+      "patch": "metal",
+      "note": 74,
+      "durationSeconds": 0.52,
+      "velocity": 0.65
+    }
+  ]
+}
