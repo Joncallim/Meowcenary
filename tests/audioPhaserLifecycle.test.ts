@@ -116,6 +116,13 @@ function initialize(sound: unknown): AudioManager {
   return audio;
 }
 
+function deferred(): { promise: Promise<void>; resolve(): void; reject(reason: unknown): void } {
+  let resolve!: () => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
 describe('AudioManager with installed Phaser 3.90 sound backends', () => {
   it('does not retain failed NoAudio handles even without a manager update loop', () => {
     const sound = new NoAudioManager({} as never);
@@ -388,23 +395,200 @@ describe('AudioManager real HTML5 interruption and reentrant ownership', () => {
     sound.destroy();
   });
 
-  it('characterizes inherited HTML5 promise rejection: synchronous success can leave same-key intent latched', async () => {
+  it('retires a refused native HTML5 attempt and allows an explicit same-key retry', async () => {
     const sound = htmlManager();
     const audio = initialize(sound);
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const failure = new Error('Browser denied playback');
-    vi.spyOn(AudioTag.prototype, 'play').mockImplementation(() => Promise.reject(failure));
+    vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => Promise.reject(failure));
     audio.playMusic('music-run');
     await Promise.resolve();
     sound.update(0, 16);
     audio.update(16);
-    const voice = sound.sounds[0];
-    expect(voice.isPlaying).toBe(true); // Phaser reports acceptance, not audible playback.
-    expect(voice.audio?.paused).toBe(true);
+    expect(sound.sounds).toHaveLength(0);
     expect(warning).toHaveBeenCalledWith(failure);
     audio.playMusic('music-run');
-    expect(sound.sounds).toEqual([voice]); // Known limitation; no automatic retry is claimed.
+    expect(sound.sounds).toHaveLength(1);
+    expect(sound.sounds[0].isPlaying).toBe(true);
+    expect(sound.sounds[0].audio?.paused).toBe(false);
     audio.destroy();
     sound.destroy();
   });
+
+  it('retries known-refused latest music through unlock with Phaser already unlocked', async () => {
+    const sound = htmlManager();
+    const audio = initialize(sound);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const play = vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => Promise.reject(new Error('policy')));
+    audio.playMusic('music-run');
+    await Promise.resolve();
+    expect(sound.sounds).toHaveLength(0);
+    expect(play).toHaveBeenCalledTimes(1); // Never immediately retry a refusal.
+    audio.applySettings({ ...settings, musicVolume: 0.3, muted: true });
+    audio.unlock();
+    expect(sound.sounds).toHaveLength(1);
+    expect(sound.sounds[0].volume).toBe(0.3);
+    expect(sound.sounds[0].mute).toBe(true);
+    const replacement = sound.sounds[0];
+    audio.unlock();
+    audio.playMusic('music-run');
+    expect(sound.sounds).toEqual([replacement]);
+    expect(play).toHaveBeenCalledTimes(2);
+    audio.destroy(); sound.destroy();
+  });
+
+  it('allows same-key intent while its Promise is pending without stranding a later refusal', async () => {
+    const sound = htmlManager(); const audio = initialize(sound);
+    const attempt = deferred();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => attempt.promise);
+    audio.playMusic('music-run'); audio.playMusic('music-run');
+    expect(sound.sounds).toHaveLength(1);
+    attempt.reject(new Error('policy')); await Promise.resolve();
+    expect(sound.sounds).toHaveLength(0);
+    audio.unlock(); expect(sound.sounds).toHaveLength(1);
+    audio.destroy(); sound.destroy();
+  });
+
+  it('keeps repeated refusal bounded and never retries rejected SFX on unlock', async () => {
+    const sound = htmlManager(); const audio = initialize(sound);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const play = vi.spyOn(AudioTag.prototype, 'play').mockImplementation(() => Promise.reject(new Error('policy')));
+    audio.play('sfx-test'); audio.playMusic('music-run');
+    await Promise.resolve(); expect(sound.sounds).toHaveLength(0);
+    audio.unlock(); await Promise.resolve(); expect(sound.sounds).toHaveLength(0);
+    audio.unlock(); await Promise.resolve(); expect(sound.sounds).toHaveLength(0);
+    expect(play).toHaveBeenCalledTimes(4); // Initial SFX/music + two music retries.
+    audio.stopMusic(); audio.unlock(); expect(play).toHaveBeenCalledTimes(4);
+    audio.destroy(); sound.destroy();
+  });
+
+  it.each(['replace', 'stop', 'fade', 'destroy', 'external-destroy'] as const)(
+    'a deferred native rejection after %s cannot resurrect terminal music or damage replacement', async action => {
+      const sound = htmlManager(); const audio = initialize(sound);
+      const attempt = deferred();
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => attempt.promise);
+      audio.playMusic('music-run');
+      const original = sound.sounds[0];
+      const nativeMethod = HtmlSound.prototype.playCatchPromise;
+      expect(Object.hasOwn(original, 'playCatchPromise')).toBe(true);
+      if (action === 'replace') audio.playMusic('music-menu');
+      else if (action === 'stop') audio.stopMusic();
+      else if (action === 'fade') audio.stopMusic(100);
+      else if (action === 'destroy') audio.destroy();
+      else original.destroy();
+      attempt.reject(new Error('late policy')); await Promise.resolve();
+      audio.unlock(); sound.update(0, 16); audio.update(16);
+      expect(original.playCatchPromise).toBe(nativeMethod);
+      expect(Object.hasOwn(original, 'playCatchPromise')).toBe(false);
+      if (action === 'replace') {
+        expect(sound.sounds).toHaveLength(1);
+        expect(sound.sounds[0].key).toBe('music-menu');
+        expect(sound.sounds[0].isPlaying).toBe(true);
+      } else expect(sound.sounds).toHaveLength(0);
+      audio.destroy(); sound.destroy();
+    },
+  );
+
+  it.each(['missing', 'locked'] as const)('newer %s intent suppresses retry of a deferred old rejection', async action => {
+    const sound = new BackendManager('html');
+    const scene = { sound, cache: { audio: { exists: (key: string) => key !== 'missing' } } };
+    const audio = new AudioManager(scene as never);
+    audio.init(createEventBus(), settings, { assets: { sfx: [], music: [] }, map: [] });
+    const attempt = deferred();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => attempt.promise);
+    audio.playMusic('music-run');
+    if (action === 'locked') sound.locked = true;
+    audio.playMusic(action === 'missing' ? 'missing' : 'music-menu');
+    attempt.reject(new Error('late policy')); await Promise.resolve();
+    sound.locked = false; audio.unlock(); sound.emit('unlocked'); sound.tick();
+    if (action === 'locked') expect(sound.sounds.map(voice => voice.key)).toEqual(['music-menu']);
+    else expect(sound.sounds).toHaveLength(0);
+    audio.destroy();
+  });
+
+  it('newer missing intent clears an already recorded retry', async () => {
+    const sound = new BackendManager('html');
+    const audio = new AudioManager({ sound, cache: { audio: { exists: (key: string) => key !== 'missing' } } } as never);
+    audio.init(createEventBus(), settings, { assets: { sfx: [], music: [] }, map: [] });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => Promise.reject(new Error('policy')));
+    audio.playMusic('music-run'); await Promise.resolve();
+    audio.playMusic('missing'); audio.unlock(); expect(sound.sounds).toHaveLength(0);
+    audio.destroy();
+  });
+
+  it('a stale rejected resume attempt cannot retire the same voice after a newer attempt', async () => {
+    const sound = htmlManager(); const audio = initialize(sound);
+    const first = deferred(), second = deferred();
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => first.promise).mockImplementationOnce(() => second.promise);
+    audio.playMusic('music-run'); const voice = sound.sounds[0];
+    sound.onGameBlur(); sound.onGameFocus();
+    second.resolve(); await Promise.resolve();
+    first.reject(new Error('old policy')); await Promise.resolve();
+    expect(warning).toHaveBeenCalledTimes(1);
+    expect(sound.sounds).toEqual([voice]); expect(voice.pendingRemove).toBe(false);
+    audio.playMusic('music-run'); expect(sound.sounds).toEqual([voice]);
+    audio.destroy(); sound.destroy();
+  });
+
+  it('a rejected old native tag attempt cannot damage the voice that stole its tag', async () => {
+    const sound = new BackendManager('html'); const audio = initialize(sound);
+    const first = deferred();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => first.promise);
+    audio.play('sfx-test'); const old = sound.sounds[0];
+    audio.play('sfx-test'); const latest = sound.sounds[1];
+    expect((old as Phaser.Sound.HTML5AudioSound).audio).toBeNull();
+    first.reject(new Error('old policy')); await Promise.resolve();
+    audio.update(16); sound.tick();
+    expect(sound.sounds).toEqual([latest]); expect(latest.isPlaying).toBe(true);
+    audio.unlock(); expect(sound.sounds).toEqual([latest]);
+    audio.destroy();
+  });
+
+  it('a stale pre-blur rejection preserves paused voices and ordinary focus resumption', async () => {
+    const sound = htmlManager(); const audio = initialize(sound);
+    const first = deferred();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => first.promise);
+    audio.playMusic('music-run'); const voice = sound.sounds[0];
+    const unrelated = sound.add('unrelated'); unrelated.play();
+    sound.onGameBlur();
+    first.reject(new Error('policy')); await Promise.resolve();
+    expect(sound.onBlurPausedSounds).toEqual([voice, unrelated]);
+    expect(voice.pendingRemove).toBe(false);
+    sound.onGameFocus(); expect(unrelated.isPlaying).toBe(true);
+    expect(voice.isPlaying).toBe(true);
+    audio.unlock(); expect(sound.sounds).toHaveLength(2);
+    audio.destroy(); sound.destroy();
+  });
+
+  it('HTML5 synchronous throw releases its seam and legacy no-Promise retry works', () => {
+    const sound = htmlManager(); const audio = initialize(sound);
+    vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => { throw new Error('native throw'); });
+    audio.playMusic('music-run'); expect(sound.sounds).toHaveLength(0);
+    audio.unlock(); expect(sound.sounds).toHaveLength(0); // Only known Promise refusal retries.
+    audio.playMusic('music-run'); expect(sound.sounds[0].isPlaying).toBe(true);
+    audio.destroy(); sound.destroy();
+  });
+
+
+  it.each(['mute', 'destroy', 'gain'] as const)('deferred SFX refusal after %s retires without an unlock burst', async action => {
+    const sound = htmlManager(); const audio = initialize(sound);
+    const first = deferred();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const play = vi.spyOn(AudioTag.prototype, 'play').mockImplementationOnce(() => first.promise);
+    audio.play('sfx-test');
+    if (action === 'destroy') audio.destroy();
+    else audio.applySettings({ ...settings, muted: action === 'mute', sfxVolume: 0.2 });
+    first.reject(new Error('policy')); await Promise.resolve();
+    audio.unlock(); sound.update(0, 16);
+    expect(sound.sounds).toHaveLength(0); expect(play).toHaveBeenCalledTimes(1);
+    audio.destroy(); sound.destroy();
+  });
+
 });

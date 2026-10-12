@@ -33,8 +33,9 @@ function eventFamilyTier(
  * stop/fade); per-key cooldowns gate SFX through the pure `shouldPlay` and
  * the update-driven clock; the manager reads `scene.sound.locked` live (SFX
  * dropped while locked, music deferred via `pendingMusicKey` and flushed on
- * the sound manager's 'unlocked' event); fades are a manual volume ramp in
- * `update`, never scene tweens; settings apply live from
+ * the sound manager's 'unlocked' event); known native HTML5 refusals retire
+ * their voice and may retry latest music through playMusic or existing unlock;
+ * fades are a manual volume ramp in `update`, never scene tweens; settings apply live from
  * `settings:changed`. No Phaser runtime imports — the fake scene/sound
  * harness in tests is pure TS.
  */
@@ -116,6 +117,8 @@ export class AudioManager implements System {
   private readonly activeSfx = new Map<OwnedVoice, number>();
   private currentMusicKey?: string;
   private pendingMusicKey?: string;
+  private desiredMusicKey?: string;
+  private failedMusicKey?: string;
   private musicIntent = 0;
   private fade?: MusicFade;
   private initialized = false;
@@ -191,11 +194,14 @@ export class AudioManager implements System {
   }
 
   /** Scene-selected, manager-executed: menu/run loops (§4.5). Same-key calls
-   *  are no-ops unless a fade is active (Retry during run-end fade restarts
-   *  the loop fresh); while locked the key is deferred, never played. */
+   *  are no-ops for retained loops unless a fade is active (Retry during
+   *  run-end fade restarts fresh). A refused native start releases the key,
+   *  allowing explicit retry; while locked the key is deferred, never played. */
   playMusic(musicKey: string): void {
     if (this.destroyed || !this.initialized) return;
     const intent = ++this.musicIntent;
+    this.desiredMusicKey = musicKey;
+    this.failedMusicKey = undefined;
     // Same-key is a true no-op only when no fade owns the ramp; during a fade we
     // cancel it and restart fresh so a Retry/restart always replays music.
     if (this.currentMusic) this.reapStoppedVoice(this.currentMusic);
@@ -241,6 +247,8 @@ export class AudioManager implements System {
   stopMusic(fadeMs = 0): void {
     if (this.destroyed || !this.initialized) return;
     this.musicIntent += 1;
+    this.desiredMusicKey = undefined;
+    this.failedMusicKey = undefined;
     this.pendingMusicKey = undefined;
     const music = this.currentMusic;
     if (!music) {
@@ -271,15 +279,18 @@ export class AudioManager implements System {
     }
   }
 
-  /** First-gesture delegate: Phaser 3.90 already arms the autoplay unlock
-   *  (§2.3); this only pokes the sound manager while it still reports locked.
-   *  Never resumes an AudioContext and never adds DOM listeners here. Safe to
-   *  call any number of times. */
+  /** Existing first-gesture surface: delegate Phaser's lock handling, then
+   *  retry only known-refused latest music when unlocked. Native HTML5 policy
+   *  refusal can occur while Phaser reports locked=false. No immediate retry,
+   *  extra gesture listeners, AudioContext resume or queued SFX. */
   unlock(): void {
     if (this.destroyed || !this.initialized) return;
     const sound = this.scene.sound as { readonly locked?: boolean; unlock?: () => void };
     if (sound.locked === true && typeof sound.unlock === 'function') {
       sound.unlock();
+    }
+    if (!this.scene.sound.locked && this.failedMusicKey !== undefined) {
+      this.playMusic(this.failedMusicKey);
     }
   }
 
@@ -302,6 +313,8 @@ export class AudioManager implements System {
     if (this.destroyed) return;
     this.destroyed = true;
     this.musicIntent += 1;
+    this.desiredMusicKey = undefined;
+    this.failedMusicKey = undefined;
     this.unsubscribers.forEach((unsubscribe) => unsubscribe());
     this.unsubscribers.length = 0;
     this.currentMusic?.release();
@@ -354,7 +367,7 @@ export class AudioManager implements System {
     // registered in init after initialized = true, so the uninitialized
     // branch is dead-but-safe guard-order consistency.
     if (this.destroyed || !this.initialized) return;
-    const key = this.pendingMusicKey;
+    const key = this.pendingMusicKey ?? this.failedMusicKey;
     if (key === undefined) return;
     this.pendingMusicKey = undefined;
     this.playMusic(key);
@@ -393,9 +406,11 @@ export class AudioManager implements System {
     } catch {
       return undefined; // Missing/failed backend stays optional and silent.
     }
+    let restoreNativeStart: (() => void) | undefined;
     const forget = (): void => {
       if (voice.released) return;
       voice.released = true;
+      restoreNativeStart?.();
       this.removeFromBlurResumeQueue(sound);
       sound.off('complete', complete);
       sound.off('destroy', forget);
@@ -423,7 +438,52 @@ export class AudioManager implements System {
     };
     sound.on('complete', complete);
     sound.on('destroy', forget);
+    restoreNativeStart = this.observeNativeStart(voice);
     return voice;
+  }
+
+  /** Phaser 3.90 HTML5AudioSound.playCatchPromise has no failure event. This
+   *  instance-only adapter retains its native play call and warning, including
+   *  legacy no-Promise starts. WebAudio/NoAudio have no such method. Revalidate
+   *  against installed Phaser source on upgrades; never patch shared tags or
+   *  prototypes. Each resume/loop attempt supersedes its prior Promise. */
+  private observeNativeStart(voice: OwnedVoice): (() => void) | undefined {
+    type NativeSound = {
+      audio: HTMLAudioElement | null;
+      playCatchPromise?: () => void;
+    };
+    const sound = voice.sound as unknown as NativeSound;
+    const original = sound.playCatchPromise;
+    if (typeof original !== 'function') return undefined;
+    const hadOwnMethod = Object.prototype.hasOwnProperty.call(sound, 'playCatchPromise');
+    let attempt = 0;
+    const observe = (): void => {
+      const tag = sound.audio;
+      const currentAttempt = ++attempt;
+      // Match Phaser's synchronous throw/no-Promise behavior. startVoice owns
+      // synchronous failure; only the native rejection owns the async path.
+      const promise = tag!.play();
+      if (promise) {
+        promise.catch((reason: unknown) => {
+          console.warn(reason);
+          if (voice.released || attempt !== currentAttempt || sound.audio !== tag) return;
+          // A terminal/fade or newer key may still need cleanup, but must never
+          // turn this rejected old intent into a retry after the terminal.
+          if (this.currentMusic === voice && this.currentMusicKey === this.desiredMusicKey && !this.fade) {
+            this.failedMusicKey = this.currentMusicKey;
+          }
+          voice.release(true);
+        });
+      }
+    };
+    sound.playCatchPromise = observe;
+    return (): void => {
+      attempt += 1;
+      // Restore only our own seam; preserve an external replacement, if any.
+      if (sound.playCatchPromise !== observe) return;
+      if (hadOwnMethod) sound.playCatchPromise = original;
+      else delete sound.playCatchPromise;
+    };
   }
 
   /** Phaser 3.90 HTML5 keeps a private blur-resume queue even after destroy.
