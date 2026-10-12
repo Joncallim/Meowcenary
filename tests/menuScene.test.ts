@@ -5093,6 +5093,56 @@ function gesture(harness: ReturnType<typeof createHarness>, button: FakeObject, 
   } };
 }
 
+describe('Menu scroll gesture rectangle ownership', () => {
+  function scrolling(panel: 'equipment' | 'gunsmith') {
+    const h = createHarness(); const scene = h.menuScene as any;
+    scene.scale.width = 360; scene.scale.height = 640;
+    scene.scale.displaySize = { width: 360, height: 640 };
+    scene.render(scene.controller.open(panel)); scene.update(0, 0);
+    expect(scene.scrollRegion.contentHeight).toBeGreaterThan(scene.scrollRegion.viewportHeight);
+    const before = { save: JSON.stringify(h.context.saveData), snapshot: scene.controller.snapshot(),
+      focus: scene.navigator.index, offset: scene.scrollRegion.scrollOffset };
+    const events = vi.fn(); h.bus.on('ui:confirm', events); h.bus.on('ui:back', events);
+    return { h, scene, before, events };
+  }
+
+  it.each(['equipment', 'gunsmith'] as const)('keeps outside wheel and outside-down drag out of the current %s body', panel => {
+    const { h, scene, before, events } = scrolling(panel);
+    const point = { id: 81, x: 120, y: scene.scrollViewportTop - 12, isDown: false };
+    h.input.emit('wheel', point, [], 0, 40);
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    const back = h.buttonByLabel('Back')!; const bounds = back.getBounds();
+    expect(bounds.centerY).toBeGreaterThanOrEqual(scene.scrollViewportBottom);
+    h.input.emit('wheel', { ...point, x: bounds.centerX, y: bounds.centerY }, [], 0, 40);
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    h.input.emit('pointerdown', { ...point, isDown: true }, []);
+    h.input.emit('pointermove', { ...point, isDown: true, y: point.y - 20 });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    h.input.emit('pointermove', { ...point, isDown: true, y: scene.scrollViewportTop + 60 });
+    h.input.emit('pointermove', { ...point, isDown: true, y: scene.scrollViewportTop + 30 });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    h.input.emit('pointerup', point);
+    expect(scene.navigator.index).toBe(before.focus);
+    expect(scene.controller.snapshot()).toEqual(before.snapshot);
+    expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+    expect(events).not.toHaveBeenCalled();
+  });
+
+  it.each(['equipment', 'gunsmith'] as const)('retains real inside wheel and drag scrolling in %s', panel => {
+    const { h, scene, before, events } = scrolling(panel);
+    const point = { id: 82, x: 120, y: scene.scrollViewportTop + 70, isDown: false };
+    h.input.emit('wheel', point, [], 0, 40);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(before.offset);
+    const offset = scene.scrollRegion.scrollOffset;
+    h.input.emit('pointerdown', { ...point, isDown: true }, []);
+    h.input.emit('pointermove', { ...point, isDown: true, y: point.y - 20 });
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(offset);
+    h.input.emit('pointerup', point);
+    expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+    expect(events).not.toHaveBeenCalled();
+  });
+});
+
 describe('retained Menu physical controls', () => {
   it.each(['equipment', 'gunsmith'] as const)('admits new prefix/Back gestures after %s body mutation but revokes old presses', panel => {
     const h = createHarness(); const scene = h.menuScene as any;
