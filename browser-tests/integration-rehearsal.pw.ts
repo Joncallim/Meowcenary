@@ -35,6 +35,8 @@ type Seam = {
 };
 type PhysicalEvent = { type: string; trusted?: boolean; key?: string; contacts?: number; button?: number;
   pressed?: boolean; atMs: number; sampledAtMs?: number; inputMode?: string; confirmHeld?: boolean; neutral?: boolean };
+type TouchSample = { accepted: boolean; touchEvents: PhysicalEvent[] };
+type WarmIdleSample = { completed: boolean; preparation?: Preparation; gameActive?: boolean };
 type Globals = { __MEOWCENARY_VISUAL_TEST__?: Seam;
   __REHEARSAL_PAD__?: (button: number, pressed: boolean) => void;
   __REHEARSAL_EVENTS__?: PhysicalEvent[] };
@@ -47,9 +49,13 @@ const biomes = [
 const observedReceipts = new WeakMap<Page, Array<{ owner: string; observedAtMs: number; facts: unknown }>>();
 function retainObservation(page: Page, owner: string, facts: unknown): void {
   const samples = observedReceipts.get(page) ?? [];
-  samples.push({ owner, observedAtMs: Date.now(), facts });
+  const receipt = { owner, observedAtMs: Date.now(), facts };
+  samples.push(receipt);
   if (samples.length > 12) samples.shift();
   observedReceipts.set(page, samples);
+  // Emit each completed owner sample synchronously. The bounded facts and
+  // recent in-memory ring survive the browser deadline/closed-page boundary.
+  console.info(`REHEARSAL_OWNER_RECEIPT ${JSON.stringify(receipt)}`);
 }
 
 async function installFixture(page: Page, input: Input): Promise<void> {
@@ -120,11 +126,11 @@ async function neutral(page: Page): Promise<void> {
 
 // Read only the receipt needed by this physical action, immediately after the
 // owning frame. A second renderer round trip must not separate these facts.
-async function observeReceipt(page: Page, receipt: Receipt, held?: { key: string; button: number }): Promise<boolean> {
-  const sample = await page.evaluate(async ({ receipt, held }) => {
+async function observeReceipt(page: Page, receipt: Receipt, held?: { key: string; button: number }, touchSinceMs?: number): Promise<boolean | TouchSample> {
+  const sample = await page.evaluate(async ({ receipt, held, touchSinceMs }) => {
     const globals = globalThis as Globals, seam = globals.__MEOWCENARY_VISUAL_TEST__!;
     const completed = await seam.waitForInputFrame();
-    if (completed !== true) return { completed, accepted: false };
+    if (completed !== true) return { completed, accepted: false, present: false, facts: undefined, touchEvents: [] as PhysicalEvent[] };
     let accepted: boolean, present = true;
     let facts: unknown;
     if (receipt.kind === 'focus') {
@@ -155,12 +161,14 @@ async function observeReceipt(page: Page, receipt: Receipt, held?: { key: string
       globals.__REHEARSAL_EVENTS__!.push({ type: 'held-post-step', ...held, atMs, sampledAtMs: atMs,
         inputMode: state?.inputMode, confirmHeld: state?.confirmHeld, neutral: state?.inputNeutral });
     }
-    return { completed, accepted, present, facts };
-  }, { receipt, held });
+    const touchEvents = touchSinceMs === undefined ? undefined : globals.__REHEARSAL_EVENTS__!
+      .filter(event => event.atMs >= touchSinceMs && event.type.startsWith('touch'));
+    return { completed, accepted, present, facts, touchEvents };
+  }, { receipt, held, touchSinceMs });
   retainObservation(page, receipt.kind, sample);
   expect(sample.completed).toBe(true);
   expect(sample.present ?? true, 'physical action must retain its rendered receipt owner').toBe(true);
-  return sample.accepted;
+  return touchSinceMs === undefined ? sample.accepted : { accepted: sample.accepted, touchEvents: sample.touchEvents ?? [] };
 }
 async function intro(page: Page): Promise<Intro> {
   const state = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics());
@@ -204,13 +212,18 @@ async function touch(page: Page, bounds: Rect, receipt: Receipt): Promise<void> 
     // a touchscreen fixture. One session owns this contact and its cleanup.
     const firstAtMs = await page.evaluate(() => performance.now());
     await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...centre(bounds), id: 1 }] });
-    await frame(page);
-    const contacts = async () => page.evaluate(firstAtMs => (globalThis as Globals).__REHEARSAL_EVENTS__!
-      .filter(event => event.atMs >= firstAtMs && event.type.startsWith('touch')), firstAtMs);
-    expect(await contacts()).toEqual([expect.objectContaining({ type: 'touchstart', trusted: true, contacts: 1 })]);
+    const held = await observeReceipt(page, receipt, undefined, firstAtMs);
+    if (typeof held === 'boolean') throw new Error('Held touch observation did not include physical contacts');
+    expect(held.touchEvents).toEqual([expect.objectContaining({ type: 'touchstart', trusted: true, contacts: 1 })]);
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await expect.poll(() => observeReceipt(page, receipt)).toBe(true);
-    expect(await contacts()).toEqual([
+    let released: TouchSample | undefined;
+    await expect.poll(async () => {
+      const sample = await observeReceipt(page, receipt, undefined, firstAtMs);
+      if (typeof sample === 'boolean') throw new Error('Released touch observation did not include physical contacts');
+      released = sample;
+      return sample.accepted;
+    }).toBe(true);
+    expect(released!.touchEvents).toEqual([
       expect.objectContaining({ type: 'touchstart', trusted: true, contacts: 1 }),
       expect.objectContaining({ type: 'touchend', trusted: true, contacts: 0 }),
     ]);
@@ -288,20 +301,36 @@ async function summaryAction(page: Page, input: Input, label: 'Retry' | 'Main Me
     expect(state).toBeDefined(); return state!;
   };
   await neutral(page);
-  const previousSeed = (await intro(page)).identity.seed;
-  const target = input === 'touch' ? (await read()).actions.find(action => action.label === label)
-    : await focusAction(page, input, label, read, 'summary');
+  let previousSeed: number, target: Action | undefined;
+  if (input === 'touch') {
+    const snapshot = await touchSummarySnapshot(page);
+    expect(snapshot.intro).toBeDefined(); expect(snapshot.summary).toBeDefined();
+    previousSeed = snapshot.intro!.identity.seed;
+    target = snapshot.summary!.actions.find(action => action.label === label);
+    expect(target).toBeDefined();
+    if (label === 'Main Menu') {
+      expect(snapshot.menuTarget).toBeDefined();
+      const point = centre(target!.bounds);
+      expect(snapshot.menuTarget!.x).toBeCloseTo(point.x, 1); expect(snapshot.menuTarget!.y).toBeCloseTo(point.y, 1);
+    }
+  } else {
+    previousSeed = (await intro(page)).identity.seed;
+    target = await focusAction(page, input, label, read, 'summary');
+  }
   expect(target).toBeDefined(); expect(target!.enabled).toBe(true);
   const accepted: Receipt = { kind: 'summary', label, previousSeed };
-  if (input === 'touch') {
-    if (label === 'Main Menu') {
-      const semanticPoint = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.summaryMenuTarget());
-      expect(semanticPoint).toBeDefined();
-      const point = centre(target!.bounds);
-      expect(semanticPoint!.x).toBeCloseTo(point.x, 1); expect(semanticPoint!.y).toBeCloseTo(point.y, 1);
-    }
-    await touch(page, target!.bounds, accepted);
-  } else await press(page, input, 'Enter', 0, accepted);
+  if (input === 'touch') await touch(page, target!.bounds, accepted);
+  else await press(page, input, 'Enter', 0, accepted);
+}
+async function touchSummarySnapshot(page: Page): Promise<{
+  intro: Intro | undefined;
+  summary: { actions: Action[]; focusedLabel?: string } | undefined;
+  menuTarget: { x: number; y: number } | undefined;
+}> {
+  return page.evaluate(() => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    return { intro: seam.runStartIntroDiagnostics(), summary: seam.summaryActionDiagnostics(), menuTarget: seam.summaryMenuTarget() };
+  });
 }
 async function prepared(page: Page, request: ComposedRunRequest, arenaId: string, beforeSave: string | null): Promise<ResolvedArenaLayout> {
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
@@ -318,6 +347,17 @@ async function prepared(page: Page, request: ComposedRunRequest, arenaId: string
   await frame(page);
   expect((await intro(page)).timeMs).toBe(0); expect(await saved(page)).toBe(beforeSave);
   return facts!.layout;
+}
+async function warmIdleObservation(page: Page): Promise<WarmIdleSample> {
+  const sample = await page.evaluate(async () => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    const completed = await seam.waitForInputFrame();
+    if (completed !== true) return { completed };
+    return { completed, preparation: seam.runPreparationDiagnostics(), gameActive: seam.isSceneActive('GameScene') };
+  });
+  retainObservation(page, 'warm-idle', sample);
+  expect(sample.completed).toBe(true);
+  return sample;
 }
 async function capture(page: Page, info: TestInfo, name: string, facts: Record<string, unknown>): Promise<void> {
   const path = info.outputPath(`${name}.json`);
@@ -418,8 +458,8 @@ for (const biome of biomes) for (const input of ['touch', 'keyboard', 'controlle
           // A stale Phaser Replay payload would already own loading/prepared
           // Game here. Two separate real observations keep the warm Menu idle.
           for (let observation = 0; observation < 2; observation++) {
-            await frame(page); expect(await preparation(page)).toEqual(returned);
-            expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(false);
+            const sample = await warmIdleObservation(page);
+            expect(sample.preparation).toEqual(returned); expect(sample.gameActive).toBe(false);
           }
           expect([...assets]).toEqual(beforeReturnAssets);
           await capture(page, info, 'terminal-neutral-warm-return', { request, layout, replayIdentity: replay.identity, replayLayout,

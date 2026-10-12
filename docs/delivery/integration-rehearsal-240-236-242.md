@@ -61,3 +61,59 @@ Two deterministic RED regressions execute the actual observer: neutral checking 
 The seven applicable test/helper paths from PR248's reviewed `2dca83a` transport correction are carried forward as patches, without its gesture/runtime/UI changes. Each requested frame remains sequential; false/malformed frames and destroyed owners cannot report success. Existing physical DOWN/UP, trusted touch START/END, original-session CANCEL/detach, quarantine predicates, cold-resource failure, Retry/Replay identity and two independent warm-return observations remain required. No runtime, art, golden, timeout, retry, skip or image threshold changes belong to this corrective commit.
 
 Focused observer checks: 140 passed across three files, including sixteen rehearsal transport/receipt tests; strict browser-module checking and diff checks passed. Focused physical warm-return, full local acceptance and exact-head hosted CI must be completed for the successor; previous-head green local results do not certify it. The broader severe two-core stress record from PR248 remains red and is not claimed fixed. Physical device/controller acceptance and #233's release hold remain unchanged.
+
+## Remaining desktop touch observation boundary
+
+Head `409d280f59b8245b19cf6e6205521f0a4eff86ef` passed the full local
+matrix (752 passed / 64 scoped skips / zero failures), but hosted run
+[38308557177](https://github.com/Joncallim/Meowcenary/actions/runs/38308557177)
+failed two desktop-1920 touch terminal-neutral warm-return rows: 750 passed /
+64 skipped / two failures. Both reach the original 30-second deadline inside
+the final Main Menu touch. Cancel/detach errors follow page closure. Neither
+reports a rejected gameplay receipt. The verified artifact SHA-256 is
+`d2e75e6af205d4b508c918cf172b770b0ecbfc788e122ab675f63f161be33d97`.
+
+Both inspected failure images show the intact second synthetic Run Failed
+summary, with the Main Menu target inside the viewport. The only JSON captures
+are initial pre-Start facts; no last-owned-receipts attachment survived. Thus
+the artifact cannot determine whether the final contact was sent, released or
+admitted. No runtime invariant violation is inferred from this deadline.
+
+The bounded correction changes only this observer and its regressions:
+
+- Held touch reads the trusted start/contact count in its actual owner frame.
+- Released touch reads the command receipt and physical events in one owner
+  frame. Only command acceptance is polled; the successful sample's exact
+  trusted start/end contacts are asserted immediately afterwards.
+- Touch summary seed, actions and semantic Menu target share one fresh
+  pre-action snapshot, retaining the original bounds and equality checks.
+- Each warm-idle frame reads preparation and Game inactivity together. The two
+  distinct real frames remain required.
+- Completed owner samples are synchronously logged before any async attachment,
+  while retaining the existing bounded twelve-sample per-page ring.
+
+Seven initial transport regressions failed before the correction. Independent
+review then rejected a contact matcher placed inside the acceptance poll,
+because it could retry invalid physical evidence after the command succeeded.
+Two additional regressions reproduce missing/untrusted end records and pass
+only when that successful sample is checked immediately without a new renderer
+command. Corrected focused checks pass 28/28 independently. The original
+NOT READY review and subsequent qualified PASS are retained externally.
+
+Original budgets, predicates, row coverage, physical Start/End/Cancel/detach,
+input neutrality and all save/resource/seed assertions remain. The unchanged
+409 path is retained as a diagnostic baseline: its two actual desktop touch
+warm-return cases passed locally in 44.6 seconds total. Therefore the hosted
+deadlines have not been reproduced locally and no timing improvement is claimed
+from that single comparison. An initial isolated-spec dependency-resolution
+attempt collected zero tests and was rejected; the corrected collection and
+run both contain exactly the two intended cases. The corrected desktop matrix
+passes all 18 rows across both biomes and all three inputs; lint and all 20
+strict browser modules pass. The six-profile warm-return matrix passes all 36
+rows without skips or flaky results. Its 36 actual captures were separately
+audited for profile/biome/input coverage, trusted touch contacts, recorded initial
+versus fresh terminal Replay identity, generation version, idle preparation and unchanged
+resource requests; twelve touch screenshots and all JSON receipts are preserved
+outside the mutable runner output. Full exact-successor local/hosted validation
+remains pending. No runtime, artwork,
+golden, retry, skip, timeout or threshold changes are authorised by this repair.
