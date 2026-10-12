@@ -485,7 +485,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       runStartBriefDiagnostics: (): Record<string, unknown> | undefined => {
         const scene = game.scene.getScene('GameScene') as unknown as {
           runState?: {status:string;timeMs:number;characterId:string}; player?:{x:number;y:number;health:number};
-          getContext():{bus:EventBus}; inputController?:{getInputMode():string;core:{isNeutral():boolean}};
+          getContext():{bus:EventBus}; inputController?:{getInputMode():string;quarantinedUntilNeutral:boolean;core:{isNeutral():boolean;isEffectiveHeld(action:'ability'|'confirm'):boolean}};
           orientationBlocked:boolean;enemies?:readonly unknown[]; abilityState?:unknown; abilityDefinition?:unknown;
           controlsView?:{abilityUiState:unknown;abilityButton?:Phaser.GameObjects.Rectangle;hintText?:Phaser.GameObjects.Text};
           abilityPresentationSystem?:{banner:Phaser.GameObjects.Text;persistent?:unknown;transient?:unknown};
@@ -510,6 +510,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           characterId:scene.runState.characterId,player:scene.player?{x:scene.player.x,y:scene.player.y,health:scene.player.health}:undefined,
           enemies:scene.enemies?.length,abilityState:scene.abilityState,abilityDefinition:scene.abilityDefinition,model:scene.runStartBrief?.model,buttons,
           inputMode:scene.inputController?.getInputMode(),inputNeutral:scene.inputController?.core.isNeutral(),orientationBlocked:scene.orientationBlocked,
+          inputQuarantined:scene.inputController?.quarantinedUntilNeutral,abilityHeld:scene.inputController?.core.isEffectiveHeld('ability'),confirmHeld:scene.inputController?.core.isEffectiveHeld('confirm'),
           abilityUiState:scene.controlsView?.abilityUiState,abilityButton:scene.controlsView?.abilityButton?bounds(scene.controlsView.abilityButton):undefined,
           controlsHint:scene.controlsView?.hintText?{text:scene.controlsView.hintText.text,...bounds(scene.controlsView.hintText),visible:scene.controlsView.hintText.visible&&scene.controlsView.hintText.alpha>0}:undefined,
           abilityBanner:fx?.banner.text,abilityFx:{persistent:fx?.persistent,transient:fx?.transient},activationId:abilityResolution?.activationId??0,latestResolution:abilityResolution?.resolution,

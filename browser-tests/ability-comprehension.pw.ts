@@ -11,7 +11,8 @@ type Diagnostics = {
   controlsHint?: Rect & { text: string; visible: boolean }; buttons: Rect[]; briefText: Array<Rect & { text: string }>; abilityButton: Rect; abilityBanner: string;
   abilityFx: { persistent?: { kind: string; radius: number; glyphMask: number }; transient?: { kind: string; radius: number } };
   activationId: number; latestResolution?: { kind: string; applied?: number; collected?: number; affected?: number; modifiers?: Array<{ stat: string; op: string; value: number }> };
-  inputMode: string; inputNeutral: boolean; orientationBlocked: boolean;
+  inputMode: string; inputNeutral: boolean; inputQuarantined: boolean;
+  abilityHeld: boolean; confirmHeld: boolean; orientationBlocked: boolean;
 };
 type Seam = {
   isSceneActive(key: string): boolean; waitForMenuPresentation(): Promise<boolean>; waitForPreparedGame(): Promise<boolean>; waitForInputFrame(): Promise<boolean>;
@@ -168,8 +169,26 @@ test('held launch Confirm is quarantined; real controller Confirm starts once an
   const held = await read(page); expect(held.activationId).toBe(0); expect(held.player).toMatchObject(initial.player);
   await page.keyboard.up('q'); await page.keyboard.up('w');
   await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(0, false)); await frame(page, 2);
-  await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, true)); await frame(page);
-  expect((await read(page)).activationId).toBe(1);
+  const released = await read(page);
+  expect(released.inputNeutral).toBe(true); expect(released.inputQuarantined).toBe(false);
+  expect(released.abilityHeld).toBe(false); expect(released.confirmHeld).toBe(false);
+  const pressed = await page.evaluate(async () => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    (globalThis as Globals).__ABILITY_PAD__!(2, true);
+    return { frameJoined: await seam.waitForInputFrame(), state: seam.runStartBriefDiagnostics() };
+  });
+  expect(pressed.frameJoined).toBe(true); expect(pressed.state).toBeDefined();
+  const firstAfterPress = pressed.state!;
+  let sampled = firstAfterPress;
+  // Phaser refreshes Gamepad wrappers in PRE_RENDER, after POST_STEP and
+  // this scene's logical input poll. If that first step has not sampled the
+  // physical press, join its next logical poll rather than assuming a receipt.
+  if (!sampled.abilityHeld) { await frame(page); sampled = await read(page); }
+  expect(sampled.abilityHeld).toBe(true); expect(sampled.inputQuarantined).toBe(false);
+  expect(sampled.activationId).toBe(1);
+  const samples = info.outputPath('controller-input-samples.json');
+  await writeFile(samples, JSON.stringify({ released, firstAfterPress, sampled }, null, 2));
+  await info.attach('controller-input-samples', { path: samples, contentType: 'application/json' });
   await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, false)); await capture(page, info, 'controller-start-and-fresh-ability');
 });
 

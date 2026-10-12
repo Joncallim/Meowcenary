@@ -1,0 +1,30 @@
+{
+  "candidateHead": "9f23deb",
+  "classification": "Browser gamepad sampling receipt race; no gameplay/input implementation change.",
+  "red": [
+    "final-head-browser.log: existing196 held-controller phone360 activation expected1 observed0.",
+    "ability-held-controller-repro.log: unchanged focused phone360 reproduces failure.",
+    "ability-controller-atomic-red.log: atomically publish raw fresh press and join first POST_STEP; unchanged activation1 assertion observes0 before the next logical poll."
+  ],
+  "observedWithPhaseCaptures": "ability-held-controller-sampled.log passes after factual captures add scheduling opportunity. Released phase inputNeutral=true/activation0, fresh phase inputNeutral=false/activation1.",
+  "orderingEvidence": [
+    "node_modules/phaser/src/core/Game.js474: Game.step performs scene.update, emits POST_STEP, then renderer.preRender and PRE_RENDER.",
+    "node_modules/phaser/src/input/InputManager.js322,368: subscribes PRE_RENDER and refreshes scene input plugins.",
+    "node_modules/phaser/src/input/InputPlugin.js598: updatePoll emits plugin UPDATE every frame.",
+    "node_modules/phaser/src/input/gamepad/GamepadPlugin.js455: UPDATE refreshes Gamepad wrapper buttons.",
+    "src/systems/input.ts: GamepadAdapter reads Phaser wrapper buttons during InputController.update; quarantine clears on a logical neutral sample."
+  ],
+  "causalGap": "waitForInputFrame joins POST_STEP, which follows logical sampling but precedes Gamepad wrapper refresh. A single fresh-button step is not an assertion that logical core sampled the fresh press.",
+  "scope": "Only existing ability-comprehension browser fixture and test-build read-only diagnostics; runtime input unchanged.",
+  "correction": "Retain neutral/quarantine/held-input assertions. After the original fresh-button POST_STEP, join exactly one more logical poll only if abilityHeld is still false; assert sampled held state, cleared quarantine and the original activationId===1. No wait based on activation success; evidence writes occur after assertions.",
+  "currentMainControl": "Unchanged focused phone360 test passed on main4f79d621; the full candidate and unchanged focused reproduction both exposed the missing receipt join.",
+  "productionBoundary": "Additional read-only diagnostic scalar fields remain entirely inside the existing VITE_VISUAL_TEST/query guard; ordinary production build exclusion gate is required.",
+  "regressionStrength": "Raw press and first-frame join occur in one browser task; immediate diagnostics are captured before another RPC can add frames.",
+  "focusedGreen": {
+    "sixProfileMatrix": 6,
+    "phone360Repeats": 3,
+    "atomicBranchExercisedEveryCase": true,
+    "originalNonAtomicRepeatedMatrix": 12
+  },
+  "independentReview": "Astra final atomic fixture review: no findings; sampled-held conditional pipeline join and neutral assertions preserve all activation/input acceptance."
+}
