@@ -6,6 +6,11 @@ scene-to-scroll-region focus synchronization API and focused unit regressions.
 It does not enable grid navigation in current menus. MenuScene maps semantic
 scene indices once and uses the new direct setter to synchronize its region.
 
+The reviewed candidate is stacked on verified Contracts recovery
+`5b6622b9d9708bc512e158e03b3f6d70d743023e` (#240). Its diff adds only these
+five focus files/seams, preserving the base's guarded launch implementation and
+deterministic browser/font corrections. Main remains production authority.
+
 `ScrollableFocusRegion.setFocusedIndex(index, { reveal? })` owns local index
 validation and reveal behavior. A non-safe integer throws before mutation; a
 safe out-of-range index is rejected without clamping or state changes. A valid
