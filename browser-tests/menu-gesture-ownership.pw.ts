@@ -24,10 +24,11 @@ const seed = {
   pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
 };
 
-async function sample(page: Page, prepare = false) {
-  return page.evaluate(async prepare => {
+async function sample(page: Page, prepare = false, settle = false) {
+  return page.evaluate(async ({ prepare, settle }) => {
     const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__;
     let homeSettled: boolean | undefined, shown: boolean | undefined, equipmentSettled: boolean | undefined;
+    const menuSettled = settle ? await seam.waitForMenuPresentation() : undefined;
     if (prepare) {
       homeSettled = await seam.waitForMenuPresentation();
       if (homeSettled !== true) return { homeSettled };
@@ -40,13 +41,13 @@ async function sample(page: Page, prepare = false) {
     // manual stepping, input reset, retained objects or production globals.
     const frames = [await seam.waitForInputFrame(), await seam.waitForInputFrame()];
     const canvas = document.querySelector('canvas')!;
-    return { homeSettled, shown, equipmentSettled, frames, diagnostic: seam.menuLoadoutDiagnostics(), neutral: seam.isMenuInputNeutral(),
+    return { homeSettled, shown, equipmentSettled, menuSettled, frames, diagnostic: seam.menuLoadoutDiagnostics(), neutral: seam.isMenuInputNeutral(),
       saved: localStorage.getItem('meowcenary.save.v2'),
       nativeCancel: canvas.dataset.gestureNativeCancel,
       secondaryEnd: canvas.dataset.gestureSecondaryEnd,
       remainingTouchIds: canvas.dataset.gestureRemainingTouchIds,
       releasedTouchIds: canvas.dataset.gestureReleasedTouchIds };
-  }, prepare);
+  }, { prepare, settle });
 }
 
 test('current Menu rectangle owns wheel, drag, cancellation and physical release', async ({ page }, testInfo) => {
@@ -110,6 +111,7 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
     expect((await observe('inside-threshold-crossed')).diagnostic.scroll!.offset).toBeGreaterThan(region.offset);
     await move(inside); await up();
     const returned = await observe('drag-return-to-origin-is-not-tap'); expect(returned.neutral).toBe(true);
+    let lastRelease = returned;
 
     if (session) {
       await page.evaluate(() => document.querySelector('canvas')!.addEventListener('touchcancel', event => {
@@ -147,9 +149,14 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
       expect(secondaryReleased.diagnostic.scroll!.offset).toBe(cancelled.diagnostic.scroll!.offset);
       await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); held = false;
       const finished = await observe('multitouch-owner-cancelled', ownerFocus.diagnostic);
-      expect(finished.neutral).toBe(true);
+      expect(finished.neutral).toBe(true); lastRelease = finished;
     }
-    const beforeFresh = (await observe('before-fresh-scroll')).diagnostic.scroll!.offset;
+    // No input or state mutation occurs between the release receipt and this
+    // baseline. Reuse that exact authoritative sample rather than collecting
+    // another pair of idle frames through a renderer round trip.
+    unchanged(lastRelease);
+    evidence.push({ phase: 'before-fresh-scroll (same post-release sample)', state: lastRelease });
+    const beforeFresh = lastRelease.diagnostic.scroll!.offset;
     await down(inside); await move({ ...inside, y: inside.y - 40 }); await up();
     const fresh = await observe('fresh-physical-scroll'); expect(fresh.neutral).toBe(true);
     expect(fresh.diagnostic.scroll!.offset).toBeGreaterThan(beforeFresh);
@@ -157,8 +164,7 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
     expect(back).toBeDefined(); expect(back.interactive).toBe(true);
     const point = { x: back.bounds.x + back.bounds.width / 2, y: back.bounds.y + back.bounds.height / 2 };
     if (touch) await page.touchscreen.tap(point.x, point.y); else await page.mouse.click(point.x, point.y);
-    expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
-    const last = await sample(page); expect(last.diagnostic).toBeDefined();
+    const last = await sample(page, false, true); expect(last.menuSettled).toBe(true); expect(last.diagnostic).toBeDefined();
     const finished = last as typeof baseline; evidence.push({ phase: 'fresh-back-tap', state: finished });
     expect(finished.diagnostic.panel).toBe('loadout'); expect(finished.saved).toBe(baseline.saved); expect(finished.neutral).toBe(true);
   } finally {

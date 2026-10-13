@@ -3,10 +3,10 @@ import { waitForPerformanceRunStart } from '../scripts/performance-run-start.mjs
 
 // Actual page callbacks run against one simulated browser/input boundary.
 // Only a fresh admitted gesture can execute a semantic controller command.
-function pageHarness({ initial = 'intro', input = 'keyboard', dialogue = false, invalid, physicallyHeld = false } = {}) {
+function pageHarness({ initial = 'intro', input = 'keyboard', dialogue = false, invalid, physicallyHeld = false, pendingBoss = false } = {}) {
   let status = initial, phase = 'brief', revision = 0, neutral = false, quarantined = true, held = false, pointerTarget;
   let runStart = { count: 0 }; const actions = []; let focus = 'return-menu';
-  let presented = { status, atMs: 100, seed: 1 };
+  let presented = { status, atMs: 100, seed: 1 }, deferredBoss = pendingBoss ? (input === 'keyboard' ? 2 : 1) : 0; const evaluations = [];
   const commands = () => (phase === 'brief' && dialogue ? ['return-menu', 'skip-dialogue', 'continue'] : ['return-menu', 'start']).map((command, index) => ({
     command, label: command, enabled: invalid !== 'disabled', bounds: { x: 10 + index * 110, y: invalid === 'offscreen' ? 900 : 20, width: 100, height: 44 },
   }));
@@ -29,7 +29,9 @@ function pageHarness({ initial = 'intro', input = 'keyboard', dialogue = false, 
         let rows = commands();
         if (invalid === 'missing') rows = rows.filter(row => row.command !== 'start');
         if (invalid === 'duplicate') rows.push(rows.find(row => row.command === 'start'));
-        return { visible: status === 'intro', status, phase, revision, timeMs: 0, focusedCommand: focus,
+        const observedPhase = phase === 'boss' && deferredBoss ? 'brief' : phase;
+        if (phase === 'boss' && deferredBoss > 0) deferredBoss--;
+        return { visible: status === 'intro', status, phase: observedPhase, revision: observedPhase === 'brief' ? 0 : revision, timeMs: 0, focusedCommand: focus,
           identity: { seed: 1 }, objective: { kind: 'stage' }, commands: rows,
           inputNeutral: neutral, inputQuarantined: quarantined, ready: neutral && !quarantined, runStart, terminalEvents: 0 };
       },
@@ -37,7 +39,7 @@ function pageHarness({ initial = 'intro', input = 'keyboard', dialogue = false, 
   };
   const evaluate = async (callback, arg) => {
     const old = Object.fromEntries(Object.keys(facade).map(key => [key, globalThis[key]])); Object.assign(globalThis, facade);
-    try { return await callback(arg); } finally {
+    try { const result = await callback(arg); evaluations.push(result); return result; } finally {
       for (const key of Object.keys(facade)) { if (old[key] === undefined) delete globalThis[key]; else globalThis[key] = old[key]; }
     }
   };
@@ -75,7 +77,7 @@ function pageHarness({ initial = 'intro', input = 'keyboard', dialogue = false, 
       };
     } }),
   };
-  return { page, actions };
+  return { page, actions, evaluations };
 }
 
 describe('semantic performance launch compatibility', () => {
@@ -107,4 +109,13 @@ describe('semantic performance launch compatibility', () => {
     await expect(waitForPerformanceRunStart(page)).rejects.toThrow('no admitted input');
     expect(actions.filter(row => Array.isArray(row) && row[0] === 'command')).toEqual([]);
   });
+});
+
+for (const input of ['keyboard', 'mouse', 'touch']) it(`a delayed boss observation owns its completion timestamp: ${input}`, async () => {
+  const { page, evaluations } = pageHarness({ input, dialogue: true, pendingBoss: true });
+  const result = await waitForPerformanceRunStart(page, input);
+  const accepted = evaluations.find(sample => sample?.state?.phase === 'boss' && typeof sample.atMs === 'number');
+  expect(accepted).toBeDefined();
+  expect(result.dialogueCommands[0].completedAtMs).toBe(accepted.atMs);
+  expect(result.dialogueCommands[0].completedAtMs).toBeLessThanOrEqual(result.startCommandAtMs);
 });

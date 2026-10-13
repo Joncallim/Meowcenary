@@ -406,6 +406,12 @@ type ContactGlobals = Globals & { __TOUCH_REPAIR_EVENTS__?: ContactEvent[]; __TO
   __MEOWCENARY_TEST_RECORD__?: (phase: string, facts: unknown) => Promise<void> };
 type SessionEvent = { session: number; type: string; error?: string };
 
+async function awaitHeldAdmissionObservation(observation: Promise<void>, pending: Promise<IntroDiagnostics>): Promise<void> {
+  await Promise.race([observation, pending.then(() => {
+    throw new Error('Intro helper completed before its held-owner frame observation');
+  })]);
+}
+
 async function prepareContactProbe(page: Page, dialogue = false, record?: DiagnosticRecord): Promise<Diagnostics> {
   record?.note('contact.prepare');
   await seed(page, true, dialogue ? ['stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03', 'stage:junkyard-04'] : []);
@@ -441,9 +447,20 @@ function frozenIntro(state: Diagnostics, initial: Diagnostics): void {
 // These wrappers observe real CDP calls. The interruption hook runs only after
 // Chromium has accepted touchStart; it never fabricates an input event or
 // changes the game's diagnostics. Every helper-created session remains real.
-function observedContactPage(page: Page, events: SessionEvent[], afterStart?: () => Promise<void>): Page {
-  let nextSession = 0;
+function observedContactPage(page: Page, events: SessionEvent[], afterStart?: () => Promise<void>,
+  afterAdmissionFrame?: () => Promise<void>): Page {
+  let nextSession = 0, admissionObserved = false;
   return new Proxy(page, { get(target, key) {
+    if (key === 'evaluate' && afterAdmissionFrame) return async (...args: Parameters<Page['evaluate']>) => {
+      const sample = await Reflect.apply(page.evaluate, page, args);
+      // Park only the test helper's continuation, after its genuine owner-frame
+      // sample. Phaser and physical owners keep running. The unchanged first
+      // false sample is returned after release; only a fresh poll may admit.
+      if (!admissionObserved && sample && typeof sample === 'object' && 'completed' in sample && sample.completed === true) {
+        admissionObserved = true; await afterAdmissionFrame();
+      }
+      return sample;
+    };
     if (key === 'context') return () => ({ newCDPSession: async () => {
       const session = await page.context().newCDPSession(page), id = nextSession++;
       return new Proxy(session, { get(owner, property) {
@@ -470,17 +487,18 @@ for (const helper of ['browser', 'performance'] as const) for (const input of ['
     page, info, 'cdp-no-contact', true, async (page, record) => {
     await prepareContactProbe(page, dialogue, record); const sessions: SessionEvent[] = [];
     const observed = observedContactPage(page, sessions);
-    if (helper === 'browser') await completeRunStartIntro(observed, input);
+    let after: IntroDiagnostics;
+    if (helper === 'browser') after = await completeRunStartIntro(observed, input);
     else {
       const timing = await waitForPerformanceRunStart(observed, input);
       expect(timing.compatibility).toBe('explicit-intro'); expect(timing.preparedRun.status).toBe('intro');
       expect(timing.dialogueCommands).toHaveLength(dialogue ? 1 : 0);
       expect(timing.preparedRun.atMs).toBeLessThanOrEqual(timing.startCommandAtMs);
       if (dialogue) expect(timing.dialogueCommands[0].completedAtMs).toBeLessThanOrEqual(timing.startCommandAtMs);
+      after = timing.startedIntro;
       expect(timing.startCommandAtMs).toBeLessThanOrEqual(timing.startedAtMs);
     }
-    const after = await read(page);
-    expect(after).toMatchObject({ phase: 'consumed', revision: null, runStart: { count: 1, timeMs: 0 }, terminalEvents: 0 });
+    expect(after!).toMatchObject({ phase: 'consumed', revision: null, runStart: { count: 1, timeMs: 0 }, terminalEvents: 0 });
     expect(sessions.some(event => isNoActiveCdpTouchMessage(event.error))).toBe(true);
     const ids = new Set(sessions.map(event => event.session));
     for (const session of ids) expect(sessions.filter(event => event.session === session && event.type === 'detach')).toHaveLength(1);
@@ -561,16 +579,22 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
   });
   const point = centre(introCommand(initial, 'return-menu', page.viewportSize()!).bounds);
   let pending: Promise<IntroDiagnostics> | undefined;
+  let admissionObserved!: () => void, finishHeldObservations!: () => void;
+  const admissionFrame = new Promise<void>(resolve => { admissionObserved = resolve; });
+  const ownersReleased = new Promise<void>(resolve => { finishHeldObservations = resolve; });
   await withRecordedCleanup(record, async () => {
     await owner.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...point, id: 7 }] });
     await frame(page); expect((await read(page)).inputNeutral).toBe(false);
     expect((await contactEvents(page)).some(event => event.type === 'touchstart' && event.contacts === 1 && event.trusted)).toBe(true);
     if (holdPad) { await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, true)); await frame(page); }
-    const observed = observedContactPage(page, sessions);
+    const observed = observedContactPage(page, sessions, undefined, async () => {
+      admissionObserved(); await ownersReleased;
+    });
     pending = activateIntroCommand(observed, 'start', 'keyboard');
     // Attach both outcomes immediately while retaining the original rejection.
     void pending.then(() => { settled = true; }, () => { settled = true; });
-    await expect.poll(() => sessions.some(event => isNoActiveCdpTouchMessage(event.error))).toBe(true);
+    await awaitHeldAdmissionObservation(admissionFrame, pending);
+    expect(sessions.some(event => isNoActiveCdpTouchMessage(event.error))).toBe(true);
     const touchHeld = await heldObservation();
     expect(touchHeld.frames).toEqual([true, true, true]); expect(settled).toBe(false);
     frozenIntro(touchHeld.state, initial); expect(touchHeld.state.inputNeutral).toBe(false);
@@ -598,6 +622,7 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
     // Once the final owner releases, the helper may finish before this driver
     // resumes. Validate page-side facts captured at actual dispatch, not a late
     // main-thread flag or a separate post-release frozen-state read.
+    finishHeldObservations();
     await pending; expect((await read(page)).runStart).toMatchObject({ count: 1, timeMs: 0 });
     const admission = await page.evaluate(() => (globalThis as ContactGlobals).__TOUCH_REPAIR_ADMISSION__!);
     expect(admission.dispatches.filter(row => row.key === 'Enter')).toHaveLength(1);
@@ -623,6 +648,7 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
     ['owner-detach', () => owner.detach()],
     ['pad-release', () => page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, false))],
     ['pending-helper', async () => {
+      finishHeldObservations();
       if (pending) {
         const [result] = await Promise.allSettled([pending]); record!.note('pending-helper.settlement', result);
         if (result.status === 'rejected') throw result.reason;

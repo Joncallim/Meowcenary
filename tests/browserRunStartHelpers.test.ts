@@ -285,3 +285,14 @@ it('the actual browser command helper cancels a successful owned Return gesture 
   expect(h.events.filter(e => e.event === 'command').map(e => e.command)).toEqual(['return-menu']);
   expect(h.events.filter(e => e.session === 1).map(e => e.event)).toEqual(['touchStart', 'touchEnd', 'touchCancel', 'detach']);
 });
+
+for (const input of ['keyboard', 'mouse', 'touch'] as const) for (const dialogue of [false, true])
+  it(`returns the immutable consumed intro with performance timing: ${input}, dialogue=${dialogue}`, async () => {
+    const h = harness({ dialogue, rejectAdjacentSnapshotReads: true });
+    const result = await waitForPerformanceRunStart(h.page, input);
+    expect(result.startedIntro).toMatchObject({ visible: false, phase: 'consumed',
+      runStart: { count: 1, timeMs: 0 }, terminalEvents: 0 });
+    expect(result.startedIntro.runStart.atMs).toBe(result.startedAtMs);
+    expect(result.startedIntro.identity).toEqual({ seed: 12 });
+    expect(result.startedIntro.objective).toEqual({ kind: 'stage' });
+  });

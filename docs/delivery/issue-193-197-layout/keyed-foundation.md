@@ -1,7 +1,8 @@
 # #193 / #197 pure keyed navigation and collection bookmarks
 
-13 October 2026. Implementation foundation on candidate #248 base
-`04e21fad0c21f2d5843d343af212f764543ac3b4`; no runtime surface integration.
+13 October 2026. Implementation foundation reconciled onto candidate #248 base
+`f9aedc3c4d0be96724c4003147ad40f6ff43e7b2`; no runtime surface integration.
+The original focused evidence below was produced on the historical `04e21fad` base.
 The policy source is PR #231 at
 `789b2647eb9466895d90b336abaa2cec04d20e84`, particularly
 [the complete input contract](https://github.com/Joncallim/Meowcenary/blob/789b2647eb9466895d90b336abaa2cec04d20e84/docs/art/design-handoff-2026-10-09/COMPACT-GRID-INPUT-CONTRACT.md)
@@ -134,3 +135,65 @@ physical-input, product-owner, full-suite, CI or release acceptance is claimed.
 Main/production `4f79d621` remain protected; neither issue closes here.
 
 Independent final read-only review and coordinator rerun both passed all 51 focused tests. The initially accepted sparse mapping was rejected, reproduced RED, and repaired before commit. Full exact-head closeout and hosted CI remain required; this pure foundation does not change current Menu behavior or close #193/#197.
+
+## Exact-head browser failure reconciliation
+
+Hosted run [38325418360](https://github.com/Joncallim/Meowcenary/actions/runs/38325418360)
+at `6b40289adc3591644165afcf0293790371537a6d` remained RED: 599 passed,
+64 existing scoped skips, three desktop-1920 failures. Complete non-browser
+checks were green: 3,479 ordinary tests across 213 files, nine allocation
+gates, nine runner probes, content/art validation, ordinary production build,
+resource identity/diagnostic exclusion, strict browser modules and diff checks.
+This is historical evidence, not acceptance of the amended candidate.
+
+The three failures were two Ability admission/overall test deadlines and one
+Menu gesture overall deadline. Individually inspected screenshots and bounded
+physical receipts do not establish a new keyed-navigation or runtime input
+defect. The no-contact artifact records real trusted touch dispatch and an
+eventual single run start at the original deadline. The held-pad fixture
+spent its helper's five-second admission window deliberately observing held
+owners. The Menu fixture completed six physical phases before the overall
+deadline; no final release assertion was observed. Cleanup page-closed or
+session-local no-contact messages are not substituted for admission evidence.
+
+The bounded observer correction preserves physical events, cancellation,
+neutral-frame predicates, assertions and existing budgets:
+
+- The separate-owner fixture rendezvous occurs after the helper's genuine
+  first completed non-neutral input-frame sample. Only the helper's Node
+  continuation waits while held-owner assertions and actual releases run.
+  The same false sample returns; the unchanged admission poll must observe
+  fresh neutrality. Early helper rejection/success is raced against the frame
+  signal, so it cannot hide behind a never-arriving observation.
+- Performance Continue's completion timestamp travels with its accepted
+  owner-frame state; a delayed transition's fallback reads state and time
+  together. Final consumed state is returned as an immutable browser receipt
+  and asserted directly instead of repeating the unchanged renderer read.
+- The Menu journey reuses its immediate post-release sample for the unchanged
+  pre-scroll baseline, labelled honestly, and joins final presentation
+  settling with the same subsequent two sequential real input-frame reads.
+  Every native jitter/move/release, cancellation, recovery and save assertion
+  remains; no independent native event was dispatched concurrently.
+
+Focused RED: six absent consumed-receipt assertions, two missing rendezvous/
+rejection assertions, and three delayed-completion timestamp assertions.
+Focused GREEN: 180 tests in three files, including rejection/success-before-
+frame cases. The initial keyboard delayed-observation fixture was corrected
+to model its two existing completion-frame observations; its failed attempt
+is retained externally. This does not change real keyboard behavior.
+
+The original three cases passed locally unchanged. Two-core stress attempts
+remain RED both before and after the first transport amendment; they are
+not an improvement claim or a supported hardware acceptance result. The
+first stress attempt overlapped source editing and is not frozen-head
+validation. The amended targeted six-profile matrix passed all 24 cases, zero skips or
+retries, on unchanged browser/helper source hashes. Exact final full-suite/
+hosted evidence is still required. No
+screenshot golden, image threshold, timeout, retry, skip, production runtime
+rule, art resource, gameplay balance, RNG or Save boundary changed here.
+
+Raw artifacts/reviews and RED/GREEN logs remain in the external issue-burn
+evidence directory under `pr250-6b40289-hosted-closeout/` and
+`pr250-observer-*`, `pr250-contact-rendezvous-red.log`,
+`pr250-completion-receipt-red.log`, `pr250-delayed-completion-red.log`.
+#193/#197 still require actual compact surfaces and owner/device acceptance.
