@@ -13,7 +13,17 @@ class MockGameObject {
   body: unknown = undefined;
   played: string[] = [];
   stopped = 0;
-  frame = -1;
+  frame: string | number = -1;
+  texture = '';
+  animation?: string;
+  displayWidth = 0;
+  displayHeight = 0;
+  tint = 0xffffff;
+  rotation = 0;
+  flipX = false;
+  flipY = false;
+  originX = 0.5;
+  originY = 0.5;
 
   constructor(
     public x = 0,
@@ -55,9 +65,13 @@ class MockGameObject {
     return this;
   }
 
-  setOrigin(): this {
-    return this;
-  }
+  setOrigin(x: number, y = x): this { this.originX = x; this.originY = y; return this; }
+  setTexture(texture: string, frame: string | number = '__BASE'): this { this.texture = texture; this.frame = frame; return this; }
+  setDisplaySize(width: number, height: number): this { this.displayWidth = width; this.displayHeight = height; return this; }
+  setTint(tint: number): this { this.tint = tint; return this; }
+  clearTint(): this { this.tint = 0xffffff; return this; }
+  setRotation(value: number): this { this.rotation = value; return this; }
+  setFlip(x: boolean, y: boolean): this { this.flipX = x; this.flipY = y; return this; }
 
   setScale(scale: number): this {
     this.scaleValue = scale;
@@ -66,15 +80,17 @@ class MockGameObject {
 
   play(key: string): this {
     this.played.push(key);
+    this.animation = key;
     return this;
   }
 
   stop(): this {
     this.stopped += 1;
+    this.animation = undefined;
     return this;
   }
 
-  setFrame(frame: number): this {
+  setFrame(frame: string | number): this {
     this.frame = frame;
     return this;
   }
@@ -457,7 +473,7 @@ describe('Drop', () => {
     });
   });
 
-  it('prebuilds four kind sprites once and switches pooled presentation without allocation', async () => {
+  it('reuses one kind-art sprite and switches pooled presentation without allocation', async () => {
     const { Drop } = await import('../src/entities/Drop');
     const kinds = ['xp', 'scrap', 'chest', 'weapon'] as const;
     const bindings = Object.freeze(Object.fromEntries(kinds.map((kind) => [kind, {
@@ -481,7 +497,7 @@ describe('Drop', () => {
       physics: { add: { existing: () => undefined } },
     };
     const drop = new Drop(scene as never, 8, bindings);
-    expect(sprites).toHaveLength(4);
+    expect(sprites).toHaveLength(1);
 
     const grants: LootGrant[] = [
       { kind: 'xp', amount: 1 },
@@ -492,13 +508,68 @@ describe('Drop', () => {
     grants.forEach((grant, index) => {
       drop.spawn(10 + index, 20 + index, grant);
       expect(sprites.filter((sprite) => sprite.active && sprite.visible)).toHaveLength(1);
-      expect(sprites[index]?.played.at(-1)).toBe(`art:drop:${grant.kind}:idle`);
-      expect(sprites).toHaveLength(4);
+      expect(sprites[0]?.played.at(-1)).toBe(`art:drop:${grant.kind}:idle`);
+      expect(sprites).toHaveLength(1);
     });
 
     drop.reset();
-    expect(sprites.every((sprite) => !sprite.active && !sprite.visible && sprite.frame === 0)).toBe(true);
+    expect(sprites.every((sprite) => !sprite.active && !sprite.visible && sprite.frame === '__BASE')).toBe(true);
     drop.destroy();
     expect(sprites.every((sprite) => sprite.destroyed)).toBe(true);
   });
+});
+
+
+it('reuses one physical view across exact weapons, blocked state, Scrap, XP and Chest', async () => {
+  const { Drop } = await import('../src/entities/Drop');
+  const { resolveDropPresentation } = await import('../src/presentation/dropPresentation');
+  const { loadGameData } = await import('../src/systems/validation');
+  const { DataVisualArtRegistry } = await import('../src/systems/visualArt');
+  const { DataWeaponRegistry } = await import('../src/systems/weaponRegistry');
+  const data = loadGameData(), visualArt = new DataVisualArtRegistry(data), weaponRegistry = new DataWeaponRegistry(data);
+  const sprites: MockGameObject[] = [], circles: MockArc[] = [];
+  const scene = { add: { circle: (x: number, y: number) => { const node = new MockArc(x, y); circles.push(node); return node; },
+    sprite: () => { const node = new MockGameObject(); sprites.push(node); return node; } },
+    physics: { add: { existing: () => undefined } } };
+  const drop = new Drop(scene as never, 8, {}, true);
+  expect(sprites).toHaveLength(1); expect(circles).toHaveLength(2);
+  const node = sprites[0];
+  const pistolPlan = resolveDropPresentation({ kind: 'weapon', definitionId: 'scrap-pistol-t1' }, { visualArt, weaponRegistry });
+  expect(() => drop.spawn(0, 0, { kind: 'scrap', amount: 1 }, pistolPlan)).toThrow(/authoritative grant/);
+  expect(() => drop.spawn(0, 0, { kind: 'weapon', definitionId: 'bolt-shotgun-t3' }, pistolPlan)).toThrow(/authoritative grant/);
+  expect(drop.active).toBe(false); expect(drop.grant).toBeUndefined(); expect(node.visible).toBe(false);
+  const spawn = (grant: LootGrant) => {
+    const plan = resolveDropPresentation(grant, { visualArt, weaponRegistry });
+    drop.spawn(10, 20, grant, plan);
+    expect(node.texture).toBe(plan.binding.textureKey);
+    expect(node.frame).toBe(plan.binding.load.type === 'spritesheet' ? 0 : plan.binding.frameKey ?? '__BASE');
+    expect(node.animation).toBe(plan.binding.clips?.idle ? `art:${plan.artId}:idle` : undefined);
+    expect([node.displayWidth, node.displayHeight]).toEqual([plan.display.width, plan.display.height]);
+    expect([node.originX, node.originY, node.rotation, node.flipX, node.flipY, node.alpha, node.tint]).toEqual([.5, .5, 0, false, false, 1, 0xffffff]);
+    expect(node.visible).toBe(true); expect(drop.sprite.visible).toBe(false);
+    expect(drop.grant).toEqual(grant); expect(drop.pickupBlocked).toBe(false);
+    expect(drop.body.radius).toBe(8); expect(drop.body.velocity).toEqual({ x: 0, y: 0 });
+    expect(sprites).toHaveLength(1); expect(circles).toHaveLength(2);
+  };
+  const reset = () => {
+    node.setAlpha(.2).setTint(123).setRotation(1).setFlip(true, true).setOrigin(0).play('stale').setFrame('stale');
+    drop.body.setVelocity(4, 5); drop.reset(); drop.reset();
+    expect(node).toMatchObject({ texture: '__DEFAULT', frame: '__BASE', animation: undefined, visible: false, active: false, alpha: 1, tint: 0xffffff, rotation: 0, flipX: false, flipY: false, originX: .5, originY: .5 });
+    expect(drop.grant).toBeUndefined(); expect(drop.pickupBlocked).toBe(false);
+    expect(drop.body.enable).toBe(false); expect(drop.body.radius).toBe(8); expect(drop.body.velocity).toEqual({ x: 0, y: 0 });
+  };
+  spawn({ kind: 'weapon', definitionId: 'scrap-pistol-t1' }); reset();
+  spawn({ kind: 'weapon', definitionId: 'bolt-shotgun-t3' });
+  const texture = node.texture, frame = node.frame;
+  drop.body.setVelocity(10, 10); drop.setPickupBlocked(true);
+  expect(node.texture).toBe(texture); expect(node.frame).toBe(frame); expect(node.visible).toBe(true);
+  expect(node.alpha).toBe(.65); expect(node.tint).toBe(0xffa94d); expect(circles[1].visible).toBe(true);
+  expect(drop.body.velocity).toEqual({ x: 0, y: 0 });
+  drop.setPickupBlocked(false); expect(node.alpha).toBe(1); expect(node.tint).toBe(0xffffff); expect(circles[1].visible).toBe(false); reset();
+  spawn({ kind: 'scrap', amount: 4 });
+  drop.sprite.setPosition(30, 40); drop.update(16, { x: 33, y: 44 }, 5, 100);
+  expect([node.x, node.y]).toEqual([30, 40]); expect(drop.body.velocity.x).toBeCloseTo(60); expect(drop.body.velocity.y).toBeCloseTo(80); reset();
+  spawn({ kind: 'xp', amount: 3 }); reset();
+  spawn({ kind: 'chest', amount: 0, tableId: 'unchanged' }); reset();
+  drop.destroy(); expect(node.destroyed).toBe(true); expect(circles.every(c => c.destroyed)).toBe(true); expect(() => drop.reset()).not.toThrow();
 });

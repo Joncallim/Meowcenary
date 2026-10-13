@@ -5,7 +5,8 @@ import type { GameEventListener } from '../engine/eventBus';
 import { createPool, type Pool } from '../engine/pool';
 import type { Rng } from '../engine/rng';
 import type { System } from '../engine/system';
-import { Drop, type DropArtBindings } from '../entities/Drop';
+import { Drop, assertDropPresentationReady, type DropArtBindings } from '../entities/Drop';
+import { resolveDropPresentation } from '../presentation/dropPresentation';
 import type { Player } from '../entities/Player';
 import { distanceSq } from '../engine/vector';
 import { resolveKillLoot, resolveLootFromTable } from '../gameplay/loot';
@@ -15,6 +16,7 @@ import { applyXp, withActivatedXpPulse } from '../gameplay/xp';
 import { grantWeaponToRack, WEAPON_RACK_CAPACITY } from '../gameplay/weaponRack';
 import type { WeaponRegistry } from '../gameplay/weapons';
 import type { LootTableLookup } from './lootTables';
+import type { VisualArtLookup } from './visualArt';
 
 export interface DropSystemOptions {
   readonly scene: Phaser.Scene;
@@ -31,6 +33,8 @@ export interface DropSystemOptions {
   readonly magnetSpeed: number;
   readonly basePickupRadius: number;
   readonly artByKind?: DropArtBindings;
+  /** Shared production registry. Absent only for isolated primitive harnesses. */
+  readonly visualArt?: Pick<VisualArtLookup, 'bindingById'>;
 }
 
 export class DropSystem implements System {
@@ -45,6 +49,7 @@ export class DropSystem implements System {
   private readonly dropRadius: number;
   private readonly magnetSpeed: number;
   private readonly basePickupRadius: number;
+  private readonly visualArt?: Pick<VisualArtLookup, 'bindingById'>;
   private readonly dropPool: Pool<Drop>;
   private readonly liveDrops = new Set<Drop>();
   /** Pool identity is reused, so settlement queues track spawn generations
@@ -67,10 +72,11 @@ export class DropSystem implements System {
     this.dropRadius = options.dropRadius;
     this.magnetSpeed = options.magnetSpeed;
     this.basePickupRadius = options.basePickupRadius;
+    this.visualArt = options.visualArt;
 
     this.dropPool = createPool(
       () => {
-        const drop = new Drop(this.scene, this.dropRadius, options.artByKind);
+        const drop = new Drop(this.scene, this.dropRadius, options.artByKind, options.visualArt !== undefined);
         this.ownedDrops.push(drop);
         this.dropBySprite.set(drop.sprite, drop);
 
@@ -192,11 +198,25 @@ export class DropSystem implements System {
    * call it directly to bypass loot resolution and exercise collection logic.
    */
   spawnDrop(x: number, y: number, grant: LootGrant): Drop {
+    const presentation = this.visualArt
+      ? resolveDropPresentation(grant, { weaponRegistry: this.weaponRegistry, visualArt: this.visualArt })
+      : undefined;
+    if (presentation) assertDropPresentationReady(this.scene, presentation);
     const drop = this.dropPool.acquire();
+    try {
+      drop.spawn(x, y, grant, presentation);
+    } catch (error) {
+      try {
+        this.dropPool.release(drop);
+      } catch (cleanupError) {
+        throw new AggregateError([error, cleanupError], 'Drop spawn failed and pooled cleanup also failed');
+      }
+      throw error;
+    }
+    // A failed view swap never publishes a lifetime or advances generation.
     this.nextSpawnSerial += 1;
     this.spawnSerialByDrop.set(drop, this.nextSpawnSerial);
     this.liveDrops.add(drop);
-    drop.spawn(x, y, grant);
     trace('drop:spawn', {
       kind: grant.kind,
       definitionId: 'definitionId' in grant ? grant.definitionId : undefined,
