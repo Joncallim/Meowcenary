@@ -1,3 +1,4 @@
+import { assertArenaLayout, resolveArenaLayout, type ResolvedArenaLayout } from '../gameplay/arenaLayout';
 import Phaser from 'phaser';
 import { getGameContext, type GameContext, type RunPresentationBaseline } from '../engine/context';
 import { RuntimeConfig } from '../engine/config';
@@ -56,7 +57,9 @@ import { WeaponSystem } from '../systems/WeaponSystem';
 import { UpgradeChooser } from '../ui/UpgradeChooser';
 import { resolveCharacterRunContribution } from '../gameplay/characterContribution';
 import { HudController, PhaserHudView, createHudSource } from '../ui/hud';
-import { RunStartAbilityBrief } from '../ui/runStartAbilityBrief';
+import { resolveRunStartIntroModel, requiredRunStartIntroArtIds, type RunStartIntroModel } from '../presentation/runStartIntro';
+import { RunStartIntroController, type IntroCommand } from '../ui/runStartIntroController';
+import { RunStartIntroView } from '../ui/runStartIntroView';
 import { resolveAbilityEffectPresentation } from '../presentation/abilityEffectPresentation';
 import { ControlsView } from '../ui/controls';
 import { InventoryController } from '../ui/inventory';
@@ -172,7 +175,31 @@ export class GameScene extends Phaser.Scene {
   private stagePlan?: ResolvedRunPlan;
   private stageRuntime?: StageRuntime;
   private enemyDefinitions?: DataEnemyRegistry;
-  private runStartBrief?: RunStartAbilityBrief;
+
+  private introModel?: RunStartIntroModel;
+
+  private introController?: RunStartIntroController;
+
+  private introView?: RunStartIntroView;
+
+  private introStartCommitted = false;
+
+  private introRendererLost = false;
+
+  private introBackgrounded = false;
+
+  private introGeneration = 0;
+
+  private sceneGeneration = 0;
+
+  private lifecycleOwned = false;
+
+  private recovering = false;
+
+  private pendingIntroReturn?: () => void;
+
+  private pendingBossStart?: () => boolean;
+
   private abilityActivationId = 0;
   private abilityDefinition?: AbilityDefinition;
   private abilityState: AbilityState = createAbilityState();
@@ -202,6 +229,9 @@ export class GameScene extends Phaser.Scene {
   /** Prevents ghost clicks during scene transitions by suppressing all
    *  input for a brief window after a state-changing action. */
   private _inputBlockedUntil = 0;
+  private launchArenaLayout?: ResolvedArenaLayout;
+  private resolvedArenaLayout?: ResolvedArenaLayout;
+  private arenaDebugLine = '';
   private arenaDimensions?: { readonly width: number; readonly height: number };
   private arenaPresentationPadding?: ActorPresentationPadding;
   private arenaCameraFraming?: ArenaCameraFraming;
@@ -211,9 +241,28 @@ export class GameScene extends Phaser.Scene {
     super(SceneKey.Game);
   }
 
-  create(data?: { readonly runRequest?: ComposedRunRequest; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean }): void {
-    const createStarted = performanceProbe?.now();
+  create(data?: { readonly arenaLayout?: ResolvedArenaLayout; readonly introModel?: RunStartIntroModel; readonly stagePlan?: ResolvedRunPlan; readonly runRequest?: ComposedRunRequest; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean }): void {
+    // Register disposal before the first fallible preparation operation. A
+    // failed create is still a scene lifetime, even without run/input/entities.
+    if (this.lifecycleOwned) this.handleShutdown();
     this.resetPerRunState(data?.isTraining === true);
+    this.lifecycleOwned = true;
+    this.sceneGeneration += 1;
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+    this.launchRequest = data?.runRequest;
+    // Retain supplied identity even if plan/model/resource preparation fails.
+    // Validation below still exclusively admits geometry to gameplay.
+    this.launchArenaLayout = data?.arenaLayout;
+    try {
+      this.createPreparedRun(data);
+    } catch (error) {
+      this.returnFromIntro(error instanceof Error ? error.message : 'Run preparation unavailable');
+    }
+  }
+
+  private createPreparedRun(data?: Parameters<GameScene['create']>[0]): void {
+    const createStarted = performanceProbe?.now();
     const ctx = this.getContext();
     // Normal production entry receives the exact request which Menu used to
     // resolve/load its closure. Retaining the fallback keeps old headless
@@ -224,21 +273,32 @@ export class GameScene extends Phaser.Scene {
     // Alpha 3 normal composition resolves the selected contract once at the
     // boundary. GameScene consumes its physical arena result; #85 wires the
     // remaining objective/encounter/reward fields to live systems.
-    const plan = request.kind === 'stage'
+    const plan = data?.stagePlan ?? (request.kind === 'stage'
       ? resolveRunPlan(
         { characterId: request.characterId, stageId: request.stageId, seed: request.seed },
         ctx.stages.runPlanCatalog(),
       )
-      : undefined;
+      : undefined);
+    if (plan && (request.kind !== 'stage' || plan.stageId !== request.stageId || plan.characterId !== request.characterId || plan.seed !== request.seed)) throw new Error('Prepared stage does not match launch');
     this.stagePlan = plan;
     this.stageRuntime = plan ? createStageRuntime(plan) : undefined;
+    const introModel = data?.introModel ?? resolveRunStartIntroModel({ data: ctx.data, request, plan });
+    if (introModel.identity.characterId !== request.characterId || introModel.identity.seed !== request.seed || introModel.identity.arenaId !== (request.kind === 'stage' ? plan!.arenaId : request.arenaId) || introModel.identity.stageId !== plan?.stageId || introModel.identity.contentVersion !== ctx.data.contentVersion || (plan && (introModel.objective.kind !== 'stage' || JSON.stringify(introModel.objective.definition) !== JSON.stringify(plan.objective.definition)))) throw new Error('Prepared intro does not match launch');
+    this.introModel = introModel;
+    this.introController = new RunStartIntroController(introModel);
     const visualArt = new DataVisualArtRegistry(ctx.data);
 
     const arenaId = request.kind === 'stage' ? plan!.arenaId : request.arenaId;
-    const arena = ctx.arenas.arenaById(arenaId);
-    if (!arena) {
+    const template = ctx.arenas.arenaById(arenaId);
+    if (!template) {
       throw new Error(`Run arena "${arenaId}" is missing from the registry`);
     }
+    if (data?.runRequest && !data.arenaLayout) throw new Error('Run launch is missing its prepared arena layout');
+    const layout = data?.arenaLayout ?? resolveArenaLayout(template, request.seed, ctx.data.contentVersion);
+    assertArenaLayout(layout, arenaId, request.seed, ctx.data.contentVersion, plan?.encounter.bossId !== undefined);
+    this.resolvedArenaLayout = layout;
+    this.arenaDebugLine = `Arena: ${layout.contentVersion}/${layout.arenaId}/${layout.seed}/v${layout.generationVersion} layoutSeed=${layout.layoutSeed} hash=${layout.hash} ${layout.diagnostic.mode}${layout.diagnostic.reason ? ` (${layout.diagnostic.reason})` : ''}`;
+    const arena = layout.arena;
     if (data?.runRequest) {
       const legacyEnemyIds = request.kind === 'legacy-arena'
         ? (ctx.data.spawnCurves.find((curve) => curve.id === arena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
@@ -247,6 +307,8 @@ export class GameScene extends Phaser.Scene {
         data: ctx.data,
         characterId: request.characterId,
         arena,
+        introArtIds: requiredRunStartIntroArtIds(introModel),
+        layout,
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
       });
@@ -260,6 +322,7 @@ export class GameScene extends Phaser.Scene {
     if (!curve) {
       throw new Error(`Arena "${arena.id}" references missing spawn curve "${arena.spawnCurveId}"`);
     }
+    if (!plan && (introModel.objective.kind !== 'training' || introModel.objective.durationSeconds !== curve.durationSeconds)) throw new Error('Prepared Training objective does not match launch');
     this.spawnCurve = curve;
     // Development-only debug cheats. The flags are cached once per page by
     // getDebugFlags, and the master `?cheats=1` switch is required. The
@@ -282,6 +345,9 @@ export class GameScene extends Phaser.Scene {
       ? undefined
       : new DataAbilityRegistry({ abilities: ctx.data.abilities ?? [] }).abilityById(character.abilityId);
     if (character.abilityId !== undefined && !this.abilityDefinition) throw new Error('Selected Mercenary references a missing ability');
+    if (introModel.mercenary.characterName !== character.name || introModel.mercenary.portraitArtId !== character.presentation.portraitArtId) throw new Error('Prepared intro mercenary does not match launch');
+    if (Boolean(introModel.ability) !== Boolean(this.abilityDefinition)
+      || (this.abilityDefinition && (introModel.ability?.name !== this.abilityDefinition.name || introModel.ability.iconArtId !== this.abilityDefinition.presentation.iconArtId))) throw new Error('Prepared intro ability does not match launch');
     this.abilityState = createAbilityState();
     const contribution = resolveCharacterRunContribution(character, weaponRegistry);
     const prepared = prepareRun({
@@ -330,6 +396,8 @@ export class GameScene extends Phaser.Scene {
     const lootTables = new DataLootTableRegistry(ctx.data);
 
     this.inputController = new InputController(this);
+    this.inputController.quarantineUntilNeutral();
+    this.inputController.suspendGameplayPointer();
     this.orientationBlocked = isPortraitOrientationBlocked();
     this.unsubscribers.push(onPortraitOrientationChange(this.handleOrientationChange));
     this.debugOverlay = new DebugOverlay(this);
@@ -346,8 +414,8 @@ export class GameScene extends Phaser.Scene {
       baseMaxHealth: prepared.basePlayer.maxHealth,
       baseMoveSpeed: prepared.basePlayer.moveSpeed,
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
-      spawnX: arena.size.width / 2,
-      spawnY: arena.size.height / 2,
+      spawnX: layout.start.x,
+      spawnY: layout.start.y,
     }, visualArt.bindingById(`character:${request.characterId}`));
     this.abilityPresentationSystem = new AbilityPresentationSystem(this, ctx.bus, this.player);
 
@@ -425,12 +493,12 @@ export class GameScene extends Phaser.Scene {
       onExitConfirmed: () => this.exitRunEarly(),
     });
 
-    this.arenaScenery = buildArenaScenery(this, arena, visualArt, this.arenaCameraFraming!.bounds);
+    this.arenaScenery = buildArenaScenery(this, arena, visualArt, this.arenaCameraFraming!.bounds, layout.floorPlan);
     if (this.arenaScenery.obstacleGroup.children?.size > 0) {
       this.physics.add.collider(this.player.sprite, this.arenaScenery.obstacleGroup);
       this.physics.add.collider(this.enemyGroup, this.arenaScenery.obstacleGroup);
     }
-    this.dropSystem = new DropSystem({
+    this.dropSystem = this.ownSystem(new DropSystem({
       scene: this,
       ctx,
       runState: this.runState,
@@ -442,16 +510,11 @@ export class GameScene extends Phaser.Scene {
       dropRadius: RuntimeConfig.gameplay.drop.radius,
       magnetSpeed: RuntimeConfig.gameplay.drop.magnetSpeed,
       basePickupRadius: RuntimeConfig.gameplay.player.pickupRadius,
-      artByKind: Object.freeze({
-        xp: visualArt.bindingById('drop:xp'),
-        scrap: visualArt.bindingById('drop:scrap'),
-        chest: visualArt.bindingById('drop:chest'),
-        weapon: visualArt.bindingById('drop:weapon'),
-      }),
-    });
+      visualArt,
+    }));
     // Constructed after DropSystem so the injected callback can request world
     // drops through the one physical pickup boundary (Epic 14 §D6/D8).
-    this.weaponRewardSystem = new WeaponRewardSystem({
+    this.weaponRewardSystem = this.ownSystem(new WeaponRewardSystem({
       runState: this.runState,
       rng: weaponRewardRng,
       lootTables,
@@ -462,14 +525,14 @@ export class GameScene extends Phaser.Scene {
       playerPosition: () => ({ x: this.player!.x, y: this.player!.y }),
       arenaBounds: { width: arena.size.width, height: arena.size.height },
       obstacles: arena.obstacles,
-    });
-    this.upgradeSystem = new UpgradeSystem({
+    }));
+    this.upgradeSystem = this.ownSystem(new UpgradeSystem({
       runState: this.runState,
       bus: ctx.bus,
       definitions: ctx.data.upgrades,
       rng: upgradeRng,
       offerCount: RuntimeConfig.gameplay.upgrades.offerCount,
-    });
+    }));
     this.upgradeChooser = new UpgradeChooser(
       this,
       ctx.bus,
@@ -490,17 +553,17 @@ export class GameScene extends Phaser.Scene {
     );
     const debugCheatSystem =
       cheatsActive && debugFlags
-        ? new DebugCheatSystem({
+        ? this.ownSystem(new DebugCheatSystem({
             runState: this.runState,
             player: this.player,
             flags: debugFlags,
-          })
+          }))
         : undefined;
     // Development-only local playtest summary, constructed after
     // ProgressionSystem so banking still runs first in listener order.
     const playtestSummarySystem =
       import.meta.env.DEV
-        ? new PlaytestSummarySystem({
+        ? this.ownSystem(new PlaytestSummarySystem({
             runState: this.runState,
             bus: ctx.bus,
             dpsMeter,
@@ -512,9 +575,9 @@ export class GameScene extends Phaser.Scene {
               return definition ? singleScopedFamily(definition.effects) : undefined;
             },
             objectiveCompletionTimeMs: () => this.objectiveCompletionTimeMs,
-          })
+          }))
         : undefined;
-    this.weaponSystem = new WeaponSystem(
+    this.weaponSystem = this.ownSystem(new WeaponSystem(
       this,
       ctx,
       this.runState,
@@ -527,7 +590,7 @@ export class GameScene extends Phaser.Scene {
       visualArt,
       new HeldWeaponView(this),
       projectileEffectsByFamily,
-    );
+    ));
     this.feedbackRenderer = new PhaserFeedbackRenderer({
       scene: this,
       maxEffects: RuntimeConfig.performance.maxFeedbackEffects,
@@ -535,25 +598,25 @@ export class GameScene extends Phaser.Scene {
       weaponFeel: ctx.data.weaponFeel,
       viewport,
     });
-    this.feedbackSystem = new FeedbackSystem({
+    this.feedbackSystem = this.ownSystem(new FeedbackSystem({
       bus: ctx.bus,
       settings: ctx.settings,
       renderer: this.feedbackRenderer,
-    });
-    this.defeatPresentationSystem = new DefeatPresentationSystem({
+    }));
+    this.defeatPresentationSystem = this.ownSystem(new DefeatPresentationSystem({
       scene: this,
       bus: ctx.bus,
       data: ctx.data,
       visualArt,
       maxPresentations: RuntimeConfig.performance.maxDefeatPresentations,
-    });
+    }));
     this.perfSampler = createPerfSampler(
       performanceProbe ? 600 : RuntimeConfig.performance.sampleWindowFrames,
       RuntimeConfig.performance.targetFps,
       performanceProbe ? GAMEPLAY_PERF_OWNERS : [],
     );
 
-    const spawnSystem = new SpawnSystem(
+    const spawnSystem = this.ownSystem(new SpawnSystem(
       this,
       ctx,
       this.runState,
@@ -566,25 +629,26 @@ export class GameScene extends Phaser.Scene {
       visualArt,
       plan?.difficulty,
       () => this.canReceiveCombatDamage(),
-    );
+    ));
     if (plan?.encounter.bossId) {
-      spawnSystem.spawnEncounterEnemy(plan.encounter.bossId, arena.size.width / 2, Math.max(80, arena.size.height * 0.2));
+      this.pendingBossStart = () => spawnSystem.spawnEncounterEnemy(plan.encounter.bossId!, layout.boss!.x, layout.boss!.y);
     }
-    const passiveSystem = new PassiveCoordinator({
+    const passiveSystem = this.ownSystem(new PassiveCoordinator({
       runState: this.runState,
       bus: ctx.bus,
       character,
       handlers: createPassiveHandlerRegistry(DEFAULT_PASSIVE_HANDLERS),
-    });
-    const hazardSystem = new HazardSystem({
+    }));
+    const hazardSystem = this.ownSystem(new HazardSystem({
       scene: this,
       runState: this.runState,
+      reducedMotion: () => ctx.settings.reducedMotion,
       bus: ctx.bus,
       player: this.player,
       hazards: arena.hazards,
       hazardSkins: arena.visual.hazardSkins,
       visualArt,
-    });
+    }));
     this.systems = [
       passiveSystem,
       spawnSystem,
@@ -704,6 +768,7 @@ export class GameScene extends Phaser.Scene {
         this.syncPhysicsPause(this.requireRunState());
       }),
       ctx.bus.on('run:lost', () => {
+        if (!this.introStartCommitted || this.runState?.status !== 'lost') return;
         // Player owns health/death and emits the authoritative terminal run
         // fact; StageRuntime owns the corresponding contract lifecycle.
         this.stageRuntime?.fail();
@@ -713,8 +778,6 @@ export class GameScene extends Phaser.Scene {
       }),
     );
 
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
-    this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
 
     // Audio wiring after the display tree is constructed, immediately before
     // the run starts: fetch the shared manager, select the run loop, and arm
@@ -723,24 +786,12 @@ export class GameScene extends Phaser.Scene {
     this.audioManager?.playMusic('music-run');
     this.installAudioUnlockListeners();
 
-    this.inputController.quarantineUntilNeutral();
-    this.inputController.suspendGameplayPointer();
-    if (this.abilityDefinition) {
-      const portrait = visualArt.bindingById(character.presentation.portraitArtId);
-      const icon = visualArt.bindingById(this.abilityDefinition.presentation.iconArtId);
-      if (!portrait || !icon || !this.textures.exists(portrait.textureKey) || !this.textures.exists(icon.textureKey)) {
-        throw new Error('Selected run brief resources are not prepared');
-      }
-      const briefRun = this.runState;
-      this.runStartBrief = new RunStartAbilityBrief(this, Object.freeze({ mercenaryName: character.name, portrait, icon,
-        ability: resolveAbilityEffectPresentation(this.abilityDefinition) }),
-      () => this.inputController?.getInputMode() ?? 'pointer',
-      () => { if (this.runState === briefRun) this.beginRunFromBrief(); },
-      () => { if (this.runState === briefRun) this.returnFromBrief(); });
-    } else {
-      // Existing no-ability content retains its launch semantics.
-      startRun(this.runState, ctx.bus);
-    }
+    this.introRendererLost = Boolean((this.game?.renderer as unknown as { contextLost?: boolean })?.contextLost);
+    this.game?.renderer?.on?.('losewebgl', this.handleIntroContextLost, this);
+    this.game?.renderer?.on?.('restorewebgl', this.handleIntroContextRestored, this);
+    this.game?.events?.on('blur', this.handleIntroBlur, this);
+    this.game?.events?.on('focus', this.handleIntroFocus, this);
+    if (!this.introRendererLost && !this.mountIntroView()) return;
     // A run launched while the device is already rotated must begin frozen,
     // rather than getting one simulation frame before its first update gate.
     this.syncPhysicsPause(this.runState);
@@ -762,9 +813,24 @@ export class GameScene extends Phaser.Scene {
     this.performanceSeen = undefined;
     this.performanceSpawnSystem = undefined;
     this.performanceFixture = undefined;
-    this.runStartBrief?.destroy();
-    this.runStartBrief = undefined;
+    this.introGeneration += 1;
+    this.recovering = false;
+    this.runState = undefined;
+    this.stagePlan = undefined;
+    this.stageRuntime = undefined;
+    this.launchRequest = undefined;
+    this.launchArenaLayout = undefined;
+    this.resolvedArenaLayout = undefined;
+    this.arenaDebugLine = '';
+    this.runStartPresentation = undefined;
     this.abilityActivationId = 0;
+    this.introStartCommitted = false;
+    this.introRendererLost = false;
+    this.introBackgrounded = false;
+    this.introModel = undefined;
+    this.introController = undefined;
+    this.introView = undefined;
+    this.pendingBossStart = undefined;
     this.terminalSettlement = undefined;
     this.terminalStageId = undefined;
     this.pendingAchievementFacts = {};
@@ -782,6 +848,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    if (this.recovering) return;
     const runState = this.runState;
     const ctx = this.getContext();
     if (!runState || !this.inputController || !this.player) {
@@ -805,13 +872,25 @@ export class GameScene extends Phaser.Scene {
       this.inputController.quarantineUntilNeutral();
       this.gameplayPointerSuspended = true;
     }
+    const wasIntro = runState.status === 'intro';
     this.inputController.update(delta);
+    if (wasIntro) {
+      this.audioManager?.update(delta);
+      this.orientationResumePending = false;
+      this.introView?.refreshInputPresentation();
+      this.syncPhysicsPause(runState);
+      return;
+    }
+    if (this.pendingBossStart && runState.status === 'active') {
+      const spawn = this.pendingBossStart; this.pendingBossStart = undefined;
+      this.stageRuntime?.tick(0, 0);
+      try { if (!spawn()) throw new Error('Boss entry unavailable'); } catch { this.returnFromIntro('Boss entry unavailable'); return; }
+    }
     // Arcade already skipped this frame while the flag was true. Clearing it
     // here lets the normal scene-owned pause resolver resume for the *next*
     // physics integration, after neutral input has been consumed.
     this.orientationResumePending = false;
     this.syncGameplayPointerOwnership();
-    this.runStartBrief?.refreshInputPresentation();
     this.pauseView?.refreshInputPresentation();
     this.runSummaryView?.refreshInputPresentation();
     this.upgradeChooser?.refreshInputPresentation();
@@ -835,7 +914,7 @@ export class GameScene extends Phaser.Scene {
     // Stop combat simulation and freeze the run clock during pendingClear
     // so an earned clear is never accidentally lost and the displayed
     // completion time remains coherent. Presentation continues below.
-    if (!isPendingClear && runState.status !== 'intro') {
+    if (!isPendingClear) {
       ownerStarted = performanceProbe?.now();
       tickRun(runState, delta);
       this.tickAbility(delta);
@@ -925,6 +1004,7 @@ export class GameScene extends Phaser.Scene {
       `PhysDebug: ${this.physics.world.drawDebug ? 'on' : 'off'}`,
       perfLine,
       `Run: ${runState.status} ${Math.floor(runState.timeMs / 1000)}s`,
+      this.arenaDebugLine,
       `Level: ${runState.level} XP: ${runState.xp.toFixed(1)}/${runState.xpToNext}`,
       `Health: ${this.player.health.toFixed(0)}/${this.player.maxHealth.toFixed(0)}`,
       `Enemies: ${this.enemies.length} Kills: ${runState.kills}`,
@@ -982,7 +1062,7 @@ export class GameScene extends Phaser.Scene {
       || !Number.isInteger(count) || count < 0) return false;
     const requested = Math.min(48, count);
     const ctx = this.getContext();
-    const arena = ctx.arenas.arenaById(this.runState.arenaId);
+    const arena = this.resolvedArenaLayout?.arena;
     if (!arena) return false;
     const art = new DataVisualArtRegistry(ctx.data);
     const candidates = ctx.data.enemies.filter(enemy => {
@@ -1044,21 +1124,26 @@ export class GameScene extends Phaser.Scene {
     camera.centerOn?.(presentationBounds.centerX, presentationBounds.centerY);
   }
 
+  private ownSystem<T extends System>(system: T): T { this.systems.push(system); return system; }
+
   private handleShutdown(): void {
+    this.lifecycleOwned = false;
+    this.sceneGeneration += 1;
+    if (this.pendingIntroReturn) this.game?.events?.off('poststep', this.pendingIntroReturn);
+    this.pendingIntroReturn = undefined;
+    this.disposeIntro();
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.scale?.off?.(Phaser.Scale.Events.RESIZE, this.handleResponsiveCamera, this);
-    this.runStartBrief?.destroy();
-    this.runStartBrief = undefined;
     this.removeAudioUnlockListeners();
     this.unsubscribers.forEach((unsubscribe) => {
       unsubscribe();
     });
     this.unsubscribers = [];
-    this.input.keyboard?.off('keydown-F4', this.togglePhysicsDebug, this);
-    this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
-    this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
-    this.input.keyboard?.off('keydown-F10', this.spawnChestDev, this);
+    this.input?.keyboard?.off('keydown-F4', this.togglePhysicsDebug, this);
+    this.input?.keyboard?.off('keydown-F8', this.forceLoseRun, this);
+    this.input?.keyboard?.off('keydown-F9', this.forceWinRun, this);
+    this.input?.keyboard?.off('keydown-F10', this.spawnChestDev, this);
     this.upgradeChooser?.destroy();
     this.upgradeChooser = undefined;
     this.controlsView?.destroy();
@@ -1075,6 +1160,9 @@ export class GameScene extends Phaser.Scene {
     this.runSummaryView?.destroy();
     this.runSummaryView = undefined;
     this.runSummaryController = undefined;
+    // FeedbackSystem normally owns its renderer; a constructor failure before
+    // that handoff still leaves the renderer owned by this scene.
+    if (!this.feedbackSystem) this.feedbackRenderer?.destroy();
     this.systems.forEach((system) => {
       system.destroy();
     });
@@ -1105,6 +1193,9 @@ export class GameScene extends Phaser.Scene {
     this.performanceFixture = undefined;
     this.spawnCurve = undefined;
     this.arenaDimensions = undefined;
+    this.launchArenaLayout = undefined;
+    this.resolvedArenaLayout = undefined;
+    this.arenaDebugLine = '';
     this.arenaPresentationPadding = undefined;
     this.arenaCameraFraming = undefined;
     this.arenaScenery?.destroy();
@@ -1112,7 +1203,7 @@ export class GameScene extends Phaser.Scene {
     this.runState = undefined;
     this.dpsMeter = undefined;
     if (this.physicsPausedByRun) {
-      this.physics.world?.resume();
+      this.physics?.world?.resume();
       this.physicsPausedByRun = false;
     }
     this.enemyGroup = undefined;
@@ -1150,7 +1241,7 @@ export class GameScene extends Phaser.Scene {
   private removeAudioUnlockListeners(): void {
     this.audioUnlockUnsub?.();
     this.audioUnlockUnsub = undefined;
-    this.input.off(
+    this.input?.off(
       Phaser.Input.Events.POINTER_DOWN,
       this.handleAudioUnlock,
       this,
@@ -1176,6 +1267,7 @@ export class GameScene extends Phaser.Scene {
    *  an absent runState is a teardown/inconsistent seam and every action is
    *  discarded immediately — no panel fallback routes commands without a run. */
   private routeAction(action: GameAction): void {
+    if (this.recovering) return;
     if (this.orientationBlocked || isPortraitOrientationBlocked()) return;
     // Suppress input during scene transitions to prevent ghost clicks
     // (e.g. pointerdown triggers extraction, pointerup lands on the
@@ -1185,16 +1277,17 @@ export class GameScene extends Phaser.Scene {
     if (!runState) {
       return;
     }
-    if (runState.status === 'intro') {
-      if (action === 'confirm') this.runStartBrief?.confirmFocused();
-      else if (action === 'back') this.returnFromBrief();
-      else if (action === 'navUp' || action === 'navLeft') this.runStartBrief?.moveFocus('up');
-      else if (action === 'navDown' || action === 'navRight') this.runStartBrief?.moveFocus('down');
-      return;
-    }
     const direction: FocusDirection | undefined =
       action === 'navUp' ? 'up' : action === 'navDown' ? 'down' :
         action === 'navLeft' ? 'left' : action === 'navRight' ? 'right' : undefined;
+
+    if (runState.status === 'intro') {
+      if (!this.canInteractWithIntro()) return;
+      if (direction) this.introView?.moveFocus(direction);
+      else if (action === 'confirm') this.introView?.confirmFocused();
+      else if (action === 'back') this.handleIntroCommand('return-menu', this.introController!.snapshot().revision);
+      return;
+    }
 
     // 1. Terminal run: summary owns previous/next/confirm. Back, Pause, and
     //    Inventory are deliberate no-ops in the terminal context.
@@ -1301,21 +1394,117 @@ export class GameScene extends Phaser.Scene {
     this.pauseView?.render(controller.snapshot());
   }
 
-  private beginRunFromBrief(): void {
-    const run = this.runState;
-    if (!run || run.status !== 'intro' || !this.runStartBrief || this.orientationBlocked || isPortraitOrientationBlocked()) return;
-    this.inputController?.quarantineUntilNeutral();
-    this.runStartBrief.destroy();
-    this.runStartBrief = undefined;
-    startRun(run, this.getContext().bus);
-    this.syncPhysicsPause(run);
+
+  private canInteractWithIntro(): boolean {
+    return !this.recovering && this.runState?.status === 'intro' && !this.introRendererLost && !this.introBackgrounded && !this.orientationBlocked
+      && !isPortraitOrientationBlocked() && !this.inputController?.isQuarantined();
   }
 
-  private returnFromBrief(): void {
-    if (this.runState?.status !== 'intro' || !this.runStartBrief) return;
+  private mountIntroView(): boolean {
+    if (!this.introModel || !this.introController || this.runState?.status !== 'intro') return false;
+    const generation = ++this.introGeneration;
+    const focusedCommand = this.introView?.focusedCommand();
+    this.introView?.destroy();
+    this.introView = undefined;
+    try {
+      const art = new DataVisualArtRegistry(this.getContext().data);
+      assertRunPhysicalResourcesLoaded(this.textures, requiredRunStartIntroArtIds(this.introModel).map(id => art.bindingById(id)!));
+      this.introView = new RunStartIntroView({ scene: this, model: this.introModel, art,
+        onError: () => this.returnFromIntro('Introduction presentation unavailable'),
+        canInteract: () => generation === this.introGeneration && this.canInteractWithIntro(),
+        readInputMode: () => this.inputController!.getInputMode(),
+        onCommand: (command, revision) => { if (generation === this.introGeneration) this.handleIntroCommand(command, revision); },
+      });
+      this.introView.render(this.introController.snapshot());
+      if (focusedCommand) this.introView.restoreFocus(focusedCommand);
+      return true;
+    } catch { this.returnFromIntro('Introduction presentation unavailable'); return false; }
+  }
+
+  private handleIntroCommand(command: IntroCommand, revision: number): void {
+    if (!this.canInteractWithIntro()) return;
+    const effect = this.introController?.command(command, revision);
+    if (!effect || effect === 'none') return;
+    this.inputController!.quarantineUntilNeutral();
+    if (effect === 'return-menu') this.returnFromIntro();
+    else if (effect === 'show-boss') {
+      try { this.introView?.render(this.introController!.snapshot()); }
+      catch { this.returnFromIntro('Introduction presentation unavailable'); }
+    }
+    else this.beginRunFromIntro();
+  }
+
+  private beginRunFromIntro(): void {
+    if (this.runState?.status !== 'intro' || this.introStartCommitted || this.introController?.snapshot().phase !== 'consumed') return;
+    this.introStartCommitted = true;
     this.inputController?.quarantineUntilNeutral();
-    this.runStartBrief.destroy();this.runStartBrief=undefined;
-    this.scene.start(SceneKey.Menu, { quarantineInput: true });
+    this.disposeIntro(false);
+    startRun(this.runState, this.getContext().bus);
+  }
+
+  private returnFromIntro(error?: string): void {
+    if (this.recovering) return;
+    this.recovering = true;
+    const request = this.launchRequest;
+    // Preparation Retry retains the exact captured plan; terminal Replay
+    // instead asks Menu for a new run seed and layout.
+    const payload = error ? { failedRunRequest: request, failedArenaLayout: this.launchArenaLayout ?? this.resolvedArenaLayout,
+      failedRunError: error, isTraining: this.isTraining, quarantineInput: true } : { quarantineInput: true };
+    this.disposeIntro();
+    this.introStartCommitted = false;
+    this.inputController?.quarantineUntilNeutral();
+    if (this.runState) this.runState.status = 'intro';
+    this.physics?.world?.pause();
+    this.physicsPausedByRun = true;
+    const generation = this.sceneGeneration;
+    const transition = (): void => {
+      this.pendingIntroReturn = undefined;
+      if (generation !== this.sceneGeneration || !this.recovering) return;
+      // ScenePlugin.start itself queues stop/start for the next SceneManager
+      // update. Never synchronously construct Menu inside a failed create.
+      this.scene.start(SceneKey.Menu, payload);
+    };
+    this.pendingIntroReturn = transition;
+    this.game.events.once('poststep', transition);
+  }
+
+  private readonly handleIntroContextLost = (): void => {
+    this.introRendererLost = true;
+    this.introView?.invalidateGestures();
+    this.inputController?.quarantineUntilNeutral();
+  };
+
+  private readonly handleIntroContextRestored = (): void => {
+    if (this.runState?.status !== 'intro' || !this.introController) return;
+    this.inputController?.quarantineUntilNeutral();
+    if (this.mountIntroView()) this.introRendererLost = false;
+  };
+
+  private readonly handleIntroBlur = (): void => {
+    this.introBackgrounded = true;
+    this.introView?.invalidateGestures();
+    this.inputController?.quarantineUntilNeutral();
+  };
+
+  private readonly handleIntroFocus = (): void => {
+    this.inputController?.quarantineUntilNeutral();
+    this.introBackgrounded = false;
+    // Renderer restoration, not window focus, grants renderer readiness.
+  };
+
+  private disposeIntro(cancel = true): void {
+    this.introGeneration += 1;
+    this.introView?.destroy(); this.introView = undefined;
+    if (cancel) {
+      this.introController?.destroy();
+      this.pendingBossStart = undefined;
+    }
+    this.introController = undefined;
+    this.introModel = undefined;
+    this.game?.renderer?.off?.('losewebgl', this.handleIntroContextLost, this);
+    this.game?.renderer?.off?.('restorewebgl', this.handleIntroContextRestored, this);
+    this.game?.events?.off('blur', this.handleIntroBlur, this);
+    this.game?.events?.off('focus', this.handleIntroFocus, this);
   }
 
   private activateCharacterAbility(): void {
@@ -1458,15 +1647,17 @@ export class GameScene extends Phaser.Scene {
       // training surface never creates a stage plan, so practice spawns stay
       // out of the Compendium by construction.
       ctx.bus.on('enemy:spawned', ({ enemyId }) => {
+        if (this.recovering || !this.introStartCommitted || !this.runState || this.runState.status === 'intro') return;
         if (!this.isTraining && this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'encountered');
       }),
       ctx.bus.on('enemy:killed', ({ enemyId }) => {
+        if (this.recovering || !this.introStartCommitted || !this.runState || this.runState.status === 'intro') return;
         this.recordStageEnemyDefeat(enemyId);
         if (!this.isTraining && this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'defeated');
         if (!this.isTraining) this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
       }),
-      ctx.bus.on('drop:collected', ({ kind, amount }) => this.recordStageCollection(`drop:${kind}`, amount)),
-      ctx.bus.on('weapon:merged', () => { if (!this.isTraining) this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 }); }),
+      ctx.bus.on('drop:collected', ({ kind, amount }) => { if (!this.recovering && this.introStartCommitted && this.runState && this.runState.status !== 'intro') this.recordStageCollection(`drop:${kind}`, amount); }),
+      ctx.bus.on('weapon:merged', () => { if (!this.recovering && this.introStartCommitted && this.runState && this.runState.status !== 'intro' && !this.isTraining) this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 }); }),
     );
   }
 
@@ -1564,7 +1755,7 @@ export class GameScene extends Phaser.Scene {
 
   private trySettleTerminal(ctx: GameContext, terminalStatus: 'win' | 'loss'): void {
     const run = this.runState;
-    if (!run || this.terminalSettlement?.terminalApplied === true) return;
+    if (this.recovering || !run || !this.introStartCommitted || run.status !== (terminalStatus === 'win' ? 'won' : 'lost') || this.terminalSettlement?.terminalApplied === true) return;
     const result = ctx.settleRunTerminal({
       terminalStatus,
       runScrap: run.currency,
@@ -1625,6 +1816,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private readonly handleOrientationChange = (blocked: boolean): void => {
+    this.introView?.invalidateGestures();
     const wasBlocked = this.orientationBlocked;
     this.orientationBlocked = blocked;
     this.inputController?.quarantineUntilNeutral();
@@ -1665,4 +1857,6 @@ export class GameScene extends Phaser.Scene {
       this.gameplayPointerSuspended = true;
     }
   }
+
+
 }

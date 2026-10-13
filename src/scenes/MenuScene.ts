@@ -1,3 +1,7 @@
+import { resolveRunStartIntroModel, requiredRunStartIntroArtIds } from '../presentation/runStartIntro';
+import { assertArenaLayout, resolveArenaLayout, type ResolvedArenaLayout } from '../gameplay/arenaLayout';
+import { reseedRunRequest } from '../gameplay/runRequest';
+import { nextRunSeed } from '../engine/rng';
 import Phaser from 'phaser';
 import { getGameContext, type GameContext } from '../engine/context';
 import type { EventBus } from '../engine/eventBus';
@@ -9,7 +13,7 @@ import { MainMenuController, type MainMenuSnapshot } from '../ui/menus';
 import { cycleVolumeStep } from '../ui/settings';
 import { ThemeColor, ThemeDepth, ThemeFont } from '../ui/theme';
 import { createUiText } from '../ui/text';
-import { InputController } from '../systems/input';
+import { InputController, type InputMode } from '../systems/input';
 import { FocusNavigator, type FocusDirection } from '../ui/focusList';
 import { FocusStroke } from '../ui/theme';
 import { ScrollableFocusRegion } from '../ui/scrollableFocus';
@@ -18,7 +22,7 @@ import { resolveRunPlan } from '../gameplay/stage/stageContracts';
 import { loadAudioResources, resolveAudioResources } from '../systems/audioResources';
 import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources, type ResourceLoadProgress, type ResourceLoadResult } from '../systems/resourceLoader';
 import { DataVisualArtRegistry, DataVisualResourceRegistry, ensureVisualAnimations, resolveAchievementIconBinding, visualAnimationKey } from '../systems/visualArt';
-import { isPortraitOrientationBlocked } from '../platform/orientation';
+import { isPortraitOrientationBlocked, onPortraitOrientationChange } from '../platform/orientation';
 import { createUiVisualChrome, type UiVisualChrome } from '../ui/visualChrome';
 import { LoadoutSurface } from '../ui/menuSurfaces/loadoutSurface';
 import { MountedStaticArt } from '../ui/menuSurfaces/mountedStaticArt';
@@ -26,7 +30,7 @@ import { EquipmentSurface } from '../ui/menuSurfaces/equipmentSurface';
 import { GunsmithSurface } from '../ui/menuSurfaces/gunsmithSurface';
 import { loadoutArtBounds, resolveLoadoutArtCrop, resolveLoadoutArtPlacement } from '../presentation/loadoutArtFraming';
 import { loadoutFooterPadding } from '../ui/menuSurfaces/layout';
-import type { LoadoutMenuPanel, MenuPanelSurface, MenuSurfaceEnvironment } from '../ui/menuSurfaces/surface';
+import type { LoadoutMenuPanel, MenuPanelSurface, MenuScrollRectangle, MenuSurfaceEnvironment } from '../ui/menuSurfaces/surface';
 import { performanceProbe } from '../platform/performanceProbe';
 import { collectDisplayObjects, displayObjectChange, type DisplayNode } from '../platform/performanceDisplay';
 
@@ -42,6 +46,10 @@ const HOME_THREAT_PREVIEW_LIMIT = 4;
 
 /** The two audible command events a menu button can produce. */
 type MenuAudioEvent = 'ui:confirm' | 'ui:back';
+type MenuPointerGesture = {
+  id: number; generation: number; originX: number; originY: number; lastY: number;
+  dragged: boolean; canScroll: boolean; pressed?: Phaser.GameObjects.Text;
+};
 
 export class MenuScene extends Phaser.Scene {
   private controller?: MainMenuController;
@@ -93,6 +101,7 @@ export class MenuScene extends Phaser.Scene {
   }> = [];
   private scrollViewportTop = 0;
   private scrollViewportBottom = 0;
+  private scrollRectangle?: Readonly<MenuScrollRectangle>;
   private scrollMaskGraphics?: Phaser.GameObjects.Graphics;
   private scrollMask?: Phaser.Display.Masks.GeometryMask;
   private scrollMaskContainer?: Phaser.GameObjects.Container;
@@ -118,9 +127,7 @@ export class MenuScene extends Phaser.Scene {
   private safeCenterX = 0;
   private safeRightMargin = 16;
   private currentViewport?: UiViewport;
-  private touchScrollY?: number;
-  private touchDragDistance = 0;
-  private touchDidScroll = false;
+  private pointerGesture?: MenuPointerGesture;
   private achievementArtLoading = false;
   private mercenaryArtLoading = false;
   private equipmentArtLoading = false;
@@ -165,6 +172,8 @@ export class MenuScene extends Phaser.Scene {
   /** A run never starts against the boot bundle alone. This state remains in
    * Menu so a load failure has a usable Retry/Back surface rather than a
    * partially constructed GameScene. */
+  private preparedArenaLayout?: ResolvedArenaLayout;
+  private capturedLaunch?: { readonly request: ComposedRunRequest; readonly isTraining: boolean };
   private runLaunchState: 'idle' | 'loading' | 'failed' = 'idle';
   private runLaunchProgress?: ResourceLoadProgress;
   private runLaunchProgressText?: Phaser.GameObjects.Text;
@@ -247,15 +256,24 @@ export class MenuScene extends Phaser.Scene {
     };
   }
 
+
+  private pointerGeneration = 0;
+
+  private backgrounded = false;
+
+  private orientationUnsubscribe?: () => void;
+
   constructor() {
     super(SceneKey.Menu);
   }
 
-  create(data?: { readonly initialPanel?: import('../ui/menus').MenuPanel; readonly replayRequest?: ComposedRunRequest; readonly isTraining?: boolean; readonly quarantineInput?: boolean }): void {
+  create(data?: { readonly failedArenaLayout?: ResolvedArenaLayout; readonly failedRunRequest?: ComposedRunRequest; readonly failedRunError?: string; readonly initialPanel?: import('../ui/menus').MenuPanel; readonly replayRequest?: ComposedRunRequest; readonly isTraining?: boolean; readonly quarantineInput?: boolean }): void {
     // Phaser reuses this Scene instance after Game. Loading is transient and
     // must never leave a newly activated Menu permanently inert.
     this.resetMenuTextureLoadQueue();
     this.runLaunchState = 'idle';
+    this.preparedArenaLayout = undefined;
+    this.capturedLaunch = undefined;
     this.runLaunchProgress = undefined;
     this.runLaunchPresentation = undefined;
     this.gunsmithArtGeneration += 1;
@@ -280,10 +298,18 @@ export class MenuScene extends Phaser.Scene {
     this.bus = ctx.bus;
     this.controller = new MainMenuController(ctx);
 
+    this.cancelPointerGesture();
+    this.backgrounded = false;
     this.inputController = new InputController(this);
-    // A departing intro's Confirm belongs to its old surface. The new
-    // controller must also consume that held edge before Home can launch.
-    if (data?.quarantineInput) this.inputController.quarantineUntilNeutral();
+    this.inputController.quarantineUntilNeutral();
+    this.inputController.suspendGameplayPointer();
+    this.game?.events?.on('blur', this.handleInputBlur, this);
+    this.game?.events?.on('focus', this.handleInputFocus, this);
+    this.orientationUnsubscribe?.();
+    this.orientationUnsubscribe = onPortraitOrientationChange(() => {
+      this.cancelPointerGesture();
+      this.inputController?.quarantineUntilNeutral();
+    });
     this.inputController.onAction('back', () => this.handleBack());
     this.inputController.onAction('navUp', () => this.handleNavMove(-1));
     this.inputController.onAction('navDown', () => this.handleNavMove(1));
@@ -294,12 +320,18 @@ export class MenuScene extends Phaser.Scene {
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
     this.input.on(Phaser.Input.Events.POINTER_MOVE, this.handlePointerMove, this);
     this.input.on(Phaser.Input.Events.POINTER_UP, this.handlePointerUp, this);
-    this.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.handlePointerUp, this);
+    this.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.handlePointerUpOutside, this);
 
-    this.render(data?.initialPanel && data.initialPanel !== 'home'
-      ? this.controller.open(data.initialPanel)
-      : this.controller.snapshot());
-    if (data?.replayRequest) void this.startRunWithResources(data.replayRequest, data.isTraining === true);
+    if (data?.failedRunRequest) {
+      this.preparedArenaLayout = data.failedArenaLayout;
+      this.capturedLaunch = { request: data.failedRunRequest, isTraining: data.isTraining === true };
+      this.runLaunchState = 'failed';
+    }
+    const initialPanel = data?.replayRequest
+      ? (data.isTraining === true ? 'training' : 'home')
+      : data?.initialPanel ?? (data?.failedRunRequest && data.isTraining ? 'training' : 'home');
+    this.render(initialPanel !== 'home' ? this.controller.open(initialPanel) : this.controller.snapshot());
+    if (data?.replayRequest) void this.startRunWithResources(reseedRunRequest(data.replayRequest, nextRunSeed(ctx.menuRng)), data.isTraining === true);
 
     // FIT changes the physical-to-logical hit-target conversion. Rebuild the
     // committed panel from the real scale event so every live target is sized
@@ -317,7 +349,8 @@ export class MenuScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (isPortraitOrientationBlocked()) {
+    if (this.backgrounded || isPortraitOrientationBlocked()) {
+      this.cancelPointerGesture();
       this.inputController?.quarantineUntilNeutral();
       this.inputController?.update(delta);
       return;
@@ -328,6 +361,11 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private render(snapshot: MainMenuSnapshot, reason?: 'viewport-resize' | 'lazy-art-hydration'): void {
+    // Navigating away abandons a failed launch. Retry on the same launch
+    // surface retains its exact request/layout; another selection starts fresh.
+    if (this.runLaunchState === 'failed' && this.capturedLaunch && snapshot.panel !== (this.capturedLaunch.isTraining ? 'training' : 'home')) {
+      this.abandonFailedLaunch();
+    }
     const before = performanceProbe ? collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[]) : undefined;
     const started = performanceProbe?.now();
     const previousPanel = this.committedPanel;
@@ -336,6 +374,7 @@ export class MenuScene extends Phaser.Scene {
     try {
     this.rebuildCount += 1;
     this.renderRevision += 1;
+    this.cancelPointerGesture();
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
     const achievementGridColumns = snapshot.panel === 'achievements'
       ? (this.scale.width >= 760 ? 3 : 1)
@@ -374,6 +413,7 @@ export class MenuScene extends Phaser.Scene {
     this.focusRings = [];
     this.buttonChrome = [];
     this.scrollRegion = undefined;
+    this.scrollRectangle = undefined;
     this.collectingScrollItems = false;
     this.scrollItemIndexes.clear();
     this.scrollLocalIndexByFocusIndex.clear();
@@ -635,11 +675,18 @@ export class MenuScene extends Phaser.Scene {
     margin: number,
     hitTarget: number,
   ): void {
+    const firstHomeChild = root.list.length;
     const selectedCharacter = snapshot.character.characters.find((c) => c.selected);
     const frontier = snapshot.stage.frontier;
-    const selectedStage = snapshot.stage.stages.find((s) => s.id === frontier.stageId)
+    const pendingStageId = this.runLaunchState !== 'idle' && this.capturedLaunch?.request.kind === 'stage'
+      ? this.capturedLaunch.request.stageId : frontier.stageId;
+    const selectedStage = snapshot.stage.stages.find((s) => s.id === pendingStageId)
       ?? snapshot.stage.stages.find((s) => s.selected);
-    const campaignComplete = frontier.kind === 'campaign-complete';
+    const campaignComplete = snapshot.stage.completion.campaignComplete;
+    const optional = selectedStage?.campaignRole === 'optional';
+    const heroLabel = optional
+      ? snapshot.stage.completion.optionalComplete ? 'CAMPAIGN COMPLETE · OPTIONAL CONTRACTS COMPLETE' : 'CAMPAIGN COMPLETE · OPTIONAL CONTRACT'
+      : campaignComplete ? 'CAMPAIGN COMPLETE — REPLAY' : selectedStage?.completed ? 'REPLAY CONTRACT' : 'NEXT CONTRACT';
     const compactLandscape = this.scale.height < 500 && width >= 700;
     const threatPreview = selectedStage?.threats.slice(0, HOME_THREAT_PREVIEW_LIMIT) ?? [];
     const heroWidth = Math.max(1, width - margin - this.safeRightMargin - 82);
@@ -657,7 +704,7 @@ export class MenuScene extends Phaser.Scene {
     if (!compactLandscape) {
       addHeroLine(`${selectedCharacter?.name ?? snapshot.character.selectedCharacterId}  •  ${this.getContext().saveData.progression.scrap} Scrap`, '#a5f3fc', ThemeFont.bodyMin);
     }
-    addHeroLine(`${campaignComplete ? 'CAMPAIGN COMPLETE — REPLAY' : selectedStage?.completed ? 'REPLAY CONTRACT' : 'NEXT CONTRACT'}  •  ${selectedStage?.chapterName ?? ''} ${selectedStage?.displayOrder ?? ''}${compactLandscape ? `  •  ${selectedStage?.name ?? snapshot.stage.selectedStageId}` : ''}`, '#fbbf24', ThemeFont.labelMin, '700');
+    addHeroLine(`${heroLabel}  •  ${selectedStage?.chapterName ?? ''} ${selectedStage?.displayOrder ?? ''}${compactLandscape ? `  •  ${selectedStage?.name ?? snapshot.stage.selectedStageId}` : ''}`, '#fbbf24', ThemeFont.labelMin, '700');
     if (!compactLandscape) addHeroLine(selectedStage?.name ?? snapshot.stage.selectedStageId, '#f7f1d5', ThemeFont.headingMin, '700');
     addHeroLine(`${selectedStage?.locationName ?? ''}  •  ${selectedStage?.objective.copy ?? ''}`, '#d6f7ff', ThemeFont.bodyMin);
     if (threatPreview.length > 0) {
@@ -669,13 +716,15 @@ export class MenuScene extends Phaser.Scene {
       ? `BEST  ${formatDuration(selectedStage.bestTimeMs)}`
       : `FIRST CLEAR  ${selectedStage?.reward.headline ?? ''}`, '#86efac', ThemeFont.bodyMin, '700');
 
-    const buttons: ReadonlyArray<{ readonly label: string; readonly artId: string; readonly action: () => void }> = [
+    const buttons: ReadonlyArray<{ readonly label: string; readonly artId: string; readonly action: () => void; readonly audioEvent?: MenuAudioEvent }> = [
       {
         label: this.runLaunchState === 'failed' ? 'Retry Loading Contract' : selectedStage?.completed ? 'Replay Contract' : 'Play Contract',
         artId: 'nav-icon:play-contract',
         action: () => { void this.startContractWithResources(); },
       },
-      { label: 'Change Contract', artId: 'nav-icon:change-contract', action: () => this.render(this.requireController().open('stage')) },
+      this.runLaunchState === 'failed'
+        ? { label: 'Back', artId: 'action-icon:back', action: () => this.handleBack(true), audioEvent: 'ui:back' }
+        : { label: 'Change Contract', artId: 'nav-icon:change-contract', action: () => this.render(this.requireController().open('stage')) },
       { label: 'Mercenary', artId: 'nav-icon:mercenary', action: () => this.render(this.requireController().open('character')) },
       { label: 'Loadout', artId: 'nav-icon:loadout', action: () => this.render(this.requireController().open('loadout')) },
       { label: 'Career', artId: 'nav-icon:career', action: () => this.render(this.requireController().open('career')) },
@@ -703,23 +752,23 @@ export class MenuScene extends Phaser.Scene {
       const columns = 4;
       const buttonWidth = (width - margin - this.safeRightMargin - gap * (columns - 1)) / columns;
       const secondRowOffset = (buttonWidth + gap) / 2;
-      buttons.forEach(({ label, artId, action }, index) => {
+      buttons.forEach(({ label, artId, action, audioEvent }, index) => {
         const row = Math.floor(index / columns);
         const column = index % columns;
         const rowOffset = row === 1 ? secondRowOffset : 0;
-        this.addButton(root, margin + rowOffset + column * (buttonWidth + gap), y + row * (actionHeight + gap), label, actionHeight, action, 'ui:confirm', buttonWidth, artId);
+        this.addButton(root, margin + rowOffset + column * (buttonWidth + gap), y + row * (actionHeight + gap), label, actionHeight, action, audioEvent ?? 'ui:confirm', buttonWidth, artId);
       });
     } else {
       const primaryWidth = Math.min(440, width - margin - this.safeRightMargin);
-      buttons.slice(0, 2).forEach(({ label, artId, action }) => {
-        const button = this.addButton(root, this.safeCenterX, y, label, actionHeight, action, 'ui:confirm', primaryWidth, artId);
+      buttons.slice(0, 2).forEach(({ label, artId, action, audioEvent }) => {
+        const button = this.addButton(root, this.safeCenterX, y, label, actionHeight, action, audioEvent ?? 'ui:confirm', primaryWidth, artId);
         y += button.height + 6;
       });
       const secondary = buttons.slice(2);
       const columnGap = 8;
       const columns = 2;
       const columnWidth = (width - margin - this.safeRightMargin - columnGap) / columns;
-      secondary.forEach(({ label, artId, action }, index) => {
+      secondary.forEach(({ label, artId, action, audioEvent }, index) => {
         const spansRow = index === secondary.length - 1 && secondary.length % columns === 1;
         const column = index % columns;
         this.addButton(
@@ -729,7 +778,7 @@ export class MenuScene extends Phaser.Scene {
           label,
           actionHeight,
           action,
-          'ui:confirm',
+          audioEvent ?? 'ui:confirm',
           spansRow ? width - margin - this.safeRightMargin : columnWidth,
           artId,
         );
@@ -737,13 +786,42 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    const hints = this.own(root, createUiText(this,margin, this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - 14, this.menuHintCopy(), {
+    // Preserve the existing composition when it fits. Narrow safe-area or
+    // failure copy overflow uses the one shared scroll owner, never smaller
+    // targets or a second Home-specific scroll/input lifecycle.
+    const homeObjects = root.list.slice(firstHomeChild);
+    const hints = this.own(root, createUiText(this, margin, 0, this.menuHintCopy(), {
       color: '#a5f3fc',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.bodyMin}px`,
+      wordWrap: { width: width - margin - this.safeRightMargin, useAdvancedWrap: true },
     }));
-    hints.setScrollFactor(0);
+    // Reserve every complete mode's measured height once. A pointer-mode
+    // switch during a press must only update copy, never rebuild its controls.
+    let hintHeight = hints.height;
+    for (const mode of ['pointer', 'keyboard', 'gamepad'] as const) {
+      hints.setText(this.menuHintCopy(mode));
+      hintHeight = Math.max(hintHeight, hints.height);
+    }
+    hints.setText(this.menuHintCopy());
+    const hintY = this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - hintHeight;
+    hints.setPosition(margin, hintY).setScrollFactor(0);
     this.hint = hints;
+    const bodyBottom = hintY - 8;
+    const contentBottom = homeObjects.reduce((bottom, object) => Math.max(bottom,
+      (object as Phaser.GameObjects.GameObject & { getBounds?(): { bottom: number } }).getBounds?.().bottom ?? top), top);
+    if (contentBottom > bodyBottom) {
+      this.beginScrollableRegion(top, bodyBottom);
+      this.focusables.forEach((button, index) => {
+        this.scrollItemIndexes.add(index);
+        const bounds = button.getBounds();
+        this.scrollItemBounds.set(index, { top: bounds.top, bottom: bounds.bottom });
+      });
+      this.rebuildScrollItems();
+      for (const object of homeObjects) this.registerScrollObject(object);
+      this.endScrollableRegion();
+    }
+
     void this.ensurePanelPresentation('home', [
       selectedCharacter?.portraitArtId,
       ...buttons.map(({ artId }) => artId),
@@ -788,6 +866,7 @@ export class MenuScene extends Phaser.Scene {
     this.nextFocusAlignTop = false;
     this.committedDisplay = false;
     this.renderRevision += 1;
+    this.cancelPointerGesture();
     let updated = false;
     try {
       for (const button of this.focusables.slice(start)) {
@@ -811,7 +890,7 @@ export class MenuScene extends Phaser.Scene {
       }
       // Replace, rather than grow, the one region's extent: a shorter detail
       // must also shrink the scroll range and its supplemental content tail.
-      this.beginScrollableRegion(this.scrollViewportTop, this.scrollViewportBottom);
+      this.beginScrollableRegion(this.scrollRectangle ?? this.scrollViewportTop, this.scrollViewportBottom);
       this.rebuildScrollItems();
       for (const { object } of this.scrollObjects) {
         const bottom = (object as unknown as { getBounds(): { bottom: number } }).getBounds().bottom;
@@ -916,6 +995,7 @@ export class MenuScene extends Phaser.Scene {
   private get panelContentRoot(): Phaser.GameObjects.Container | undefined { return this.activeSurface?.root; }
 
   private unmountPanelSurface(): void {
+    this.cancelPointerGesture();
     this.loadoutArt?.clear();
     this.loadoutArt = undefined;
     this.loadoutArtState = undefined;
@@ -934,7 +1014,7 @@ export class MenuScene extends Phaser.Scene {
 
   private async startContractWithResources(): Promise<void> {
     const ctx = this.getContext();
-    await this.startRunWithResources(assembleComposedRunRequest(ctx, ctx.menuRng), false);
+    await this.startRunWithResources(this.runLaunchState === 'failed' && this.capturedLaunch?.isTraining === false ? this.capturedLaunch.request : assembleComposedRunRequest(ctx, ctx.menuRng), false);
   }
 
   /** Training deliberately uses the existing legacy arena composition, but
@@ -942,13 +1022,15 @@ export class MenuScene extends Phaser.Scene {
    * Compendium facts. It still waits for the same physical resource closure. */
   private async startTrainingWithResources(): Promise<void> {
     const ctx = this.getContext();
-    await this.startRunWithResources(asLegacyComposedRunRequest(assembleRunRequest(ctx, ctx.menuRng)), true);
+    await this.startRunWithResources(this.runLaunchState === 'failed' && this.capturedLaunch?.isTraining === true ? this.capturedLaunch.request : asLegacyComposedRunRequest(assembleRunRequest(ctx, ctx.menuRng)), true);
   }
 
   private async startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void> {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     const started = performanceProbe?.now();
     const generation = ++this.runLaunchGeneration;
+    if (this.capturedLaunch?.request !== request) this.preparedArenaLayout = undefined;
+    this.capturedLaunch = { request, isTraining };
     const ctx = this.getContext();
     // Result truth belongs to this exact launch, not whatever durable state
     // happens to exist when asynchronous resource loading eventually ends.
@@ -971,13 +1053,20 @@ export class MenuScene extends Phaser.Scene {
       const resolvedArenaId = plan?.arenaId ?? arenaId;
       const resolvedArena = resolvedArenaId === undefined ? undefined : ctx.arenas.arenaById(resolvedArenaId);
       if (!resolvedArena) throw new Error('Selected contract arena is unavailable');
+      const layout = this.preparedArenaLayout ?? resolveArenaLayout(resolvedArena, request.seed, ctx.data.contentVersion);
+      this.preparedArenaLayout = layout;
+      // A recovered bad tuple remains failed; never regenerate or load it.
+      assertArenaLayout(layout, resolvedArenaId!, request.seed, ctx.data.contentVersion, plan?.encounter.bossId !== undefined);
       const legacyEnemyIds = request.kind === 'legacy-arena'
         ? (ctx.data.spawnCurves.find((curve) => curve.id === resolvedArena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
         : [];
+      const introModel = resolveRunStartIntroModel({ data: ctx.data, request, plan });
       const resources = resolveRunPhysicalResources({
         data: ctx.data,
         characterId: request.characterId,
-        arena: resolvedArena,
+        arena: layout.arena,
+        layout,
+        introArtIds: requiredRunStartIntroArtIds(introModel),
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
       });
@@ -985,6 +1074,12 @@ export class MenuScene extends Phaser.Scene {
       // own it for the hero closure, so launch must reuse that completion
       // before asking the same loader for the full run closure.
       await this.panelArtInFlight;
+      // This await can outlive shutdown/recreation, which resets the loader
+      // queue. A revoked launch must not acquire that replacement generation.
+      if (!this.isLive || generation !== this.runLaunchGeneration || this.runLaunchState !== 'loading') {
+        if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'cancelled', isTraining });
+        return;
+      }
       await this.serializeTextureLoad(() => prepareRunPresentation(this, ctx.data, resources, (progress) => {
         if (this.isLive && generation === this.runLaunchGeneration && this.runLaunchState === 'loading') {
           this.runLaunchProgress = progress;
@@ -1010,7 +1105,7 @@ export class MenuScene extends Phaser.Scene {
         return;
       }
       if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'ready', isTraining, physicalResources: resources.length, audioFiles: runAudio.length, seed: request.seed });
-      this.scene.start(SceneKey.Game, { runRequest: request, runStartPresentation, isTraining });
+      this.scene.start(SceneKey.Game, { runRequest: request, stagePlan: plan, introModel, arenaLayout: layout, runStartPresentation, isTraining });
     } catch (error) {
       if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'failed', isTraining });
       if (!this.isLive || generation !== this.runLaunchGeneration) return;
@@ -1168,7 +1263,7 @@ export class MenuScene extends Phaser.Scene {
         y += Math.max(42, chapterLabel.height + 14);
       }
       const status = stage.locked ? `LOCKED — ${stage.lockCopy}` : stage.completed ? `CLEARED • Best ${formatDuration(stage.bestTimeMs)}` : 'AVAILABLE';
-      const title = `${stage.selected ? '✓ ' : ''}${stage.boss ? 'BOSS • ' : ''}${stage.name}`;
+      const title = `${stage.selected ? '✓ ' : ''}${stage.campaignRole === 'optional' ? 'OPTIONAL • ' : ''}${stage.boss ? 'BOSS • ' : ''}${stage.name}`;
       const cardWidth = width - margin - this.safeRightMargin;
       const cardHeight = 100;
       const button = this.addButton(root, margin, y, title, cardHeight, () => {
@@ -1252,7 +1347,7 @@ export class MenuScene extends Phaser.Scene {
     let y = top + heading.height + 16;
     const overview = snapshot.progressionOverview;
     const summary = this.own(root, createUiText(this, actionX, y,
-      `Contracts ${overview.completedStages}/${overview.totalStages} • Achievements ${overview.completedAchievements}/${overview.totalAchievements}`,
+      `Campaign ${overview.completedStages}/${overview.totalStages} · Optional ${overview.optionalCompletedStages}/${overview.totalOptionalStages} • Achievements ${overview.completedAchievements}/${overview.totalAchievements}`,
       { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: actionWidth } }));
     y += summary.height + (compactLandscape ? 8 : 12);
     const goalGap = compactLandscape ? 6 : 10;
@@ -1331,7 +1426,6 @@ export class MenuScene extends Phaser.Scene {
     this.addBackButton(root, width, margin, hitTarget);
   }
 
-  
 
   private renderAchievements(
     root: Phaser.GameObjects.Container,
@@ -1448,7 +1542,6 @@ export class MenuScene extends Phaser.Scene {
     this.addBackButton(root, width, margin, hitTarget);
   }
 
-  
 
   /** Parents a freshly created display object immediately, so a mid-chain
    *  failure (setOrigin, setStyle, ...) can never leave it orphaned on the
@@ -1563,21 +1656,36 @@ export class MenuScene extends Phaser.Scene {
     text.on(Phaser.Input.Events.POINTER_OUT, () => {
       (chrome as Phaser.GameObjects.NineSlice | undefined)?.clearTint?.();
     });
+    let admitted: MenuPointerGesture | undefined;
+    text.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+      if (this.pointerGesture && this.pointerGesture.id !== pointer.id) return;
+      admitted = undefined;
+      const index = this.focusables.indexOf(text);
+      if (!this.isLive || !this.committedDisplay || index < 0 || !callback
+        || this.disabledFocusables.has(text) || this.runLaunchState === 'loading'
+        || this.backgrounded || isPortraitOrientationBlocked() || this.inputController?.isQuarantined()
+        || (this.scrollItemIndexes.has(index) && !this.isInsideScrollRectangle(pointer))) return;
+      admitted = this.admitPointerGesture(pointer, this.scrollItemIndexes.has(index), text);
+    });
     text.on(Phaser.Input.Events.POINTER_UP, (pointer?: Phaser.Input.Pointer) => {
+      if (pointer && admitted && pointer.id !== admitted.id) return;
+      const gesture = admitted;
+      admitted = undefined;
+      if (pointer && (pointer.wasCanceled || (this.game?.canvas && pointer.upElement && pointer.upElement !== this.game.canvas))) return;
+      if (pointer && (!gesture || gesture.id !== pointer.id || gesture.generation !== this.pointerGeneration
+        || this.pointerGesture !== gesture || gesture.pressed !== text || gesture.dragged
+        || this.inputController?.isQuarantined())) return;
+      if (!this.isLive || this.backgrounded) return;
       if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
       const focusIndex = this.focusables.indexOf(text);
       if (!this.committedDisplay || focusIndex < 0) return;
       if (!callback || this.disabledFocusables.has(text)) return;
       if (this.scrollItemIndexes.has(focusIndex)
         && pointer
-        && (pointer.y < this.scrollViewportTop || pointer.y >= this.scrollViewportBottom)) return;
-      // A drag is a scrolling gesture, never a command activation. Keep the
-      // flag through the InputPlugin's pointer-up dispatch so this remains
-      // correct regardless of global-vs-object listener ordering.
-      if (this.touchDidScroll) {
-        this.touchDidScroll = false;
-        return;
-      }
+        && !this.isInsideScrollRectangle(pointer)) return;
+      // Phaser dispatches the object up before the scene up. The shared token
+      // admits only this original target and latches a drag until release.
+      this.cancelPointerGesture();
       // Pointer Confirm/Back takes the same transition boundary as logical
       // activation: sampled edges from this frame cannot reach the new panel.
       this.inputController?.quarantineUntilNeutral();
@@ -1628,9 +1736,10 @@ export class MenuScene extends Phaser.Scene {
       this.rebuildScrollItems();
     }
     text.on(Phaser.Input.Events.POINTER_OVER, (pointer: Phaser.Input.Pointer) => {
+      if (this.pointerGesture && this.pointerGesture.id !== pointer.id) return;
       const focusIndex = this.focusables.indexOf(text);
       if (this.scrollItemIndexes.has(focusIndex)
-        && (pointer.y < this.scrollViewportTop || pointer.y >= this.scrollViewportBottom)) return;
+        && !this.isInsideScrollRectangle(pointer)) return;
       this.hoveredIndex = index;
       this.navigator.setIndex(index);
       // Hover follows the pointer without auto-revealing the whole row. Wheel
@@ -1638,7 +1747,9 @@ export class MenuScene extends Phaser.Scene {
       // partly inside the geometry mask.
       this.applyFocus();
     });
-    text.on(Phaser.Input.Events.POINTER_OUT, () => {
+    text.on(Phaser.Input.Events.POINTER_OUT, (pointer?: Phaser.Input.Pointer) => {
+      if (pointer && this.pointerGesture && pointer.id !== this.pointerGesture.id) return;
+      admitted = undefined;
       if (this.hoveredIndex === index) this.hoveredIndex = -1;
       this.applyFocus();
     });
@@ -1789,7 +1900,7 @@ export class MenuScene extends Phaser.Scene {
     try {
       hydratedCount = slots.hydrate((key, frame) => this.textures.exists(key)
         && (frame === undefined || this.textures.get(key).has(String(frame))));
-      if (hydratedCount > 0) this.renderRevision += 1;
+      if (hydratedCount > 0) { this.renderRevision += 1; this.cancelPointerGesture(); }
       return true;
     } catch {
       // A partial texture update cannot publish success. The caller's existing
@@ -2207,9 +2318,16 @@ export class MenuScene extends Phaser.Scene {
   /** Start/finish hooks deliberately sit in MenuScene rather than each
    * surface.  They make pointer eligibility a property of the shared region,
    * not an easy-to-forget per-screen convention. */
-  private beginScrollableRegion(viewportTop: number, viewportBottom: number): void {
-    this.scrollViewportTop = viewportTop;
-    this.scrollViewportBottom = Math.max(viewportTop + 1, viewportBottom);
+  private beginScrollableRegion(rectangleOrTop: Readonly<MenuScrollRectangle> | number, bottom?: number): void {
+    const rectangle = typeof rectangleOrTop === 'number'
+      ? { x: 0, y: rectangleOrTop, width: this.scale.width, height: Math.max(1, (bottom ?? rectangleOrTop) - rectangleOrTop) }
+      : { ...rectangleOrTop };
+    if (![rectangle.x, rectangle.y, rectangle.width, rectangle.height].every(Number.isFinite)
+      || rectangle.width <= 0 || rectangle.height <= 0) throw new RangeError('Scroll rectangle needs finite coordinates and positive dimensions');
+    this.cancelPointerGesture();
+    this.scrollRectangle = Object.freeze(rectangle);
+    this.scrollViewportTop = rectangle.y;
+    this.scrollViewportBottom = rectangle.y + rectangle.height;
     this.scrollRegion = new ScrollableFocusRegion({
       viewportTop: this.scrollViewportTop,
       viewportBottom: this.scrollViewportBottom,
@@ -2306,10 +2424,10 @@ export class MenuScene extends Phaser.Scene {
     if (!graphics) return;
     graphics.fillStyle(0xffffff, 1);
     graphics.fillRect(
-      0,
-      this.scrollViewportTop,
-      this.scale.width,
-      this.scrollViewportBottom - this.scrollViewportTop,
+      this.scrollRectangle?.x ?? 0,
+      this.scrollRectangle?.y ?? this.scrollViewportTop,
+      this.scrollRectangle?.width ?? this.scale.width,
+      this.scrollRectangle?.height ?? (this.scrollViewportBottom - this.scrollViewportTop),
     );
     const mask = graphics.createGeometryMask();
     this.scrollMaskGraphics = graphics;
@@ -2350,16 +2468,10 @@ export class MenuScene extends Phaser.Scene {
   private syncScrollFocus(focusedIndex: number): void {
     const localIndex = this.scrollLocalIndexByFocusIndex.get(focusedIndex);
     if (!this.scrollRegion || localIndex === undefined) return;
-    // ScrollableFocusRegion intentionally has no mutable-index escape hatch:
-    // move it through the same deterministic navigation path as real input.
-    while (this.scrollRegion.focusedIndex < localIndex) this.scrollRegion.moveFocus('down');
-    while (this.scrollRegion.focusedIndex > localIndex) this.scrollRegion.moveFocus('up');
-    // The region and global navigator both begin at zero. Moving between
-    // indexes therefore cannot reveal an initially focused first action that
-    // follows a tall, non-focusable summary. Apply the same visibility rule
-    // even when their indexes already agree; Up can still deliberately reveal
-    // that prefix and the next Down restores this retained action.
-    this.scrollRegion.ensureVisible(localIndex);
+    // Semantic scene focus is already resolved. Directional traversal can
+    // stay in another grid column forever; assign the exact mapped index.
+    // The region also reveals an unchanged first action below summary text.
+    this.scrollRegion.setFocusedIndex(localIndex);
   }
 
   private applyScrollViewport(): void {
@@ -2393,71 +2505,106 @@ export class MenuScene extends Phaser.Scene {
         ? text.getBounds()
         : { top: groupBounds.top - offset, bottom: groupBounds.bottom - offset };
       const visible = bounds.bottom > this.scrollViewportTop && bounds.top < this.scrollViewportBottom;
+      const hit = text.getBounds();
+      const horizontal = !this.scrollRectangle || (hit.right > this.scrollRectangle.x
+        && hit.left < this.scrollRectangle.x + this.scrollRectangle.width);
       text.setVisible(true);
       const ring = this.focusRings[index];
       ring?.setVisible?.(true);
-      if (visible && !this.disabledFocusables.has(text)) text.setInteractive({ useHandCursor: true });
+      if (visible && horizontal && !this.disabledFocusables.has(text)) text.setInteractive({ useHandCursor: true });
       else text.disableInteractive();
     }
   }
 
   private handleScroll(delta: number): void {
-    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
+    if (!this.isLive || this.backgrounded || this.runLaunchState === 'loading' || isPortraitOrientationBlocked()
+      || this.inputController?.isQuarantined()) return;
     if (!this.committedDisplay || !this.scrollRegion) return;
     this.scrollRegion.scrollBy(delta);
     this.applyScrollViewport();
     this.applyFocus();
   }
 
-  private readonly handleWheel = (_pointer: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number): void => {
-    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
+  private cancelPointerGesture(): void {
+    this.pointerGeneration += 1;
+    this.pointerGesture = undefined;
+  }
+
+  private isInsideScrollRectangle(pointer: Pick<Phaser.Input.Pointer, 'x' | 'y'>): boolean {
+    const rectangle = this.scrollRectangle;
+    return !!rectangle && Number.isFinite(pointer.x) && Number.isFinite(pointer.y)
+      && pointer.x >= rectangle.x && pointer.x < rectangle.x + rectangle.width
+      && pointer.y >= rectangle.y && pointer.y < rectangle.y + rectangle.height;
+  }
+
+  private admitPointerGesture(pointer: Phaser.Input.Pointer, canScroll: boolean, pressed?: Phaser.GameObjects.Text): MenuPointerGesture | undefined {
+    if (!this.isLive || !this.committedDisplay || this.backgrounded || this.runLaunchState === 'loading'
+      || isPortraitOrientationBlocked() || this.inputController?.isQuarantined()
+      || !Number.isFinite(pointer.x) || !Number.isFinite(pointer.y)) return;
+    const owner = this.pointerGesture;
+    if (owner) return owner.id === pointer.id && (!pressed || owner.pressed === pressed) ? owner : undefined;
+    const gesture: MenuPointerGesture = {
+      id: pointer.id, generation: this.pointerGeneration,
+      originX: pointer.x, originY: pointer.y, lastY: pointer.y, dragged: false, pressed,
+      canScroll: canScroll && this.isInsideScrollRectangle(pointer) && !!this.scrollRegion
+        && this.scrollRegion.contentHeight > this.scrollRegion.viewportHeight,
+    };
+    this.pointerGesture = gesture;
+    return gesture;
+  }
+
+  private readonly handleWheel = (pointer: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number): void => {
+    this.cancelPointerGesture();
+    if (!this.isInsideScrollRectangle(pointer)) return;
     this.handleScroll(deltaY);
   };
 
   private readonly handlePointerMove = (pointer: Phaser.Input.Pointer): void => {
-    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
-    if (!pointer.isDown) {
-      this.touchScrollY = undefined;
+    const gesture = this.pointerGesture;
+    if (!gesture || pointer.id !== gesture.id || gesture.generation !== this.pointerGeneration) return;
+    if (!pointer.isDown || pointer.wasCanceled || this.backgrounded || this.runLaunchState === 'loading'
+      || isPortraitOrientationBlocked() || this.inputController?.isQuarantined()) {
+      this.cancelPointerGesture();
       return;
     }
-    // Home and other fixed panels do not own a drag gesture. Treating normal
-    // touch jitter there as a scroll suppresses the button's pointer-up and
-    // makes a command appear to require a second tap.
-    if (!this.scrollRegion) return;
-    if (this.touchScrollY !== undefined) {
-      const delta = this.touchScrollY - pointer.y;
-      this.touchDragDistance += Math.abs(delta);
-      if (this.touchDragDistance >= 8) this.touchDidScroll = true;
-      this.handleScroll(delta);
+    if (!gesture.canScroll || !this.scrollRegion || !Number.isFinite(pointer.x) || !Number.isFinite(pointer.y)) return;
+    // Pointer coordinates are already logical pixels. Phaser's displayScale
+    // is logical pixels per CSS pixel, independent of device pixel ratio.
+    const scale = this.scale.displayScale;
+    const cssX = (pointer.x - gesture.originX) / scale.x;
+    const cssY = (pointer.y - gesture.originY) / scale.y;
+    let delta = gesture.lastY - pointer.y;
+    if (!gesture.dragged) {
+      if (Math.hypot(cssX, cssY) < 8) return;
+      gesture.dragged = true;
+      gesture.generation = ++this.pointerGeneration;
+      delta = gesture.originY - pointer.y;
     }
-    this.touchScrollY = pointer.y;
+    gesture.lastY = pointer.y;
+    this.handleScroll(delta);
   };
 
   private readonly handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
-    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
-    if (!this.scrollRegion) {
-      this.touchScrollY = undefined;
-      this.touchDragDistance = 0;
-      this.touchDidScroll = false;
-      return;
-    }
-    this.touchScrollY = pointer.y;
-    this.touchDragDistance = 0;
-    this.touchDidScroll = false;
+    if (!this.scrollRegion || !this.isInsideScrollRectangle(pointer)) return;
+    // Object-down has already claimed a button when present. A scene-down
+    // never replaces that target or reanchors an existing physical gesture.
+    this.admitPointerGesture(pointer, true);
   };
 
-  private readonly handlePointerUp = (): void => {
-    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
-    this.touchScrollY = undefined;
-    this.touchDragDistance = 0;
+  private readonly handlePointerUp = (pointer: Phaser.Input.Pointer): void => {
+    if (this.pointerGesture?.id !== pointer.id) return;
+    // TOUCH_CANCEL is an up with wasCanceled in Phaser, including the global
+    // up after object dispatch. Normal up and outside up also end ownership.
+    this.cancelPointerGesture();
   };
 
-  private handleBack(): void {
+  private handleBack(audioAlreadyEmitted = false): void {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     this.inputController?.quarantineUntilNeutral();
     // Home Esc is still a back command; it emits even when the controller
     // refuses (already home).
-    this.bus?.emit('ui:back', {});
+    if (!audioAlreadyEmitted) this.bus?.emit('ui:back', {});
+    this.abandonFailedLaunch();
     if (this.activeSurface instanceof GunsmithSurface
       && this.activeSurface.handleBack(this.requireController().snapshot())) return;
     const next = this.requireController().back();
@@ -2470,6 +2617,7 @@ export class MenuScene extends Phaser.Scene {
   };
 
   private handleNavMove(direction: FocusDirection | number): void {
+    this.cancelPointerGesture();
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     // No committed display (never rendered, or a failed rebuild left only the
     // fallback): the retained navigator must not move or emit (F1).
@@ -2614,8 +2762,8 @@ export class MenuScene extends Phaser.Scene {
     this.applyFocus();
   }
 
-  private menuHintCopy(): string {
-    switch (this.inputController?.getInputMode() ?? 'pointer') {
+  private menuHintCopy(mode: InputMode = this.inputController?.getInputMode() ?? 'pointer'): string {
+    switch (mode) {
       case 'keyboard': return 'Arrows navigate • Enter/Space select • Q ability in run • Esc back';
       case 'gamepad': return 'D-pad/stick • Bottom face select • Left face ability in run • Right face back';
       default: return 'Tap a choice';
@@ -2624,6 +2772,13 @@ export class MenuScene extends Phaser.Scene {
 
   private handleShutdown(): void {
     this.isLive = false;
+    this.preparedArenaLayout = undefined;
+    this.capturedLaunch = undefined;
+    this.cancelPointerGesture();
+    this.game?.events?.off('blur', this.handleInputBlur, this);
+    this.game?.events?.off('focus', this.handleInputFocus, this);
+    this.orientationUnsubscribe?.();
+    this.orientationUnsubscribe = undefined;
     this.resetMenuTextureLoadQueue();
     this.runLaunchGeneration += 1;
     this.gunsmithArtGeneration += 1;
@@ -2646,7 +2801,7 @@ export class MenuScene extends Phaser.Scene {
     this.input.off(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
     this.input.off(Phaser.Input.Events.POINTER_MOVE, this.handlePointerMove, this);
     this.input.off(Phaser.Input.Events.POINTER_UP, this.handlePointerUp, this);
-    this.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.handlePointerUp, this);
+    this.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.handlePointerUpOutside, this);
     this.removeAudioUnlockListeners();
     this.inputController?.destroy();
     this.inputController = undefined;
@@ -2667,6 +2822,7 @@ export class MenuScene extends Phaser.Scene {
     this.focusRings = [];
     this.scrollRegion?.destroy();
     this.scrollRegion = undefined;
+    this.scrollRectangle = undefined;
     this.scrollTrack = undefined;
     this.scrollThumb = undefined;
     this.scrollThumbHeight = 0;
@@ -2735,6 +2891,32 @@ export class MenuScene extends Phaser.Scene {
   private getAudioManager(): AudioManager | undefined {
     return getAudioManager(this);
   }
+
+  private abandonFailedLaunch(): void {
+    if (this.runLaunchState !== 'failed') return;
+    this.runLaunchState = 'idle';
+    this.capturedLaunch = undefined;
+    this.preparedArenaLayout = undefined;
+    this.runLaunchGeneration += 1;
+  }
+
+  private readonly handlePointerUpOutside = (pointer: Phaser.Input.Pointer): void => {
+    this.handlePointerUp(pointer);
+  };
+
+  private readonly handleInputFocus = (): void => {
+    this.backgrounded = false;
+    this.cancelPointerGesture();
+    this.inputController?.quarantineUntilNeutral();
+  };
+
+  private readonly handleInputBlur = (): void => {
+    this.backgrounded = true;
+    this.cancelPointerGesture();
+    this.inputController?.quarantineUntilNeutral();
+  };
+
+
 }
 
 function formatDuration(durationMs?: number): string {

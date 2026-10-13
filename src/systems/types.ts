@@ -374,6 +374,8 @@ export interface AudioAssetCatalog {
   readonly music: readonly AudioMusicAsset[];
 }
 
+export type AudioPriority = 'combat' | 'feedback' | 'alert' | 'terminal';
+
 /** One event → audio action row in audio-map.json (Epic 10 §6.2). */
 export interface AudioMapEntry {
   readonly event: GameEventKey;
@@ -383,6 +385,8 @@ export interface AudioMapEntry {
    *  `sfxKey` when the family has no entry here. */
   readonly sfxKeyByFamily?: Readonly<Record<string, string>>;
   readonly cooldownMs?: number;
+  /** Finite presentation-only overflow priority; absent means feedback. */
+  readonly priority?: AudioPriority;
   readonly stopMusic?: boolean;
   readonly musicFadeMs?: number;
 }
@@ -578,6 +582,8 @@ export interface EdgeSpawnLane {
 }
 
 export interface ObstacleDefinition {
+  /** Raised machinery provides cover from hostile shots, in addition to body collision. */
+  readonly blocksEnemyProjectiles?: boolean;
   readonly id: string;
   readonly x: number;
   readonly y: number;
@@ -623,6 +629,7 @@ export interface ArenaVisualDefinition {
 }
 
 export interface HazardDefinition {
+  readonly pulse?: { readonly safeMs: number; readonly warningMs: number; readonly activeMs: number; readonly offsetMs: number };
   readonly id: string;
   readonly kind: string;
   readonly x: number;
@@ -632,7 +639,14 @@ export interface HazardDefinition {
   readonly damagePerSecond: number;
 }
 
+export interface ArenaGenerationProfile {
+  readonly obstacleIds: readonly string[];
+  readonly extraObstacles: { readonly min: number; readonly max: number };
+  readonly zones: readonly { readonly id: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }[];
+}
+
 export interface ArenaDefinition {
+  readonly generation?: ArenaGenerationProfile;
   readonly id: string;
   readonly name: string;
   readonly size: ArenaSize;

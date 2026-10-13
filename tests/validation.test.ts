@@ -1710,6 +1710,17 @@ describe('game data validation', () => {
       expect(() => validateGameData(zeroFade)).toThrow(/musicFadeMs/);
     });
 
+    it('validates semantic audio priority without accepting arbitrary numeric or ID-specific ranks', () => {
+      for (const priority of ['combat', 'feedback', 'alert', 'terminal']) {
+        const data = mutableAudio(); (data.audio.map.events[0] as unknown as Record<string, unknown>).priority = priority;
+        expect(() => validateGameData(data)).not.toThrow();
+      }
+      for (const priority of ['', 'urgent', 3, null, true]) {
+        const data = mutableAudio(); (data.audio.map.events[0] as unknown as Record<string, unknown>).priority = priority;
+        expect(() => validateGameData(data)).toThrow(/priority/);
+      }
+    });
+
     it('rejects a duplicate event', () => {
       const data = mutableAudio();
       data.audio.map.events[1].event = 'weapon:fired';

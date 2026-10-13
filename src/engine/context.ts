@@ -201,7 +201,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   const partDefinitions = new Map((options.data.gunParts ?? []).map((part) => [part.id, part] as const));
   const knownTraitIds = new Set((options.data.gunParts ?? []).flatMap((part) => part.traits.map((trait) => `trait:${trait.toLowerCase()}`)));
   const knownAchievementIds = new Set((options.data.achievements ?? []).map((achievement) => achievement.id));
-  const reconcileActiveAchievements = (loaded: SaveData): SaveData => {
+  const projectActiveAchievements = (loaded: SaveData): SaveData | undefined => {
     const registry = new DataAchievementRegistry({ achievements: options.data.achievements ?? [] });
     const metricEntries = new Map<string, NonNullable<ReturnType<typeof metricExtractor>>>();
     for (const definition of registry.all()) {
@@ -211,6 +211,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     }
     const evaluation = evaluateAchievements(loaded.achievements, {
       metrics: loaded.achievementMetrics,
+      gunsmith: loaded.gunsmith, equipment: loaded.equipment, catalog: options.data,
       progression: loaded.progression,
       stages: loaded.stages,
       characters: loaded.characters,
@@ -221,7 +222,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     let candidate = loaded;
     for (const achievementId of evaluation.completed) {
       const definition = registry.achievementById(achievementId);
-      if (!definition) return loaded;
+      if (!definition) return undefined;
       const transaction: DurableGrantTransaction = {
         id: `${achievementId}:completion`,
         grants: [
@@ -230,7 +231,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         ],
       };
       const granted = applyDurableGrantTransaction(candidate, transaction);
-      if (!granted.valid) return loaded;
+      if (!granted.valid) return undefined;
       candidate = granted.save;
     }
     candidate = freezeSaveV4({
@@ -240,10 +241,10 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         ...new Set([...candidate.pendingAchievementReports, ...evaluation.completed]),
       ]),
     });
-    if (!options.save.save(candidate)) return loaded;
     return candidate;
   };
-  current = reconcileActiveAchievements(current);
+  const reconciled = projectActiveAchievements(current);
+  if (reconciled && reconciled !== current && options.save.save(reconciled)) current = reconciled;
   const normalizeEquipmentLoadout = (
     equipment: EquipmentState,
     loadout: EquipmentLoadoutState,
@@ -371,6 +372,22 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     if (committed) current = committed;
   };
 
+  /** Publish the workshop's single accepted candidate, then mirror only new completions. */
+  const publishWorkshopSave = (committed: SaveData): void => {
+    const previous = current;
+    current = committed;
+    revalidateSelection();
+    for (const achievementId of current.pendingAchievementReports) {
+      if (previous.achievements[achievementId]?.completed) continue;
+      const progress = current.achievements[achievementId];
+      if (!progress?.completed) continue;
+      void Promise.resolve()
+        .then(() => achievementPlatform.report(achievementId, progress))
+        .then(() => acknowledgeAchievement(achievementId))
+        .catch(() => undefined);
+    }
+  };
+
   /** After a meta mutation, if the currently-selected character is no longer
    *  selectable (e.g. its unlock was removed), silently reset to the default.
    *  This is a side-effect of updateMeta/resetProgression — consumers watching
@@ -454,18 +471,20 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       const candidate = freezeSaveV4({ ...current, gunsmith });
       // Publish the save owner's canonical write snapshot, without a second
       // storage read that could discard the successful transaction.
-      const committed = options.save.commit(candidate);
+      const projected = projectActiveAchievements(candidate);
+      const committed = projected === undefined ? undefined : options.save.commit(projected);
       if (!committed) return Object.freeze({ value: current.gunsmith, persisted: false });
-      current = committed;
+      publishWorkshopSave(committed);
       return Object.freeze({ value: current.gunsmith, persisted: true });
     },
     updateEquipment(transform) {
       const next = transform({ equipment: current.equipment, loadout: current.equipmentLoadout ?? {} });
       if (next === undefined) return Object.freeze({ value: current.equipment, persisted: false });
       const candidate = normalizeEquipmentSnapshot(freezeSaveV4({ ...current, equipment: next.equipment, equipmentLoadout: next.loadout }));
-      const committed = options.save.commit(candidate);
+      const projected = projectActiveAchievements(candidate);
+      const committed = projected === undefined ? undefined : options.save.commit(projected);
       if (!committed) return Object.freeze({ value: current.equipment, persisted: false });
-      current = committed;
+      publishWorkshopSave(committed);
       return Object.freeze({ value: current.equipment, persisted: true });
     },
     fabricateEquipment(equipmentId) {
@@ -480,9 +499,10 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - set.pieceFabricationCost }),
         equipment: Object.freeze({ ...current.equipment, [instanceId]: Object.freeze({ equipmentId, tier: 1 }) }),
       });
-      const committed = options.save.commit(candidate);
+      const projected = projectActiveAchievements(candidate);
+      const committed = projected === undefined ? undefined : options.save.commit(projected);
       if (!committed) return false;
-      current = committed;
+      publishWorkshopSave(committed);
       return true;
     },
     fabricatePart(partId) {
@@ -505,9 +525,10 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
           fabricationSerials: Object.freeze({ ...(current.gunsmith.fabricationSerials ?? {}), [partId]: nextSerial }),
         }),
       });
-      const committed = options.save.commit(candidate);
+      const projected = projectActiveAchievements(candidate);
+      const committed = projected === undefined ? undefined : options.save.commit(projected);
       if (!committed) return false;
-      current = committed;
+      publishWorkshopSave(committed);
       return true;
     },
     recordCompendiumDiscovery(enemyId, status) {
@@ -540,9 +561,10 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - cost }),
         equipment: Object.freeze({ ...current.equipment, [instanceId]: Object.freeze({ equipmentId: upgrade.output.equipmentId, tier: upgrade.output.tier }) }),
       });
-      const committed = options.save.commit(candidate);
+      const projected = projectActiveAchievements(candidate);
+      const committed = projected === undefined ? undefined : options.save.commit(projected);
       if (!committed) return false;
-      current = committed;
+      publishWorkshopSave(committed);
       return true;
     },
     settleRunTerminal(input) {
@@ -664,6 +686,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       }
       const evaluation = evaluateAchievements(candidate.achievements, {
         metrics: candidate.achievementMetrics,
+        gunsmith: candidate.gunsmith, equipment: candidate.equipment, catalog: options.data,
         progression: candidate.progression,
         stages: candidate.stages,
         characters: candidate.characters,

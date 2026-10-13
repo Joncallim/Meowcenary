@@ -998,27 +998,38 @@ Normalize each music sample by the sum of component weights before applying
 - RIFF size and data size match the actual buffer;
 - every data chunk is non-empty and has an even byte length.
 
-Reproducibility gate while Slice 5 is still uncommitted:
+The historical Slice 5 generator now defaults to a **read-only check** under
+#237. It never repairs or replaces shipped audio. A mismatch with an authored
+production file must be resolved through that file's owning source/exporter,
+not by restoring a placeholder. The current exact-header asset assertions stay
+in force while all shipped assets are still placeholders; original production
+adoption must introduce source-backed format/parity coverage explicitly.
+
+To reproduce placeholder bytes without writing into `public`, use fresh
+destinations with the repository's Node 22 environment:
 
 ```bash
-node scripts/generate-audio-placeholders.mjs
-find public/assets/audio -type f -name '*.wav' -print0 \
-  | sort -z | xargs -0 shasum -a 256 > /tmp/meowcenary-audio-before.sha256
-node scripts/generate-audio-placeholders.mjs
-find public/assets/audio -type f -name '*.wav' -print0 \
-  | sort -z | xargs -0 shasum -a 256 > /tmp/meowcenary-audio-after.sha256
-diff -u /tmp/meowcenary-audio-before.sha256 \
-  /tmp/meowcenary-audio-after.sha256
+task_audio_proof=$(mktemp -d)
+node scripts/generate-audio-placeholders.mjs --output "$task_audio_proof/first"
+node scripts/generate-audio-placeholders.mjs --output "$task_audio_proof/second"
+diff -r "$task_audio_proof/first" "$task_audio_proof/second"
 ```
 
-After the Slice 5 commit, run:
+Check current shipped placeholder parity without a write:
 
 ```bash
-node scripts/generate-audio-placeholders.mjs
+node scripts/generate-audio-placeholders.mjs --check
 git diff --exit-code -- public/assets/audio
 ```
 
-Both checks must produce zero byte changes.
+Both checks must produce zero byte changes in shipped audio. Export destinations
+must be new, have an existing real parent, and lie outside `public`; symlinked
+ancestors and target reuse are rejected. `PLACEHOLDER-ONLY.json` is written
+before any WAV and retains `productionAccepted: false`. `EXPORT-COMPLETE.json`
+appears only after all exclusive, flushed WAV writes. A partial export is never
+production authority; completion itself is not listening or owner acceptance.
+These guards do not claim a sandbox against a hostile process with the same
+filesystem privileges changing ancestors concurrently.
 
 ### 8.6 Missing-assets run
 

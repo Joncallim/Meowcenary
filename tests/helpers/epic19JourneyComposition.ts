@@ -988,6 +988,9 @@ export function createMenuPhase(options?: Partial<MenuPhaseOptions>): MenuPhaseR
   const menuScene = new MenuScene();
   Object.assign(menuScene, scene);
   menuScene.create();
+  // Observe neutral entry before this fixture begins its fresh user gestures.
+  // The transition boundary intentionally rejects any already-held press.
+  menuScene.update(0, 16);
 
   const menuController = (menuScene as unknown as {
     controller?: import('../../src/ui/menus').MainMenuController;

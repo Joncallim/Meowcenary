@@ -1,0 +1,201 @@
+# #235 progression candidate delivery
+
+Status: reconciled candidate; **not merged, deployed or product-accepted**.
+Implementation authority remains main
+`4f79d6210c3b028b995d67a5cc6e35318b17b2ee`. The candidate is stacked on the
+Contracts recovery `5b6622b9d9708bc512e158e03b3f6d70d743023e` (#240).
+
+## Resulting behavior
+
+There are 27 active achievements, including the five optional post-Warden
+ladder/finale goals. All ten original definitions, stable IDs, conditions,
+targets and rewards remain unchanged. Campaign Surveyor requires the ten
+campaign Contracts; the optional finale requires the four optional Contracts.
+Neither completion is substituted for the other.
+
+Goals also cover roster mastery, distinct timed non-survival clears,
+simultaneously engineered families, effective hybrid traits and upgraded
+Equipment. Four registered metrics derive facts from canonical state without
+new save fields or counters. Unfinished workshop goals show current progress;
+completed goals remain terminal. Workshop mutations, completion receipts and
+explicit rewards use one durable candidate and publish after successful save.
+Platform reporting retains #228's obsolete-context acknowledgement protection.
+
+Acquisition copy distinguishes unlock/blueprint permission, fabrication and
+owned-instance rewards. Owned Equipment describes historical blueprint cost
+and explicitly rejects fabrication of an additional copy. Existing acquisition,
+preview and persistence semantics remain authoritative under #197/#193.
+
+Architecture and product rationale:
+[redesign-progression-depth.md](../architecture/redesign-progression-depth.md).
+
+## Ancestry reconciliation and RED/GREEN evidence
+
+The old PR head `aa0bdcd664ded0ca94124432f07a319a53e38f55` was based on an
+older Contracts candidate. Its actual common ancestor with its advancing PR
+base was `28843128ba3e08f441a05f2c69a3ec3034cf3fe0`, rather than the displayed
+base tip `47dec8e4d8e7e066ffe35c71fcead74fac1511da`. Comparing against that
+tip included reverse changes to Arena-family types and validation that were
+not Progression work.
+
+Recovery replays only the four Progression commits (`1dc791b`, `6907691`,
+`3e89fa1`, `aa0bdcd`) onto the repaired Contracts base. It retains the intended
+18-file scope and excludes obsolete Contracts/Arena ancestors. Shared types,
+stage definitions, encounter data, save schema and scenes are not replaced.
+
+The eight originally failing unit files were run at the old head: **10 failed,
+354 passed**. The same eight files pass **389 tests** on the reconciled head.
+Four failures came from older owning-boundary fixes absent at the old head;
+six came from stale catalog/frontier/ordering assumptions superseded by the
+ten-campaign/four-optional contract. The repaired Contracts base already has
+the authoritative assertions, including explicit catalog coverage, separate
+completion, optional timing and preserved negative validation cases. Recovery
+does not remove assertions or change balance to make these tests pass.
+
+The separate product review reproduced a wording defect: Forge Champion said
+“every Forge chapter Contract” despite requiring only its five campaign clears.
+A RED regression earns it with optional Forge missions uncleared and checks
+that the player-facing description matches that boundary. The one-line copy
+correction makes it GREEN; conditions, rewards and the original ten definitions
+are unchanged. It is a candidate product-copy defect, not a new #201 runtime
+invariant violation.
+
+Additional focused domain/persistence/controller suites pass 183 tests,
+including the existing #229 Scavenge Pulse transaction. A further five-file
+run passes 91 tests covering the new copy regression, #228 acknowledgement
+protection and retained achievement/Scavenge boundaries. Full exact-head closeout and hosted CI results
+are recorded in the PR/issue comments; focused counts alone are not acceptance.
+
+Reproducible external logs for the 12 October recovery are under
+`/home/jon/projects/meowcenary-evidence/issue-burn-2026-10-12/`:
+`pr236-original-red.log`, `pr236-reconciled-focused.log`,
+`pr236-domain-focused.log`, `pr236-forge-copy-red.log` and
+`pr236-forge-copy-and-retained-boundaries-green.log`. This is an agent-workspace
+artifact location, not a portable runtime asset or an owner playtest record.
+
+## Independent review and evidence limits
+
+Local closeout at `dfefffdc4e81f643acd1018f940cec58ce7dd2db` passes lint,
+content validation, the complete art/source/export command, the ordinary unit
+suite and all nine allocation gates plus nine runner probes. The runner exited
+zero (recorded status and complete log); no incomplete wrapper is counted.
+All 18 browser TypeScript modules pass individual strict checks. The ordinary
+production build and resource verification pass: 619 logical bindings, 96
+unique physical textures, 134 packaged files identical to their sources, and
+test/diagnostic globals excluded. Browser-matrix and hosted results remain
+separate exact-head gates; neither is inferred from these local checks.
+
+A fresh read-only Astra domain/save review at
+`52cbdd94c77daab985d3204741c074bf0da5a39b` found no concrete production
+blocker: the original ten definitions are identical, campaign/optional goals
+are separate, workshop receipts and rewards share one commit, and #228 is
+preserved. A separate Astra product review found the Forge description defect
+above and otherwise passed its bounded code inspection. Read-only follow-up
+confirmed the correction and regression, returning PASS. The full candidate
+gates remain independent checks.
+
+Earlier candidate reviews found and corrected skipped upgrade evaluation,
+stale simultaneous-loadout progress, omitted blueprint sources, delayed
+mirror dispatch and misleading duplicate-fabrication copy. Earlier browser
+captures of goal/Parts/Equipment copy and fourth-T4 upgrade/reload are historical
+evidence of those corrections. They do not establish current exact-head
+viewport behavior, integrated optional-Contract pacing or sustained enjoyment.
+Earlier local PNG-compression tooling failures are also historical; the
+current pinned art-tooling gate must be run afresh.
+
+## Remaining acceptance gates
+
+Require the full ordinary suite, allocation/runner probes, lint, content and
+complete art/source/export validation, production/resource/diagnostic checks,
+six-profile browser matrix and exact draft-head hosted CI. Require independent
+review confirmation, integrated optional post-Warden playthrough, physical
+phone/controller/reconnect evidence, and sustained-play evaluation of speed
+thresholds, roster repetition, optional rewards and T4 cost pacing. Correctness
+tests and browser emulation do not establish that the career is fun. Main and
+production remain unchanged; no merge or deployment is authorized by this record.
+
+## Browser recovery: Equipment vocabulary and reviewed catalogue images
+
+The first reconciled head `1f8bec1` passed all non-browser gates but exposed
+a real Equipment row regression: eligible blueprints said BLUEPRINT instead
+of #197's required FABRICABLE state. The existing browser assertion remains
+unchanged. A unit regression failed on the previous copy and passes with
+`FABRICABLE • NOT OWNED`; 212 focused Menu/Equipment tests pass. Eligibility,
+acquisition, costs, preview and commit semantics are unchanged.
+
+Four screenshot baselines were individually inspected against actual output.
+Phone Achievements changes only 0/10 to 0/27 and the longer catalogue's shorter
+scroll thumb. Foldable and desktop Achievements additionally show Champion's
+mechanically derived five-requirement progress (0/5) and the tops of two new
+second/third-column cards in the existing fourth row. Compact Next Goals
+changes only its Achievement denominator to 27. Independent RGBA comparisons
+found zero changed pixels outside those explained regions. No unrelated image,
+timeout, retry, comparison threshold or skip was changed. These images record
+candidate catalogue truth; they do not establish new art authority.
+
+The initial local matrix was interrupted at test 644/660 (exit 143), after
+observing six Equipment-label failures and these four image failures. It has
+no valid final aggregate. Its archived artifacts and exact RED/GREEN logs
+remain in the external recovery evidence directory. The changed final head
+requires a complete browser matrix and hosted CI; earlier partial execution
+is not acceptance.
+
+## Separate-owner controller fixture and event evidence
+
+Hosted `38230971709` completed at historical `1f8bec1`: 585 passed, 64
+existing scoped skips and 11 failures. Ten are the vocabulary/four images
+above. The eleventh was the five-second neutral-input precondition in the
+separate-CDP-owner/held-controller fixture, before any keyboard command was
+dispatched; it was not the overall thirty-second deadline. The fixture was
+consuming that budget with redundant driver observation round trips while
+deliberately holding the final physical owner.
+
+Each held phase now awaits the same three actual input frames inside one
+page evaluation, then returns one diagnostic/save/contact snapshot. All
+non-neutral, pending-unsatisfied, frozen intro, trusted cancellation and
+unchanged-save assertions remain. The owning input adapter and game logic
+are unchanged; no timeout, retry or skip was increased.
+
+Read-only test-build evidence compares native controller buttons, Phaser
+wrappers and individual input-owner neutrality. Across all six held-controller
+profiles the first post-release POST_STEP shows released native/wrapper buttons
+while the previous logical sample is still held; the next POST_STEP is neutral.
+The actual fresh Enter dispatch independently records a neutral boundary.
+This is bounded normal frame ordering, not a reproduced persistent input hang.
+The next-frame observation never gates or delays the helper.
+
+Both ownership variants pass all six profiles: 12 focused browser tests in
+1.1 minutes, with physical touch admission/cancellation intact. The existing
+VM test executes the real diagnostic arrow; adding native/wrapper evidence
+initially exposed its missing navigator fixture (RED), now repaired with
+realistic read-only stubs and detached-snapshot assertions. Intro/input suites
+pass 97 tests. Ordinary production exclusion explicitly checks the new
+`inputPhysicalEvidence`, `nativePads` and `phaserPads` markers. Full final-head
+gates remain independently required. This tranche records no new #201 runtime
+invariant defect.
+
+## Keyboard receipt versus scene-owned sampling
+
+The exact `dd8bbc597ced16231230cd66a3e1967be86dd1fb` local full matrix
+completed with 595 passes, 64 existing scoped skips and one failure: phone360
+Career→Achievements→Career→Home stayed on Career after the final Escape.
+The five-second destination predicate failed; the screenshot remained Career
+with Next Goals focused. Neither the resource wait nor the test budget failed.
+
+An independent real InputController/game-manager queue probe reproduced the
+helper's false acknowledgement: native key receipt changed physical neutrality
+before a scene update, allowing both down/up predicates to pass with zero Back
+commands. The historical browser run has no per-key timeline, so its exact
+scheduling is not claimed proven. No runtime or #201 invariant defect is inferred.
+
+Committed RED `f9c21b1` executes all three actual responsive press closures,
+extracted through the TypeScript AST, against that owning adapter rather than
+a copied helper. Twelve cases failed and four positive/cleanup cases passed.
+The helpers now require an already neutral/unquarantined boundary, hold the
+physical key across the existing real POST_STEP observation, and observe a
+frame after release before their unchanged neutral checks. All 16 owning
+regressions pass, including false/throwing frame observations and finally release.
+The 4-second input predicates, 5-second destination predicate, 60-second
+journey budget and all journey assertions remain unchanged. Gameplay/input
+production code is unchanged. Native journeys, full exact-head gates, independent
+review and hosted CI remain required before this candidate is ready.

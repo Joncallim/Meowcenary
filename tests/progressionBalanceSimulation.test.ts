@@ -83,10 +83,21 @@ describe('Epic 26 deterministic progression balance simulation', () => {
     }
 
     for (const chapterId of new Set(orderedStages.map((stage) => stage.chapterId))) {
-      const chapterRewards = rewards.filter((_, index) => orderedStages[index]!.chapterId === chapterId);
+      const chapterRewards = rewards.filter((_, index) => orderedStages[index]!.chapterId === chapterId
+        && orderedStages[index]!.campaignRole !== 'optional');
       for (let index = 1; index < chapterRewards.length; index += 1) {
         expect(chapterRewards[index]).toBeGreaterThan(chapterRewards[index - 1]);
       }
+    }
+    const optionalRewards = rewards.filter((_, index) => orderedStages[index]!.campaignRole === 'optional');
+    expect(optionalRewards).toEqual([145, 150, 160, 170]);
+    expect(optionalRewards.reduce((total, reward) => total + reward, 0)).toBe(625);
+    // Every row still passes the durable first-clear boundary above. Optional
+    // pressure trials need not exceed the campaign boss's reward density.
+    const campaignRewardCeiling = Math.max(...rewards.filter((_, index) => orderedStages[index]!.campaignRole !== 'optional'));
+    for (const reward of rewards) {
+      expect(reward).toBeGreaterThan(0);
+      expect(reward / 3).toBeLessThanOrEqual(campaignRewardCeiling / 3);
     }
     expect(rewards[4]).toBeGreaterThan(rewards[0] * 3);
     expect(rewards.at(-1)).toBeGreaterThan(rewards[5]!);

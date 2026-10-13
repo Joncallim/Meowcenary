@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { dismissRunStartBrief } from './run-start-helpers';
+import { completeRunStartIntro } from './run-start-helpers';
+import { writeFile } from 'node:fs/promises';
+import { installContractTitleObserver, readContractTitleObserver, withRecordedCleanup } from './diagnostic-records';
 
 // A complete visual pass deliberately reloads Phaser and its art bundles many
 // times. Shared CI runners can take materially longer than a developer machine
@@ -27,6 +29,7 @@ type VisualTestSeam = {
   focusFirstEnemy(bossOnly?: boolean): boolean;
   focusPlayer(): boolean;
   showAbilityEffect(): boolean;
+  arenaLayoutDiagnostics(): { timeMs: number } | undefined;
   focusedActorScreenPoint(): { x: number; y: number } | undefined;
   showMenu(panel: string): boolean;
   showUpgradeChooser(): boolean;
@@ -136,6 +139,19 @@ test('fixed art reference compositions retain the Meowcenary visual system', asy
   test.skip(!representativeProjects.has(testInfo.project.name));
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
+  await page.addInitScript(installContractTitleObserver);
+  const persistTitleEvidence = async (phase: 'before' | 'after') => {
+    const facts = await page.evaluate(readContractTitleObserver, phase === 'after');
+    const json = JSON.stringify({ project: testInfo.project.name, phase, facts });
+    if (Buffer.byteLength(json) > 65535) throw new Error('Contract title evidence exceeded its 64 KiB bound');
+    const path = testInfo.outputPath(`contract-title-${phase}.json`); await writeFile(path, json + '\n');
+    await testInfo.attach(`contract-title-${phase}`, { path, contentType: 'application/json' });
+    if (phase === 'after') {
+      const evidence = facts as { draws?: Array<{ font?: string; metrics?: unknown }>; hashes?: unknown };
+      console.log('MEOW_CONTRACT_TITLE ' + JSON.stringify({ project: testInfo.project.name,
+        font: evidence.draws?.at(-1)?.font, metrics: evidence.draws?.at(-1)?.metrics, hashes: evidence.hashes }));
+    }
+  };
 
   await page.goto('/?visual-test=1');
   const canvas = page.locator('#game-root canvas');
@@ -162,7 +178,16 @@ test('fixed art reference compositions retain the Meowcenary visual system', asy
   await showMenu(page, 'stage');
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('contract-selection.png', illustratedScreenshot);
+  // Persist draw/font facts before the assertion can fail. The finally-stage
+  // read hashes backing pixels after the existing capture without another shot.
+  const titleEvidenceErrors: unknown[] = [];
+  try { await persistTitleEvidence('before'); } catch (error) { titleEvidenceErrors.push(error); }
+  await withRecordedCleanup(undefined, async () => {
+    await expect(page).toHaveScreenshot('contract-selection.png', illustratedScreenshot);
+  }, [['contract-title-facts', async () => {
+    try { await persistTitleEvidence('after'); } catch (error) { titleEvidenceErrors.push(error); }
+    if (titleEvidenceErrors.length) throw new AggregateError(titleEvidenceErrors, 'Contract title evidence failed');
+  }]]);
 
   await page.reload();
   await showMenu(page, 'equipment');
@@ -192,7 +217,7 @@ test('fixed art reference compositions retain the Meowcenary visual system', asy
   await showMenu(page, 'home');
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
-  await dismissRunStartBrief(page, 'mouse');
+  await completeRunStartIntro(page, 'mouse');
   await resumeLoop(page);
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-tabby.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-sniper.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
@@ -217,6 +242,8 @@ test('fixed art reference compositions retain the Meowcenary visual system', asy
       .__MEOWCENARY_VISUAL_TEST__;
     return seam?.showAbilityEffect() ?? false;
   }), { timeout: visualReadyTimeoutMs }).toBe(true);
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam })
+    .__MEOWCENARY_VISUAL_TEST__?.arenaLayoutDiagnostics()?.timeMs)).toBe(0);
   await page.evaluate(() => {
     const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam })
       .__MEOWCENARY_VISUAL_TEST__;
@@ -305,7 +332,7 @@ test('pause and Weapon Rack use the shared authored modal system', async ({ page
   await showMenu(page, 'home');
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
-  await dismissRunStartBrief(page, 'mouse');
+  await completeRunStartIntro(page, 'mouse');
   await press(page, 'p');
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('pause-modal.png', illustratedScreenshot);
@@ -325,7 +352,7 @@ test('transient decision art references use the shared authored visual system', 
     await showMenu(page, 'home');
     await press(page, 'Enter');
     await expectScene(page, 'GameScene');
-    await dismissRunStartBrief(page, 'mouse');
+    await completeRunStartIntro(page, 'mouse');
     await resumeLoop(page);
   };
   const show = async (method: 'showUpgradeChooser' | 'showExtraction', name: string): Promise<void> => {
@@ -381,7 +408,7 @@ test('boss art reference keeps the approved boss-scale visual hierarchy', async 
   await showMenu(page, 'home');
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
-  await dismissRunStartBrief(page, 'mouse');
+  await completeRunStartIntro(page, 'mouse');
   await resumeLoop(page);
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/boss-crusher.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expect.poll(() => page.evaluate(() => {
@@ -422,7 +449,7 @@ test('Forge Warden art reference keeps its approved furnace-gantry silhouette', 
   await showMenu(page, 'home');
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
-  await dismissRunStartBrief(page, 'mouse');
+  await completeRunStartIntro(page, 'mouse');
   await resumeLoop(page);
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/boss-forge.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expect.poll(() => page.evaluate(() => {
@@ -436,7 +463,9 @@ test('Forge Warden art reference keeps its approved furnace-gantry silhouette', 
   await expectCenteredActor(page, 'forge-warden-gameplay-actor.png');
 });
 
-test('every Mercenary actor retains its approved runtime silhouette', async ({ page }, testInfo) => {
+// These recorded implementation baselines detect drift. Product-owner visual
+// approval against the canonical direction remains a separate #191 gate.
+test('every Mercenary actor retains its recorded runtime silhouette', async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   test.skip(testInfo.project.name !== 'desktop-1280x720');
   const characterIds = [
@@ -462,7 +491,7 @@ test('every Mercenary actor retains its approved runtime silhouette', async ({ p
     await showMenu(page, 'home');
     await press(page, 'Enter');
     await expectScene(page, 'GameScene');
-    await dismissRunStartBrief(page, 'mouse');
+    await completeRunStartIntro(page, 'mouse');
     await resumeLoop(page);
     await expect.poll(() => page.evaluate(() => {
       const seam = (globalThis as typeof globalThis & {

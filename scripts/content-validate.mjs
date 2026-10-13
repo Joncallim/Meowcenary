@@ -16,6 +16,7 @@ function run(command, args) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
+run(process.execPath, [path.join(root, 'scripts/audio-package-budget.mjs')]);
 run(process.execPath, ['docs/art/scripts/validate-visual-art.mjs']);
 run(process.execPath, ['docs/art/scripts/validate-builders.mjs']);
 run('lua', ['docs/art/scripts/validate-builders.lua']);

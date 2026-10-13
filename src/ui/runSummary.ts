@@ -453,20 +453,26 @@ export class PhaserRunSummaryView {
   private returnToMainMenu(): void {
     if (this.disposed || !this.visible || !this.canNavigate()) return;
     this.bus.emit('ui:confirm', {});
-    this.scenePlugin.start(SceneKey.Menu);
+    // Phaser retains the previous entry payload when no data is supplied.
+    // Explicit neutral data must revoke any one-shot terminal Replay request.
+    this.scenePlugin.start(SceneKey.Menu, {});
   }
 
   private continueToNextStage(): void {
     if (this.disposed || !this.visible || !this.canNavigate() || !this.onNextStage?.()) return;
     this.bus.emit('ui:confirm', {});
-    this.scenePlugin.start(SceneKey.Menu);
+    // Phaser retains the previous entry payload when no data is supplied.
+    // Explicit neutral data must revoke any one-shot terminal Replay request.
+    this.scenePlugin.start(SceneKey.Menu, {});
   }
 
   private discardAndReturnToMenu(): void {
     if (this.disposed || !this.visible || this.canNavigate() || !this.onDiscardPending) return;
     this.onDiscardPending();
     this.bus.emit('ui:confirm', {});
-    this.scenePlugin.start(SceneKey.Menu);
+    // Phaser retains the previous entry payload when no data is supplied.
+    // Explicit neutral data must revoke any one-shot terminal Replay request.
+    this.scenePlugin.start(SceneKey.Menu, {});
   }
 
   private render(snapshot: RunSummarySnapshot): void {

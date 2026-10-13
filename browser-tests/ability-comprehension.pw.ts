@@ -1,25 +1,30 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { activateIntroCommand, completeRunStartIntro, introCommand, isNoActiveCdpTouchMessage, type IntroDiagnostics, type Rect } from './run-start-helpers';
+import type { RunStartIntroModel } from '../src/presentation/runStartIntro';
 import { writeFile } from 'node:fs/promises';
+import { withBrowserDiagnostics, withRecordedCleanup, type DiagnosticRecord } from './diagnostic-records';
+// @ts-expect-error standalone JavaScript tooling has no declaration file
+import { waitForPerformanceRunStart } from '../scripts/performance-run-start.mjs';
 
-type Rect = { x: number; y: number; width: number; height: number };
 type UiState = { phase: 'ready' | 'active' | 'cooling'; activeRemainingMs: number; cooldownRemainingMs: number; readiness: number; activeProgress: number };
-type Diagnostics = {
+type Diagnostics = IntroDiagnostics & {
   visible: boolean; status: string; timeMs: number; characterId: string; enemies: number;
   player: { x: number; y: number; health?: number }; abilityState: UiState; abilityUiState: UiState;
   abilityDefinition: { id: string; effect: { kind: string; radius?: number } };
-  model?: { mercenaryName: string; ability: { headline: string; detail: string; cooldownLabel: string }; icon: { id: string }; portrait: { id: string } };
-  controlsHint?: Rect & { text: string; visible: boolean }; buttons: Rect[]; briefText: Array<Rect & { text: string }>; abilityButton: Rect; abilityBanner: string;
+  model?: RunStartIntroModel;
+  controlsHint?: Rect & { text: string; visible: boolean }; body?: Rect; scroll?: { offset: number; max: number }; introText: Array<Rect & { text: string; inScrollBody: boolean }>; abilityButton: Rect; abilityBanner: string;
   abilityFx: { persistent?: { kind: string; radius: number; glyphMask: number }; transient?: { kind: string; radius: number } };
   activationId: number; latestResolution?: { kind: string; applied?: number; collected?: number; affected?: number; modifiers?: Array<{ stat: string; op: string; value: number }> };
-  inputMode: string; inputNeutral: boolean; orientationBlocked: boolean;
+  inputMode: string; inputNeutral: boolean; inputQuarantined: boolean;
+  abilityHeld: boolean; confirmHeld: boolean; orientationBlocked: boolean;
 };
 type Seam = {
   isSceneActive(key: string): boolean; waitForMenuPresentation(): Promise<boolean>; waitForPreparedGame(): Promise<boolean>; waitForInputFrame(): Promise<boolean>;
-  runStartBriefDiagnostics(): Diagnostics | undefined;
+  runStartIntroDiagnostics(): Diagnostics | undefined;
   selectAbilityTestCharacter(id: string): boolean;
   prepareAbilityTestConsequences(levelUp?: boolean, crowded?: boolean): boolean;
 };
-type Globals = typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: Seam; __ABILITY_PAD__?: (button: number, pressed: boolean) => void };
+type Globals = { __MEOWCENARY_VISUAL_TEST__?: Seam; __ABILITY_PAD__?: (button: number, pressed: boolean) => void };
 const CATALOG = [
   ['scrap-tabby', 'Scrap Burst', 'Knock back enemies within 90 range.', 'Cooldown 9s.', 'knockback', 'cooling'],
   ['bolt-hound', 'Giga Chomp', 'Restore up to 40 HP.', 'Cooldown 18s.', 'heal', 'cooling'],
@@ -41,22 +46,46 @@ async function installPad(page: Page): Promise<void> {
     };
   });
 }
-async function seed(page: Page, reducedMotion = false): Promise<void> {
-  await page.addInitScript(({ characterIds, reducedMotion }) => {
+async function seed(page: Page, reducedMotion = false, clearedStages: string[] = []): Promise<void> {
+  await page.addInitScript(({ characterIds, reducedMotion, clearedStages }) => {
     localStorage.setItem('meowcenary.save.v2', JSON.stringify({ version: 4,
       settings: { muted: true, musicVolume: 0, sfxVolume: 0, reducedMotion },
       progression: { scrap: 0, unlocks: characterIds.map(id => `character:${id}`) }, selectedCharacterId: 'scrap-tabby',
-      stages: {}, achievements: {}, achievementMetrics: {}, characters: {},
+      stages: Object.fromEntries(clearedStages.map(id => [id, { completed: true, bestTimeMs: 60000 }])), achievements: {}, achievementMetrics: {}, characters: {},
       gunsmith: { builds: [], parts: {}, fabricationSerials: {} }, equipment: {}, equipmentLoadout: {}, items: {}, bosses: {}, compendium: {},
       pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
     }));
-  }, { characterIds: CATALOG.map(row => row[0]), reducedMotion });
+  }, { characterIds: CATALOG.map(row => row[0]), reducedMotion, clearedStages });
 }
 async function frame(page: Page, count = 1): Promise<void> {
-  for (let index = 0; index < count; index++) expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame())).toBe(true);
+  const completed = await page.evaluate(async count => {
+    const frames: boolean[] = [];
+    for (let index = 0; index < count; index++) {
+      const ready = await (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame();
+      frames.push(ready);
+      if (ready !== true) break;
+    }
+    return frames;
+  }, count);
+  expect(completed).toEqual(Array.from({ length: count }, () => true));
+}
+async function observeAbilityFrame(page: Page, count = 1): Promise<{ state: Diagnostics; saved: string | null; contacts: ContactEvent[] }> {
+  const observation = await page.evaluate(async count => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    const frames: boolean[] = [];
+    for (let index = 0; index < count; index++) {
+      const completed = await seam.waitForInputFrame(); frames.push(completed);
+      if (completed !== true) return { frames };
+    }
+    return { frames, state: seam.runStartIntroDiagnostics(), saved: localStorage.getItem('meowcenary.save.v2'),
+      contacts: (globalThis as Globals & { __TOUCH_REPAIR_EVENTS__?: ContactEvent[] }).__TOUCH_REPAIR_EVENTS__ ?? [] };
+  }, count);
+  expect(observation.frames).toEqual(Array.from({ length: count }, () => true));
+  expect(observation.state).toBeDefined();
+  return observation as { state: Diagnostics; saved: string | null; contacts: ContactEvent[] };
 }
 async function read(page: Page): Promise<Diagnostics> {
-  const state = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartBriefDiagnostics());
+  const state = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics());
   expect(state).toBeDefined(); return state!;
 }
 async function openMenu(page: Page): Promise<void> {
@@ -68,12 +97,15 @@ async function launch(page: Page, character = 'scrap-tabby', keepLaunchHeld = fa
   expect(await page.evaluate(id => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.selectAbilityTestCharacter(id), character)).toBe(true);
   await frame(page, 2);
   await page.keyboard.down('Enter');
-  try { expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true); }
-  finally { if (!keepLaunchHeld) await page.keyboard.up('Enter'); }
-  await frame(page, 2);
-  const state = await read(page);
+  await withRecordedCleanup(undefined, async () => {
+    expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
+  }, keepLaunchHeld ? [] : [['launch-key-up', () => page.keyboard.up('Enter')]]);
+  const { state } = await observeAbilityFrame(page, 2);
   expect(state.visible).toBe(true); expect(state.status).toBe('intro'); expect(state.timeMs).toBe(0);
-  expect(state.enemies).toBe(0); expect(state.buttons).toHaveLength(2);
+  expect(state.enemies).toBe(0);
+  expect(state.commands.filter(row => row.command === 'return-menu')).toHaveLength(1);
+  expect(state.commands.filter(row => row.command === 'start' || row.command === 'continue')).toHaveLength(1);
+  expect(state.runStart.count).toBe(0);
   return state;
 }
 async function pulse(page: Page, key: string): Promise<void> {
@@ -81,13 +113,15 @@ async function pulse(page: Page, key: string): Promise<void> {
   await frame(page);
 }
 async function start(page: Page): Promise<void> {
-  await pulse(page, 'Enter');
-  expect((await read(page)).status).toBe('active');
+  const started = await completeRunStartIntro(page);
+  expect(started.status).toBe('active');
 }
 async function captureFacts(page: Page, info: TestInfo, name: string): Promise<void> {
   const facts = info.outputPath(`${name}-facts.json`);
-  const state = await read(page);
-  const pixelRatio = await page.evaluate(() => devicePixelRatio);
+  const { state, pixelRatio } = await page.evaluate(() => ({
+    state: (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics(), pixelRatio: devicePixelRatio,
+  }));
+  expect(state).toBeDefined();
   await writeFile(facts, JSON.stringify({ ...state, capture: { project: info.project.name, viewport: page.viewportSize(), devicePixelRatio: pixelRatio } }, null, 2));
   await info.attach(`${name}-facts`, { path: facts, contentType: 'application/json' });
 }
@@ -99,11 +133,36 @@ async function capture(page: Page, info: TestInfo, name: string): Promise<void> 
 }
 function centre(rect: Rect): { x: number; y: number } { return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; }
 function assertBriefFits(state: Diagnostics, viewport: { width: number; height: number }): void {
-  for (const text of state.briefText) {
-    expect(text.x, text.text).toBeGreaterThanOrEqual(0); expect(text.y, text.text).toBeGreaterThanOrEqual(0);
+  expect(state.body).toBeDefined();
+  for (const command of state.commands) introCommand(state, command.command, viewport);
+  for (const text of state.introText) {
+    expect(text.x, text.text).toBeGreaterThanOrEqual(0);
     expect(text.x + text.width, text.text).toBeLessThanOrEqual(viewport.width + 0.01);
-    expect(text.y + text.height, text.text).toBeLessThanOrEqual(viewport.height + 0.01);
-    if (text.text !== 'Start' && text.text !== 'Back to Menu') expect(text.y + text.height, text.text).toBeLessThanOrEqual(state.buttons[0].y);
+    if (text.inScrollBody) {
+      expect(text.x, text.text).toBeGreaterThanOrEqual(state.body!.x - .01);
+      expect(text.x + text.width, text.text).toBeLessThanOrEqual(state.body!.x + state.body!.width + .01);
+      // Vertical overflow belongs to the existing masked, scrollable body.
+      expect(text.y + (state.scroll?.offset ?? 0), text.text).toBeGreaterThanOrEqual(state.body!.y - .01);
+    } else {
+      expect(text.y, text.text).toBeGreaterThanOrEqual(0);
+      expect(text.y + text.height, text.text).toBeLessThanOrEqual(viewport.height + .01);
+    }
+  }
+  const regions = [{ name: 'scroll body', bounds: state.body! }, ...state.commands.map(row => ({ name: row.command, bounds: row.bounds }))];
+  for (const { name, bounds } of regions) {
+    expect(bounds.width, name).toBeGreaterThan(0); expect(bounds.height, name).toBeGreaterThan(0);
+    expect(bounds.x, name).toBeGreaterThanOrEqual(0); expect(bounds.y, name).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width, name).toBeLessThanOrEqual(viewport.width + .01);
+    expect(bounds.y + bounds.height, name).toBeLessThanOrEqual(viewport.height + .01);
+  }
+  for (const row of state.commands) expect(row.bounds.width, row.command).toBeGreaterThanOrEqual(44);
+  // Portrait stacks actions below the body; compact landscape puts them
+  // beside it. Either layout must keep the actual regions disjoint.
+  for (let i = 0; i < regions.length; i++) for (let j = i + 1; j < regions.length; j++) {
+    const a = regions[i].bounds, b = regions[j].bounds;
+    const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+    const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+    expect(Math.min(overlapX, overlapY), `${regions[i].name} overlaps ${regions[j].name}`).toBeLessThanOrEqual(.01);
   }
 }
 function assertHintFits(state: Diagnostics, viewport: { width: number; height: number }): void {
@@ -117,19 +176,21 @@ function assertHintFits(state: Diagnostics, viewport: { width: number; height: n
 async function save(page: Page): Promise<string | null> { return page.evaluate(() => localStorage.getItem('meowcenary.save.v2')); }
 
 for (const [character, name, detail, cooldown, kind, phase] of CATALOG) {
-  test(`${name}: real briefing, activation receipt and authoritative HUD`, async ({ page }, info) => {
+  test(`${name}: real briefing, activation receipt and authoritative HUD`, async ({ page }, info) => withBrowserDiagnostics(
+    page, info, 'scrap-burst', name === 'Scrap Burst' && ['desktop-1280x720', 'desktop-1920x1080'].includes(info.project.name), async (page, record) => {
+    record?.note('scrap-burst.prepare');
     await seed(page, true); await openMenu(page); const brief = await launch(page, character);
     expect(brief.characterId).toBe(character); assertBriefFits(brief, page.viewportSize()!);
-    expect(brief.model!.ability).toMatchObject({ headline: name, detail, cooldownLabel: cooldown });
-    expect(brief.model!.icon.id).toMatch(/^ability-icon:/); expect(brief.model!.portrait.id).toBe(`character-portrait:${character}`);
+    expect(brief.model!.ability!.effect).toMatchObject({ headline: name, detail, cooldownLabel: cooldown });
+    expect(brief.model!.ability!.iconArtId).toMatch(/^ability-icon:/); expect(brief.model!.mercenary.portraitArtId).toBe(`character-portrait:${character}`);
     const beforeSave = await save(page); await frame(page, 4);
     expect((await read(page)).timeMs).toBe(0); expect(await save(page)).toBe(beforeSave);
     await capture(page, info, `${character}-brief`);
-    await start(page);
+    record?.note('scrap-burst.start'); await start(page);
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.prepareAbilityTestConsequences())).toBe(true);
     const prepared = await read(page);
-    await page.keyboard.down('q');
-    try {
+    record?.note('scrap-burst.activate'); await page.keyboard.down('q');
+    await withRecordedCleanup(record, async () => {
       await frame(page);
       const result = await read(page);
       expect(result.activationId).toBe(1); expect(result.latestResolution!.kind).toBe(kind);
@@ -150,8 +211,8 @@ for (const [character, name, detail, cooldown, kind, phase] of CATALOG) {
       } else expect(result.abilityUiState.activeRemainingMs).toBe(0);
       if (result.abilityDefinition.effect.radius !== undefined) expect(result.abilityFx.transient!.radius).toBe(result.abilityDefinition.effect.radius);
       await capture(page, info, `${character}-activation`);
-    } finally { await page.keyboard.up('q'); }
-  });
+    }, [['ability-key-up', () => page.keyboard.up('q')]]);
+  }));
 }
 
 test('held launch Confirm is quarantined; real controller Confirm starts once and neutral re-arms ability', async ({ page }, info) => {
@@ -168,15 +229,33 @@ test('held launch Confirm is quarantined; real controller Confirm starts once an
   const held = await read(page); expect(held.activationId).toBe(0); expect(held.player).toMatchObject(initial.player);
   await page.keyboard.up('q'); await page.keyboard.up('w');
   await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(0, false)); await frame(page, 2);
-  await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, true)); await frame(page);
-  expect((await read(page)).activationId).toBe(1);
+  const released = await read(page);
+  expect(released.inputNeutral).toBe(true); expect(released.inputQuarantined).toBe(false);
+  expect(released.abilityHeld).toBe(false); expect(released.confirmHeld).toBe(false);
+  const pressed = await page.evaluate(async () => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    (globalThis as Globals).__ABILITY_PAD__!(2, true);
+    return { frameJoined: await seam.waitForInputFrame(), state: seam.runStartIntroDiagnostics() };
+  });
+  expect(pressed.frameJoined).toBe(true); expect(pressed.state).toBeDefined();
+  const firstAfterPress = pressed.state!;
+  let sampled = firstAfterPress;
+  // Phaser refreshes Gamepad wrappers in PRE_RENDER, after POST_STEP and
+  // this scene's logical input poll. If that first step has not sampled the
+  // physical press, join its next logical poll rather than assuming a receipt.
+  if (!sampled.abilityHeld) { await frame(page); sampled = await read(page); }
+  expect(sampled.abilityHeld).toBe(true); expect(sampled.inputQuarantined).toBe(false);
+  expect(sampled.activationId).toBe(1);
+  const samples = info.outputPath('controller-input-samples.json');
+  await writeFile(samples, JSON.stringify({ released, firstAfterPress, sampled }, null, 2));
+  await info.attach('controller-input-samples', { path: samples, contentType: 'application/json' });
   await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, false)); await capture(page, info, 'controller-start-and-fresh-ability');
 });
 
 test('touch Start consumes held movement/ability and preserves a fresh ability card gesture', async ({ page }, info) => {
   await seed(page); await openMenu(page); const initial = await launch(page);
   await page.keyboard.down('w'); await page.keyboard.down('q'); await frame(page, 2);
-  const point = centre(initial.buttons[0]);
+  const point = centre(introCommand(initial, 'start', page.viewportSize()!).bounds);
   if (info.project.use.hasTouch) await page.touchscreen.tap(point.x, point.y);
   else await page.mouse.click(point.x, point.y);
   await frame(page, 3);
@@ -192,10 +271,10 @@ test('touch Start consumes held movement/ability and preserves a fresh ability c
 
 test('resize revokes an unfinished Start pointer gesture and Back/relaunch leaves no stale brief', async ({ page }, info) => {
   await seed(page); await openMenu(page); const initial = await launch(page); const beforeSave = await save(page);
-  const old = centre(initial.buttons[0]); await page.mouse.move(old.x, old.y); await page.mouse.down(); await frame(page);
+  const old = centre(introCommand(initial, 'start', page.viewportSize()!).bounds); await page.mouse.move(old.x, old.y); await page.mouse.down(); await frame(page);
   const viewport = page.viewportSize()!; await page.setViewportSize({ width: viewport.width + 20, height: viewport.height + 20 }); await frame(page, 2);
-  await page.mouse.up(); await frame(page, 2); expect((await read(page)).status).toBe('intro');
-  expect((await read(page)).timeMs).toBe(0); expect(await save(page)).toBe(beforeSave);
+  await page.mouse.up(); const restored = await observeAbilityFrame(page, 2); expect(restored.state.status).toBe('intro');
+  expect(restored.state.timeMs).toBe(0); expect(restored.saved).toBe(beforeSave);
   await capture(page, info, 'resized-frozen-brief');
   await pulse(page, 'Escape');
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
@@ -233,12 +312,12 @@ test('DPR3 reduced-motion phone stays frozen through blocked landscape and foreg
   } finally { await context.close(); }
 });
 
-test('fine-pointer compact landscape keeps both brief actions visible at readable size', async ({ browser }, info) => {
+test('fine-pointer compact landscape keeps every intro command visible at readable size', async ({ browser }, info) => {
   const context = await browser.newContext({ baseURL: info.project.use.baseURL, viewport: { width: 844, height: 390 }, hasTouch: false, isMobile: false });
   const page = await context.newPage();
   try { await seed(page, true); await openMenu(page); const brief = await launch(page, 'piston-ram');
   assertBriefFits(brief, { width: 844, height: 390 });
-  for (const button of brief.buttons) {
+  for (const { bounds: button } of brief.commands) {
     expect(button.x).toBeGreaterThanOrEqual(0); expect(button.y).toBeGreaterThanOrEqual(0);
     expect(button.x + button.width).toBeLessThanOrEqual(844); expect(button.y + button.height).toBeLessThanOrEqual(390);
     expect(button.height).toBeGreaterThanOrEqual(44);
@@ -262,8 +341,11 @@ test('Scavenge reports the admitted collection before the real upgrade pause fre
 
 test('Back controller Confirm stays quarantined across the new Menu input owner', async ({ page }, info) => {
   await installPad(page); await seed(page); await openMenu(page); await launch(page);
-  await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(13, true)); await frame(page);
-  await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(13, false)); await frame(page, 2);
+  for (let step = 0; (await read(page)).focusedCommand !== 'return-menu' && step < 3; step++) {
+    await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(15, true)); await frame(page);
+    await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(15, false)); await frame(page, 2);
+  }
+  expect((await read(page)).focusedCommand).toBe('return-menu');
   const beforeSave = await save(page);
   await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(0, true)); await frame(page, 8);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.isSceneActive('MenuScene'))).toBe(true);
@@ -299,4 +381,316 @@ test('crowded combat keeps Overclock modifiers readable with one sustained effec
   await frame(page, 3);
   expect((await read(page)).abilityFx.persistent).toMatchObject({ kind: 'stat-burst', glyphMask: 3 });
   expect((await read(page)).abilityFx.transient).toBeUndefined();
+});
+
+
+for (const input of ['keyboard', 'mouse', 'touch'] as const) {
+  test(`dialogue uses Continue then explicit Start through semantic ${input} targets`, async ({ page }, info) => {
+    await seed(page, true, ['stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03', 'stage:junkyard-04']);
+    await openMenu(page); const brief = await launch(page);
+    expect(brief.model?.boss?.enemyId).toBe('boss-crusher');
+    expect(brief.commands.some(row => row.command === 'start')).toBe(false);
+    const beforeSave = await save(page);
+    const boss = await activateIntroCommand(page, 'continue', input);
+    expect(boss).toMatchObject({ phase: 'boss', revision: 1, status: 'intro', timeMs: 0, runStart: { count: 0 } });
+    const dialogue = boss as Diagnostics; assertBriefFits(dialogue, page.viewportSize()!);
+    expect(dialogue.enemies).toBe(0); expect(await save(page)).toBe(beforeSave);
+    expect(dialogue.introText.some(row => row.text.includes(brief.model!.boss!.lines[0]))).toBe(true);
+    if (dialogue.scroll!.max > 0) {
+      const body = centre(dialogue.body!); await page.mouse.move(body.x, body.y); await page.mouse.wheel(0, 10000);
+      const scrolled = await observeAbilityFrame(page, 2);
+      expect(scrolled.state.scroll!.offset).toBe(scrolled.state.scroll!.max);
+    }
+    await capture(page, info, `boss-dialogue-${input}`);
+    const started = await activateIntroCommand(page, 'start', input) as Diagnostics;
+    expect(started.runStart).toMatchObject({ count: 1, timeMs: 0 });
+    expect(started.enemies).toBeGreaterThanOrEqual(1);
+  });
+}
+
+test('Skip is deliberate and Return abandons a dialogue intro without facts', async ({ page }) => {
+  await seed(page, true, ['stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03', 'stage:junkyard-04']);
+  await openMenu(page); await launch(page); const beforeSave = await save(page);
+  await activateIntroCommand(page, 'return-menu', 'mouse');
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
+  expect(await save(page)).toBe(beforeSave);
+  await launch(page); const started = await completeRunStartIntro(page, 'mouse', true);
+  expect(started).toMatchObject({ phase: 'consumed', runStart: { count: 1, timeMs: 0 } });
+});
+
+type ContactEvent = { type: string; atMs: number; contacts: number; trusted: boolean };
+type ReleaseObservation = { touchCancelAtMs?: number; touchFrameAtMs?: number; padReleaseAtMs?: number; padFrameAtMs?: number; padNeutralEvidence?: unknown };
+type ContactAdmission = { release: ReleaseObservation; dispatches: Array<ReleaseObservation & { key: string; atMs: number; state?: Diagnostics; saved: string | null }> };
+type ContactGlobals = Globals & { __TOUCH_REPAIR_EVENTS__?: ContactEvent[]; __TOUCH_REPAIR_ADMISSION__?: ContactAdmission;
+  __MEOWCENARY_TEST_RECORD__?: (phase: string, facts: unknown) => Promise<void> };
+type SessionEvent = { session: number; type: string; error?: string };
+
+async function awaitHeldAdmissionObservation(observation: Promise<void>, pending: Promise<IntroDiagnostics>): Promise<void> {
+  await Promise.race([observation, pending.then(() => {
+    throw new Error('Intro helper completed before its held-owner frame observation');
+  })]);
+}
+
+async function prepareContactProbe(page: Page, dialogue = false, record?: DiagnosticRecord): Promise<Diagnostics> {
+  record?.note('contact.prepare');
+  await seed(page, true, dialogue ? ['stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03', 'stage:junkyard-04'] : []);
+  await page.addInitScript(() => {
+    const events: ContactEvent[] = []; (globalThis as ContactGlobals).__TOUCH_REPAIR_EVENTS__ = events;
+    for (const type of ['touchstart', 'touchend', 'touchcancel', 'pointercancel', 'click']) {
+      document.addEventListener(type, event => {
+        const fact = { type, atMs: performance.now(), contacts: 'touches' in event ? (event as TouchEvent).touches.length : 0, trusted: event.isTrusted };
+        events.push(fact);
+        void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.(`dom.${type}`, fact).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ });
+      }, true);
+    }
+    const capability = { maxTouchPoints: navigator.maxTouchPoints, touchEventProperty: 'ontouchstart' in window,
+      coarse: matchMedia('(pointer: coarse)').matches, fine: matchMedia('(pointer: fine)').matches,
+      width: innerWidth, height: innerHeight, devicePixelRatio, userAgent: navigator.userAgent };
+    void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('capability', capability).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ });
+  });
+  await page.goto('/?visual-test=1&perf-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
+  const state = await launch(page); await frame(page);
+  record?.note('contact.prepared', state);
+  return state;
+}
+async function contactEvents(page: Page): Promise<ContactEvent[]> {
+  return page.evaluate(() => (globalThis as ContactGlobals).__TOUCH_REPAIR_EVENTS__!);
+}
+function frozenIntro(state: Diagnostics, initial: Diagnostics): void {
+  expect(state).toMatchObject({ visible: true, status: 'intro', phase: initial.phase, revision: initial.revision, timeMs: 0, runStart: { count: 0 }, terminalEvents: 0 });
+  expect(state.identity).toEqual(initial.identity); expect(state.objective).toEqual(initial.objective);
+}
+
+// These wrappers observe real CDP calls. The interruption hook runs only after
+// Chromium has accepted touchStart; it never fabricates an input event or
+// changes the game's diagnostics. Every helper-created session remains real.
+function observedContactPage(page: Page, events: SessionEvent[], afterStart?: () => Promise<void>,
+  afterAdmissionFrame?: () => Promise<void>): Page {
+  let nextSession = 0, admissionObserved = false;
+  return new Proxy(page, { get(target, key) {
+    if (key === 'evaluate' && afterAdmissionFrame) return async (...args: Parameters<Page['evaluate']>) => {
+      const sample = await Reflect.apply(page.evaluate, page, args);
+      // Park only the test helper's continuation, after its genuine owner-frame
+      // sample. Phaser and physical owners keep running. The unchanged first
+      // false sample is returned after release; only a fresh poll may admit.
+      if (!admissionObserved && sample && typeof sample === 'object' && 'completed' in sample && sample.completed === true) {
+        admissionObserved = true; await afterAdmissionFrame();
+      }
+      return sample;
+    };
+    if (key === 'context') return () => ({ newCDPSession: async () => {
+      const session = await page.context().newCDPSession(page), id = nextSession++;
+      return new Proxy(session, { get(owner, property) {
+        if (property === 'send') return async (method: string, params: { type?: string }) => {
+          events.push({ session: id, type: params.type ?? method });
+          try {
+            const result = await owner.send(method as 'Input.dispatchTouchEvent', params as Parameters<typeof owner.send<'Input.dispatchTouchEvent'>>[1]);
+            if (params.type === 'touchStart') await afterStart?.();
+            return result;
+          } catch (error) {
+            events.push({ session: id, type: 'send-error', error: error instanceof Error ? error.message : String(error) }); throw error;
+          }
+        };
+        if (property === 'detach') return async () => { events.push({ session: id, type: 'detach' }); await owner.detach(); };
+        const value = Reflect.get(owner, property); return typeof value === 'function' ? value.bind(owner) : value;
+      } });
+    } });
+    const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value;
+  } });
+}
+
+for (const helper of ['browser', 'performance'] as const) for (const input of ['keyboard', 'mouse', 'touch'] as const) for (const dialogue of [false, true]) {
+  test(`CDP no-contact: ${helper} ${input}, dialogue=${dialogue}, keeps explicit admission`, async ({ page }, info) => withBrowserDiagnostics(
+    page, info, 'cdp-no-contact', true, async (page, record) => {
+    await prepareContactProbe(page, dialogue, record); const sessions: SessionEvent[] = [];
+    const observed = observedContactPage(page, sessions);
+    let after: IntroDiagnostics;
+    if (helper === 'browser') after = await completeRunStartIntro(observed, input);
+    else {
+      const timing = await waitForPerformanceRunStart(observed, input);
+      expect(timing.compatibility).toBe('explicit-intro'); expect(timing.preparedRun.status).toBe('intro');
+      expect(timing.dialogueCommands).toHaveLength(dialogue ? 1 : 0);
+      expect(timing.preparedRun.atMs).toBeLessThanOrEqual(timing.startCommandAtMs);
+      if (dialogue) expect(timing.dialogueCommands[0].completedAtMs).toBeLessThanOrEqual(timing.startCommandAtMs);
+      after = timing.startedIntro;
+      expect(timing.startCommandAtMs).toBeLessThanOrEqual(timing.startedAtMs);
+    }
+    expect(after!).toMatchObject({ phase: 'consumed', revision: null, runStart: { count: 1, timeMs: 0 }, terminalEvents: 0 });
+    expect(sessions.some(event => isNoActiveCdpTouchMessage(event.error))).toBe(true);
+    const ids = new Set(sessions.map(event => event.session));
+    for (const session of ids) expect(sessions.filter(event => event.session === session && event.type === 'detach')).toHaveLength(1);
+    record!.note('cdp-no-contact-sessions', sessions);
+  }));
+}
+
+// Only these four definitions need live-contact handling in desktop contexts.
+// The viewport and isMobile values continue to come from the existing project.
+test.describe('touch-capable ownership fixtures', () => {
+  test.use({ hasTouch: true });
+for (const helper of ['browser', 'performance'] as const) test(`CDP owned interruption: ${helper} cancels its original session without firing the old target`, async ({ page }, info) => withBrowserDiagnostics(
+  page, info, 'owned-contact', true, async (page, record) => {
+  const initial = await prepareContactProbe(page, false, record), beforeSave = await save(page), sessions: SessionEvent[] = [];
+  const interruption = new Error('intentional interruption after a real admitted touchStart');
+  const observed = observedContactPage(page, sessions, async () => {
+    const held = await observeAbilityFrame(page); frozenIntro(held.state, initial);
+    expect(held.state.inputNeutral).toBe(false);
+    expect(held.contacts.some(event => event.type === 'touchstart' && event.contacts === 1 && event.trusted)).toBe(true);
+    throw interruption;
+  });
+  // Browser old target is Return, fresh target is Start. Performance old target
+  // is Start, fresh target is Return: an unwanted activation cannot pass either.
+  const operation = helper === 'browser' ? activateIntroCommand(observed, 'return-menu', 'touch') : waitForPerformanceRunStart(observed, 'touch');
+  await expect(operation).rejects.toBe(interruption);
+  const owner = sessions.find(event => event.type === 'touchStart')!.session;
+  expect(sessions.filter(event => event.session === owner).map(event => event.type)).toEqual(['touchStart', 'send-error', 'touchCancel', 'detach']);
+  const cancelled = await observeAbilityFrame(page, 0);
+  const contacts = cancelled.contacts;
+  expect(contacts.some(event => event.type === 'touchcancel' && event.trusted && event.contacts === 0)).toBe(true);
+  expect(contacts.some(event => event.type === 'pointercancel' && event.trusted)).toBe(true);
+  expect(contacts.filter(event => event.type === 'touchend' || event.type === 'click')).toEqual([]);
+  frozenIntro(cancelled.state, initial); expect(cancelled.saved).toBe(beforeSave);
+  const released = await observeAbilityFrame(page);
+  expect(released.state).toMatchObject({ visible: true, ready: true, inputNeutral: true, inputQuarantined: false });
+  const after = await activateIntroCommand(page, helper === 'browser' ? 'start' : 'return-menu', 'keyboard');
+  expect(after.runStart.count).toBe(helper === 'browser' ? 1 : 0);
+  record!.note('owned-contact-order', { sessions, contacts });
+}));
+
+for (const holdPad of [false, true]) test(`CDP separate owner remains a physical gate; held pad=${holdPad}`, async ({ page }, info) => withBrowserDiagnostics(
+  page, info, 'separate-owner', true, async (page, record) => {
+  await installPad(page); const initial = await prepareContactProbe(page, false, record), beforeSave = await save(page);
+  const owner = await page.context().newCDPSession(page), sessions: SessionEvent[] = [];
+  let settled = false;
+  const heldObservation = () => page.evaluate(async () => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    const frames: boolean[] = [];
+    // Observe the same three actual frame boundaries without a driver round
+    // trip per frame/read while the separate physical owner is held.
+    for (let index = 0; index < 3; index++) frames.push(await seam.waitForInputFrame());
+    return { frames, state: seam.runStartIntroDiagnostics()!,
+      saved: localStorage.getItem('meowcenary.save.v2'),
+      contacts: (globalThis as ContactGlobals).__TOUCH_REPAIR_EVENTS__ ?? [] };
+  });
+  await page.evaluate(() => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    const evidence: ContactAdmission = { release: {}, dispatches: [] };
+    (globalThis as ContactGlobals).__TOUCH_REPAIR_ADMISSION__ = evidence;
+    document.addEventListener('touchcancel', () => {
+      evidence.release.touchCancelAtMs = performance.now();
+      // Observation only: this registers a real completed input frame in the
+      // page, independently of the test driver's later promise continuation.
+      void seam.waitForInputFrame().then(completed => {
+        if (completed) { evidence.release.touchFrameAtMs = performance.now();
+          void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('touch.release-frame', evidence.release).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ }); }
+      });
+    }, true);
+    document.addEventListener('keydown', event => {
+      const state = seam.runStartIntroDiagnostics();
+      // Capture precedes Phaser's normal non-capture keyboard processing.
+      // Never await, poll, hold or delay the dispatched command to make it pass.
+      const dispatch = { ...evidence.release, key: event.key, atMs: performance.now(),
+        state: state && structuredClone(state), saved: localStorage.getItem('meowcenary.save.v2') };
+      evidence.dispatches.push(dispatch);
+      void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('contact.dispatch', dispatch).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ });
+    }, true);
+  });
+  const point = centre(introCommand(initial, 'return-menu', page.viewportSize()!).bounds);
+  let pending: Promise<IntroDiagnostics> | undefined;
+  let admissionObserved!: () => void, finishHeldObservations!: () => void;
+  const admissionFrame = new Promise<void>(resolve => { admissionObserved = resolve; });
+  const ownersReleased = new Promise<void>(resolve => { finishHeldObservations = resolve; });
+  await withRecordedCleanup(record, async () => {
+    await owner.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...point, id: 7 }] });
+    await frame(page); expect((await read(page)).inputNeutral).toBe(false);
+    expect((await contactEvents(page)).some(event => event.type === 'touchstart' && event.contacts === 1 && event.trusted)).toBe(true);
+    if (holdPad) { await page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, true)); await frame(page); }
+    const observed = observedContactPage(page, sessions, undefined, async () => {
+      admissionObserved(); await ownersReleased;
+    });
+    pending = activateIntroCommand(observed, 'start', 'keyboard');
+    // Attach both outcomes immediately while retaining the original rejection.
+    void pending.then(() => { settled = true; }, () => { settled = true; });
+    await awaitHeldAdmissionObservation(admissionFrame, pending);
+    expect(sessions.some(event => isNoActiveCdpTouchMessage(event.error))).toBe(true);
+    const touchHeld = await heldObservation();
+    expect(touchHeld.frames).toEqual([true, true, true]); expect(settled).toBe(false);
+    frozenIntro(touchHeld.state, initial); expect(touchHeld.state.inputNeutral).toBe(false);
+    expect(touchHeld.saved).toBe(beforeSave);
+    expect(touchHeld.contacts.filter(event => event.type === 'touchcancel')).toEqual([]);
+    await owner.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    expect((await contactEvents(page)).some(event => event.type === 'touchcancel' && event.trusted)).toBe(true);
+    if (holdPad) {
+      // The pad still owns a physical hold here, so these pre-release frozen
+      // assertions cannot race with a correctly admitted command.
+      const padHeld = await heldObservation();
+      expect(padHeld.frames).toEqual([true, true, true]); expect(settled).toBe(false);
+      frozenIntro(padHeld.state, initial); expect(padHeld.state.inputNeutral).toBe(false);
+      expect(padHeld.saved).toBe(beforeSave);
+      await page.evaluate(() => {
+        (globalThis as Globals).__ABILITY_PAD__!(2, false);
+        const evidence = (globalThis as ContactGlobals).__TOUCH_REPAIR_ADMISSION__!;
+        evidence.release.padReleaseAtMs = performance.now();
+        void (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame().then(completed => {
+          if (completed) { evidence.release.padFrameAtMs = performance.now();
+            const state = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics() as Diagnostics & {
+              inputPhysicalEvidence?: { core?: boolean; keyboard?: boolean; pointer?: boolean; gamepad?: boolean;
+                nativePads?: Array<{ buttons: Array<{ pressed: boolean; value: number }> } | null>;
+                phaserPads?: Array<{ buttons: Array<{ pressed: boolean; value: number }> } | null> };
+            };
+            const physical = state.inputPhysicalEvidence;
+            evidence.release.padNeutralEvidence = { neutral: state.inputNeutral, quarantined: state.inputQuarantined,
+              core: physical?.core, keyboard: physical?.keyboard, pointer: physical?.pointer, gamepad: physical?.gamepad,
+              nativeButton: physical?.nativePads?.[0]?.buttons[2], phaserButton: physical?.phaserPads?.[0]?.buttons[2] };
+            void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('pad.release-frame', evidence.release).catch(() => { /* Page closure can reject the observation bridge; never gate input. */ });
+            void (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame().then(nextCompleted => {
+              if (!nextCompleted) return;
+              const next = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics() as Diagnostics & {
+                inputPhysicalEvidence?: { core?: boolean; gamepad?: boolean } };
+              void (globalThis as ContactGlobals).__MEOWCENARY_TEST_RECORD__?.('pad.next-release-frame', {
+                atMs: performance.now(), neutral: next.inputNeutral, core: next.inputPhysicalEvidence?.core,
+                gamepad: next.inputPhysicalEvidence?.gamepad,
+              }).catch(() => { /* Observation cannot delay or gate input. */ });
+            }); }
+        });
+      });
+    }
+    // Once the final owner releases, the helper may finish before this driver
+    // resumes. Validate page-side facts captured at actual dispatch, not a late
+    // main-thread flag or a separate post-release frozen-state read.
+    finishHeldObservations();
+    await pending; expect((await read(page)).runStart).toMatchObject({ count: 1, timeMs: 0 });
+    const admission = await page.evaluate(() => (globalThis as ContactGlobals).__TOUCH_REPAIR_ADMISSION__!);
+    expect(admission.dispatches.filter(row => row.key === 'Enter')).toHaveLength(1);
+    for (const dispatch of admission.dispatches) {
+      expect(['ArrowRight', 'Enter']).toContain(dispatch.key);
+      expect(dispatch.touchCancelAtMs).toEqual(expect.any(Number)); expect(dispatch.touchFrameAtMs).toEqual(expect.any(Number));
+      expect(dispatch.touchCancelAtMs!).toBeLessThanOrEqual(dispatch.touchFrameAtMs!);
+      expect(dispatch.touchFrameAtMs!).toBeLessThanOrEqual(dispatch.atMs);
+      if (holdPad) {
+        expect(dispatch.padReleaseAtMs).toEqual(expect.any(Number)); expect(dispatch.padFrameAtMs).toEqual(expect.any(Number));
+        expect(dispatch.padReleaseAtMs!).toBeLessThanOrEqual(dispatch.padFrameAtMs!);
+        expect(dispatch.padFrameAtMs!).toBeLessThanOrEqual(dispatch.atMs);
+      }
+      expect(dispatch.state).toBeDefined(); frozenIntro(dispatch.state!, initial); expect(dispatch.saved).toBe(beforeSave);
+      expect(dispatch.state).toMatchObject({ visible: true, ready: true, inputNeutral: true, inputQuarantined: false });
+    }
+    record!.note('separate-owner-contact-order', { sessions, contacts: await contactEvents(page), admission });
+  }, [
+    ['owner-cancel', async () => {
+      try { await owner.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); }
+      catch (error) { if (!(error instanceof Error) || !isNoActiveCdpTouchMessage(error.message)) throw error; }
+    }],
+    ['owner-detach', () => owner.detach()],
+    ['pad-release', () => page.evaluate(() => (globalThis as Globals).__ABILITY_PAD__!(2, false))],
+    ['pending-helper', async () => {
+      finishHeldObservations();
+      if (pending) {
+        const [result] = await Promise.allSettled([pending]); record!.note('pending-helper.settlement', result);
+        if (result.status === 'rejected') throw result.reason;
+      }
+    }],
+  ]);
+}));
 });

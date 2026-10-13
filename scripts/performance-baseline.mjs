@@ -101,9 +101,11 @@ async function launch(page, name, seed) {
   assert.equal(await page.evaluate(seed => globalThis.__MEOWCENARY_VISUAL_TEST__.startPerformanceTraining(seed), seed), true);
   const launch = await waitForPerformanceRunStart(page);
   const state = await snapshot(page); assert.equal(state.run.seed, seed); assert.equal(state.run.training, true);
-  return { name, durationMs: launch.preparedRun.atMs - started, preparedStatus: launch.preparedRun.status,
+  return { name, durationMs: launch.preparedRun.atMs - started, preparedStatus: launch.preparedRun.status, compatibility: launch.compatibility,
+    dialogueCommands: launch.dialogueCommands ?? [],
     ...(launch.startCommandAtMs === undefined ? {} : {
       automatedStartToActiveMs: state.presentedRun.atMs - launch.startCommandAtMs,
+      startAdmissionMs: launch.startedAtMs - launch.startCommandAtMs,
       endToEndActiveDurationMs: state.presentedRun.atMs - started,
     }), observedDurationMs: await page.evaluate(start => performance.now() - start, started), state: compact(state) };
 }

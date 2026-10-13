@@ -1,0 +1,538 @@
+[
+  {
+    "arenaId": "junkyard-lot",
+    "zones": [
+      {
+        "id": "scrap-north",
+        "x": 192,
+        "y": 160,
+        "w": 384,
+        "h": 384
+      },
+      {
+        "id": "scrap-south",
+        "x": 160,
+        "y": 800,
+        "w": 384,
+        "h": 384
+      }
+    ],
+    "layouts": [
+      {
+        "seed": 1,
+        "layoutSeed": 3230926765,
+        "hash": "7654ce2f",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "generated": [
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "generated-0",
+              "x": 192,
+              "y": 160,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-1",
+              "x": 352,
+              "y": 832,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          }
+        ]
+      },
+      {
+        "seed": 2,
+        "layoutSeed": 282881694,
+        "hash": "50e6d561",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "generated": [
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "generated-0",
+              "x": 256,
+              "y": 896,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-1",
+              "x": 384,
+              "y": 416,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          }
+        ]
+      },
+      {
+        "seed": 3,
+        "layoutSeed": 1049191759,
+        "hash": "086a8709",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "generated": [
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "generated-0",
+              "x": 480,
+              "y": 256,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-1",
+              "x": 352,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          }
+        ]
+      },
+      {
+        "seed": 42,
+        "layoutSeed": 4211525730,
+        "hash": "e9d2b40f",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "generated": [
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "generated-0",
+              "x": 192,
+              "y": 1056,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:landmark:hanging-press"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-1",
+              "x": 320,
+              "y": 896,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          },
+          {
+            "instanceId": "generated-2",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-2",
+              "x": 224,
+              "y": 384,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-2",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          }
+        ]
+      },
+      {
+        "seed": 4294967295,
+        "layoutSeed": 612461561,
+        "hash": "5cb63a96",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "generated": [
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "barrel-power-stack",
+            "footprint": {
+              "id": "generated-0",
+              "x": 320,
+              "y": 992,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:landmark:barrel-power-stack"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "hanging-press",
+            "footprint": {
+              "id": "generated-1",
+              "x": 320,
+              "y": 1120,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:landmark:hanging-press"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "arenaId": "forge-foundry",
+    "zones": [
+      {
+        "id": "machine-west",
+        "x": 160,
+        "y": 480,
+        "w": 128,
+        "h": 704
+      },
+      {
+        "id": "machine-east",
+        "x": 480,
+        "y": 160,
+        "w": 128,
+        "h": 960
+      }
+    ],
+    "layouts": [
+      {
+        "seed": 1,
+        "layoutSeed": 2385564506,
+        "hash": "801ff24c",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "generated": [
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-0",
+              "x": 544,
+              "y": 832,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-1",
+              "x": 192,
+              "y": 1056,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-2",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-2",
+              "x": 224,
+              "y": 512,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-2",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          }
+        ]
+      },
+      {
+        "seed": 2,
+        "layoutSeed": 3774478801,
+        "hash": "96c1afbb",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "generated": [
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "furnace-throat",
+            "footprint": {
+              "id": "generated-0",
+              "x": 160,
+              "y": 832,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:forge-landmark:furnace-throat"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-1",
+              "x": 224,
+              "y": 960,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          }
+        ]
+      },
+      {
+        "seed": 3,
+        "layoutSeed": 599480424,
+        "hash": "f1fddcc8",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "generated": [
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-0",
+              "x": 224,
+              "y": 928,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-1",
+              "x": 192,
+              "y": 704,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-2",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-2",
+              "x": 512,
+              "y": 576,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-2",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          }
+        ]
+      },
+      {
+        "seed": 42,
+        "layoutSeed": 1365317085,
+        "hash": "50957a53",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "generated": [
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-0",
+              "x": 160,
+              "y": 512,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "furnace-throat",
+            "footprint": {
+              "id": "generated-1",
+              "x": 160,
+              "y": 768,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:forge-landmark:furnace-throat"
+            }
+          }
+        ]
+      },
+      {
+        "seed": 4294967295,
+        "layoutSeed": 2284733582,
+        "hash": "abbee5f1",
+        "diagnostic": {
+          "mode": "generated",
+          "attempts": 1
+        },
+        "generated": [
+          {
+            "instanceId": "generated-0",
+            "archetypeId": "furnace-throat",
+            "footprint": {
+              "id": "generated-0",
+              "x": 192,
+              "y": 608,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-0",
+              "artId": "world:forge-landmark:furnace-throat"
+            }
+          },
+          {
+            "instanceId": "generated-1",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-1",
+              "x": 544,
+              "y": 448,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-1",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          },
+          {
+            "instanceId": "generated-2",
+            "archetypeId": "cooling-manifold",
+            "footprint": {
+              "id": "generated-2",
+              "x": 512,
+              "y": 672,
+              "w": 64,
+              "h": 64,
+              "blocksEnemyProjectiles": true
+            },
+            "skin": {
+              "obstacleId": "generated-2",
+              "artId": "world:forge-landmark:cooling-manifold"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

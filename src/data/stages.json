@@ -68,7 +68,14 @@
     "difficultyProfileId": "difficulty:boss-crusher",
     "rewardProfileId": "reward:stage-05-boss",
     "bossId": "boss-crusher",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-04" }
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-04" },
+    "openingDialogue": {
+      "speakerEnemyId": "boss-crusher",
+      "lines": [
+        "All that scrap, and you still think you're the weapon.",
+        "Come closer. I'll sort you with the rest."
+      ]
+    }
   },
   {
     "id": "stage:forge-01",
@@ -139,6 +146,99 @@
     "difficultyProfileId": "difficulty:boss-forge",
     "rewardProfileId": "reward:stage-06-boss",
     "bossId": "boss-forge",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:forge-04" }
+    "unlock": { "type": "stage-cleared", "stageId": "stage:forge-04" },
+    "openingDialogue": {
+      "speakerEnemyId": "boss-forge",
+      "lines": [
+        "You walked through my furnace carrying a little spark.",
+        "Let's see what survives the heat."
+      ]
+    }
+  },
+  {
+    "id": "stage:junkyard-nest-breaker",
+    "name": "Nest Breaker",
+    "chapterId": "chapter:junkyard",
+    "chapterIconArtId": "chapter-icon:junkyard",
+    "displayOrder": 6,
+    "arenaId": "junkyard-lot",
+    "assetBundleId": "bundle:core-junkyard",
+    "objective": {
+      "type": "kill",
+      "count": 8,
+      "enemyTag": "ranged"
+    },
+    "encounterProfileId": "encounter:junkyard-nest-breaker",
+    "difficultyProfileId": "difficulty:salvage-hunt",
+    "rewardProfileId": "reward:junkyard-nest-breaker",
+    "campaignRole": "optional",
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-06"
+    }
+  },
+  {
+    "id": "stage:junkyard-crossfire-salvage",
+    "name": "Crossfire Salvage",
+    "chapterId": "chapter:junkyard",
+    "chapterIconArtId": "chapter-icon:junkyard",
+    "displayOrder": 7,
+    "arenaId": "junkyard-lot",
+    "assetBundleId": "bundle:core-junkyard",
+    "objective": {
+      "type": "collect",
+      "itemId": "drop:scrap",
+      "count": 32
+    },
+    "encounterProfileId": "encounter:junkyard-crossfire-salvage",
+    "difficultyProfileId": "difficulty:salvage-crossfire",
+    "rewardProfileId": "reward:junkyard-crossfire-salvage",
+    "campaignRole": "optional",
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-nest-breaker"
+    }
+  },
+  {
+    "id": "stage:forge-shatterline",
+    "name": "Shatterline",
+    "chapterId": "chapter:forge",
+    "chapterIconArtId": "chapter-icon:forge",
+    "displayOrder": 6,
+    "arenaId": "forge-foundry",
+    "assetBundleId": "bundle:core-forge",
+    "objective": {
+      "type": "kill",
+      "count": 70
+    },
+    "encounterProfileId": "encounter:forge-shatterline",
+    "difficultyProfileId": "difficulty:forge-shatterline",
+    "rewardProfileId": "reward:forge-shatterline",
+    "campaignRole": "optional",
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-crossfire-salvage"
+    }
+  },
+  {
+    "id": "stage:forge-pressure-test",
+    "name": "Pressure Test",
+    "chapterId": "chapter:forge",
+    "chapterIconArtId": "chapter-icon:forge",
+    "displayOrder": 7,
+    "arenaId": "forge-foundry",
+    "assetBundleId": "bundle:core-forge",
+    "objective": {
+      "type": "survive",
+      "seconds": 120
+    },
+    "encounterProfileId": "encounter:forge-pressure-test",
+    "difficultyProfileId": "difficulty:forge-pressure-test",
+    "rewardProfileId": "reward:forge-pressure-test",
+    "campaignRole": "optional",
+    "unlock": {
+      "type": "stage-cleared",
+      "stageId": "stage:forge-shatterline"
+    }
   }
 ]

@@ -98,6 +98,7 @@ import {
   assertStageEncounterEnemyReferences,
   assertBossStageSemantics,
   assertStageDefeatEnemyReferences,
+  assertStageOpeningReferences,
   assertStageRewardLootTableReferences,
   assertStageRewardGrantReferences,
   assertStageUnlockReferences,
@@ -177,7 +178,7 @@ const CHARACTER_BASE_STATS_FIELDS = new Set(['maxHealth', 'moveSpeed']);
 const CHARACTER_STATIC_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'effects', 'presentation']);
 const CHARACTER_REACTIVE_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'event', 'handlerId', 'presentation']);
 const CHARACTER_PASSIVE_PRESENTATION_FIELDS = new Set(['iconArtId']);
-const ARENA_FIELDS = new Set(['id', 'name', 'size', 'spawnCurveId', 'spawnRegions', 'obstacles', 'hazards', 'unlock', 'visual']);
+const ARENA_FIELDS = new Set(['id', 'name', 'size', 'spawnCurveId', 'spawnRegions', 'obstacles', 'hazards', 'unlock', 'visual', 'generation']);
 const ARENA_SIZE_FIELDS = new Set(['width', 'height']);
 const REGION_RING_FIELDS = new Set(['kind', 'cx', 'cy', 'minRadius', 'maxRadius']);
 const REGION_RECT_FIELDS = new Set(['kind', 'x', 'y', 'w', 'h']);
@@ -185,13 +186,13 @@ const REGION_EDGES_FIELDS = new Set(['kind', 'margin']);
 const REGION_EDGE_LANES_FIELDS = new Set(['kind', 'inset', 'lanes']);
 const EDGE_LANE_FIELDS = new Set(['side', 'offset', 'width']);
 const EDGE_LANE_SIDES = new Set(['top', 'right', 'bottom', 'left']);
-const OBSTACLE_FIELDS = new Set(['id', 'x', 'y', 'w', 'h']);
+const OBSTACLE_FIELDS = new Set(['id', 'x', 'y', 'w', 'h', 'blocksEnemyProjectiles']);
 const ARENA_VISUAL_FIELDS = new Set(['menuBackdropArtId', 'floorArtIds', 'boundary', 'decorations', 'obstacleSkins', 'hazardSkins']);
 const ARENA_BOUNDARY_FIELDS = new Set(['straightArtId', 'cornerArtId', 'patchArtId', 'gateArtId']);
 const ARENA_DECORATION_FIELDS = new Set(['id', 'artId', 'x', 'y', 'flipX', 'layer']);
 const ARENA_OBSTACLE_SKIN_FIELDS = new Set(['obstacleId', 'artId', 'offsetX', 'offsetY']);
 const ARENA_HAZARD_SKIN_FIELDS = new Set(['hazardId', 'artId']);
-const HAZARD_FIELDS = new Set(['id', 'kind', 'x', 'y', 'w', 'h', 'damagePerSecond']);
+const HAZARD_FIELDS = new Set(['id', 'kind', 'x', 'y', 'w', 'h', 'damagePerSecond', 'pulse']);
 const LOOT_KINDS = new Set(['xp', 'scrap', 'chest', 'weapon', 'nothing']);
 const LOOT_FIELDS = new Set(['id', 'entries']);
 const LOOT_ENTRY_FIELDS = new Set(['kind', 'amount', 'weight', 'tableId', 'definitionId']);
@@ -200,7 +201,7 @@ const MAX_LOOT_ENTRIES = 32;
 const AUDIO_ASSET_CATALOG_FIELDS = new Set(['sfx', 'music']);
 const AUDIO_ASSET_ENTRY_FIELDS = new Set(['key', 'url', 'lifecycle']);
 const AUDIO_MAP_FIELDS = new Set(['events']);
-const AUDIO_MAP_ENTRY_FIELDS = new Set(['event', 'sfxKey', 'sfxKeyByFamily', 'cooldownMs', 'stopMusic', 'musicFadeMs']);
+const AUDIO_MAP_ENTRY_FIELDS = new Set(['event', 'sfxKey', 'sfxKeyByFamily', 'cooldownMs', 'priority', 'stopMusic', 'musicFadeMs']);
 const AUDIO_EVENT_KEY_SET = new Set<string>(GAME_EVENT_KEYS);
 const MAX_AUDIO_SFX = 64;
 const MAX_AUDIO_MUSIC = 8;
@@ -704,6 +705,7 @@ export function validateGameData(raw: unknown): GameData {
   assertStageEncounterEnemyReferences(encounterProfiles, enemyIdSet);
   assertStageDefeatEnemyReferences(stages, enemyIdSet);
   assertBossStageSemantics(stages, encounterProfiles);
+  assertStageOpeningReferences(stages, enemies, visualArt);
   assertStageRewardLootTableReferences(rewardProfiles, lootTableIdSet);
   assertStageRewardGrantReferences(
     rewardProfiles,
@@ -987,6 +989,21 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   const visualResources = catalogs.visualResources as VisualTextureResource[];
   const assetBundles = catalogs.assetBundles as AssetBundleDefinition[];
 
+  // Mirror boot's Stage joins without suppressing independent collecting errors.
+  const stages = catalogs.stages as StageDefinition[];
+  const encounterProfiles = catalogs.encounterProfiles as EncounterProfile[];
+  const difficultyProfiles = catalogs.difficultyProfiles as DifficultyProfile[];
+  const rewardProfiles = catalogs.rewardProfiles as RewardProfile[];
+  const achievements = catalogs.achievements as AchievementDefinition[];
+  const metaUpgrades = catalogs.metaUpgrades as MetaUpgradeDefinition[];
+  const arenaIds = new Set(arenas.map((a) => a.id));
+  const enemyIdSet = new Set(enemies.filter((e) => e.archetype !== 'elite').map((e) => e.id));
+  const lootTableIdSet = new Set(lootTables.map((lt) => lt.id));
+  const stageIdSet = new Set(stages.map((s) => s.id));
+  const encounterProfileIdSet = new Set(encounterProfiles.map((ep) => ep.id));
+  const difficultyProfileIdSet = new Set(difficultyProfiles.map((dp) => dp.id));
+  const rewardProfileIdSet = new Set(rewardProfiles.map((rp) => rp.id));
+
   const crossReferenceIssues: ValidationIssue[] = [];
   const assertions: ReadonlyArray<() => void> = [
     () => assertSpawnReferences(spawnCurves, enemies),
@@ -1001,9 +1018,39 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertArenaVisualReferences(arenas, visualArt),
     () => assertUpgradeWeaponFamilyReferences(upgrades, weapons),
     () => assertUpgradeArtReferences(upgrades, visualArt),
+    () => assertStageArenaReferences(stages, arenaIds),
+    () => assertVisualResourceReferences(visualArt, visualResources),
+    () => assertStageChapterArtReferences(stages, visualArt),
+    () => assertStageAssetBundleReferences(stages, assetBundles, visualArt, visualResources, arenas),
+    () => assertStageEncounterReferences(stages, encounterProfileIdSet),
+    () => assertStageDifficultyReferences(stages, difficultyProfileIdSet),
+    () => assertStageRewardReferences(stages, rewardProfileIdSet),
+    () => assertStageEncounterEnemyReferences(encounterProfiles, enemyIdSet),
+    () => assertStageDefeatEnemyReferences(stages, enemyIdSet),
+    () => assertBossStageSemantics(stages, encounterProfiles),
+    () => {
+      // Opening identity/art depends on valid defeat and boss ownership.
+      // Independent Stage diagnostics above must still all be collected.
+      try {
+        assertStageDefeatEnemyReferences(stages, enemyIdSet);
+        assertBossStageSemantics(stages, encounterProfiles);
+      } catch {
+        return;
+      }
+      assertStageOpeningReferences(stages, enemies, visualArt);
+    },
+    () => assertStageRewardLootTableReferences(rewardProfiles, lootTableIdSet),
+    () => assertStageRewardGrantReferences(rewardProfiles, {
+      partIds: new Set((catalogs['gun-parts'] as PartDefinition[]).map((part) => part.id)),
+      equipmentIds: new Set((catalogs.equipment as EquipmentDefinition[]).map((equipment) => equipment.id)),
+      traitIds: new Set((catalogs['gun-parts'] as PartDefinition[]).flatMap((part) => part.traits.map((trait) => `trait:${trait.toLowerCase()}`))),
+      stageIds: stageIdSet,
+      characterIds: new Set(characters.map((character) => `character:${character.id}`)),
+      achievementIds: new Set(achievements.map((achievement) => achievement.id)),
+      metaUpgradeIds: new Set(metaUpgrades.map((upgrade) => upgrade.id)),
+    }),
+    () => assertStageUnlockReferences(stages, stageIdSet),
     () => assertAchievementArtReferences(catalogs.achievements as AchievementDefinition[], visualArt),
-    () => assertStageChapterArtReferences(catalogs.stages as StageDefinition[], visualArt),
-    () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, visualResources, arenas),
     () => assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt),
     () => validateGunsmithPartVisuals(catalogs['gun-parts'] as PartDefinition[], undefined, new Set(visualArt.bindings.map((binding) => binding.id))),
     () => assertPartAcquisitionRoutes(catalogs['gun-parts'] as PartDefinition[], catalogs.rewardProfiles as RewardProfile[], (catalogs.achievements ?? []) as AchievementDefinition[]),
@@ -1417,6 +1464,7 @@ function checkArena(row: unknown): string[] {
       }
       const obsErrors: string[] = [];
       rejectUnknownFields(obstacle, OBSTACLE_FIELDS, obsErrors);
+      if (obstacle.blocksEnemyProjectiles !== undefined && typeof obstacle.blocksEnemyProjectiles !== 'boolean') obsErrors.push('blocksEnemyProjectiles: expected boolean');
       requireString(obstacle, 'id', obsErrors);
       const obstacleId = readOwnField(obstacle, 'id');
       if (typeof obstacleId === 'string') {
@@ -1549,6 +1597,16 @@ function checkArena(row: unknown): string[] {
       if (!isFiniteNumber(dps) || dps <= 0 || dps > 1000) {
         hazErrors.push('damagePerSecond: required finite number in (0, 1000]');
       }
+      if (hazard.pulse !== undefined) {
+        if (!isRecord(hazard.pulse)) hazErrors.push('pulse: expected object');
+        else {
+          rejectUnknownFields(hazard.pulse, new Set(['safeMs', 'warningMs', 'activeMs', 'offsetMs']), hazErrors);
+          requireIntegerInRange(hazard.pulse, 'safeMs', 250, 60000, hazErrors);
+          requireIntegerInRange(hazard.pulse, 'warningMs', 500, 10000, hazErrors);
+          requireIntegerInRange(hazard.pulse, 'activeMs', 250, 60000, hazErrors);
+          requireIntegerInRange(hazard.pulse, 'offsetMs', 0, 130000, hazErrors);
+        }
+      }
       errors.push(...hazErrors.map((error) => `hazards[${index}].${error}`));
     }
   }
@@ -1564,6 +1622,42 @@ function checkArena(row: unknown): string[] {
       isFiniteNumber(arenaWidth) ? arenaWidth : 0,
       isFiniteNumber(arenaHeight) ? arenaHeight : 0,
     ).map((error) => `visual.${error}`));
+  }
+
+  const generation = readOwnField(row, 'generation');
+  if (generation !== undefined) {
+    const e: string[] = [];
+    if (!isRecord(generation)) e.push('required object');
+    else {
+      rejectUnknownFields(generation, new Set(['obstacleIds', 'extraObstacles', 'zones']), e);
+      const ids = readOwnField(generation, 'obstacleIds');
+      const obstacles = readOwnField(row, 'obstacles');
+      if (!Array.isArray(ids) || ids.length < 1 || ids.length > 5 || new Set(ids).size !== ids.length || ids.some(id => typeof id !== 'string' || !Array.isArray(obstacles) || !obstacles.some(o => isRecord(o) && o.id === id))) e.push('obstacleIds: expected unique authored obstacle references');
+      const extra = readOwnField(generation, 'extraObstacles');
+      if (!isRecord(extra)) e.push('extraObstacles: required object');
+      else {
+        rejectUnknownFields(extra, new Set(['min', 'max']), e);
+        requireIntegerInRange(extra, 'min', 2, 3, e); requireIntegerInRange(extra, 'max', 2, 3, e);
+        if (typeof extra.min === 'number' && typeof extra.max === 'number' && (extra.min > extra.max || (Array.isArray(obstacles) && obstacles.length + extra.max > 5))) e.push('extraObstacles: exceeds total obstacle budget');
+      }
+      const zones = readOwnField(generation, 'zones');
+      if (!Array.isArray(zones) || zones.length < 1 || zones.length > 16) e.push('zones: expected 1–16 zones');
+      else {
+        const seen = new Set<unknown>();
+        for (const zone of zones) {
+          if (!isRecord(zone)) { e.push('zone: expected object'); continue; }
+          rejectUnknownFields(zone, new Set(['id', 'x', 'y', 'w', 'h']), e); requireString(zone, 'id', e);
+          if (seen.has(zone.id)) e.push('zones: duplicate id'); seen.add(zone.id);
+          for (const key of ['x', 'y']) requireIntegerInRange(zone, key, 0, 16384, e);
+          for (const key of ['w', 'h']) requireIntegerInRange(zone, key, 1, 16384, e);
+          if (isRecord(size) && typeof zone.x === 'number' && typeof zone.y === 'number' && typeof zone.w === 'number' && typeof zone.h === 'number' && (zone.x + zone.w > Number(size.width) || zone.y + zone.h > Number(size.height))) e.push('zones: out of bounds');
+        }
+      }
+      if (isRecord(size) && Math.ceil(Number(size.width) / 32) * Math.ceil(Number(size.height) / 32) > 4096) e.push('candidate-cell-budget exceeded');
+      const visual = readOwnField(row, 'visual');
+      if (isRecord(visual) && Array.isArray(visual.decorations) && (visual.decorations.length === 0 || visual.decorations.length + 20 > 48)) e.push('decoration palette must contain 1–28 entries');
+    }
+    errors.push(...e.map(error => `generation.${error}`));
   }
 
   const unlock = readOwnField(row, 'unlock');
@@ -1862,6 +1956,11 @@ function checkAudioMapEntry(row: unknown): string[] {
     (typeof cooldownMs !== 'number' || !Number.isSafeInteger(cooldownMs) || cooldownMs <= 0 || cooldownMs > MAX_AUDIO_COOLDOWN_MS)
   ) {
     errors.push(`cooldownMs: required positive integer at most ${MAX_AUDIO_COOLDOWN_MS}`);
+  }
+
+  const priority = readOwnField(row, 'priority');
+  if (priority !== undefined && priority !== 'combat' && priority !== 'feedback' && priority !== 'alert' && priority !== 'terminal') {
+    errors.push('priority: must be combat, feedback, alert or terminal');
   }
 
   const stopMusic = readOwnField(row, 'stopMusic');

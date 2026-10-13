@@ -197,6 +197,27 @@ describe('SpawnSystem', () => {
     expect(harness.player.takeDamage).toHaveBeenCalledTimes(1);
   });
 
+  it('consumes a fast pooled hostile shot at raised cover before player overlap and safely reuses it', async () => {
+    const arena = { ...loadGameData().arenas[0]!, obstacles: [{ id: 'cover', x: 80, y: 20, w: 40, h: 60, blocksEnemyProjectiles: true }] };
+    const harness = await createHarness({ arena });
+    const player = harness.player as any;
+    player.x = 200; player.y = 50; player.bodyRadius = 14;
+    const shot = { enemyId: 'scrap-sniper', x: 0, y: 50, dirX: 1, dirY: 0, damage: 6 };
+    harness.bus.emit('enemy:ranged-shot', shot);
+    const projectile = (harness.system as any).enemyProjectiles[0];
+    projectile.body.center = { x: 300, y: 50 };
+    expect(projectile.sprite.x).toBe(0); // Arcade has not run Body.postUpdate yet.
+    harness.overlaps[1]?.(harness.player.sprite, {});
+    expect(projectile.active).toBe(false);
+    expect(player.takeDamage).not.toHaveBeenCalled();
+    player.x = 40;
+    harness.bus.emit('enemy:ranged-shot', shot);
+    projectile.body.center = { x: 300, y: 50 };
+    harness.system.update(16);
+    expect(player.takeDamage).toHaveBeenCalledWith(6);
+    expect(projectile.active).toBe(false);
+  });
+
   it('keeps enemy shots visibly hostile and covers the authored concurrent-volley budget', async () => {
     const harness = await createHarness();
     for (let index = 0; index < 64; index += 1) {

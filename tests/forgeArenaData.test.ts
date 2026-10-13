@@ -53,9 +53,14 @@ describe('Forge Foundry arena data', () => {
   it('repoints every Forge contract while preserving historical stage:junkyard-06', () => {
     const stages = stagesJson as readonly { id: string; chapterId: string; arenaId: string; assetBundleId: string }[];
     const forgeStages = stages.filter((stage) => stage.chapterId === 'chapter:forge');
-    expect(forgeStages).toHaveLength(5);
-    expect(forgeStages.map((stage) => stage.arenaId)).toEqual(Array(5).fill('forge-foundry'));
-    expect(forgeStages.map((stage) => stage.assetBundleId)).toEqual(Array(5).fill('bundle:core-forge'));
+    expect(forgeStages.slice(0, 5).map((stage) => stage.id)).toEqual([
+      'stage:forge-01', 'stage:forge-02', 'stage:forge-03', 'stage:forge-04', 'stage:junkyard-06',
+    ]);
+    expect(forgeStages.slice(5).map((stage) => stage.id)).toEqual([
+      'stage:forge-shatterline', 'stage:forge-pressure-test',
+    ]);
+    expect(forgeStages.map((stage) => stage.arenaId)).toEqual(Array(7).fill('forge-foundry'));
+    expect(forgeStages.map((stage) => stage.assetBundleId)).toEqual(Array(7).fill('bundle:core-forge'));
     expect(stages.find((stage) => stage.id === 'stage:junkyard-06')).toMatchObject({
       arenaId: 'forge-foundry',
       assetBundleId: 'bundle:core-forge',

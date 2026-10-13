@@ -94,5 +94,21 @@
         "tier": 3
       }
     ]
+  },
+  {
+    "id": "reward:junkyard-nest-breaker",
+    "firstClearScrap": 145
+  },
+  {
+    "id": "reward:junkyard-crossfire-salvage",
+    "firstClearScrap": 150
+  },
+  {
+    "id": "reward:forge-shatterline",
+    "firstClearScrap": 160
+  },
+  {
+    "id": "reward:forge-pressure-test",
+    "firstClearScrap": 170
   }
 ]

@@ -103,6 +103,17 @@ export class ScrollableFocusRegion {
     return false;
   }
 
+  /** Synchronize this local region to a scene-owned semantic focus index. */
+  setFocusedIndex(index: number, options: { readonly reveal?: boolean } = {}): boolean {
+    if (!Number.isSafeInteger(index)) throw new RangeError('index must be a safe integer');
+    if (index < 0 || index >= this.items.length) return false;
+
+    const changed = this.navigator.setIndex(index);
+    this.prefixRevealed = false;
+    if (options.reveal !== false) this.ensureVisible(index);
+    return changed;
+  }
+
   /** Scroll by a delta (e.g. from mouse wheel or touch drag). */
   scrollBy(delta: number): void {
     this.prefixRevealed = false;

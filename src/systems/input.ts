@@ -70,17 +70,74 @@ const ACTION_KEY_NAMES: ReadonlyMap<GameAction, readonly string[]> = (() => {
 const ACTION_KEY_ENTRIES: ReadonlyArray<readonly [GameAction, readonly string[]]> =
   Object.freeze(Array.from(ACTION_KEY_NAMES.entries()));
 
-function pressed(key?: Phaser.Input.Keyboard.Key): boolean {
-  return key?.isDown ?? false;
+/** Physical keyboard authority outlives scene-local Key objects. Phaser's game
+ * input manager processes its DOM queue even between scene shutdown/create.
+ * One observer per manager is disposed by the owning game's final destroy. */
+class PhysicalInputState {
+  private readonly heldKeys = new Set<number>();
+  private readonly seenEvents = new WeakSet<KeyboardEvent>();
+  private readonly cancelledPointers = new WeakSet<Phaser.Input.Pointer>();
+  private readonly gameEvents: Phaser.Events.EventEmitter;
+  constructor(private readonly manager: Phaser.Input.InputManager) {
+    // InputManager's earlier destroy listener clears manager.game before our
+    // callback. Retain the actual event owner, not that mutable back-reference.
+    this.gameEvents = manager.game.events;
+    manager.events.on('process', this.processKeyboard);
+    this.gameEvents.on('blur', this.clear);
+    this.gameEvents.once('destroy', this.destroy);
+    this.processKeyboard();
+  }
+  private readonly processKeyboard = (): void => {
+    for (const event of (this.manager.keyboard as Phaser.Input.Keyboard.KeyboardManager & { queue: readonly KeyboardEvent[] })?.queue ?? []) {
+      if (this.seenEvents.has(event)) continue;
+      this.seenEvents.add(event);
+      // Focus loss may swallow keyup. An OS repeat without a fresh down
+      // cannot resurrect the cancelled press after that reset.
+      if (event.type === 'keydown' && (!event.repeat || this.heldKeys.has(event.keyCode))) this.heldKeys.add(event.keyCode);
+      else if (event.type === 'keyup') this.heldKeys.delete(event.keyCode);
+    }
+  };
+  isKeyDown(code: number): boolean { return this.heldKeys.has(code); }
+  admitPointer(pointer: Phaser.Input.Pointer): void { this.cancelledPointers.delete(pointer); }
+  hasHeldPointer(): boolean {
+    for (const pointer of this.manager.pointers) {
+      if (!pointer.isDown) this.cancelledPointers.delete(pointer);
+      else if (!this.cancelledPointers.has(pointer)) return true;
+    }
+    return false;
+  }
+  private readonly clear = (): void => {
+    this.heldKeys.clear();
+    // A browser may never deliver the release after losing focus. Discard
+    // that interrupted gesture, without modifying Phaser's shared pointers.
+    for (const pointer of this.manager.pointers) if (pointer.isDown) this.cancelledPointers.add(pointer);
+  };
+  private readonly destroy = (): void => {
+    this.manager.events.off('process', this.processKeyboard);
+    this.gameEvents.off('blur', this.clear);
+    this.gameEvents.off('destroy', this.destroy);
+    this.heldKeys.clear();
+    physicalInputByManager.delete(this.manager);
+  };
+}
+const physicalInputByManager = new WeakMap<Phaser.Input.InputManager, PhysicalInputState>();
+function physicalInput(scene: Phaser.Scene): PhysicalInputState | undefined {
+  const manager = scene.input.manager;
+  if (!manager?.events || !manager.game?.events) return undefined;
+  let state = physicalInputByManager.get(manager);
+  if (!state) { state = new PhysicalInputState(manager); physicalInputByManager.set(manager, state); }
+  return state;
 }
 
 class KeyboardAdapter implements InputAdapter {
   private readonly keys: Record<string, Phaser.Input.Keyboard.Key> = {};
+  private readonly keyList: readonly Phaser.Input.Keyboard.Key[] = [];
   private readonly keyboard: Phaser.Input.Keyboard.KeyboardPlugin | null;
 
   constructor(
     scene: Phaser.Scene,
     private readonly core: LogicalInputCore,
+    private readonly physical?: PhysicalInputState,
   ) {
     this.keyboard = scene.input.keyboard;
     if (!this.keyboard) {
@@ -107,17 +164,18 @@ class KeyboardAdapter implements InputAdapter {
     };
 
     this.keys = this.keyboard.addKeys(mapping) as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keyList = Object.values(this.keys);
   }
 
   update(): void {
     // Digital normalize without allocation: cardinal keys are already unit
     // length; a diagonal needs the 1/sqrt(2) factor (Epic 19 §6 zero-alloc).
     const x =
-      (pressed(this.keys.d) || pressed(this.keys.right) ? 1 : 0) +
-      (pressed(this.keys.a) || pressed(this.keys.left) ? -1 : 0);
+      (this.pressed(this.keys.d) || this.pressed(this.keys.right) ? 1 : 0) +
+      (this.pressed(this.keys.a) || this.pressed(this.keys.left) ? -1 : 0);
     const y =
-      (pressed(this.keys.s) || pressed(this.keys.down) ? 1 : 0) +
-      (pressed(this.keys.w) || pressed(this.keys.up) ? -1 : 0);
+      (this.pressed(this.keys.s) || this.pressed(this.keys.down) ? 1 : 0) +
+      (this.pressed(this.keys.w) || this.pressed(this.keys.up) ? -1 : 0);
     const diagonal = x !== 0 && y !== 0;
     this.core.setMovementSample(
       'keyboard',
@@ -126,21 +184,33 @@ class KeyboardAdapter implements InputAdapter {
       0,
     );
 
-    // Polled actions (Epic 19 D3): reading Key.isDown each frame eliminates
-    // the OS key-repeat defect class by construction and detects keys already
-    // held when the adapter attached (e.g. held across a scene transition).
-    // Polled per action with OR semantics across its mapped keys.
+    // Polled OR semantics retain Enter/Space through staggered releases.
+    // Real scenes read physical manager state; isolated adapters without a
+    // manager retain the scene-key polling compatibility path.
     for (let i = 0; i < ACTION_KEY_ENTRIES.length; i += 1) {
       const [action, names] = ACTION_KEY_ENTRIES[i];
       let held = false;
       for (let j = 0; j < names.length; j += 1) {
-        if (pressed(this.keys[names[j]])) {
+        if (this.pressed(this.keys[names[j]])) {
           held = true;
           break;
         }
       }
       this.core.setActionHeld('keyboard', action, held);
     }
+  }
+
+  isNeutral(): boolean {
+    // Opposed physical keys can produce a net-zero vector without a release.
+    // Inspect every mapped key; cache the list once to keep polling allocation-free.
+    for (let i = 0; i < this.keyList.length; i += 1) {
+      if (this.pressed(this.keyList[i])) return false;
+    }
+    return true;
+  }
+
+  private pressed(key?: Phaser.Input.Keyboard.Key): boolean {
+    return key ? this.physical ? this.physical.isKeyDown(key.keyCode) : key.isDown : false;
   }
 
   destroy(): void {
@@ -158,17 +228,20 @@ class PointerAdapter implements InputAdapter {
    * touch. Resuming never revives an old gesture: a fresh gameplay down is
    * required. */
   private movementSuspended = false;
+  private readonly heldPointers = new Set<number>();
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly core: LogicalInputCore,
     private readonly touchStick: TouchStickConfig,
     private readonly onPointerDown?: () => void,
+    private readonly physical?: PhysicalInputState,
   ) {
     this.scene.input.on('pointerdown', this.handlePointerDown, this);
     this.scene.input.on('pointermove', this.handlePointerMove, this);
     this.scene.input.on('pointerup', this.handlePointerUp, this);
     this.scene.input.on('pointerupoutside', this.handlePointerUp, this);
+    this.scene.game?.events?.on('blur', this.handleBlur, this);
   }
 
   update(): void {
@@ -194,7 +267,21 @@ class PointerAdapter implements InputAdapter {
     this.scene.input.off('pointermove', this.handlePointerMove, this);
     this.scene.input.off('pointerup', this.handlePointerUp, this);
     this.scene.input.off('pointerupoutside', this.handlePointerUp, this);
+    this.scene.game?.events?.off('blur', this.handleBlur, this);
+    this.heldPointers.clear();
   }
+
+  isNeutral(): boolean {
+    if (this.physical) return !this.physical.hasHeldPointer();
+    const pointers = this.scene.input.manager?.pointers;
+    if (pointers) {
+      for (const pointer of pointers) if (pointer.isDown) return false;
+      return true;
+    }
+    return this.heldPointers.size === 0;
+  }
+
+  private readonly handleBlur = (): void => { this.heldPointers.clear(); this.cancelMovement(); };
 
   getPointerStart(): Vec2 | null {
     return this.pointerStart;
@@ -233,6 +320,8 @@ class PointerAdapter implements InputAdapter {
   ): void {
     // Epic 19 D7: any pointerdown signals pointer mode — including a second
     // finger tapping a UI control while another pointer is already pinned.
+    this.heldPointers.add(pointer.id);
+    this.physical?.admitPointer(pointer);
     this.onPointerDown?.();
 
     // UI ownership is decided at the adapter boundary. Phaser supplies the
@@ -277,6 +366,7 @@ class PointerAdapter implements InputAdapter {
   }
 
   private handlePointerUp(pointer: Phaser.Input.Pointer): void {
+    this.heldPointers.delete(pointer.id);
     if (pointer.id !== this.pinnedPointerId) {
       return;
     }
@@ -344,6 +434,7 @@ class GamepadAdapter implements InputAdapter {
   // first presses immediately.
   private readonly quarantined = new Array<boolean>(4).fill(false);
   private readonly gamepad: Phaser.Input.Gamepad.GamepadPlugin | null;
+  private physicallyNeutral = true;
 
   constructor(
     scene: Phaser.Scene,
@@ -362,6 +453,7 @@ class GamepadAdapter implements InputAdapter {
     // stick values; a connected guard must exclude it or the next poll would
     // resurrect phantom input (Epic 19 D2/D3 disconnect requirement).
     const gamepads = this.gamepad?.gamepads;
+    this.physicallyNeutral = true;
     let bestX = 0;
     let bestY = 0;
     let bestMagnitude = 0;
@@ -381,6 +473,7 @@ class GamepadAdapter implements InputAdapter {
         const stickX = pad.leftStick.x ?? pad.axes[0]?.value ?? 0;
         const stickY = pad.leftStick.y ?? pad.axes[1]?.value ?? 0;
         const stickMagnitude = Math.sqrt(stickX * stickX + stickY * stickY);
+        if (!this.isPadNeutral(pad, stickMagnitude)) this.physicallyNeutral = false;
 
         // Round-10 quarantine (Epic 19 §6 journey-gate row 6): a slot marked
         // by handleDisconnected() contributes NOTHING — buttons read as not
@@ -456,6 +549,8 @@ class GamepadAdapter implements InputAdapter {
     }
   }
 
+  isNeutral(): boolean { return this.physicallyNeutral; }
+
   destroy(): void {
     this.gamepad?.off('connected', this.handleConnected, this);
     this.gamepad?.off('disconnected', this.handleDisconnected, this);
@@ -495,6 +590,22 @@ class GamepadAdapter implements InputAdapter {
    *  only state in which its retained held state can be safely forgotten.
    *  Zero-allocation: iterates the precomputed frozen button entries. */
   private isPadNeutral(pad: Phaser.Input.Gamepad.Gamepad, stickMagnitude: number): boolean {
+    // Phaser constructs scene-local wrappers with zero buttons/axes, and its
+    // update skips native samples older than wrapper creation. Neither zero
+    // nor an update callback proves release. The already-owned native object
+    // remains authoritative while wrapper hydration catches up; require both
+    // to be neutral without another browser poll or an elapsed-time debounce.
+    const native = pad.pad as Gamepad | undefined;
+    if (native) {
+      const x = native.axes[0] ?? 0;
+      const y = native.axes[1] ?? 0;
+      if (x * x + y * y > this.deadzone * this.deadzone) return false;
+      for (let e = 0; e < GAMEPAD_BUTTON_ENTRIES.length; e += 1) {
+        const index = GAMEPAD_BUTTON_ENTRIES[e][1];
+        const button = native.buttons[index];
+        if (button && (button.pressed || button.value >= (pad.buttons[index]?.threshold ?? 1))) return false;
+      }
+    }
     if (stickMagnitude > this.deadzone) {
       return false;
     }
@@ -510,7 +621,10 @@ class GamepadAdapter implements InputAdapter {
 export class InputController implements System {
   private readonly core: LogicalInputCore;
   private readonly adapters: InputAdapter[];
+  private readonly keyboardAdapter: KeyboardAdapter;
   private readonly pointerAdapter: PointerAdapter;
+  private readonly gamepadAdapter: GamepadAdapter;
+  private destroyed = false;
   private readonly actionSubscriptions = new Map<GameAction, Set<ActionHandler>>();
   private readonly anyActionHandlers = new Set<ActionHandler>();
   private lastActiveMode: InputMode = 'pointer';
@@ -537,6 +651,7 @@ export class InputController implements System {
     this.core = new LogicalInputCore({
       navRepeat: RuntimeConfig.gameplay.input.navRepeat,
     });
+    const physical = physicalInput(scene);
     this.pointerAdapter = new PointerAdapter(
       scene,
       this.core,
@@ -546,20 +661,16 @@ export class InputController implements System {
         this.pointerDownPending = true;
         this.pointerDownMovementSource = this.core.getActiveMovementSource();
       },
+      physical,
     );
-    this.adapters = [
-      new KeyboardAdapter(scene, this.core),
-      this.pointerAdapter,
-      new GamepadAdapter(
-        scene,
-        this.core,
-        RuntimeConfig.gameplay.input.gamepad.moveDeadzone,
-        RuntimeConfig.gameplay.input.gamepad.navThreshold,
-      ),
-    ];
+    this.gamepadAdapter = new GamepadAdapter(scene, this.core,
+      RuntimeConfig.gameplay.input.gamepad.moveDeadzone, RuntimeConfig.gameplay.input.gamepad.navThreshold);
+    this.keyboardAdapter = new KeyboardAdapter(scene, this.core, physical);
+    this.adapters = [this.keyboardAdapter, this.pointerAdapter, this.gamepadAdapter];
   }
 
   update(dtMs: number): void {
+    if (this.destroyed) return;
     for (let i = 0; i < this.adapters.length; i += 1) {
       this.adapters[i].update();
     }
@@ -567,7 +678,7 @@ export class InputController implements System {
     const edges = this.core.update(dtMs);
 
     if (this.quarantinedUntilNeutral) {
-      if (this.core.isNeutral()) this.quarantinedUntilNeutral = false;
+      if (this.isNeutral()) this.quarantinedUntilNeutral = false;
       return;
     }
 
@@ -622,7 +733,7 @@ export class InputController implements System {
       }
       // A modal confirmation may quarantine inside its handler. Remaining
       // edges were sampled before that transition and cannot own the new UI.
-      if (this.quarantinedUntilNeutral) break;
+      if (this.quarantinedUntilNeutral || this.destroyed) break;
     }
   }
 
@@ -665,6 +776,13 @@ export class InputController implements System {
     this.pointerAdapter.suspendMovement();
   }
 
+  /** Read-only observation of the same physical/logical boundary used to re-arm. */
+  isNeutral(): boolean {
+    return this.core.isNeutral() && this.keyboardAdapter.isNeutral() && this.pointerAdapter.isNeutral() && this.gamepadAdapter.isNeutral();
+  }
+
+  isQuarantined(): boolean { return this.quarantinedUntilNeutral; }
+
   getMoveVector(): Vec2 {
     // The orientation overlay is an input lifecycle boundary, not merely an
     // edge-dispatch filter. A vector held behind it cannot move the player on
@@ -701,6 +819,8 @@ export class InputController implements System {
   }
 
   destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
     for (const adapter of this.adapters) {
       adapter.destroy();
     }

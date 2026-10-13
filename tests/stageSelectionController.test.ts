@@ -61,7 +61,11 @@ describe('StageSelectionController (Epic 20)', () => {
   it('lists all stage contracts in progression order with unlocked/locked state', () => {
     const { controller } = createHarness();
     const snap = controller.snapshot();
-    expect(snap.stages).toHaveLength(10);
+    expect(snap.stages.map(stage => stage.id)).toEqual([
+      'stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03', 'stage:junkyard-04', 'stage:junkyard-05',
+      'stage:forge-01', 'stage:forge-02', 'stage:forge-03', 'stage:forge-04', 'stage:junkyard-06',
+      'stage:junkyard-nest-breaker', 'stage:junkyard-crossfire-salvage', 'stage:forge-shatterline', 'stage:forge-pressure-test',
+    ]);
     // Fresh save: only stage 1 (unlock-count 0) is unlocked
     expect(snap.stages[0].locked).toBe(false);
     expect(snap.stages[0].completed).toBe(false);
@@ -173,9 +177,10 @@ describe('StageSelectionController (Epic 20)', () => {
     });
   });
 
-  it('presents boss detail and the campaign-complete frontier without wrapping to the first Contract', () => {
+  it('presents boss detail and the completed original campaign without wrapping to the first Contract', () => {
     const { context, controller } = createHarness();
-    for (const stage of context.stages.allStages()) context.completeStage(stage.id, 60_000);
+    for (const stage of context.stages.allStages().filter(stage => stage.campaignRole !== 'optional')) context.completeStage(stage.id, 60_000);
+    controller.select('stage:junkyard-06');
     const snap = controller.snapshot();
     const warden = snap.stages.find((stage) => stage.id === 'stage:junkyard-06')!;
     expect(warden).toMatchObject({
@@ -353,5 +358,28 @@ describe('StageSelectionController (Epic 20)', () => {
 
   it('createDefaultSaveV3 has an empty stages domain (no fabricated progress)', () => {
     expect(createDefaultSaveV3().stages).toEqual({});
+  });
+});
+
+
+describe('Contracts campaign frontier and optional continuation', () => {
+  it('preserves the ten-clear milestone and continues from Warden through all four optional rows exactly once', () => {
+    const { context, controller } = createHarness();
+    for (const stage of context.stages.allStages().filter(stage => stage.campaignRole !== 'optional')) context.completeStage(stage.id, 60_000);
+    controller.select('stage:junkyard-06');
+    expect(controller.snapshot().frontier.kind).toBe('campaign-complete');
+    expect(controller.snapshot().completion).toMatchObject({ mainCompleted: 10, mainTotal: 10, optionalCompleted: 0, optionalTotal: 4 });
+    expect(controller.snapshot().stages).toHaveLength(14);
+    let previous = 'stage:junkyard-06';
+    for (const id of ['stage:junkyard-nest-breaker', 'stage:junkyard-crossfire-salvage', 'stage:forge-shatterline', 'stage:forge-pressure-test']) {
+      expect(controller.continuationAfter(previous)?.id).toBe(id);
+      expect(controller.selectContinuationAfter(previous).ok).toBe(true);
+      expect(controller.snapshot().frontier).toMatchObject({ kind: 'optional-next', stageId: id });
+      expect(context.completeStage(id, 60_000)).toBe(true);
+      controller.select(id); expect(controller.snapshot().frontier.kind).toBe('optional-replay'); previous = id;
+    }
+    expect(controller.continuationAfter(previous)).toBeUndefined();
+    expect(controller.selectContinuationAfter(previous).ok).toBe(false);
+    expect(controller.snapshot().completion).toMatchObject({ mainCompleted: 10, optionalCompleted: 4, optionalComplete: true });
   });
 });

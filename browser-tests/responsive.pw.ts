@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { dismissRunStartBrief } from './run-start-helpers';
+import { completeRunStartIntro } from './run-start-helpers';
 
 type ArenaFramingDiagnostics = {
   window: { innerWidth: number; innerHeight: number; devicePixelRatio: number };
@@ -93,7 +93,7 @@ test('authored arena top is camera-visible and not hidden by an opaque HUD plate
   await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & {
     __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
   }).__MEOWCENARY_VISUAL_TEST__?.isSceneActive('GameScene') ?? false), { timeout: 20_000 }).toBe(true);
-  await dismissRunStartBrief(page, 'keyboard');
+  await completeRunStartIntro(page, 'keyboard');
 
   const initial = await page.evaluate(() => (globalThis as typeof globalThis & {
     __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
@@ -241,8 +241,19 @@ test('keyboard player journey reaches Mercenary and returns Home on the real can
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
   const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
   const press = async (key: string) => step(`key ${key}`, async () => {
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
     await page.keyboard.down(key);
     try {
+      // Native key receipt can change physical neutrality before Menu polls.
+      // Keep the key held across a real scene-owned sample before releasing.
+      expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
       // A fixed key hold can end between Phaser polls under CI load. Keep
       // the real key down until the scene-owned core has sampled that edge.
       await expect.poll(() => page.evaluate(() => {
@@ -258,6 +269,9 @@ test('keyboard player journey reaches Mercenary and returns Home on the real can
     } finally {
       await page.keyboard.up(key);
     }
+    expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+    }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
     // Keyboard actions are polled: give the input owner its neutral edge
     // before another press of the same key. This checks the logical input
     // state after InputController's own per-frame keyboard poll.
@@ -320,8 +334,19 @@ test('keyboard player launches the prepared Contract on the real canvas', async 
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
   const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
   const press = async (key: string) => step(`key ${key}`, async () => {
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
     await page.keyboard.down(key);
     try {
+      // Native key receipt can change physical neutrality before Menu polls.
+      // Keep the key held across a real scene-owned sample before releasing.
+      expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
       // A fixed key hold can end between Phaser polls under CI load. Keep
       // the real key down until the scene-owned core has sampled that edge.
       await expect.poll(() => page.evaluate(() => {
@@ -337,6 +362,9 @@ test('keyboard player launches the prepared Contract on the real canvas', async 
     } finally {
       await page.keyboard.up(key);
     }
+    expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+    }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
     // Keyboard actions are polled: give the input owner its neutral edge
     // before another press of the same key. This checks the logical input
     // state after InputController's own per-frame keyboard poll.
@@ -367,7 +395,7 @@ test('keyboard player launches the prepared Contract on the real canvas', async 
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.isSceneActive('GameScene') ?? false;
   }), { intervals: [150, 250, 400], timeout: 30_000 }).toBe(true);
-  await step('dismiss the prepared ability brief with a fresh confirm', () => dismissRunStartBrief(page, 'keyboard'));
+  await step('dismiss the prepared ability brief with a fresh confirm', () => completeRunStartIntro(page, 'keyboard'));
   await expect.poll(
     () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
     { intervals: [150, 250, 400], timeout: 8_000 },
@@ -382,8 +410,19 @@ test('keyboard player journey reaches Career and Achievements on the real canvas
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
   const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
   const press = async (key: string) => step(`key ${key}`, async () => {
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
     await page.keyboard.down(key);
     try {
+      // Native key receipt can change physical neutrality before Menu polls.
+      // Keep the key held across a real scene-owned sample before releasing.
+      expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
       // A fixed key hold can end between Phaser polls under CI load. Keep
       // the real key down until the scene-owned core has sampled that edge.
       await expect.poll(() => page.evaluate(() => {
@@ -399,6 +438,9 @@ test('keyboard player journey reaches Career and Achievements on the real canvas
     } finally {
       await page.keyboard.up(key);
     }
+    expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { waitForInputFrame(): Promise<boolean> };
+    }).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
     // Keyboard actions are polled; wait for Phaser's next frame to observe the
     // neutral edge before another press of the same key.
     await expect.poll(() => page.evaluate(() => {
@@ -481,7 +523,7 @@ test('phone touch starts a run, moves, and activates the graphical ability contr
       return seam?.isSceneActive('GameScene') ?? false;
     });
   }, { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
-  await dismissRunStartBrief(page, 'touch');
+  await completeRunStartIntro(page, 'touch');
   expect(requestedAssets.some((path) => path.includes('/assets/'))).toBe(true);
   await page.waitForTimeout(1_000);
 
@@ -505,10 +547,24 @@ test('phone touch starts a run, moves, and activates the graphical ability contr
   const movedFloor = await page.screenshot({ clip: floorClip });
   expect(movedFloor.equals(idleFloorB)).toBe(false);
 
-  const abilityBefore = await page.screenshot({ clip: { x: 240, y: 750, width: 140, height: 84 } });
-  await page.touchscreen.tap(320, 800);
+  const readAbility = () => page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: { runStartIntroDiagnostics(): {
+      status: string; activationId: number; abilityUiState: { phase: string };
+      abilityButton: { x: number; y: number; width: number; height: number };
+    } | undefined };
+  }).__MEOWCENARY_VISUAL_TEST__?.runStartIntroDiagnostics());
+  const abilityStateBefore = await readAbility();
+  expect(abilityStateBefore).toMatchObject({ status: 'active', activationId: 0, abilityUiState: { phase: 'ready' } });
+  const abilityBounds = abilityStateBefore!.abilityButton;
+  expect(abilityBounds.x).toBeCloseTo(24, 3);
+  expect(abilityBounds.width).toBeCloseTo(120, 3);
+  expect(abilityBounds.height).toBeCloseTo(60, 3);
+  const abilityClip = { x: abilityBounds.x - 10, y: abilityBounds.y - 12, width: 140, height: 84 };
+  const abilityBefore = await page.screenshot({ clip: abilityClip });
+  await page.touchscreen.tap(abilityBounds.x + abilityBounds.width / 2, abilityBounds.y + abilityBounds.height / 2);
+  await expect.poll(async () => (await readAbility())?.activationId).toBe(abilityStateBefore!.activationId + 1);
   await page.waitForTimeout(100);
-  const abilityAfter = await page.screenshot({ clip: { x: 240, y: 750, width: 140, height: 84 } });
+  const abilityAfter = await page.screenshot({ clip: abilityClip });
   expect(abilityAfter.equals(abilityBefore)).toBe(false);
   await page.screenshot({ path: testInfo.outputPath('touch-gameplay.png') });
 });
@@ -608,7 +664,7 @@ test('the production pause control makes the responsive root fullscreen', async 
   } finally {
     await page.keyboard.up('Enter');
   }
-  await dismissRunStartBrief(page, 'keyboard');
+  await completeRunStartIntro(page, 'keyboard');
   await expect.poll(
     () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
     { intervals: [150, 250, 400], timeout: 8_000 },

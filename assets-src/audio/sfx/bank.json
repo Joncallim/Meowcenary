@@ -1,0 +1,1112 @@
+{
+  "schemaVersion": 1,
+  "rendererVersion": 1,
+  "productionAccepted": false,
+  "sampleRate": 24000,
+  "channels": 1,
+  "bitsPerSample": 16,
+  "seed": 2371319,
+  "provenance": {
+    "method": "Original per-cue additive, swept-tone and filtered-noise profiles authored for Meowcenary; no external samples, models, downloads or placeholder-generator profiles.",
+    "author": "Meowcenary issue 237 original audio workstream",
+    "created": "2026-10-13",
+    "thirdPartySources": []
+  },
+  "cues": [
+    {
+      "key": "sfx-weapon-fired",
+      "title": "Dry breech, universal fallback",
+      "durationSeconds": 0.11,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.085,
+          "frequencyHz": 210,
+          "endFrequencyHz": 105,
+          "gain": 0.18,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.25,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.006,
+          "durationSeconds": 0.035,
+          "frequencyHz": 1100,
+          "endFrequencyHz": 800,
+          "gain": 0.085,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.72,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-weapon-fired-pistol",
+      "title": "Compact brass snap",
+      "durationSeconds": 0.1,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.078,
+          "frequencyHz": 285,
+          "endFrequencyHz": 135,
+          "gain": 0.19,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.19,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.012,
+          "durationSeconds": 0.026,
+          "frequencyHz": 1600,
+          "endFrequencyHz": 1150,
+          "gain": 0.07,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.52,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-weapon-fired-smg",
+      "title": "Muted short bolt",
+      "durationSeconds": 0.07,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.057,
+          "frequencyHz": 390,
+          "endFrequencyHz": 230,
+          "gain": 0.145,
+          "attackSeconds": 0.002,
+          "releaseSeconds": 0.008,
+          "decay": 5,
+          "noiseMix": 0.38,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.02,
+          "durationSeconds": 0.032,
+          "frequencyHz": 700,
+          "endFrequencyHz": 560,
+          "gain": 0.055,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.3,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-weapon-fired-shotgun",
+      "title": "Broad wooden thump and slide",
+      "durationSeconds": 0.15,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.134,
+          "frequencyHz": 120,
+          "endFrequencyHz": 68,
+          "gain": 0.22,
+          "attackSeconds": 0.005,
+          "releaseSeconds": 0.018,
+          "decay": 3,
+          "noiseMix": 0.39,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.03,
+          "durationSeconds": 0.074,
+          "frequencyHz": 430,
+          "endFrequencyHz": 220,
+          "gain": 0.11,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.68,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-projectile-hit",
+      "title": "Soft scrap contact",
+      "durationSeconds": 0.08,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.064,
+          "frequencyHz": 760,
+          "endFrequencyHz": 510,
+          "gain": 0.13,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.36,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-projectile-hit-pistol",
+      "title": "Single brass fleck",
+      "durationSeconds": 0.085,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.071,
+          "frequencyHz": 1150,
+          "endFrequencyHz": 830,
+          "gain": 0.135,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.2,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-projectile-hit-smg",
+      "title": "Small dry scatter",
+      "durationSeconds": 0.065,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.051,
+          "frequencyHz": 1500,
+          "endFrequencyHz": 1150,
+          "gain": 0.105,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 5,
+          "noiseMix": 0.58,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-projectile-hit-shotgun",
+      "title": "Low dent with loose grit",
+      "durationSeconds": 0.12,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.103,
+          "frequencyHz": 330,
+          "endFrequencyHz": 180,
+          "gain": 0.175,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.44,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.018,
+          "durationSeconds": 0.06,
+          "frequencyHz": 950,
+          "endFrequencyHz": 620,
+          "gain": 0.065,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.62,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-enemy-killed",
+      "title": "Short settling rattle",
+      "durationSeconds": 0.15,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.102,
+          "frequencyHz": 290,
+          "endFrequencyHz": 140,
+          "gain": 0.14,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.3,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.047,
+          "durationSeconds": 0.08,
+          "frequencyHz": 540,
+          "endFrequencyHz": 360,
+          "gain": 0.07,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.45,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-player-damaged",
+      "title": "Rounded body knock",
+      "durationSeconds": 0.19,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.172,
+          "frequencyHz": 175,
+          "endFrequencyHz": 92,
+          "gain": 0.205,
+          "attackSeconds": 0.005,
+          "releaseSeconds": 0.022,
+          "decay": 2.5,
+          "noiseMix": 0.18,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.031,
+          "durationSeconds": 0.1,
+          "frequencyHz": 420,
+          "endFrequencyHz": 310,
+          "gain": 0.065,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.13,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-drop-collected",
+      "title": "Little warm washer",
+      "durationSeconds": 0.105,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.087,
+          "frequencyHz": 880,
+          "endFrequencyHz": 980,
+          "gain": 0.12,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3,
+          "noiseMix": 0.015,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-level-up",
+      "title": "Three rising tuned bolts",
+      "durationSeconds": 0.3,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.16,
+          "frequencyHz": 523.25,
+          "endFrequencyHz": 523.25,
+          "gain": 0.13,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.075,
+          "durationSeconds": 0.16,
+          "frequencyHz": 659.25,
+          "endFrequencyHz": 659.25,
+          "gain": 0.125,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.145,
+          "durationSeconds": 0.146,
+          "frequencyHz": 783.99,
+          "endFrequencyHz": 783.99,
+          "gain": 0.145,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-weapon-merged",
+      "title": "Latch then matched metal",
+      "durationSeconds": 0.27,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.075,
+          "frequencyHz": 180,
+          "endFrequencyHz": 110,
+          "gain": 0.15,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.45,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.061,
+          "durationSeconds": 0.185,
+          "frequencyHz": 392,
+          "endFrequencyHz": 392,
+          "gain": 0.145,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.104,
+          "durationSeconds": 0.157,
+          "frequencyHz": 587.33,
+          "endFrequencyHz": 587.33,
+          "gain": 0.11,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-card-chosen",
+      "title": "Paper flick and warm pluck",
+      "durationSeconds": 0.16,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.042,
+          "frequencyHz": 750,
+          "endFrequencyHz": 430,
+          "gain": 0.07,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.75,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.031,
+          "durationSeconds": 0.12,
+          "frequencyHz": 554.37,
+          "endFrequencyHz": 554.37,
+          "gain": 0.145,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.01,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-run-won",
+      "title": "Homeward pocket cadence",
+      "durationSeconds": 0.42,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.24,
+          "frequencyHz": 392,
+          "endFrequencyHz": 392,
+          "gain": 0.13,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.077,
+          "durationSeconds": 0.23,
+          "frequencyHz": 493.88,
+          "endFrequencyHz": 493.88,
+          "gain": 0.12,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.15,
+          "durationSeconds": 0.26,
+          "frequencyHz": 587.33,
+          "endFrequencyHz": 587.33,
+          "gain": 0.15,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.153,
+          "durationSeconds": 0.25,
+          "frequencyHz": 196,
+          "endFrequencyHz": 196,
+          "gain": 0.09,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-run-lost",
+      "title": "Quiet descending homeward cadence",
+      "durationSeconds": 0.35,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.19,
+          "frequencyHz": 392,
+          "endFrequencyHz": 392,
+          "gain": 0.12,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.081,
+          "durationSeconds": 0.19,
+          "frequencyHz": 329.63,
+          "endFrequencyHz": 329.63,
+          "gain": 0.115,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2.04,
+              "gain": 0.28
+            },
+            {
+              "ratio": 3.87,
+              "gain": 0.08
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.158,
+          "durationSeconds": 0.18,
+          "frequencyHz": 246.94,
+          "endFrequencyHz": 246.94,
+          "gain": 0.135,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-ui-navigate",
+      "title": "Felt selector tick",
+      "durationSeconds": 0.055,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.045,
+          "frequencyHz": 980,
+          "endFrequencyHz": 870,
+          "gain": 0.1,
+          "attackSeconds": 0.002,
+          "releaseSeconds": 0.007,
+          "decay": 4,
+          "noiseMix": 0.08,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-ui-confirm",
+      "title": "Double warm detent",
+      "durationSeconds": 0.12,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.067,
+          "frequencyHz": 660,
+          "endFrequencyHz": 660,
+          "gain": 0.12,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.015,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        },
+        {
+          "startSeconds": 0.041,
+          "durationSeconds": 0.07,
+          "frequencyHz": 880,
+          "endFrequencyHz": 880,
+          "gain": 0.125,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.01,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sfx-ui-back",
+      "title": "Low reverse detent",
+      "durationSeconds": 0.095,
+      "layers": [
+        {
+          "startSeconds": 0.003,
+          "durationSeconds": 0.08,
+          "frequencyHz": 620,
+          "endFrequencyHz": 440,
+          "gain": 0.115,
+          "attackSeconds": 0.003,
+          "releaseSeconds": 0.009,
+          "decay": 3.5,
+          "noiseMix": 0.025,
+          "noiseSmoothing": 0.2,
+          "partials": [
+            {
+              "ratio": 1,
+              "gain": 1
+            },
+            {
+              "ratio": 2,
+              "gain": 0.23
+            },
+            {
+              "ratio": 3,
+              "gain": 0.06
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

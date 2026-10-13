@@ -11,7 +11,22 @@ import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
+import { resolveRunStartIntroModel } from '../src/presentation/runStartIntro';
+import { RunStartIntroController } from '../src/ui/runStartIntroController';
 import { StageSelectionController } from '../src/ui/stageSelectionController';
+
+
+function admitFactFixture(scene: any, context: any): void {
+  const run = scene.runState;
+  run.status = 'intro';
+  scene.getContext = () => context;
+  scene.inputController = { isQuarantined: () => false, quarantineUntilNeutral: vi.fn() };
+  scene.introController = new RunStartIntroController(resolveRunStartIntroModel({
+    data: loadGameData(), request: { kind: 'legacy-arena', characterId: run.characterId, arenaId: run.arenaId, seed: run.seed },
+  }));
+  scene.handleIntroCommand('start', 0);
+  expect(run.status).toBe('active');
+}
 
 function completedRuntime(reward: Record<string, unknown>) {
   const runtime = createStageRuntime({
@@ -48,6 +63,8 @@ describe('GameScene durable stage clear', () => {
       objective: { definition: { type: 'collect', itemId: 'drop:scrap', count: 14 } },
     } as any);
     scene.stageRuntime.tick(0, 0);
+    scene.runState = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
+    admitFactFixture(scene, { bus });
     scene.installAuthoritativeFactListeners({ bus } as any);
 
     bus.emit('drop:collected', { kind: 'scrap', amount: 5, x: 0, y: 0 });
@@ -119,6 +136,7 @@ describe('GameScene durable stage clear', () => {
     } as any);
     scene.stageRuntime.tick(0, run.timeMs);
     scene.enemyDefinitions = { resolvedById: () => ({ archetype: 'boss' }) };
+    admitFactFixture(scene, context);
     scene.installAuthoritativeFactListeners(context);
     context.bus.emit('enemy:killed', {
       enemyId: 'boss-crusher', instanceId: 1, x: 0, y: 0, xpValue: 0, scrapValue: 0,

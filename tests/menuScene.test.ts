@@ -1,3 +1,4 @@
+import { resolveArenaLayout } from '../src/gameplay/arenaLayout';
 import { describe, expect, it, vi } from 'vitest';
 // Must precede any import whose transitive dependencies resolve Phaser at module
 // evaluation time. The mock registration in __mocks__/phaser is a side-effectful
@@ -288,7 +289,7 @@ function createFakeScene(
         return undefined;
       },
     },
-    scale: { width: 390, height: 844, displaySize: { width: 390, height: 844 } },
+    scale: { width: 390, height: 844, displaySize: { width: 390, height: 844 }, displayScale: { x: 1, y: 1 } },
     add: {
       container(_x: number, _y: number) {
         const base = fakeObject('container', '', 0, 0, { left: 10, top: 8, right: 10, bottom: 8 }, _x, _y);
@@ -444,8 +445,8 @@ function createFakeScene(
   };
 }
 
-function createHarness(options: { create?: boolean; audio?: boolean } = { create: true }) {
-  const data = loadGameData();
+function createHarness(options: { create?: boolean; audio?: boolean; data?: ReturnType<typeof loadGameData> } = { create: true }) {
+  const data = options.data ?? loadGameData();
   const arenas = new DataArenaRegistry(data);
   const metaUpgrades = new DataMetaUpgradeRegistry(data);
   const characters = new DataCharacterRegistry(data);
@@ -474,6 +475,8 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
   Object.assign(menuScene, environment);
   if (options.create !== false) {
     menuScene.create();
+    menuScene.update(0, 0); // Real neutral entry frame precedes a fresh test gesture.
+    audioFake?.update.mockClear(); // Count each test’s updates after entry setup.
   }
 
   return { menuScene, ...helpers, audioFake, bus: context.bus, context };
@@ -687,7 +690,7 @@ describe('MenuScene', () => {
       equipmentArtLoading: boolean;
       ensureEquipmentPresentation(ids: readonly string[]): Promise<void>;
       add: { image?: (x: number, y: number, key: string, frame?: string | number) => unknown };
-      scrollRegion: { scrollOffset: number }; applyScrollViewport(): void;
+      scrollRegion: { scrollOffset: number }; scrollViewportTop: number; applyScrollViewport(): void;
     };
     scene.add.image = (x, y, key, frame) => {
       const base = fakeObject('rect', '', 16, 16, undefined, x, y);
@@ -732,9 +735,11 @@ describe('MenuScene', () => {
     const root = scene.root!; const content = scene.panelContentRoot!;
     const button = harness.buttonByLabel('HELMET\nT1 • EQUIPPED')!;
     const command = button.state.handlers.pointerup;
-    harness.input.emit('wheel', { isDown: false }, [], 0, 120);
+    const retainedBack = harness.buttonByLabel('Return to Contract')!;
+    harness.input.emit('wheel', { id: 1, x: 120, y: scene.scrollViewportTop + 30, isDown: false }, [], 0, 120);
     const controls = harness.menuScene.loadoutUiDiagnostics().buttons;
     const scrollOffset = scene.scrollRegion.scrollOffset;
+    const hydrationGesture = scenario === 'current mount' ? gesture(harness, retainedBack) : undefined;
     const before = harness.menuScene.renderRebuildCount;
     const revision = harness.menuScene.renderRevisionCount;
     const saved = structuredClone(harness.context.saveData);
@@ -802,6 +807,12 @@ describe('MenuScene', () => {
     expect(slot!.alpha).toBe(1);
     expect({ x: slot!.x, y: slot!.y, width: slot!.width, height: slot!.height, mask: slot!.state.mask, visible: slot!.state.visible }).toEqual(geometry);
     expect(root.state.destroyed).toBe(false);
+    if (hydrationGesture) {
+      hydrationGesture.release();
+      expect(harness.menuScene.loadoutUiDiagnostics().panel).toBe('loadout');
+      gesture(harness, retainedBack).release();
+      expect(harness.menuScene.loadoutUiDiagnostics().panel).toBe('stage');
+    }
     if (scenario === 'returned and resized mount') {
       expect(obsoleteImages.every(image => image.state.destroyed)).toBe(true);
       expect(obsoleteImages.filter(image => image.textureKey === '__DEFAULT').every(image => image.alpha === 0)).toBe(true);
@@ -890,7 +901,7 @@ describe('MenuScene', () => {
     const root = scene.root, maskContent = scene.scrollMaskContainer;
     const slotBounds = { ...scene.scrollItemBounds.get(0)! };
     const candidate = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
-    const blueprint = harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!;
+    const blueprint = harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!;
     const before = harness.context.saveData;
     candidate.state.handlers.pointerup!();
     const longHeight = scene.scrollRegion.contentHeight;
@@ -922,7 +933,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as { root: FakeObject; committedDisplay: boolean };
     const firstRoot = scene.root;
-    harness.buttonByLabel('Pyro Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Pyro Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     expect(scene.root).not.toBe(firstRoot);
     expect(firstRoot.state.destroyed).toBe(true);
     expect(harness.textContents().join('\n')).toContain('Pyro Set');
@@ -1076,7 +1087,7 @@ describe('MenuScene', () => {
     });
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     frames.length = 0;
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     const fabricate = harness.buttonByLabel('Fabricate for 100 Scrap')!;
     const back = harness.buttonByLabel('Back')!;
     const cardFor = (button: FakeObject) => frames.find(({ name, frame }) => name === 'figma-card'
@@ -1246,7 +1257,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('BROWSE SETS')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     expect(harness.textContents().some((copy) => copy.includes('2-piece'))).toBe(true);
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     scene.handleResize();
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-blueprint-detail:equipment:commando-helmet');
@@ -1269,7 +1280,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     const before = harness.context.saveData;
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     expect(harness.textContents().join('\n')).toContain('Creates a stored T1 item');
     harness.buttonByLabel('Fabricate for 100 Scrap')!.state.handlers.pointerup!();
@@ -2258,6 +2269,63 @@ describe('MenuScene', () => {
     await vi.waitFor(() => expect(harness.sceneStart).toHaveBeenCalledOnce());
   });
 
+  it.each([
+    { training: false, recreated: false },
+    { training: true, recreated: false },
+    { training: false, recreated: true },
+    { training: true, recreated: true },
+  ])('revoked Home-art launch queues no physical resources: $training Training, $recreated recreation', async ({ training, recreated }) => {
+    const h = createHarness();
+    const scene = h.menuScene as unknown as {
+      panelArtInFlight?: Promise<void>;
+      isLive: boolean;
+      startRunWithResources(request: import('../src/gameplay/runRequest').ComposedRunRequest, training: boolean): Promise<void>;
+      create(): void;
+    };
+    const queued: string[] = [];
+    const handlers = new Map<string, Set<(file: { key: string }) => void>>();
+    const add = (event: string, handler: (file: { key: string }) => void) => {
+      const listeners = handlers.get(event) ?? new Set();
+      listeners.add(handler); handlers.set(event, listeners);
+    };
+    Object.assign(scene, {
+      // Keep the actual launch, serializer and resource owner; the fixture
+      // only isolates render-triggered panel loads and fails loader files.
+      render: () => undefined,
+      textures: { exists: () => false },
+      load: {
+        on: add, once: add,
+        off: (event: string, handler: (file: { key: string }) => void) => handlers.get(event)?.delete(handler),
+        atlas: (key: string) => queued.push(key),
+        image: (key: string) => queued.push(key),
+        spritesheet: (key: string) => queued.push(key),
+        start: () => {
+          for (const key of queued) {
+            for (const handler of [...(handlers.get('loaderror') ?? [])]) handler({ key });
+          }
+        },
+      },
+    });
+    let finishHome!: () => void;
+    scene.panelArtInFlight = new Promise<void>(resolve => { finishHome = resolve; });
+    const request = Object.freeze(training
+      ? { kind: 'legacy-arena' as const, characterId: h.context.selectedCharacterId, arenaId: 'junkyard-lot', seed: 42 }
+      : { kind: 'stage' as const, characterId: h.context.selectedCharacterId, stageId: h.context.selectedStageId, seed: 42 });
+    const save = h.context.saveData;
+    const launch = scene.startRunWithResources(request, training);
+    expect(queued).toEqual([]);
+    h.lifecycle.emit('shutdown');
+    expect(scene.isLive).toBe(false);
+    if (recreated) { scene.create(); expect(scene.isLive).toBe(true); }
+    finishHome();
+    await launch;
+    expect(h.sceneStart).not.toHaveBeenCalled();
+    expect(h.context.saveData).toBe(save);
+    expect(queued, 'an abandoned launch must not acquire the replacement loader generation').toEqual([]);
+    expect([...handlers.values()].every(listeners => listeners.size === 0)).toBe(true);
+    if (recreated) h.lifecycle.emit('shutdown');
+  });
+
   it.each([false, true])('waits for run audio and rejects late completion after shutdown=%s', async (shutdown) => {
     const harness = createHarness();
     const handlers = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -2772,11 +2840,11 @@ describe('MenuScene', () => {
     } as import('../src/ui/menus').MainMenuSnapshot;
     scene.controller.snapshot = () => scrollingSnapshot;
     scene.render(scrollingSnapshot);
-    harness.input.emit('wheel', { isDown: false }, [], 0, 600);
+    harness.input.emit('wheel', { id: 1, x: 120, y: 500, isDown: false }, [], 0, 600);
     const afterWheel = scene.scrollRegion!.scrollOffset;
     expect(afterWheel).toBeGreaterThan(0);
-    harness.input.emit('pointermove', { isDown: true, y: 500 });
-    harness.input.emit('pointermove', { isDown: true, y: 300 });
+    harness.input.emit('pointerdown', { id: 1, x: 120, isDown: true, y: 500 });
+    harness.input.emit('pointermove', { id: 1, x: 120, isDown: true, y: 300 });
     expect(scene.scrollRegion!.scrollOffset).toBeGreaterThan(afterWheel);
 
     for (let index = 0; index < 49; index += 1) {
@@ -2931,7 +2999,7 @@ describe('MenuScene', () => {
     expect(originalBounds.top - scene.scrollRegion.scrollOffset).toBeLessThan(scene.scrollViewportTop);
 
     const partialOffset = scene.scrollRegion.scrollOffset;
-    target.state.handlers.pointerover!({ y: scene.scrollViewportTop + 2 });
+    target.state.handlers.pointerover!({ x: target.getBounds().centerX, y: scene.scrollViewportTop + 2 });
     expect(scene.scrollRegion.scrollOffset).toBe(partialOffset);
 
     const priorFocus = scene.navigator.index;
@@ -3003,14 +3071,14 @@ describe('MenuScene', () => {
     const confirms: string[] = [];
     harness.bus.on('ui:confirm', () => confirms.push('confirm'));
     const row = scene.focusables[0]!;
-    harness.input.emit('pointerdown', { isDown: true, y: 500 });
-    harness.input.emit('pointermove', { isDown: true, y: 300 });
+    harness.input.emit('pointerdown', { id: 1, x: 120, isDown: true, y: 500 });
+    harness.input.emit('pointermove', { id: 1, x: 120, isDown: true, y: 300 });
     const afterFirstDrag = scene.scrollRegion!.scrollOffset;
-    row.emit('pointerup');
+    row.emit('pointerup', { id: 1, isDown: false, y: 300 });
     expect(confirms).toEqual([]);
-    harness.input.emit('pointerup', { isDown: false, y: 300 });
-    harness.input.emit('pointerdown', { isDown: true, y: 500 });
-    harness.input.emit('pointermove', { isDown: true, y: 490 });
+    harness.input.emit('pointerup', { id: 1, x: 120, isDown: false, y: 300 });
+    harness.input.emit('pointerdown', { id: 1, x: 120, isDown: true, y: 500 });
+    harness.input.emit('pointermove', { id: 1, x: 120, isDown: true, y: 490 });
     expect(scene.scrollRegion!.scrollOffset - afterFirstDrag).toBeLessThanOrEqual(10);
     // Controller navigation after a touch gesture must resume from the
     // scene's logical focus, not from a stale touch-row identity.
@@ -3030,8 +3098,8 @@ describe('MenuScene', () => {
 
     // The home panel has no scroll viewport. A mobile touch can drift a few
     // logical pixels between down/up, but that must remain a button tap.
-    harness.input.emit('pointerdown', { isDown: true, y: 500 });
-    harness.input.emit('pointermove', { isDown: true, y: 490 });
+    harness.input.emit('pointerdown', { id: 1, x: 120, isDown: true, y: 500 });
+    harness.input.emit('pointermove', { id: 1, x: 120, isDown: true, y: 490 });
     harness.buttonByLabel('Play Contract')!.state.handlers['pointerup']!();
 
     expect(confirms).toEqual(['confirm']);
@@ -3062,7 +3130,9 @@ describe('MenuScene', () => {
       expect(title.state.y).toBeGreaterThanOrEqual(margin('top'));
       const hint = liveText('Tap a choice');
       expect(hint.state.x).toBe(margin('left'));
-      expect(hint.state.y).toBe(viewport.canvasHeight - margin('bottom') - 14);
+      // This legacy fake gives all three copies the same height. The footer
+      // now reserves measured copy height instead of assuming a 14px line.
+      expect(hint.state.y + hint.state.height).toBe(viewport.canvasHeight - margin('bottom'));
       expect(hint.state.x + hint.state.width).toBeLessThanOrEqual(viewport.canvasWidth - margin('right'));
 
       // Sub-panel: Back is anchored above the bottom margin band with its
@@ -3189,7 +3259,8 @@ describe('MenuScene', () => {
 
   it('shows campaign completion as a replay frontier and never wraps the hero back to Next Contract', () => {
     const harness = createHarness();
-    for (const stage of harness.context.stages.allStages()) harness.context.completeStage(stage.id, 60_000);
+    for (const stage of harness.context.stages.allStages().filter(row => row.campaignRole !== 'optional')) harness.context.completeStage(stage.id, 60_000);
+    harness.context.selectStage('stage:junkyard-06', harness.context.stageSelectionRevision);
     const scene = harness.menuScene as unknown as {
       controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
       render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
@@ -3303,6 +3374,7 @@ describe('MenuScene', () => {
     // Restore focus-driven position, then prove controller Down reveals the
     // selected detail tail before focus is allowed to leave for fixed Back.
     scene.render({ ...base, panel: 'stage', stage: { ...base.stage, selectedStageId: stages[finalIndex]!.id, stages } });
+    harness.menuScene.update(0, 0); // Admit only a new gesture after scene entry.
     // The Phaser production Text reports its wrapped height. The lightweight
     // fake does not, so extend the same shared detail extent to represent the
     // wrapped N+1 roster at 360px.
@@ -3356,9 +3428,9 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers['pointerup']!();
 
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
-    expect(harness.textContents()).toContain('Commando Helmet\nFABRICABLE • 100 Scrap');
+    expect(harness.textContents()).toContain('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap');
     expect(harness.textContents().some((text) => text.includes('Commando Armour'))).toBe(false);
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('+5% Fire Rate [All Weapons]');
     expect(harness.textContents()).toContain('Fabricate for 100 Scrap');
     expect(addLoadoutArt).toHaveBeenCalledWith(
@@ -3905,6 +3977,20 @@ describe('MenuScene', () => {
     expect(rings()[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     const seams = harness.menuScene as unknown as { navigator: { index: number } };
     expect(seams.navigator.index).toBe(0);
+  });
+
+  it('shows a completed campaign separately from unfinished optional Contracts in Career', () => {
+    const harness = createHarness();
+    for (const stage of harness.context.stages.allStages()) {
+      if (stage.campaignRole !== 'optional') {
+        expect(harness.context.completeStage(stage.id, 60_000)).toBe(true);
+      }
+    }
+    const saved = harness.context.saveData;
+    harness.buttonByLabel('Career')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Next Goals')!.state.handlers.pointerup!();
+    expect(harness.textContents().join('\n')).toContain('Campaign 10/10 · Optional 0/4');
+    expect(harness.context.saveData).toBe(saved);
   });
 
   it('routes Career to Compendium as a real, reachable panel (F6)', () => {
@@ -4681,6 +4767,7 @@ describe('MenuScene', () => {
       expect.arrayContaining(['Something went wrong — press Esc to retry']),
     );
 
+    harness.menuScene.update(0, 0); // Release the entry quarantine before a fresh Esc.
     // Esc goes through handleBack -> render and rebuilds the home panel,
     // replacing the fallback root.
     harness.keyboard.keydown('Escape');
@@ -4701,6 +4788,142 @@ describe('MenuScene', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(harness.sceneStart).not.toHaveBeenCalled();
     expect(harness.textContents()).toContain('Retry Loading Contract');
+  });
+
+  it('preserves one prepared layout on load retry and abandons it on navigation', async () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as any;
+    harness.buttonByLabel('Play Contract')!.state.handlers['pointerup']!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(layout).toBeDefined();
+    harness.buttonByLabel('Retry Loading Contract')!.state.handlers['pointerup']!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    harness.buttonByLabel('Mercenary')!.state.handlers['pointerup']!();
+    expect(scene.capturedLaunch).toBeUndefined();
+    expect(scene.preparedArenaLayout).toBeUndefined();
+    expect(scene.runLaunchState).toBe('idle');
+  });
+
+  it('shows the captured Replay Contract after a first clear advances the frontier, then restores the frontier on Back', async () => {
+    const harness = createHarness({ create: false });
+    const stageId = harness.context.selectedStageId;
+    const request = Object.freeze({ kind: 'stage' as const, characterId: harness.context.selectedCharacterId, stageId, seed: 42 });
+    expect(harness.context.settleRunTerminal({ terminalStatus: 'win', runScrap: 0,
+      characterId: request.characterId, runDurationMs: 60_000, stageId })).toMatchObject({ ok: true, firstClear: true });
+    // First-clear platform acknowledgements legitimately update the outbox.
+    // Capture the durable baseline after those completions, before Replay.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const settledSave = harness.context.saveData;
+    const frontierId = harness.context.selectedStageId;
+    expect(frontierId).not.toBe(stageId);
+    const replayStage = harness.context.stages.stageById(stageId)!;
+    const frontierStage = harness.context.stages.stageById(frontierId)!;
+    const seed = vi.spyOn(harness.context.menuRng, 'int');
+    harness.menuScene.create({ replayRequest: request, isTraining: false });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const scene = harness.menuScene as any;
+    expect(scene.runLaunchState).toBe('failed');
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(captured.request.stageId).toBe(stageId);
+    expect(harness.textContents()).toContain('Retry Loading Contract');
+    expect(harness.textContents()).toContain(replayStage.name);
+    expect(harness.textContents()).not.toContain(frontierStage.name);
+    expect(harness.textContents()).toContain('Junkyard Lot  •  Eliminate 25 threats');
+    expect(harness.textContents()).toContain('BEST  1:00');
+    expect(harness.textContents().some(copy => copy.startsWith('FIRST CLEAR'))).toBe(false);
+    harness.buttonByLabel('Retry Loading Contract')!.state.handlers.pointerup!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(harness.textContents()).toContain(replayStage.name);
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    expect(seed).toHaveBeenCalledTimes(1);
+    expect(harness.context.saveData).toBe(settledSave);
+    expect(harness.context.selectedStageId).toBe(frontierId);
+    harness.buttonByLabel('Back')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain(frontierStage.name);
+    expect(harness.textContents()).not.toContain(replayStage.name);
+    expect(harness.textContents()).not.toContain('Retry Loading Contract');
+    expect(scene.capturedLaunch).toBeUndefined();
+    expect(scene.preparedArenaLayout).toBeUndefined();
+    expect(harness.context.saveData).toBe(settledSave);
+    expect(harness.context.selectedStageId).toBe(frontierId);
+  });
+
+  it('replays a terminal Stage with the same composition, one fresh Menu seed, and a retryable captured launch', async () => {
+    const harness = createHarness({ create: false });
+    const menuRng = { int: vi.fn(() => 0x1234) };
+    (harness.context as unknown as { menuRng: typeof menuRng }).menuRng = menuRng;
+    const request = {
+      kind: 'stage' as const,
+      characterId: harness.context.characters.defaultCharacterId(),
+      stageId: harness.context.stages.allStages()[0]!.id,
+      seed: 7,
+    };
+
+    harness.menuScene.create({ replayRequest: request, isTraining: false });
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const scene = harness.menuScene as any;
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+    expect(menuRng.int).toHaveBeenCalledWith(0, 0xffff_ffff);
+    expect(captured).toEqual({
+      request: { ...request, seed: 0x1234 },
+      isTraining: false,
+    });
+    expect(layout).toBeDefined();
+    expect(harness.textContents()).toContain('Retry Loading Contract');
+
+    harness.buttonByLabel('Retry Loading Contract')!.state.handlers.pointerup!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps terminal Training replay on Training after load failure, retries the exact launch, and abandons it on Back', async () => {
+    const harness = createHarness({ create: false });
+    const menuRng = { int: vi.fn(() => 0x5678) };
+    (harness.context as unknown as { menuRng: typeof menuRng }).menuRng = menuRng;
+    const request = {
+      kind: 'legacy-arena' as const,
+      characterId: harness.context.characters.defaultCharacterId(),
+      arenaId: harness.context.arenas.defaultArenaId(),
+      seed: 9,
+    };
+
+    harness.menuScene.create({ replayRequest: request, isTraining: true });
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const scene = harness.menuScene as any;
+    const captured = scene.capturedLaunch;
+    const layout = scene.preparedArenaLayout;
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+    expect(captured).toEqual({
+      request: { ...request, seed: 0x5678 },
+      isTraining: true,
+    });
+    expect(layout).toBeDefined();
+    expect(harness.textContents()).toContain('Training');
+    expect(harness.textContents()).toContain('Retry Training');
+    expect(harness.textContents()).toContain("Couldn't load Training. Retry or go Back.");
+
+    harness.buttonByLabel('Retry Training')!.state.handlers.pointerup!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(scene.capturedLaunch.request).toBe(captured.request);
+    expect(scene.preparedArenaLayout).toBe(layout);
+    expect(menuRng.int).toHaveBeenCalledTimes(1);
+
+    harness.buttonByLabel('Back')!.state.handlers.pointerup!();
+    expect(scene.capturedLaunch).toBeUndefined();
+    expect(scene.preparedArenaLayout).toBeUndefined();
+    expect(scene.runLaunchState).toBe('idle');
   });
 
   it('places a wrapped Contract loading error above Retry without overlap at the narrow viewport', async () => {
@@ -5037,4 +5260,620 @@ describe('Menu transition input boundary', () => {
     expect(events).toEqual([]);
     expect(scene.navigator.index).toBe(0);
   });
+});
+
+describe('Menu physical gesture admission', () => {
+  it('rejects a release without a current matching press', () => {
+    const harness = createHarness(); harness.menuScene.update(0, 16);
+    const button = harness.buttonByLabel('Loadout')!;
+    button.state.handlers.pointerup!({ id: 9, x: 120, y: 120 });
+    expect(harness.textContents()).not.toContain('Equipment');
+  });
+});
+
+
+function gesture(harness: ReturnType<typeof createHarness>, button: FakeObject, id = 7) {
+  const scene = harness.menuScene as any;
+  scene.update(0, 0);
+  const bounds = button.getBounds();
+  const pointer = { id, x: bounds.centerX, y: bounds.centerY, isDown: true };
+  // Phaser dispatches object down before scene down, then object up before
+  // scene up. Keep both routes visible rather than calling only a callback.
+  button.state.handlers.pointerdown?.(pointer);
+  harness.input.emit('pointerdown', pointer, [button]);
+  return { pointer, release: () => {
+    pointer.isDown = false; button.state.handlers.pointerup?.(pointer); harness.input.emit('pointerup', pointer);
+    scene.update(0, 0);
+  } };
+}
+
+describe('Menu scroll gesture rectangle ownership', () => {
+  function scrolling(panel: 'equipment' | 'gunsmith') {
+    const h = createHarness(); const scene = h.menuScene as any;
+    scene.scale.width = 360; scene.scale.height = 640;
+    scene.scale.displaySize = { width: 360, height: 640 };
+    scene.render(scene.controller.open(panel)); scene.update(0, 0);
+    expect(scene.scrollRegion.contentHeight).toBeGreaterThan(scene.scrollRegion.viewportHeight);
+    const before = { save: JSON.stringify(h.context.saveData), snapshot: scene.controller.snapshot(),
+      focus: scene.navigator.index, offset: scene.scrollRegion.scrollOffset };
+    const events = vi.fn(); h.bus.on('ui:confirm', events); h.bus.on('ui:back', events);
+    return { h, scene, before, events };
+  }
+
+  it.each(['equipment', 'gunsmith'] as const)('keeps outside wheel and outside-down drag out of the current %s body', panel => {
+    const { h, scene, before, events } = scrolling(panel);
+    const point = { id: 81, x: 120, y: scene.scrollViewportTop - 12, isDown: false };
+    h.input.emit('wheel', point, [], 0, 40);
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    const back = h.buttonByLabel('Back')!; const bounds = back.getBounds();
+    expect(bounds.centerY < scene.scrollViewportTop || bounds.centerY >= scene.scrollViewportBottom).toBe(true);
+    h.input.emit('wheel', { ...point, x: bounds.centerX, y: bounds.centerY }, [], 0, 40);
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    h.input.emit('pointerdown', { ...point, isDown: true }, []);
+    h.input.emit('pointermove', { ...point, isDown: true, y: point.y - 20 });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    h.input.emit('pointermove', { ...point, isDown: true, y: scene.scrollViewportTop + 60 });
+    h.input.emit('pointermove', { ...point, isDown: true, y: scene.scrollViewportTop + 30 });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    h.input.emit('pointerup', point);
+    expect(scene.navigator.index).toBe(before.focus);
+    expect(scene.controller.snapshot()).toEqual(before.snapshot);
+    expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+    expect(events).not.toHaveBeenCalled();
+  });
+
+  it.each(['equipment', 'gunsmith'] as const)('retains real inside wheel and drag scrolling in %s', panel => {
+    const { h, scene, before, events } = scrolling(panel);
+    const point = { id: 82, x: 120, y: scene.scrollViewportTop + 70, isDown: false };
+    h.input.emit('wheel', point, [], 0, 40);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(before.offset);
+    const offset = scene.scrollRegion.scrollOffset;
+    h.input.emit('pointerdown', { ...point, isDown: true }, []);
+    h.input.emit('pointermove', { ...point, isDown: true, y: point.y - 20 });
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(offset);
+    h.input.emit('pointerup', point);
+    expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+    expect(events).not.toHaveBeenCalled();
+  });
+
+  it.each([1, 2])('does not scroll below 8 CSS pixels at Phaser displayScale=%s', ratio => {
+    const { h, scene, before } = scrolling('equipment');
+    scene.scale.displayScale = { x: ratio, y: ratio };
+    const pointer = { id: 83, x: 120, y: scene.scrollViewportTop + 90, isDown: true };
+    h.input.emit('pointerdown', pointer, []);
+    h.input.emit('pointermove', { ...pointer, y: pointer.y - 7 * ratio });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    h.input.emit('pointermove', { ...pointer, y: pointer.y - 8 * ratio });
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(before.offset);
+    h.input.emit('pointerup', { ...pointer, isDown: false });
+  });
+
+  it('uses maximum displacement rather than accumulated jitter and latches return-to-origin drags', () => {
+    const { h, scene, before } = scrolling('equipment');
+    const row = scene.focusables.find((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.getBounds().centerY >= scene.scrollViewportTop && button.getBounds().centerY < scene.scrollViewportBottom)!;
+    const press = gesture(h, row, 84);
+    for (const dy of [-3, 0, -3, 0]) h.input.emit('pointermove', { ...press.pointer, y: press.pointer.y + dy });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    expect(scene.pointerGesture?.dragged).toBe(false);
+    h.input.emit('pointermove', { ...press.pointer, y: press.pointer.y - 12 });
+    h.input.emit('pointermove', press.pointer);
+    expect(scene.pointerGesture?.dragged).toBe(true);
+    const confirm = vi.fn(); h.bus.on('ui:confirm', confirm); press.release();
+    expect(confirm).not.toHaveBeenCalled(); expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+  });
+
+  it('measures diagonal displacement in CSS pixels with separate Phaser axis scales', () => {
+    const { h, scene, before } = scrolling('equipment');
+    scene.scale.displayScale = { x: 2, y: 0.5 };
+    const pointer = { id: 95, x: 120, y: scene.scrollViewportTop + 90, isDown: true };
+    h.input.emit('pointerdown', pointer, []);
+    h.input.emit('pointermove', { ...pointer, x: pointer.x + 8, y: pointer.y - 2 });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset); // hypot(4, 4) < 8 CSS pixels.
+    h.input.emit('pointermove', { ...pointer, x: pointer.x + 16, y: pointer.y - 0.5 });
+    expect(scene.pointerGesture.dragged).toBe(true);
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset + 0.5);
+    h.input.emit('pointerup', { ...pointer, isDown: false });
+  });
+
+  it('rejects a second pointer command and does not adopt it after the owner lifts', () => {
+    const { h, scene, before, events } = scrolling('equipment');
+    const rows = scene.focusables.filter((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportBottom);
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+    const first = gesture(h, rows[0], 85), second = gesture(h, rows[1], 86);
+    second.release(); expect(events).not.toHaveBeenCalled();
+    expect(scene.controller.snapshot()).toEqual(before.snapshot); expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+    // Lift the owner without activating it; the secondary still needs a new down.
+    h.input.emit('pointerup', { ...first.pointer, isDown: false });
+    rows[1].state.handlers.pointerup?.({ ...second.pointer, isDown: false });
+    expect(events).not.toHaveBeenCalled();
+    gesture(h, rows[1], 86).release(); expect(events).toHaveBeenCalledOnce();
+  });
+
+  it('retains the original button press when a secondary pointer downs and lifts on that same button', () => {
+    const { h, scene, events } = scrolling('equipment');
+    const row = scene.focusables.find((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportBottom)!;
+    const owner = gesture(h, row, 91), secondary = gesture(h, row, 92);
+    row.state.handlers.pointerout?.(secondary.pointer);
+    secondary.release(); expect(events).not.toHaveBeenCalled();
+    owner.release(); expect(events).toHaveBeenCalledOnce();
+  });
+
+  it.each(['distinct', 'same'] as const)('preserves owner focus through secondary native-order hover/release on a %s target', target => {
+    const { h, scene, before, events } = scrolling('equipment');
+    const row = scene.focusables.find((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportBottom)!;
+    const owner = gesture(h, row, 96);
+    // Phaser TOUCH_START dispatches object/scene DOWN before object OVER.
+    row.state.handlers.pointerover?.(owner.pointer);
+    const focus = { index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex };
+    const secondaryTarget = target === 'same' ? row : h.buttonByLabel('Back')!;
+    const bounds = secondaryTarget.getBounds();
+    const secondary = { id: 97, x: bounds.centerX, y: bounds.centerY, isDown: true };
+    secondaryTarget.state.handlers.pointerdown?.(secondary); h.input.emit('pointerdown', secondary, [secondaryTarget]);
+    secondaryTarget.state.handlers.pointerover?.(secondary);
+    // TOUCH_END dispatches object UP, scene UP, then object OUT.
+    secondary.isDown = false;
+    secondaryTarget.state.handlers.pointerup?.(secondary); h.input.emit('pointerup', secondary);
+    secondaryTarget.state.handlers.pointerout?.(secondary);
+    expect(scene.pointerGesture?.id).toBe(owner.pointer.id);
+    expect(scene.controller.snapshot()).toEqual(before.snapshot); expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset); expect(events).not.toHaveBeenCalled();
+    expect({ index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex }).toEqual(focus);
+    // Ending ownership restores ordinary hover on the existing target.
+    h.input.emit('pointerup', { ...owner.pointer, wasCanceled: true, isDown: false }); scene.update(0, 0);
+    secondaryTarget.state.handlers.pointerover?.(secondary);
+    expect(scene.navigator.index).toBe(scene.focusables.indexOf(secondaryTarget));
+    expect(scene.hoveredIndex).toBe(scene.focusables.indexOf(secondaryTarget));
+    secondaryTarget.state.handlers.pointerout?.(secondary); expect(scene.hoveredIndex).toBe(-1);
+  });
+
+  it.each(['body', 'button'] as const)('rejects secondary native OUT on the primary hovered row with a %s owner', admission => {
+    const { h, scene, events } = scrolling('equipment');
+    const row = scene.focusables.find((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportBottom)!;
+    const bounds = row.getBounds();
+    const owner = { id: 98, x: bounds.centerX, y: bounds.centerY, isDown: true };
+    if (admission === 'button') row.state.handlers.pointerdown?.(owner);
+    h.input.emit('pointerdown', owner, admission === 'button' ? [row] : []);
+    row.state.handlers.pointerover?.(owner);
+    const focus = { index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex };
+    const secondary = { ...owner, id: 99 };
+    row.state.handlers.pointerdown?.(secondary); h.input.emit('pointerdown', secondary, [row]);
+    row.state.handlers.pointerover?.(secondary);
+    secondary.isDown = false;
+    row.state.handlers.pointerup?.(secondary); h.input.emit('pointerup', secondary);
+    row.state.handlers.pointerout?.(secondary);
+    expect(scene.pointerGesture?.id).toBe(owner.id); expect(events).not.toHaveBeenCalled();
+    expect({ index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex }).toEqual(focus);
+  });
+
+  it('does not let secondary movement or outside up end or reanchor the owner', () => {
+    const { h, scene, before } = scrolling('equipment');
+    const owner = { id: 93, x: 120, y: scene.scrollViewportTop + 90, isDown: true };
+    h.input.emit('pointerdown', owner, []);
+    h.input.emit('pointerdown', { ...owner, id: 94, y: owner.y + 40 }, []);
+    h.input.emit('pointermove', { ...owner, id: 94, y: owner.y - 100 });
+    h.input.emit('pointermove', { ...owner, id: 94, isDown: false });
+    h.input.emit('pointerupoutside', { ...owner, id: 94, isDown: false });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    expect(scene.pointerGesture?.id).toBe(owner.id);
+    h.input.emit('pointermove', { ...owner, y: owner.y - 10 });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset + 10);
+    h.input.emit('pointerup', { ...owner, isDown: false });
+  });
+
+  it.each(['resize', 'render', 'unmount', 'blur', 'cancel', 'shutdown'] as const)(
+    'cancels the real drag owner on %s so stale movement cannot reach new geometry', interruption => {
+      const { h, scene, events } = scrolling('equipment');
+      const pointer = { id: 87, x: 120, y: scene.scrollViewportTop + 90, isDown: true };
+      h.input.emit('pointerdown', pointer, []);
+      if (interruption === 'resize') scene.handleResize();
+      if (interruption === 'render') scene.render(scene.controller.snapshot());
+      if (interruption === 'unmount') scene.unmountPanelSurface();
+      if (interruption === 'blur') { scene.handleInputBlur(); scene.handleInputFocus(); scene.update(0, 0); }
+      if (interruption === 'cancel') h.input.emit('pointerup', { ...pointer, wasCanceled: true, isDown: false });
+      if (interruption === 'shutdown') h.lifecycle.emit('shutdown');
+      const offset = scene.scrollRegion?.scrollOffset;
+      h.input.emit('pointermove', { ...pointer, y: pointer.y - 20 });
+      expect(scene.scrollRegion?.scrollOffset).toBe(offset);
+      expect(scene.pointerGesture).toBeUndefined(); expect(events).not.toHaveBeenCalled();
+      if (interruption !== 'shutdown') {
+        if (interruption === 'blur') {
+          // The still-held physical pointer keeps the existing neutral gate closed.
+          expect(scene.inputController.isQuarantined()).toBe(true);
+          h.input.emit('pointerup', { ...pointer, isDown: false }); scene.update(0, 0);
+          expect(scene.inputController.isQuarantined()).toBe(false);
+        }
+        if (interruption === 'unmount') scene.render(scene.controller.snapshot());
+        const fresh = { ...pointer, id: 88, y: scene.scrollViewportTop + 90 };
+        const start = scene.scrollRegion.scrollOffset;
+        h.input.emit('pointerdown', fresh, []); h.input.emit('pointermove', { ...fresh, y: fresh.y - 20 });
+        expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(start);
+        h.input.emit('pointerup', { ...fresh, isDown: false });
+      }
+    });
+
+  it('cancels a drag during portrait blocking without resurrecting it after restoration', async () => {
+    const { h, scene } = scrolling('equipment');
+    const orientation = await import('../src/platform/orientation');
+    const blocked = vi.spyOn(orientation, 'isPortraitOrientationBlocked').mockReturnValue(true);
+    try {
+      const pointer = { id: 89, x: 120, y: scene.scrollViewportTop + 90, isDown: true };
+      blocked.mockReturnValue(false); h.input.emit('pointerdown', pointer, []);
+      blocked.mockReturnValue(true); scene.update(0, 16);
+      blocked.mockReturnValue(false);
+      const offset = scene.scrollRegion.scrollOffset;
+      h.input.emit('pointermove', { ...pointer, y: pointer.y - 20 });
+      expect(scene.scrollRegion.scrollOffset).toBe(offset); expect(scene.pointerGesture).toBeUndefined();
+    } finally { blocked.mockRestore(); }
+  });
+
+  it('uses one four-edge rectangle for its stencil, wheel and clipped button admission', () => {
+    const { h, scene } = scrolling('equipment');
+    const index = scene.focusables.findIndex((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportTop + 300);
+    expect(index).toBeGreaterThanOrEqual(0);
+    const row = scene.focusables[index] as FakeObject;
+    const bounds = row.getBounds();
+    const rect = { x: 80, y: scene.scrollViewportTop, width: 160, height: 300 };
+    scene.beginScrollableRegion(rect);
+    scene.scrollRegion.setItems([{ index: 0, top: bounds.top, bottom: bounds.bottom }]);
+    scene.scrollRegion.includeContentBottom(rect.y + 1000);
+    const confirm = vi.fn(); h.bus.on('ui:confirm', confirm);
+    const fillRect = vi.fn(); const priorGraphics = scene.make.graphics;
+    scene.make.graphics = (...args: unknown[]) => ({ ...priorGraphics(...args), fillRect });
+    scene.createScrollMask(scene.root);
+    expect(fillRect).toHaveBeenCalledWith(rect.x, rect.y, rect.width, rect.height);
+    for (const point of [{ x: rect.x - 1, y: rect.y + 20 }, { x: rect.x + rect.width, y: rect.y + 20 },
+      { x: rect.x + 10, y: rect.y - 1 }, { x: rect.x + 10, y: rect.y + rect.height }]) {
+      const before = scene.scrollRegion.scrollOffset;
+      h.input.emit('wheel', { ...point, id: 90, isDown: false }, [], 0, 40);
+      expect(scene.scrollRegion.scrollOffset).toBe(before);
+      row.state.handlers.pointerdown?.({ ...point, id: 90, isDown: true });
+      row.state.handlers.pointerup?.({ ...point, id: 90, isDown: false });
+      expect(confirm).not.toHaveBeenCalled();
+    }
+    const point = { id: 90, x: Math.max(bounds.left, rect.x) + 10, y: Math.max(bounds.top, rect.y) + 10, isDown: true };
+    row.state.handlers.pointerdown?.(point); row.state.handlers.pointerup?.({ ...point, isDown: false });
+    expect(confirm).toHaveBeenCalledOnce();
+  });
+
+  it('retains full-width legacy strips and copies a valid rectangle before exposing clipped hit areas', () => {
+    const { scene } = scrolling('equipment');
+    expect(scene.scrollRectangle).toEqual({ x: 0, y: scene.scrollViewportTop,
+      width: scene.scale.width, height: scene.scrollViewportBottom - scene.scrollViewportTop });
+    const index = scene.focusables.findIndex((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive);
+    const row = scene.focusables[index] as FakeObject; const bounds = row.getBounds();
+    const rect = { x: bounds.right + 1, y: scene.scrollViewportTop, width: 20, height: 300 };
+    scene.beginScrollableRegion(rect); rect.x = 0;
+    expect(scene.scrollRectangle.x).toBe(bounds.right + 1);
+    const region = scene.scrollRegion, rectangle = scene.scrollRectangle;
+    expect(() => scene.beginScrollableRegion({ ...rect, width: NaN })).toThrow(RangeError);
+    expect(scene.scrollRegion).toBe(region); expect(scene.scrollRectangle).toBe(rectangle);
+    scene.applyScrollViewport(); expect(row.state.interactive).toBe(false);
+  });
+});
+
+describe('retained Menu physical controls', () => {
+  it.each(['equipment', 'gunsmith'] as const)('admits new prefix/Back gestures after %s body mutation but revokes old presses', panel => {
+    const h = createHarness(); const scene = h.menuScene as any;
+    h.context.updateEquipment(() => ({ equipment: { commando: { equipmentId: 'equipment:commando-helmet', tier: 1 }, recon: { equipmentId: 'equipment:recon-helmet', tier: 1 } }, loadout: { helmet: 'commando' } }));
+    h.context.updateGunsmith(() => ({ parts: {}, fabricationSerials: {}, builds: [
+      { id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] },
+      { id: 'build:smg', name: 'SMG Build', baseWeaponFamily: 'smg', fitted: {}, traitParts: [] },
+    ], selectedBuildId: 'build:pistol' }));
+    scene.render(scene.controller.open(panel));
+    const retained = panel === 'equipment' ? buttonByKey(h, 'equipment-slot:armour') : buttonByKey(h, 'gunsmith-family:smg');
+    const root = scene.root; const old = gesture(h, retained);
+    if (panel === 'equipment') expect(scene.tryUpdateSurfaceMutation(scene.controller.selectEquipmentCandidate('recon'), 'equipment-selection')).toBe(true);
+    else expect(scene.tryUpdateSurfaceMutation(scene.controller.selectGunBuild('build:smg'), 'gunsmith-body')).toBe(true);
+    // Partial replacement must truly retain the original callback/object.
+    expect(scene.root).toBe(root); expect(scene.focusables).toContain(retained);
+    const event = vi.fn(); h.bus.on('ui:confirm', event); old.release(); expect(event).not.toHaveBeenCalled();
+    gesture(h, retained).release(); expect(event).toHaveBeenCalledOnce();
+    const back = h.buttonByLabel('Back')!; const backEvent = vi.fn(); h.bus.on('ui:back', backEvent);
+    gesture(h, back).release(); expect(backEvent).toHaveBeenCalledOnce();
+    expect(scene.committedPanel).toBe('loadout');
+  });
+  it('revokes a press on resize, blur, pointer-out and outside release while fresh controls rearm', () => {
+    for (const interruption of ['resize', 'blur', 'out', 'outside', 'cancel']) {
+      const h = createHarness(); const scene = h.menuScene as any;
+      const old = h.buttonByLabel('Loadout')!; const press = gesture(h, old);
+      if (interruption === 'resize') scene.handleResize();
+      if (interruption === 'blur') { scene.handleInputBlur(); scene.handleInputFocus(); }
+      if (interruption === 'out') old.state.handlers.pointerout!(press.pointer);
+      if (interruption === 'outside') h.input.emit('pointerupoutside', press.pointer);
+      if (interruption === 'cancel') Object.assign(press.pointer, { wasCanceled: true });
+      press.release(); expect(scene.committedPanel).toBe('home');
+      gesture(h, h.buttonByLabel('Loadout')!).release(); expect(scene.committedPanel).toBe('loadout');
+    }
+  });
+});
+
+describe('Menu optional ability launch and retry', () => {
+  it.each([false, true])('prepares a captured explicit ability-absent briefing for Training=%s', async training => {
+    const data = structuredClone(loadGameData()); delete (data.characters[0] as { abilityId?: string }).abilityId;
+    const h = createHarness({ data }); const scene = h.menuScene as any;
+    Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+    const request = training ? { kind: 'legacy-arena', characterId: data.characters[0].id, arenaId: 'junkyard-lot', seed: 91 }
+      : { kind: 'stage', characterId: data.characters[0].id, stageId: 'stage:junkyard-01', seed: 91 };
+    await scene.startRunWithResources(request, training);
+    expect(h.sceneStart).toHaveBeenCalledOnce(); const payload = h.sceneStart.mock.calls[0]![1];
+    expect(payload.runRequest).toBe(request); expect(payload.isTraining).toBe(training);
+    expect(payload.introModel.ability).toBeUndefined(); expect(payload.introModel.mercenary.characterName).toBe(data.characters[0].name);
+  });
+});
+
+
+describe('invalid optional ability preparation', () => {
+  it('fails both initial Menu launch and captured retry for a supplied unknown ability without reseeding', async () => {
+    const h = createHarness(); const scene = h.menuScene as any;
+    const invalid = structuredClone(h.context.data); invalid.characters[0] = { ...invalid.characters[0], abilityId: 'ability:unknown-fixture' };
+    // Deliberately corrupt only the fixture catalog after normal validation
+    // to exercise the defensive launch/retry path, not bypass production data validation.
+    Object.assign(h.context, { data: invalid });
+    const request = { kind: 'stage', characterId: invalid.characters[0].id, stageId: 'stage:junkyard-01', seed: 717 };
+    await scene.startRunWithResources(request, false);
+    expect(scene.runLaunchState).toBe('failed'); expect(h.sceneStart).not.toHaveBeenCalled();
+    expect(scene.capturedLaunch.request).toBe(request); const arena = h.context.arenas.arenaById('junkyard-lot');
+    await scene.startContractWithResources();
+    expect(scene.runLaunchState).toBe('failed'); expect(h.sceneStart).not.toHaveBeenCalled();
+    expect(scene.capturedLaunch.request).toBe(request); expect(h.context.arenas.arenaById('junkyard-lot')).toBe(arena);
+  });
+});
+
+
+describe('captured Training create-error recovery', () => {
+  it('retains an invalid failed layout and rejects repeated Retry before resources or reseeding', async () => {
+    const h = createHarness({ create: false }); const scene = h.menuScene as any;
+    const request = { kind: 'legacy-arena' as const, characterId: 'scrap-tabby', arenaId: 'junkyard-lot', seed: 511 };
+    const valid = resolveArenaLayout(h.context.arenas.arenaById(request.arenaId)!, request.seed, h.context.data.contentVersion);
+    const bad = Object.freeze({ ...valid, seed: 999 });
+    const rng = { int: vi.fn(() => 123) }; (h.context as any).menuRng = rng;
+    scene.create({ failedRunRequest: request, failedArenaLayout: bad, isTraining: true });
+    Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+    for (let i = 0; i < 2; i++) {
+      await scene.startTrainingWithResources();
+      expect(h.sceneStart).not.toHaveBeenCalled(); expect(scene.runLaunchState).toBe('failed');
+      expect(scene.preparedArenaLayout).toBe(bad); expect(scene.capturedLaunch.request).toBe(request);
+    }
+    expect(rng.int).not.toHaveBeenCalled(); h.lifecycle.emit('shutdown');
+    expect(scene.preparedArenaLayout).toBeUndefined(); expect(scene.capturedLaunch).toBeUndefined();
+  });
+  it('keeps failed Training on its Retry surface with the original seed and exact prepared layout', async () => {
+    const h = createHarness({ create: false }); const scene = h.menuScene as any;
+    const request = { kind: 'legacy-arena' as const, characterId: 'scrap-tabby', arenaId: 'junkyard-lot', seed: 511 };
+    const arena = h.context.arenas.arenaById(request.arenaId)!;
+    const layout = resolveArenaLayout(arena, request.seed, h.context.data.contentVersion);
+    scene.create({ failedRunRequest: request, failedArenaLayout: layout, failedRunError: 'fixture create failure', isTraining: true });
+    expect(h.menuScene.loadoutUiDiagnostics().panel).toBe('training');
+    expect(h.buttonByLabel('Retry Training')).toBeDefined();
+    expect(scene.capturedLaunch.request).toBe(request); expect(h.context.arenas.arenaById('junkyard-lot')).toBe(arena);
+    Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+    await scene.startTrainingWithResources();
+    expect(h.sceneStart).toHaveBeenCalledExactlyOnceWith('GameScene', expect.objectContaining({ runRequest: request, isTraining: true, introModel: expect.objectContaining({ identity: expect.objectContaining({ arenaId: arena.id, seed: request.seed, contentVersion: h.context.data.contentVersion }) }) }));
+    expect(h.context.arenas.arenaById(request.arenaId)).toBe(arena);
+    expect(h.sceneStart.mock.calls[0]![1].arenaLayout).toBe(layout);
+  });
+});
+
+
+describe('failed Contract explicit abandonment', () => {
+  it.each(['keyboard', 'gamepad', 'touch'] as const)('abandons captured failed Contract with fresh %s Back, without domain effects', async mode => {
+    const h = createHarness({ create: false }); const scene = h.menuScene as any;
+    const request = Object.freeze({ kind: 'stage' as const, characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', seed: 611 });
+    scene.create({ failedRunRequest: request, failedRunError: 'injected preparation failure' });
+    scene.update(0, 0);
+    const saved = h.context.saveData; const generation = scene.runLaunchGeneration;
+    const backEvent = vi.fn(); const confirm = vi.fn(); const settle = vi.spyOn(h.context, 'settleRunTerminal');
+    h.bus.on('ui:back', backEvent); h.bus.on('ui:confirm', confirm);
+    if (mode === 'keyboard') {
+      h.keyboard.keydown('Escape'); scene.update(0, 16); h.keyboard.keyup('Escape'); scene.update(0, 16);
+    } else if (mode === 'gamepad') {
+      const pad = new MockGamepad(); h.input.gamepad!.connect(pad); scene.update(0, 16);
+      pad.setButton(1, true); scene.update(0, 16); pad.setButton(1, false); scene.update(0, 16);
+    } else {
+      const back = h.buttonByLabel('Back'); expect(back).toBeDefined();
+      const old = gesture(h, back!); old.release(); old.release();
+    }
+    expect(scene.runLaunchState).toBe('idle'); expect(scene.capturedLaunch).toBeUndefined();
+    expect(scene.runLaunchGeneration).toBe(generation + 1);
+    expect(h.buttonByLabel('Play Contract')).toBeDefined(); expect(h.buttonByLabel('Change Contract')).toBeDefined();
+    expect(h.buttonByLabel('Retry Loading Contract')).toBeUndefined(); expect(h.buttonByLabel('Back')).toBeUndefined();
+    expect(backEvent).toHaveBeenCalledOnce(); expect(confirm).not.toHaveBeenCalled();
+    expect(settle).not.toHaveBeenCalled(); expect(h.context.saveData).toBe(saved); expect(h.sceneStart).not.toHaveBeenCalled();
+  });
+  it('keeps Retry captured but revokes an old Back gesture after abandonment', async () => {
+    const h = createHarness({ create: false }); const scene = h.menuScene as any;
+    const request = Object.freeze({ kind: 'stage' as const, characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', seed: 612 });
+    scene.create({ failedRunRequest: request, failedRunError: 'injected preparation failure' });
+    scene.update(0, 0); const oldBack = h.buttonByLabel('Back'); expect(oldBack).toBeDefined();
+    const stale = gesture(h, oldBack!);
+    // A separate accepted logical Back abandons and destroys that display.
+    h.keyboard.keydown('Escape'); scene.update(0, 16); h.keyboard.keyup('Escape'); scene.update(0, 16);
+    stale.release(); expect(scene.runLaunchState).toBe('idle');
+    h.lifecycle.emit('shutdown');
+    scene.create({ failedRunRequest: request, failedRunError: 'same launch retried' });
+    Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+    await scene.startContractWithResources();
+    expect(h.sceneStart).toHaveBeenCalledExactlyOnceWith('GameScene', expect.objectContaining({ runRequest: request, isTraining: false }));
+  });
+  it('preserves the seven-row Home action set and readable Back target at 360px', () => {
+    const h = createHarness({ create: false }); const scene = h.menuScene as any;
+    scene.scale.width = 360; scene.scale.height = 640;
+    scene.create({ failedRunRequest: { kind: 'stage', characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', seed: 613 }, failedRunError: 'injected' });
+    const back = h.buttonByLabel('Back'); expect(back).toBeDefined();
+    expect(scene.focusables).toHaveLength(7);
+    const bounds = back!.getBounds(); expect(bounds.width).toBeGreaterThanOrEqual(44); expect(bounds.height).toBeGreaterThanOrEqual(44);
+    // This legacy fake ignores Text.setOrigin(.5, 0); primary Home actions
+    // use a centered origin in production. Compare the actual authored lane.
+    expect(back!.x - bounds.width / 2).toBeGreaterThanOrEqual(0); expect(back!.x + bounds.width / 2).toBeLessThanOrEqual(360);
+    expect(bounds.bottom).toBeLessThanOrEqual(640);
+  });
+});
+
+
+/** Opt into real origin bounds for new Home scroll geometry without changing
+ * unrelated legacy menu fixture conventions. Font measurement stays approximate. */
+function createHomeGeometryHarness(width: number, height: number, failed: boolean, insets = true) {
+  const h = createHarness({ create: false }); const scene = h.menuScene as any;
+  for (const factory of ['text', 'rectangle'] as const) {
+    const original = scene.add[factory].bind(scene.add);
+    scene.add[factory] = (...args: any[]) => {
+      const node = original(...args); let ox = factory === 'rectangle' ? .5 : 0; let oy = ox;
+      if (factory === 'text') {
+        const style = args[3] ?? {}; const size = parseFloat(style.fontSize ?? '16');
+        node.setPadding(style.padding?.left ?? style.padding?.x ?? 0, style.padding?.top ?? style.padding?.y ?? 0,
+          style.padding?.right ?? style.padding?.x ?? 0, style.padding?.bottom ?? style.padding?.y ?? 0);
+        const measure = (copy: string) => {
+          const width = style.wordWrap?.width ?? copy.length * size * .6;
+          const lines = copy.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length * size * .6 / Math.max(1, width))), 0);
+          node.setFixedSize(Math.min(width, copy.length * size * .6) + node.padding.left + node.padding.right,
+            lines * (size + 3) + node.padding.top + node.padding.bottom);
+        };
+        measure(String(args[2]));
+        // Phaser rerasterizes on setText; a fixed creation-time fake would hide
+        // keyboard/gamepad hint clipping after the initial pointer-mode render.
+        const setText = node.setText.bind(node);
+        node.setText = (copy: string) => { setText(copy); measure(copy); return node; };
+        const padding = node.setPadding.bind(node);
+        node.setPadding = (...values: number[]) => {
+          const old = node.padding; const width = node.width; const height = node.height; padding(...values);
+          node.setFixedSize(width + node.padding.left + node.padding.right - old.left - old.right,
+            height + node.padding.top + node.padding.bottom - old.top - old.bottom); return node;
+        };
+      }
+      node.setOrigin = (x = .5, y = x) => { ox = x; oy = y; return node; };
+      node.getBounds = () => {
+        const left = node.x - node.width * ox; const top = node.y - node.height * oy;
+        return { x: left, y: top, left, top, right: left + node.width, bottom: top + node.height,
+          centerX: left + node.width / 2, centerY: top + node.height / 2, width: node.width, height: node.height };
+      };
+      return node;
+    };
+  }
+  if (insets) {
+    vi.stubGlobal('document', { documentElement: {} });
+    vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: (name: string) => ({ '--safe-top': '44px', '--safe-bottom': '34px', '--safe-left': '8px', '--safe-right': '8px' }[name] ?? '0px') }));
+  }
+  Object.assign(scene.scale, { width, height, displaySize: { width, height } });
+  scene.create(failed ? { failedRunRequest: { kind: 'stage', characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', seed: 621 }, failedRunError: 'injected' } : undefined);
+  scene.update(0, 0);
+  return { h, scene };
+}
+describe('Home safe-area scroll recovery', () => {
+  it.each([false, true])('makes all Home controls reachable at four viewport profiles with safe insets; failed=%s', failed => {
+    for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720]]) {
+      try {
+        const { h, scene } = createHomeGeometryHarness(width, height, failed);
+        const labels = [failed ? 'Retry Loading Contract' : 'Play Contract', failed ? 'Back' : 'Change Contract', 'Mercenary', 'Loadout', 'Career', 'Training', 'Settings'];
+        expect(scene.focusables.map((button: FakeObject) => button.text)).toEqual(labels);
+        if (width === 360) expect(scene.scrollRegion).toBeDefined();
+        const seen = new Set<number>();
+        const inspect = () => {
+          const index = scene.navigator.index; seen.add(index); const button = scene.focusables[index]; const bounds = button.getBounds();
+          expect(bounds.width).toBeGreaterThanOrEqual(44); expect(bounds.height).toBeGreaterThanOrEqual(44);
+          expect(bounds.left).toBeGreaterThanOrEqual(8); expect(bounds.right).toBeLessThanOrEqual(width - 8);
+          expect(bounds.top).toBeGreaterThanOrEqual(scene.scrollRegion ? scene.scrollViewportTop : 44);
+          expect(bounds.bottom).toBeLessThanOrEqual(scene.scrollRegion ? scene.scrollViewportBottom : scene.hint.y - 8);
+          if (scene.scrollRegion) expect(scene.scrollMaskContainer.list).toContain(button);
+        };
+        inspect();
+        const keys = width > 650 && height < 500
+          ? ['ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowLeft']
+          : ['ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowDown'];
+        for (const key of keys) { h.keyboard.keydown(key); scene.update(0, 16); h.keyboard.keyup(key); scene.update(0, 16); inspect(); }
+        expect(seen.size).toBe(7);
+        expect(scene.hint.parentContainer).toBe(scene.root);
+        expect(scene.hint.y + scene.hint.height).toBeLessThanOrEqual(height - 34);
+        h.lifecycle.emit('shutdown');
+      } finally { vi.unstubAllGlobals(); }
+    }
+  });
+  it('uses the existing wheel/drag owner, rejects a pre-scroll press and accepts a fresh visible action', () => {
+    try {
+      const { h, scene } = createHomeGeometryHarness(360, 640, true);
+      expect(scene.scrollRegion).toBeDefined();
+      const back = h.buttonByLabel('Back')!; const old = gesture(h, back); const events = vi.fn(); h.bus.on('ui:back', events);
+      h.input.emit('wheel', old.pointer, [], 0, 10000); old.release();
+      expect(events).not.toHaveBeenCalled(); expect(scene.runLaunchState).toBe('failed'); expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(0);
+      const settings = h.buttonByLabel('Settings')!; expect(settings.getBounds().bottom).toBeLessThanOrEqual(scene.scrollViewportBottom);
+      const pointer = { id: 91, x: 100, y: scene.scrollViewportTop + 30, isDown: true };
+      h.input.emit('pointerdown', pointer, []); h.input.emit('pointermove', { ...pointer, y: pointer.y + 10000 });
+      h.input.emit('pointerup', { ...pointer, isDown: false }); scene.update(0, 0);
+      expect(scene.scrollRegion.scrollOffset).toBe(0);
+      gesture(h, back).release(); expect(events).toHaveBeenCalledOnce(); expect(scene.runLaunchState).toBe('idle');
+      h.lifecycle.emit('shutdown');
+    } finally { vi.unstubAllGlobals(); }
+  });
+  it('does not add a scroll mask when measured Home content already fits', () => {
+    const { h, scene } = createHomeGeometryHarness(390, 844, false, false);
+    expect(scene.scrollRegion).toBeUndefined(); expect(scene.scrollMaskContainer).toBeUndefined();
+    h.lifecycle.emit('shutdown');
+  });
+});
+
+
+describe('Home fixed hint input-mode reservation', () => {
+  it.each(['keyboard', 'gamepad'] as const)('keeps complete %s instructions inside a stable footer after a real mode switch', mode => {
+    for (const failed of [false, true]) for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720]]) {
+      try {
+        const { h, scene } = createHomeGeometryHarness(width, height, failed);
+        const hint = scene.hint; const y = hint.y; const bodyBottom = scene.scrollViewportBottom;
+        const revision = scene.renderRevision;
+        if (mode === 'keyboard') {
+          h.keyboard.keydown('ArrowDown'); scene.update(0, 16); h.keyboard.keyup('ArrowDown'); scene.update(0, 16);
+        } else {
+          const pad = new MockGamepad(); h.input.gamepad!.connect(pad); scene.update(0, 16);
+          pad.setButton(13, true); scene.update(0, 16); pad.setButton(13, false); scene.update(0, 16);
+        }
+        expect(scene.inputController.getInputMode()).toBe(mode);
+        expect(hint.text).toBe(mode === 'keyboard'
+          ? 'Arrows navigate • Enter/Space select • Q ability in run • Esc back'
+          : 'D-pad/stick • Bottom face select • Left face ability in run • Right face back');
+        expect(hint.getBounds().right).toBeLessThanOrEqual(width - scene.safeRightMargin);
+        expect(hint.getBounds().bottom).toBeLessThanOrEqual(height - 34);
+        expect(parseFloat(hint.style.fontSize)).toBeGreaterThanOrEqual(14);
+        expect(hint.y).toBe(y); expect(scene.scrollViewportBottom).toBe(bodyBottom);
+        expect(scene.renderRevision).toBe(revision); expect(hint.parentContainer).toBe(scene.root);
+        if (scene.scrollRegion) expect(bodyBottom).toBeLessThanOrEqual(y - 8);
+        const focused = scene.focusedButtonKey; scene.refreshInputPresentation(); expect(scene.focusedButtonKey).toBe(focused);
+        // Pointer mode arrives during the first press. Updating the hint must
+        // not rebuild the Home surface or revoke that admitted gesture.
+        const button = h.buttonByLabel(failed ? 'Back' : 'Change Contract')!;
+        const event = vi.fn(); h.bus.on(failed ? 'ui:back' : 'ui:confirm', event);
+        const tap = gesture(h, button); scene.update(0, 16);
+        expect(scene.inputController.getInputMode()).toBe('pointer');
+        expect(scene.hint).toBe(hint); expect(hint.text).toBe('Tap a choice');
+        expect(hint.y).toBe(y); expect(scene.renderRevision).toBe(revision);
+        tap.release(); expect(event).toHaveBeenCalledOnce();
+        expect(scene.committedPanel).toBe(failed ? 'home' : 'stage');
+        h.lifecycle.emit('shutdown');
+      } finally { vi.unstubAllGlobals(); }
+    }
+  });
+});
+
+
+it('joins terminal Replay fresh seed with prepared plan, intro and immutable layout', async () => {
+  const h = createHarness({ create: false }); const scene = h.menuScene as any;
+  Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+  const request = Object.freeze({ kind: 'stage' as const, characterId: 'scrap-tabby', stageId: 'stage:junkyard-06', seed: 881 });
+  scene.create({ replayRequest: request });
+  await vi.waitFor(() => expect(h.sceneStart).toHaveBeenCalledOnce());
+  const payload = h.sceneStart.mock.calls[0]![1];
+  expect(payload.runRequest).not.toBe(request); expect(payload.runRequest).toMatchObject({ ...request, seed: expect.any(Number) });
+  expect(payload.stagePlan.seed).toBe(payload.runRequest.seed); expect(payload.introModel.identity.seed).toBe(payload.runRequest.seed);
+  expect(payload.introModel.identity.arenaId).toBe(h.context.stages.stageById(request.stageId)!.arenaId);
+  expect(payload.arenaLayout).toBe(scene.preparedArenaLayout);
+  expect(payload.arenaLayout.seed).toBe(payload.runRequest.seed); h.lifecycle.emit('shutdown');
 });

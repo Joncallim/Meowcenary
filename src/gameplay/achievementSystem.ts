@@ -13,6 +13,8 @@
  * separate; see the #92 architecture §4).
  */
 import type { AchievementProgress, AchievementProgressState, BossProgressState, CharacterMasteryState, ProgressionState, ProgressionStateV4, StageProgressState } from '../systems/save';
+import type { GameData } from '../systems/types';
+import type { GunsmithState, EquipmentState } from '../systems/save';
 import type { ProgressionCondition } from './conditionEvaluator';
 import { evaluateCondition, type ConditionContext } from './conditionEvaluator';
 import type { ProgressionGrant } from './grantProcessor';
@@ -75,6 +77,10 @@ export interface AchievementEvaluationResult {
 /** Facts the achievement system consumes. All authoritative gameplay events. */
 export interface AchievementFacts {
   readonly metrics: Readonly<Record<string, number>>;
+  /** Current authoritative loadout snapshots; never persisted as duplicate counters. */
+  readonly gunsmith?: Readonly<GunsmithState>;
+  readonly equipment?: Readonly<EquipmentState>;
+  readonly catalog?: Pick<GameData, 'stages' | 'gunParts' | 'equipment'>;
   /** Progression snapshot for condition-driven achievements (scrap, unlocks). */
   readonly progression?: Readonly<ProgressionState | ProgressionStateV4>;
   /** Stage progress snapshot for stage-cleared conditions. */
@@ -147,7 +153,7 @@ export function evaluateAchievements(
     updates.push({
       id: definition.id,
       progress: Object.freeze({
-        progress: Math.min(target, Math.max(current, metricValue)),
+        progress: target,
         completed: true,
         completedAt: nowMs,
       }),

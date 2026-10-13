@@ -18,6 +18,10 @@ import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 import { GameScene } from '../src/scenes/GameScene';
 import { MainMenuController } from '../src/ui/menus';
+import { createRunState } from '../src/gameplay/runState';
+import { resolveRunPlan } from '../src/gameplay/stage/stageContracts';
+import { resolveRunStartIntroModel } from '../src/presentation/runStartIntro';
+import { RunStartIntroController } from '../src/ui/runStartIntroController';
 
 const mockEditorial: CompendiumEntry[] = [
   {
@@ -122,7 +126,15 @@ describe('Compendium', () => {
     });
     const context = makeContext();
     const scene = new GameScene() as any;
-    scene.stagePlan = { stageId: 'stage:junkyard-01' };
+    const request = { kind: 'stage' as const, stageId: 'stage:junkyard-01', characterId: 'scrap-tabby', seed: 9 };
+    scene.stagePlan = resolveRunPlan(request, context.stages.runPlanCatalog());
+    scene.runState = createRunState({ ...request, arenaId: scene.stagePlan.arenaId });
+    scene.getContext = () => context;
+    scene.inputController = { isQuarantined: () => false, quarantineUntilNeutral: () => undefined };
+    scene.introController = new RunStartIntroController(resolveRunStartIntroModel({ data, request, plan: scene.stagePlan }));
+    // This fact-bridge fixture represents a run admitted by the real Start boundary.
+    scene.handleIntroCommand('start', 0);
+    expect(scene.runState.status).toBe('active');
     scene.recordStageEnemyDefeat = () => undefined;
     scene.evaluateLiveAchievements = () => undefined;
     scene.installAuthoritativeFactListeners(context);

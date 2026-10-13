@@ -1,0 +1,25 @@
+{
+  "baseCommit": "a100e053ce4e2bc48bc4b8844e7da5010d562096",
+  "files": [
+    {
+      "path": "public/assets/equipment/commando/commando-equipment-atlas.png",
+      "gitBlobSha": "68d0a84f7acd33e6cdc4f3e2b533e2be14faefaf",
+      "size": 186629
+    },
+    {
+      "path": "public/assets/equipment/commando/commando-equipment-atlas.json",
+      "gitBlobSha": "55eb320be3cdc668ec395bb4a3329233b8a70ef0",
+      "size": 2531
+    },
+    {
+      "path": "public/assets/gunsmith/tiers/gunsmith-tier-icons-atlas.png",
+      "gitBlobSha": "0e4f4c25166bfe5217566c6772fcf426a4ac32ec",
+      "size": 524280
+    },
+    {
+      "path": "public/assets/gunsmith/tiers/gunsmith-tier-icons-atlas.json",
+      "gitBlobSha": "761d19188adb2d1751e28dd305e15fb379b025c5",
+      "size": 19173
+    }
+  ]
+}

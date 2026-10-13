@@ -1,3 +1,5 @@
+import { resolveStageCompletion, type StageCompletionSnapshot } from '../gameplay/stage/stageCompletion';
+import { resolveObjectivePresentation } from '../presentation/stageObjective';
 /**
  * Stage selection controller — read-model + controller for the stage
  * selection UI. Follows the ArenaSelectionController pattern.
@@ -13,6 +15,7 @@ import { DataVisualArtRegistry } from '../systems/visualArt';
 import { describeCollectible, describeProgressionCondition, describeProgressionGrant, resolveEnemyPortraitArtId } from './progressionPresentation';
 
 export interface StageOptionView {
+  readonly campaignRole: 'main' | 'optional';
   readonly id: string;
   readonly name: string;
   readonly chapterId: string;
@@ -34,10 +37,11 @@ export interface StageOptionView {
 }
 
 export type StageFrontierView =
-  | { readonly kind: 'next' | 'replay'; readonly stageId: string }
+  | { readonly kind: 'next' | 'replay' | 'optional-next' | 'optional-replay'; readonly stageId: string }
   | { readonly kind: 'campaign-complete'; readonly stageId: string };
 
 export interface StageSelectionSnapshot {
+  readonly completion: StageCompletionSnapshot;
   readonly revision: number;
   readonly selectedStageId: string;
   readonly stages: readonly StageOptionView[];
@@ -76,12 +80,15 @@ export class StageSelectionController {
     });
 
     const selected = stages.find((stage) => stage.id === selectedStageId) ?? stages[0]!;
-    const allComplete = stages.length > 0 && stages.every((stage) => stage.completed);
-    const frontier: StageFrontierView = allComplete
+    const completion = resolveStageCompletion(stageDefinitions, context.saveData.stages);
+    const frontier: StageFrontierView = selected.campaignRole === 'optional'
+      ? Object.freeze({ kind: selected.completed ? 'optional-replay' : 'optional-next', stageId: selected.id })
+      : completion.campaignComplete
       ? Object.freeze({ kind: 'campaign-complete', stageId: selected.id })
       : Object.freeze({ kind: selected.completed ? 'replay' : 'next', stageId: selected.id });
 
     return Object.freeze({
+      completion,
       revision: context.stageSelectionRevision,
       selectedStageId,
       stages: Object.freeze(stages),
@@ -214,6 +221,7 @@ export class StageSelectionController {
     const grantNames = (reward?.grants ?? []).map((grant) => describeProgressionGrant(grant, this.context.data));
     const bestTimeMs = this.context.saveData.stages[stage.id]?.bestTimeMs;
     return Object.freeze({
+      campaignRole: stage.campaignRole ?? 'main',
       id: stage.id, name: stage.name, chapterId: stage.chapterId, chapterIconArtId: stage.chapterIconArtId,
       chapterName: chapterName(stage.chapterId), displayOrder: stage.displayOrder,
       locked, selected, completed, ...(bestTimeMs === undefined ? {} : { bestTimeMs }),
@@ -242,27 +250,8 @@ function objectivePresentation(
   context: GameContext,
   visualArt: DataVisualArtRegistry,
 ): StageOptionView['objective'] {
-  const artId = `objective-icon:${objective.type}`;
-  switch (objective.type) {
-    case 'kill': return Object.freeze({ kind: 'kill', copy: objective.enemyTag ? `Eliminate ${objective.count} ${objective.enemyTag} threats` : `Eliminate ${objective.count} threats`, artId });
-    case 'collect': {
-      const item = describeCollectible(objective.itemId, visualArt);
-      return Object.freeze({ kind: 'collect', copy: `Collect ${objective.count} ${item.name}`, artId });
-    }
-    case 'survive': return Object.freeze({ kind: 'survive', copy: `Survive ${formatDuration(objective.seconds)}`, artId });
-    case 'defeat': {
-      const enemy = context.data.enemies.find((row) => row.id === objective.enemyId);
-      return Object.freeze({ kind: 'defeat', copy: `Defeat ${enemy?.name ?? 'the boss'}`, artId });
-    }
-  }
-}
-
-function formatDuration(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  const minuteCopy = `${minutes} minute${minutes === 1 ? '' : 's'}`;
-  const secondCopy = `${seconds} second${seconds === 1 ? '' : 's'}`;
-  if (minutes === 0) return secondCopy;
-  if (seconds === 0) return minuteCopy;
-  return `${minuteCopy} ${secondCopy}`;
+  return resolveObjectivePresentation(objective, {
+    enemyName: id => context.data.enemies.find(row => row.id === id)?.name,
+    collectibleName: id => describeCollectible(id, visualArt).name,
+  });
 }

@@ -5,11 +5,14 @@ import { getFamilySlots } from '../gameplay/weaponFamilies';
 import { EQUIPMENT_TIERS } from '../gameplay/equipment';
 import { migrateV3ToV4Full } from './saveV4';
 
+export type AbilityButtonSide = 'left' | 'right';
+
 export interface Settings {
   readonly muted: boolean;
   readonly musicVolume: number;
   readonly sfxVolume: number;
   readonly reducedMotion: boolean;
+  readonly abilityButtonSide: AbilityButtonSide;
 }
 
 export type MetaStateV1 = Readonly<Record<string, never>>;
@@ -187,6 +190,7 @@ export const DEFAULT_SETTINGS: Settings = Object.freeze({
   musicVolume: 0.7,
   sfxVolume: 0.8,
   reducedMotion: false,
+  abilityButtonSide: 'left',
 });
 
 export function createDefaultProgression(): ProgressionState {
@@ -253,7 +257,9 @@ export function applySettingsPatch(
   patch: Readonly<Partial<Settings>>,
 ): Settings {
   try {
-    const next = sanitizeSettings(isPlainRecord(patch) ? { ...settings, ...patch } : settings, settings);
+    // Read own data fields before normalization; spreading would evaluate
+    // accessors and turn their results into apparently valid patch values.
+    const next = sanitizeSettings(patch, settings);
     return settingsEqual(settings, next) ? settings : next;
   } catch {
     return settings;
@@ -987,11 +993,14 @@ function sanitizeSettings(raw: unknown, fallback: Settings): Settings {
   if (!isPlainRecord(raw)) return freezeSettings(fallback);
   const mutedRaw = readOwn(raw, 'muted');
   const reducedMotionRaw = readOwn(raw, 'reducedMotion');
+  const abilityButtonSideRaw = readOwn(raw, 'abilityButtonSide');
   return freezeSettings({
     muted: typeof mutedRaw === 'boolean' ? mutedRaw : fallback.muted,
     musicVolume: clampVolume(readOwn(raw, 'musicVolume'), fallback.musicVolume),
     sfxVolume: clampVolume(readOwn(raw, 'sfxVolume'), fallback.sfxVolume),
     reducedMotion: typeof reducedMotionRaw === 'boolean' ? reducedMotionRaw : fallback.reducedMotion,
+    abilityButtonSide: abilityButtonSideRaw === 'left' || abilityButtonSideRaw === 'right'
+      ? abilityButtonSideRaw : fallback.abilityButtonSide,
   });
 }
 
@@ -1107,7 +1116,8 @@ function sanitizePendingAchievementReports(value: unknown): readonly string[] {
 
 function settingsEqual(a: Settings, b: Settings): boolean {
   return a.muted === b.muted && a.musicVolume === b.musicVolume &&
-    a.sfxVolume === b.sfxVolume && a.reducedMotion === b.reducedMotion;
+    a.sfxVolume === b.sfxVolume && a.reducedMotion === b.reducedMotion &&
+    a.abilityButtonSide === b.abilityButtonSide;
 }
 
 function parseRawSave(raw: unknown): unknown {

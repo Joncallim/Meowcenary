@@ -42,9 +42,11 @@ try {
    const state = await page.evaluate(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot());
    assert.equal(state.run.training, false); assert.equal(state.run.status, 'active');
    assert(Number.isSafeInteger(state.run.seed)); assert.deepEqual(errors, []);
-   result.cohorts.push({ profile, repeat, durationMs: launch.preparedRun.atMs - start, preparedStatus: launch.preparedRun.status,
+   result.cohorts.push({ profile, repeat, durationMs: launch.preparedRun.atMs - start, preparedStatus: launch.preparedRun.status, compatibility: launch.compatibility,
+    dialogueCommands: launch.dialogueCommands ?? [],
     ...(launch.startCommandAtMs === undefined ? {} : {
      automatedStartToActiveMs: state.presentedRun.atMs - launch.startCommandAtMs,
+      startAdmissionMs: launch.startedAtMs - launch.startCommandAtMs,
      endToEndActiveDurationMs: state.presentedRun.atMs - start,
     }),
     observedDurationMs: await page.evaluate(start => performance.now() - start, start), errors, state });

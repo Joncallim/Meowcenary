@@ -14,6 +14,7 @@ import type { VisualArtCatalog } from '../types';
 type RowCheckFn = RowCheck;
 
 const VALID_OBJECTIVE_TYPES = new Set(['kill', 'collect', 'survive', 'defeat']);
+const OPENING_TEXT_FORBIDDEN = /[\u0000-\u001f\u007f-\u009f\u2028\u2029<>]/u;
 
 /** Row-level check for a single StageDefinition. */
 export const checkStage: RowCheckFn = (row: unknown, _index: number): string[] => {
@@ -92,6 +93,31 @@ export const checkStage: RowCheckFn = (row: unknown, _index: number): string[] =
   // optional bossId
   if (s.bossId !== undefined && (typeof s.bossId !== 'string' || !isContentId(s.bossId))) {
     errors.push('bossId: must be a valid content ID when present');
+  }
+
+  if (s.campaignRole !== undefined && s.campaignRole !== 'main' && s.campaignRole !== 'optional') {
+    errors.push('campaignRole: must be main or optional');
+  }
+  if (s.openingDialogue !== undefined) {
+    const opening = s.openingDialogue as Record<string, unknown>;
+    if (!opening || typeof opening !== 'object' || Array.isArray(opening)) {
+      errors.push('openingDialogue: must be an object');
+    } else {
+      if (Object.keys(opening).some(key => key !== 'speakerEnemyId' && key !== 'lines')) {
+        errors.push('openingDialogue: unknown field');
+      }
+      // Shape belongs here; identity joins follow the existing defeat/boss
+      // checks so opening data cannot mask their established diagnostics.
+      if (typeof opening.speakerEnemyId !== 'string' || !isContentId(opening.speakerEnemyId)) {
+        errors.push('openingDialogue.speakerEnemyId: must be a valid content ID');
+      }
+      if (!Array.isArray(opening.lines) || opening.lines.length < 1 || opening.lines.length > 2
+        || opening.lines.some(line => typeof line !== 'string' || !line.trim() || line !== line.trim()
+          || [...line].length > 100 || OPENING_TEXT_FORBIDDEN.test(line))
+        || opening.lines.reduce<number>((total, line) => total + (typeof line === 'string' ? [...line].length : 0), 0) > 160) {
+        errors.push('openingDialogue.lines: expected 1–2 plain lines, at most 100 characters each and 160 total');
+      }
+    }
   }
 
   // unlock condition
@@ -299,6 +325,27 @@ export function assertStageDefeatEnemyReferences(
   for (const stage of stages) {
     if (stage.objective.type === 'defeat' && !enemyIds.has(stage.objective.enemyId)) {
       throw new Error(`stage.${stage.id}: defeat objective enemyId "${stage.objective.enemyId}" not found in enemy catalog`);
+    }
+  }
+}
+
+/** Call only after defeat-target and boss/encounter identity validation. */
+export function assertStageOpeningReferences(
+  stages: readonly StageDefinition[],
+  enemies: readonly { readonly id: string; readonly archetype: string }[],
+  catalog: VisualArtCatalog,
+): void {
+  for (const stage of stages) {
+    const opening = stage.openingDialogue;
+    if (!opening) continue;
+    if (opening.speakerEnemyId !== stage.bossId || stage.objective.type !== 'defeat'
+      || stage.objective.enemyId !== opening.speakerEnemyId) {
+      throw new Error(`stage.${stage.id}: openingDialogue.speakerEnemyId: must match the defeat objective and boss`);
+    }
+    const enemy = enemies.find(row => row.id === opening.speakerEnemyId);
+    const binding = catalog.bindings.find(row => row.id === `enemy:${opening.speakerEnemyId}`);
+    if (enemy?.archetype !== 'boss' || binding?.kind !== 'enemy' || !binding.required) {
+      throw new Error(`stage.${stage.id}: opening requires a boss and required enemy art`);
     }
   }
 }

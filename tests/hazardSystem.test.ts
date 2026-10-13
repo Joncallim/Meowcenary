@@ -24,6 +24,26 @@ const hazard: HazardDefinition = {
 };
 
 describe('HazardSystem', () => {
+  it('keeps warning state readable without animation in reduced motion, including initial offset', () => {
+    const tile = { setDepth: vi.fn().mockReturnThis(), setAlpha: vi.fn().mockReturnThis(), setTint: vi.fn().mockReturnThis(), destroy: vi.fn() };
+    const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    runState.status = 'active';
+    const system = new HazardSystem({
+      scene: { add: { tileSprite: () => tile }, textures: { exists: () => true } } as never,
+      runState, bus: createEventBus(), player: makePlayer() as never,
+      hazards: [{ ...hazard, pulse: { safeMs: 2400, warningMs: 900, activeMs: 1700, offsetMs: 2500 } }],
+      hazardSkins: [{ hazardId: hazard.id, artId: 'heat' }],
+      visualArt: { bindingById: () => ({ kind: 'world', textureKey: 'heat' }) } as never,
+      reducedMotion: () => true,
+    });
+    expect(tile.setTint).toHaveBeenLastCalledWith(0xffd65c);
+    expect(tile.setAlpha).toHaveBeenLastCalledWith(0.75);
+    system.update(100); expect(tile.setAlpha).toHaveBeenLastCalledWith(0.75);
+    system.update(100); expect(tile.setAlpha).toHaveBeenLastCalledWith(0.75);
+    system.update(600); expect(tile.setAlpha).toHaveBeenLastCalledWith(1);
+    expect(tile.setTint).toHaveBeenLastCalledWith(0xff7156);
+    system.destroy();
+  });
   it('tiles the authoritative hazard skin across the exact gameplay rectangle', () => {
     const tileSprite = {
       setDepth: vi.fn().mockReturnThis(),
@@ -61,6 +81,21 @@ describe('HazardSystem', () => {
     expect(rectangle).not.toHaveBeenCalled();
     system.destroy();
     expect(tileSprite.destroy).toHaveBeenCalledOnce();
+  });
+
+  it('freezes a pulsing crossing window during pause and integrates warning boundaries', () => {
+    const player = makePlayer();
+    const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    runState.status = 'active';
+    const system = new HazardSystem({ scene: {} as never, runState, bus: createEventBus(), player: player as never,
+      hazards: [{ ...hazard, pulse: { safeMs: 2400, warningMs: 900, activeMs: 1700, offsetMs: 0 } }] });
+    system.update(3200);
+    expect(player.takeEnvironmentalDamage).not.toHaveBeenCalled();
+    runState.status = 'paused'; system.update(10000);
+    runState.status = 'active'; system.update(300);
+    expect(player.takeEnvironmentalDamage).toHaveBeenCalledWith(2);
+    system.destroy(); system.update(1000);
+    expect(player.takeEnvironmentalDamage).toHaveBeenCalledTimes(1);
   });
 
   it('deals damage when player is inside a hazard', () => {

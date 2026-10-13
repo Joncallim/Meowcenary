@@ -459,9 +459,9 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
     if (!selected) { this.selectedCatalogPartId = undefined; this.fabricationConfirmation = undefined; }
     if (selected) {
       const size = this.wide ? 400 : Math.min(264, this.laneWidth - 32);
-      y += this.copy(root, this.layout.margin, y, `${selected.name.toUpperCase()}\n${selected.stateLabel} • ${selected.slot} • ${selected.effectScope}`, this.laneWidth, '#24cec7', 20).height + 12;
       this.environment.controls.addLoadoutArt(root, this.layout.centerX, y + size / 2, selected.iconArtId, size, size);
       y += size + 12;
+      y += this.copy(root, this.layout.margin, y, `${selected.name.toUpperCase()}\n${selected.stateLabel} • ${selected.slot} • ${selected.effectScope}`, this.laneWidth, '#24cec7', 20).height + 12;
       y += this.copy(root, this.layout.margin, y, [...selected.effectLines, selected.comparisonSummary, selected.sourceLabel, selected.lockReason, selected.affordable === false ? 'Insufficient Scrap for fabrication.' : undefined].filter(Boolean).join('\n'), this.laneWidth, '#f7f1d5').height + 12;
       for (const trait of selected.traitIcons) {
         this.environment.controls.addCatalogIcon(root, this.layout.margin + 18, y + 16, trait.iconArtId, 32);
