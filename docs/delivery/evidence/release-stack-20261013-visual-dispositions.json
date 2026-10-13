@@ -1,0 +1,71 @@
+[
+  {
+    "snapshot": "browser-tests/visual-fidelity.pw.ts-snapshots/forge-gameplay-desktop-1280x720-linux.png",
+    "changedPixels": 15120,
+    "outsideAbilityCardsAndObservedClock": 0,
+    "clockPixels": 0,
+    "expectedSha256": "d22c9ae7282e8377af025d9f7343bac39802ead593c1da7dd49b96067dd53aa9",
+    "candidateSha256": "1895cbd098e6969d23d871f786a4be4729c2f4d9c8ea0249d2a7da3bb420962d",
+    "disposition": "Inspected actual/expected; intended default Right\u2192Left placement from shipped control-layout contract; exact Arena/actor pixels outside cards unchanged. Phone52 pixels show admitted run clock0:01 vs0:00; original scalar clock mechanics/threshold unchanged. Engineering candidate baseline only; no art/device/product approval."
+  },
+  {
+    "snapshot": "browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-desktop-1280x720-linux.png",
+    "changedPixels": 15120,
+    "outsideAbilityCardsAndObservedClock": 0,
+    "clockPixels": 0,
+    "expectedSha256": "f6e321d1419e3e1bc352382e8b27bf57c389ca2a869c7c2107c40a2f84d60af9",
+    "candidateSha256": "2214b8832c1f33da2e873c82fcfaf3f416ec661b6d8cf89c8e944ecaf53631a6",
+    "disposition": "Inspected actual/expected; intended default Right\u2192Left placement from shipped control-layout contract; exact Arena/actor pixels outside cards unchanged. Phone52 pixels show admitted run clock0:01 vs0:00; original scalar clock mechanics/threshold unchanged. Engineering candidate baseline only; no art/device/product approval."
+  },
+  {
+    "snapshot": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-desktop-1280x720-linux.png",
+    "changedPixels": 15120,
+    "outsideAbilityCardsAndObservedClock": 0,
+    "clockPixels": 0,
+    "expectedSha256": "7338bce3859135e8039cca548ae220be8ff9fddce6fdec884e9512d29e1f5aa8",
+    "candidateSha256": "a722a07c96b10832ab2214d8419b147f7654b0e6426e84a5ccb88175b0bd9692",
+    "disposition": "Inspected actual/expected; intended default Right\u2192Left placement from shipped control-layout contract; exact Arena/actor pixels outside cards unchanged. Phone52 pixels show admitted run clock0:01 vs0:00; original scalar clock mechanics/threshold unchanged. Engineering candidate baseline only; no art/device/product approval."
+  },
+  {
+    "snapshot": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-foldable-1114x720-linux.png",
+    "changedPixels": 15120,
+    "outsideAbilityCardsAndObservedClock": 0,
+    "clockPixels": 0,
+    "expectedSha256": "aee0d3cc4eccde247372aa6de92595b3f23a58e61a33094db9a0276e0203cda0",
+    "candidateSha256": "6ead58f4e94a6e10449fe18fba5c3959cd7bab090b281a4bdc13e43b3a9b022e",
+    "disposition": "Inspected actual/expected; intended default Right\u2192Left placement from shipped control-layout contract; exact Arena/actor pixels outside cards unchanged. Phone52 pixels show admitted run clock0:01 vs0:00; original scalar clock mechanics/threshold unchanged. Engineering candidate baseline only; no art/device/product approval."
+  },
+  {
+    "snapshot": "browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-phone-390x844-linux.png",
+    "changedPixels": 15172,
+    "outsideAbilityCardsAndObservedClock": 0,
+    "clockPixels": 52,
+    "expectedSha256": "42ed6cdba67dca6d78bfc950441a782ba1d166f1626a531f22b33dd261e11966",
+    "candidateSha256": "7ffab117e58f215ba1815b54e8efe2b4c7e2c963ac3ecf256f54ab909ad6980b",
+    "disposition": "Inspected actual/expected; intended default Right\u2192Left placement from shipped control-layout contract; exact Arena/actor pixels outside cards unchanged. Phone52 pixels show admitted run clock0:01 vs0:00; original scalar clock mechanics/threshold unchanged. Engineering candidate baseline only; no art/device/product approval."
+  },
+  {
+    "profile": "phone-390x844",
+    "changedPixels": 15120,
+    "outsideAbilityCardPixels": 0,
+    "oldSHA256": "592c7fdca5fec0ccf536cee9afb2aeff0bf30ab81c314d14014eb0c31a1147a5",
+    "actualSHA256": "c148dc5bf7937bf08654a1d7c0f72e23e918713ea517780978117d49ed190a05",
+    "disposition": "Inspected actual and difference; only intended default ability card right-to-left relocation. Exact area effect, actor and world unchanged. Candidate regression baseline, not owner visual acceptance."
+  },
+  {
+    "profile": "foldable-1114x720",
+    "changedPixels": 15120,
+    "outsideAbilityCardPixels": 0,
+    "oldSHA256": "23bd03eabdae8d40832463500ea22889f4f235a6d50ea5a20d18a69239e31ffd",
+    "actualSHA256": "5ec8e37113978d6470cec8c27652be49dff51421493cf07cc2f6ba66e4bd762a",
+    "disposition": "Inspected actual and difference; only intended default ability card right-to-left relocation. Exact area effect, actor and world unchanged. Candidate regression baseline, not owner visual acceptance."
+  },
+  {
+    "profile": "desktop-1280x720",
+    "changedPixels": 15120,
+    "outsideAbilityCardPixels": 0,
+    "oldSHA256": "20b576efa3d40c9f4f9ecfe221bd69e975de5b90bc68b1234d76c0ef14a312d1",
+    "actualSHA256": "1b5200ef6f567015393db07625fef98b4240dcf11481d893f2aa13bb802d7520",
+    "disposition": "Inspected actual and difference; only intended default ability card right-to-left relocation. Exact area effect, actor and world unchanged. Candidate regression baseline, not owner visual acceptance."
+  }
+]
