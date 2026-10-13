@@ -1,8 +1,10 @@
 import { defineConfig } from '@playwright/test';
+import { browserSoftwareRenderer } from './scripts/browserSoftwareRenderer';
 
 export default defineConfig({
   testDir: './browser-tests',
   testMatch: '**/*.pw.ts',
+  globalSetup: './browser-tests/rendererSetup.ts',
   fullyParallel: false,
   // Phaser owns a single CPU-heavy render loop per page. Serial CI projects
   // keep visual evidence deterministic instead of letting concurrent viewport
@@ -14,6 +16,7 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:4173',
     colorScheme: 'dark',
     screenshot: 'only-on-failure',
+    launchOptions: browserSoftwareRenderer(process.platform, process.env.MEOWCENARY_BROWSER_RENDERER, process.env),
   },
   webServer: {
     command: 'npx vite preview --host 127.0.0.1 --port 4173',

@@ -8,7 +8,7 @@ on:
 jobs:
   test:
     name: Node
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -27,7 +27,7 @@ jobs:
           sudo apt-get update
           # Match the Linux visual baselines' system-font fallback for symbols
           # outside bundled Nunito (notably the selected Contract checkmark).
-          sudo apt-get install -y lua5.4 fonts-noto-core
+          sudo apt-get install -y lua5.4 fonts-noto-core libegl-mesa0 libgl1-mesa-dri
           python3 -m pip install --requirement docs/art/scripts/requirements.txt
 
       - name: Validate visual art
@@ -60,6 +60,8 @@ jobs:
 
       - name: Browser viewport and touch acceptance
         id: browser
+        env:
+          MEOWCENARY_BROWSER_RENDERER: mesa
         run: npm run test:browser
 
       - name: Upload failed browser results
