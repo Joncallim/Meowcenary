@@ -20,7 +20,7 @@ extensibility contracts named in `docs/ai-workflow.md`.
 
 ## Finish-Line Roadmap Discipline
 
-The **Active Alpha 3 finish line** at the top of \`docs/roadmap.md\` owns the
+The **Active Alpha 3 finish line** at the top of `docs/roadmap.md` owns the
 current R0–R5 priority order and distinguishes foundations, integration,
 deployment, player acceptance and issue closure. Historical epic sections
 are not current-state reports. Read this section before starting or handing
@@ -31,7 +31,7 @@ off any Meowcenary PR.
   treating a green/merged foundation as a finished feature.
 - For every handoff report candidate/main/deployed SHA separately, player-visible
   delta, exact-head checks, remaining owner/device/art/listening gates, and
-  the next action **within the same roadmap outcome**.
+  the next action **within the same roadmap outcome unless its exit gate is accepted**.
 - Do not promote nonshipping art/audio candidates, auto-close umbrella issues,
   or declare user acceptance from CI. New priority/order decisions require
   explicit maintainer direction.
