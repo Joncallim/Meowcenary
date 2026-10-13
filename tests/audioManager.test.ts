@@ -50,6 +50,7 @@ const SETTINGS: Settings = {
   musicVolume: 0.7,
   sfxVolume: 0.8,
   reducedMotion: false,
+  abilityButtonSide: 'left', // #241 §3.1: required Settings default.
 };
 
 const WEAPON_FIRED = { weaponId: 'w1', family: 'pistol', tier: 1, x: 0, y: 0 } as const;
