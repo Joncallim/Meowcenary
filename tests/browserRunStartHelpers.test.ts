@@ -18,7 +18,7 @@ vi.mock('@playwright/test', async () => {
 const NO_CONTACT = 'cdpSession.send: Protocol error (Input.dispatchTouchEvent): Must send a TouchStart first to start a new touch.';
 const WRAPPED_NO_CONTACT = NO_CONTACT.replace('cdpSession.send:', 'cdpSession.apply:');
 const NO_CONTACT_VARIANTS = [NO_CONTACT, WRAPPED_NO_CONTACT];
-type Options = { frameResult?: boolean; frameFailure?: Error; rejectAdjacentSnapshotReads?: boolean; noContactMessage?: string; dialogue?: boolean; heldPad?: boolean; cancelFailure?: unknown; createFailure?: unknown; detachFailure?: unknown;
+type Options = { pendingPresentedRun?: boolean; joinedFrameDiagnostics?: boolean; frameResult?: boolean; frameFailure?: Error; rejectAdjacentSnapshotReads?: boolean; noContactMessage?: string; dialogue?: boolean; heldPad?: boolean; cancelFailure?: unknown; createFailure?: unknown; detachFailure?: unknown;
   interrupt?: 'touchStart' | 'touchEnd' | 'frame'; operationFailure?: unknown; ownedCancelFailure?: unknown };
 
 function harness(options: Options = {}) {
@@ -40,9 +40,10 @@ function harness(options: Options = {}) {
     else { phase = 'consumed'; status = 'active'; runStart = { count: 1, timeMs: 0, atMs: performance.now() }; }
   };
   const hit = (x: number, y: number) => commands().find(row => x >= row.bounds.x && x <= row.bounds.x + row.bounds.width && y >= 20 && y <= 64)?.command;
-  let snapshotReadInFrame = false;
+  let snapshotReadInFrame = false, frameAwaitedInEvaluation = false, snapshotReadInEvaluation = false;
   const frame = () => {
     snapshotReadInFrame = false;
+    frameAwaitedInEvaluation = true;
     events.push({ event: 'frame' });
     if (options.frameFailure) throw options.frameFailure;
     if (options.frameResult === false) return false;
@@ -53,14 +54,23 @@ function harness(options: Options = {}) {
   const globals = {
     __MEOWCENARY_VISUAL_TEST__: { runStartIntroDiagnostics: () => {
       if (options.rejectAdjacentSnapshotReads && snapshotReadInFrame) throw new Error('duplicate unchanged-owner-frame snapshot transport');
-      snapshotReadInFrame = true; return read();
+      snapshotReadInFrame = true; snapshotReadInEvaluation = true; return read();
     }, waitForInputFrame: frame, isSceneActive: () => status === 'menu' },
-    __MEOWCENARY_PERFORMANCE__: { snapshot: () => ({ presentedRun: { status, atMs: 100, seed: 12 } }) },
+    __MEOWCENARY_PERFORMANCE__: { snapshot: () => {
+      const presentedStatus = options.pendingPresentedRun && status === 'active' && frameAwaitedInEvaluation ? 'intro' : status;
+      return { presentedRun: { status: presentedStatus, atMs: 100, seed: 12 } };
+    } },
   };
   const evaluate = async (callback: (arg?: unknown) => unknown, arg?: unknown) => {
     const target = globalThis as unknown as Record<string, unknown>;
     const old = Object.fromEntries(Object.keys(globals).map(key => [key, target[key]])); Object.assign(target, globals);
-    try { return await callback(arg); } finally {
+    frameAwaitedInEvaluation = false; snapshotReadInEvaluation = false;
+    try {
+      const result = await callback(arg);
+      if (options.joinedFrameDiagnostics && frameAwaitedInEvaluation && options.frameResult !== false && !snapshotReadInEvaluation)
+        throw new Error('owner frame completed without its same-transport diagnostic');
+      return result;
+    } finally {
       for (const key of Object.keys(globals)) { if (old[key] === undefined) delete target[key]; else target[key] = old[key]; }
     }
   };
@@ -106,6 +116,43 @@ function harness(options: Options = {}) {
   };
   return { page: page as unknown as Page, events, read, frame, newSession, contacts, options };
 }
+
+describe('performance completion observation transport', () => {
+  for (const input of ['keyboard', 'mouse', 'touch'] as const) for (const dialogue of [false, true])
+    it(`keeps the active predicate poll when the completed frame has pending presentation: ${input}, dialogue=${dialogue}`, async () => {
+      const h = harness({ dialogue, pendingPresentedRun: true });
+      const wait = vi.spyOn(h.page, 'waitForFunction');
+      const result = await waitForPerformanceRunStart(h.page, input);
+      expect(wait).toHaveBeenCalledTimes(2); // preparation plus the still-required active predicate
+      expect(result.compatibility).toBe('explicit-intro');
+      expect(h.events.filter(event => event.event === 'command').map(event => event.command))
+        .toEqual(dialogue ? ['continue', 'start'] : ['start']);
+      expect(h.contacts.size).toBe(0);
+    });
+  for (const input of ['keyboard', 'mouse', 'touch'] as const) for (const dialogue of [false, true])
+    it(`uses the post-step presented-run status without a duplicate poll: ${input}, dialogue=${dialogue}`, async () => {
+      const h = harness({ dialogue });
+      const wait = vi.spyOn(h.page, 'waitForFunction');
+      const result = await waitForPerformanceRunStart(h.page, input);
+      expect(wait).toHaveBeenCalledTimes(1); // initial preparation, not a second already-proven active check
+      expect(result.compatibility).toBe('explicit-intro');
+      expect(h.events.filter(event => event.event === 'command').map(event => event.command))
+        .toEqual(dialogue ? ['continue', 'start'] : ['start']);
+      expect(h.contacts.size).toBe(0);
+    });
+});
+
+describe('browser owner-frame observation transport', () => {
+  for (const input of ['keyboard', 'mouse', 'touch'] as const) for (const dialogue of [false, true])
+    it(`captures ${input} owner admission and completion in the frame transport, dialogue=${dialogue}`, async () => {
+      const h = harness({ dialogue, joinedFrameDiagnostics: true, rejectAdjacentSnapshotReads: true });
+      await completeRunStartIntro(h.page, input);
+      expect(h.events.filter(event => event.event === 'command').map(event => event.command))
+        .toEqual(dialogue ? ['continue', 'start'] : ['start']);
+      expect(h.read().runStart.count).toBe(1);
+      expect(h.contacts.size).toBe(0);
+    });
+});
 
 for (const helper of ['browser', 'performance'] as const) describe(`${helper} exported helper touch ownership`, () => {
   const complete = (page: Page, input: 'keyboard' | 'mouse' | 'touch' = 'keyboard') => helper === 'browser' ? completeRunStartIntro(page, input) : waitForPerformanceRunStart(page, input);
@@ -238,3 +285,14 @@ it('the actual browser command helper cancels a successful owned Return gesture 
   expect(h.events.filter(e => e.event === 'command').map(e => e.command)).toEqual(['return-menu']);
   expect(h.events.filter(e => e.session === 1).map(e => e.event)).toEqual(['touchStart', 'touchEnd', 'touchCancel', 'detach']);
 });
+
+for (const input of ['keyboard', 'mouse', 'touch'] as const) for (const dialogue of [false, true])
+  it(`returns the immutable consumed intro with performance timing: ${input}, dialogue=${dialogue}`, async () => {
+    const h = harness({ dialogue, rejectAdjacentSnapshotReads: true });
+    const result = await waitForPerformanceRunStart(h.page, input);
+    expect(result.startedIntro).toMatchObject({ visible: false, phase: 'consumed',
+      runStart: { count: 1, timeMs: 0 }, terminalEvents: 0 });
+    expect(result.startedIntro.runStart.atMs).toBe(result.startedAtMs);
+    expect(result.startedIntro.identity).toEqual({ seed: 12 });
+    expect(result.startedIntro.objective).toEqual({ kind: 'stage' });
+  });

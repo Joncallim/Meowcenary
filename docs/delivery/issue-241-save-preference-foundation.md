@@ -62,3 +62,64 @@ and chooser layout. This differs from the original ten-file 398-test selection
 above; neither substitutes for the complete exact-head gates. Independent
 persistence reconciliation and new full local/hosted validation are required
 at the amended final head. Protected main/public and #242 remain unchanged.
+
+## Hosted observer reconciliation after the verified-parent rebase
+
+[Run38338936804](https://github.com/Joncallim/Meowcenary/actions/runs/38338936804)
+at `fc9fca39bab2f17878dee4d0a26cdae601aaf356` completed RED:736 passed,
+64 existing scoped skips and16 failures, all desktop1920. Local checks at
+that head passed3,530 ordinary tests/219 files, nine allocation gates, nine
+runner probes and the remaining seven closeout gates. That does not certify
+the failed browser matrix.
+
+Five Ability admission cases and two World UI cases overlap the independently
+reviewed owner-frame observation correction used by the related held
+candidates. The six source/test deltas are adapted against this newer parent,
+with two further owner-test deltas. The newer held-controller and Back
+controller tests and complete pad-neutral telemetry callback are preserved
+byte-for-byte. No older shared file was reinstated. No production, save,
+art, golden, timeout, retry, threshold or scoped-skip change is included.
+
+Actual helper contracts, using the complete existing137-test assertion
+fixture with only its two import targets changed, reproduced18 failures
+against unchangedfc9 helpers (119 passed). The adapted helpers pass137/137.
+The failures cover duplicated unchanged-frame transport and absent immutable
+performance completion receipts, not a demonstrated gameplay admission or
+latency defect. The repository four-file selection passes185 tests:
+26 Ability-frame transport,137 browser launch helper,15 performance launch
+and seven World UI observer cases. A first authoring attempt imported two
+new tests for the unrelated Menu-gesture fixture, absent from this branch;
+its185 passes/two failures are retained as rejected evidence. Removing only
+that newly introduced unrelated scope preserves every original test.
+
+The shared observer returns diagnostics, save and contact facts after the
+same sequential real owner frames; false frames reject before state reads.
+The held-owner rendezvous parks only the test helper after its genuine
+non-neutral sample. The unchanged false sample is returned after release;
+only a later fresh neutral sample may admit the actual command. Rejection or
+premature success cannot hide behind the rendezvous, and cleanup releases it
+before awaiting settlement. Accepted Continue state and timestamp travel
+together; the performance runner returns its actual consumed intro receipt.
+All physical events, trust/contact checks, quarantine, frozen-run, save,
+exactly-once admission and camera/readability criteria remain.
+
+Independent read-only review qualifies the exact eight hashes and confirms
+stronger-parent controller/telemetry parity. Raw RED/GREEN, corrected scope
+evidence and reviews are external under `pr251-observer-contract/` and
+`pr251-sixfile-observer-port-readonly-review.*` in the issue-burn evidence
+directory. Full validation at the amended head remains required.
+
+The other nine hosted failures are **not fixed by this observer transfer**:
+one Arena screenshot deadline and eight integration-rehearsal deadlines.
+Bounded artifact review extracted only31 JSON/error-context files,2,295,642
+bytes, from artifact11791881064. Both failed-resource touch retries show
+trusted contact/release and subsequently prepared, neutral intro snapshots.
+The six warm-return rows have prepared snapshots but no completed terminal
+return evidence. Arena recorded-seed facts remain valid; screenshot capture
+reached the outer30-second deadline after fonts loaded. These facts establish
+neither a new runtime invariant violation nor final acceptance. Their
+original source and criteria remain unchanged, and need bounded reproduction
+and owner evidence before another full hosted run.
+
+Protected main/public and the original #242 remain unchanged. No merge,
+deployment or issue closure follows from this correction.

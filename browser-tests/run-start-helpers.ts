@@ -43,8 +43,14 @@ type BrowserGlobals = { __MEOWCENARY_VISUAL_TEST__?: Seam };
 export async function readRunStartIntro(page: Page): Promise<IntroDiagnostics | undefined> {
   return page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__?.runStartIntroDiagnostics());
 }
-async function inputFrame(page: Page): Promise<void> {
-  expect(await page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__?.waitForInputFrame() ?? false)).toBe(true);
+async function inputFrame(page: Page): Promise<{ state?: IntroDiagnostics; menuActive: boolean }> {
+  const sample = await page.evaluate(async () => {
+    const seam = (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__;
+    const completed = await seam?.waitForInputFrame() ?? false;
+    return { completed, state: completed === true ? seam?.runStartIntroDiagnostics() : undefined,
+      menuActive: completed === true && seam?.isSceneActive('MenuScene') === true };
+  });
+  expect(sample.completed).toBe(true); return sample;
 }
 async function releasePreviousGestures(page: Page): Promise<void> {
   await releaseRunStartKeys(page);
@@ -66,10 +72,12 @@ export function introCommand(state: IntroDiagnostics, command: IntroCommand, vie
 /** Commands use the actual input owner and current semantic target, never a
  * private Start call, a fixed index or a diagnostic quarantine reset. */
 export async function activateIntroCommand(page: Page, command: IntroCommand, input: 'keyboard' | 'mouse' | 'touch' = 'keyboard'): Promise<IntroDiagnostics> {
-  await releasePreviousGestures(page); await inputFrame(page);
+  await releasePreviousGestures(page);
+  const admission = await inputFrame(page);
   let before: IntroDiagnostics | undefined;
+  let admissionSample = admission.state;
   await expect.poll(async () => {
-    const state = await readRunStartIntro(page);
+    const state = admissionSample ?? await readRunStartIntro(page); admissionSample = undefined;
     const admitted = Boolean(state?.visible && state.ready && state.inputNeutral && !state.inputQuarantined);
     if (admitted) before = state;
     return admitted;
@@ -83,7 +91,7 @@ export async function activateIntroCommand(page: Page, command: IntroCommand, in
     // Left/right selects footer commands even while Up/Down owns body reading.
     for (let step = 0; accepted.focusedCommand !== command && step < accepted.commands.length; step++) {
       await page.keyboard.down('ArrowRight'); try { await inputFrame(page); } finally { await page.keyboard.up('ArrowRight'); }
-      await inputFrame(page); accepted = (await readRunStartIntro(page))!;
+      accepted = (await inputFrame(page)).state!;
     }
     expect(accepted.focusedCommand).toBe(command);
   }
@@ -99,28 +107,31 @@ export async function activateIntroCommand(page: Page, command: IntroCommand, in
       await inputFrame(page); await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     });
   }
-  await inputFrame(page);
+  const completion = await inputFrame(page);
   if (command === 'continue') {
     let observed: IntroDiagnostics | undefined;
-    await expect.poll(async () => { observed = await readRunStartIntro(page); return observed?.phase; }).toBe('boss');
+    let first = completion.state;
+    await expect.poll(async () => { observed = first ?? await readRunStartIntro(page); first = undefined; return observed?.phase; }).toBe('boss');
     const after = observed!;
     expect(after).toMatchObject({ visible: true, status: 'intro', timeMs: 0, revision: revision + 1, runStart: { count: 0 }, terminalEvents: 0 });
     expect(after.identity).toEqual(identity); expect(after.objective).toEqual(objective); return after;
   }
   if (command === 'return-menu') {
     let observed: IntroDiagnostics | undefined;
+    let first: { menuActive: boolean; state?: IntroDiagnostics } | undefined = completion;
     await expect.poll(async () => {
-      const sample = await page.evaluate(() => {
+      const sample = first ?? await page.evaluate(() => {
         const seam = (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__!;
         return { menuActive: seam.isSceneActive('MenuScene'), state: seam.runStartIntroDiagnostics() };
       });
-      observed = sample.state; return sample.menuActive;
+      first = undefined; observed = sample.state; return sample.menuActive;
     }).toBe(true);
     const after = observed!;
     expect(after).toMatchObject({ visible: false, phase: 'cancelled', runStart: { count: 0 }, terminalEvents: 0 }); return after;
   }
   let observed: IntroDiagnostics | undefined;
-  await expect.poll(async () => { observed = await readRunStartIntro(page); return observed?.runStart.count; }).toBe(1);
+  let first = completion.state;
+  await expect.poll(async () => { observed = first ?? await readRunStartIntro(page); first = undefined; return observed?.runStart.count; }).toBe(1);
   const after = observed!;
   expect(after.visible).toBe(false); expect(after.phase).toBe('consumed'); expect(after.status).not.toBe('intro');
   // Polling may already see simulation time; the event observation is exact.
