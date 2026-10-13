@@ -59,27 +59,40 @@ export async function waitForPerformanceRunStart(page, input = 'keyboard') {
   const preparedRun = await page.evaluate(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun);
   if (preparedRun.status === 'active') return { preparedRun, compatibility: 'already-active' };
   const read = () => page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__.runStartIntroDiagnostics());
-  const frame = async () => assert.equal(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__.waitForInputFrame()), true);
+  let presentedRunAtFrame, observedAtFrame;
+  const frame = async () => {
+    const sample = await page.evaluate(async () => {
+      const seam = globalThis.__MEOWCENARY_VISUAL_TEST__;
+      const completed = await seam.waitForInputFrame();
+      return { completed, state: completed === true ? seam.runStartIntroDiagnostics() : undefined,
+        presentedRun: completed === true ? globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun : undefined,
+        observedAtMs: performance.now() };
+    });
+    assert.equal(sample.completed, true); presentedRunAtFrame = sample.presentedRun; observedAtFrame = sample.observedAtMs; return sample.state;
+  };
   const release = async () => {
     await releaseRunStartKeys(page);
     await page.mouse.move(-1, -1); await page.mouse.up();
     await withOwnedTouchSession(page);
-    await frame();
+    const observed = await frame();
+    if (observed?.visible && observed.ready && observed.inputNeutral && !observed.inputQuarantined) return observed;
+    // Pending admission still polls the original predicate. The normal path
+    // already has the authoritative post-step sample and needs no extra IPC.
     await page.waitForFunction(() => {
       const state = globalThis.__MEOWCENARY_VISUAL_TEST__.runStartIntroDiagnostics();
       return state?.visible && state.ready && state.inputNeutral && !state.inputQuarantined;
     });
+    return read();
   };
   const command = async (name) => {
-    await release();
-    let before = await read();
+    let before = await release();
     assert(before?.visible && before.status === 'intro' && before.timeMs === 0, 'rendered intro must remain frozen');
     assert.equal(before.runStart.count, 0); assert.equal(before.terminalEvents, 0);
     assert.equal(typeof before.revision, 'number');
     if (input === 'keyboard') {
       for (let step = 0; before.focusedCommand !== name && step < before.commands.length; step++) {
         await page.keyboard.down('ArrowRight'); try { await frame(); } finally { await page.keyboard.up('ArrowRight'); }
-        await frame(); before = await read();
+        before = await frame();
       }
       assert.equal(before.focusedCommand, name, 'logical focus must reach the semantic command');
     }
@@ -100,26 +113,36 @@ export async function waitForPerformanceRunStart(page, input = 'keyboard') {
         await frame(); await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       });
     }
-    await frame();
+    const observed = await frame();
     if (name === 'continue') {
-      await page.waitForFunction(() => globalThis.__MEOWCENARY_VISUAL_TEST__.runStartIntroDiagnostics()?.phase === 'boss');
-      const after = await read();
+      let after = observed;
+      if (after?.phase !== 'boss') {
+        await page.waitForFunction(() => globalThis.__MEOWCENARY_VISUAL_TEST__.runStartIntroDiagnostics()?.phase === 'boss');
+        const completion = await page.evaluate(() => ({
+          state: globalThis.__MEOWCENARY_VISUAL_TEST__.runStartIntroDiagnostics(), atMs: performance.now(),
+        }));
+        after = completion.state; observedAtFrame = completion.atMs;
+      }
       assert.equal(after.visible, true); assert.equal(after.status, 'intro'); assert.equal(after.timeMs, 0);
       assert.equal(after.revision, before.revision + 1); assert.equal(after.runStart.count, 0); assert.equal(after.terminalEvents, 0);
       assert.deepEqual(after.identity, before.identity); assert.deepEqual(after.objective, before.objective);
-      return { command: name, commandAtMs, completedAtMs: await page.evaluate(() => performance.now()) };
+      return { command: name, commandAtMs, completedAtMs: observedAtFrame };
     }
-    await page.waitForFunction(() => globalThis.__MEOWCENARY_VISUAL_TEST__.runStartIntroDiagnostics()?.runStart.count === 1);
-    const after = await read();
+    let after = observed;
+    if (after?.runStart.count !== 1) {
+      await page.waitForFunction(() => globalThis.__MEOWCENARY_VISUAL_TEST__.runStartIntroDiagnostics()?.runStart.count === 1);
+      after = await read();
+    }
     assert.equal(after.visible, false); assert.equal(after.phase, 'consumed'); assert.notEqual(after.status, 'intro');
     assert.equal(after.runStart.timeMs, 0); assert.equal(typeof after.runStart.atMs, 'number');
-    return { commandAtMs, startedAtMs: after.runStart.atMs };
+    return { commandAtMs, startedAtMs: after.runStart.atMs, startedIntro: after };
   };
   const initial = await read();
   assert(initial?.visible && initial.status === 'intro', 'new builds require an explicit intro');
   const dialogueCommands = [];
   if (initial.commands.some(row => row.command === 'continue')) dialogueCommands.push(await command('continue'));
   const start = await command('start');
-  await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun?.status === 'active');
-  return { preparedRun, compatibility: 'explicit-intro', dialogueCommands, startCommandAtMs: start.commandAtMs, startedAtMs: start.startedAtMs };
+  if (presentedRunAtFrame?.status !== 'active')
+    await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun?.status === 'active');
+  return { preparedRun, compatibility: 'explicit-intro', dialogueCommands, startCommandAtMs: start.commandAtMs, startedAtMs: start.startedAtMs, startedIntro: start.startedIntro };
 }
