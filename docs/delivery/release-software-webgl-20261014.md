@@ -119,6 +119,27 @@ existing real owner-frame receipts, allowing the legitimate Menu-to-Game
 transition. Its original run/readiness/decision assertions remain mandatory.
 No production input code changes; no deadline, retry, threshold, golden or scoped-skip change.
 
+The complete dual-renderer author run at `7d769302ecf83b0f4a7154f9cc34be27a2e7f2ca`
+([38456258964](https://github.com/Joncallim/Meowcenary/actions/runs/38456258964))
+passed all prior gates and image comparisons, but remained RED: 763 browser
+passes / 64 existing skips / one desktop-1280 Gunsmith warm-return failure.
+After failed-save cancellation and Back, the physical click left Loadout open.
+An observation-only single-core reproduction retained that same state assertion:
+Menu was active and neutral before the click, but Phaser delivered only scene
+down/up, never button down. The scene scroll gesture was cleaned up normally;
+pre-existing quarantine and cancellation of an admitted button are not supported
+causes. Heavier hit-list/geometry observations passed, so they do not prove a
+specific hit-test or pending-registration mechanism in the failed execution.
+
+Phaser defers newly interactive objects until input pre-update; a published
+`interactive` flag and panel name alone do not certify that completed boundary.
+The Loadout layout journey now requires the existing active-Menu, neutral owner
+frame receipt before reading bounds and issuing each physical gesture. It does
+not force registration, inject a command, retry a failed click, or change the
+original cancellation/save/re-entry assertions. Focused constrained repeats and
+both complete local and hosted gates remain required. Temporary observation
+hooks are excluded from the committed source and release artifact.
+
 ## Release contract
 
 The local probe is not a waiver of either failed hosted run. Require focused
