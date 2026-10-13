@@ -84,3 +84,43 @@ renderer/token lifecycle; execute matched performance and actual-gameplay
 one-second/expiry tests on both biomes; record device and owner acceptance.
 No partial production art cutover, merge, deployment or issue closure is approved.
 The original #242 and #231 reference heads remain untouched.
+
+
+## Bounded observer recovery after hosted RED
+
+The source checkpoint `dcfe515af88d8473cd4f43e5a966d88e5fad82c0`
+passed all eight local non-browser gates, but hosted run `38328864354`
+finished **578 passed /64 existing scoped skips /18 failed**. All failures
+were desktop 1920×1080: seventeen original test-budget deadlines and one
+separate-owner held-pad observation/neutral-admission fixture. These are not
+waived by the earlier unchanged six-case local reproduction, which passed.
+
+The observer recovery ports context hunks from the independently reviewed
+compact candidate `54a761427de5a9a580ee516e7eb11c6d8d2de0dc` into
+nine test/observation files. It joins genuine completed-frame samples and
+consumes immutable accepted receipts, preserves fallback admission polls,
+and exposes early helper failure while the held-owner test rendezvous is
+pending. Physical input, cancellation, detach, actual release and neutral
+admission checks remain. Actor framing returns its accepted camera sample;
+world contrast retains every position, four readbacks and both PNG encodes.
+No runtime code, art pixel, golden, timeout, retry, skip or threshold changes.
+
+The same unchanged 137-case owner fixture fails **36 cases** against the
+inherited source-checkpoint helpers and passes all 137 against the corrected
+owners. This is observer-contract RED/GREEN, not a reproduced gameplay defect
+or a measured wall-time improvement. The committed four-file focused selection
+passes **185 tests**; an independent read-only repeat also passes 185 and verifies
+all 964 tracked product/art files byte-match the source checkpoint. An earlier
+incorrect Node test-runner invocation of the Vitest `.mjs` fixture is rejected
+as tooling-plane evidence, not reported as product RED.
+
+The recovery is a portable observer-only commit, followed by this evidence
+amendment. The original nineteen-case desktop
+selection passes **19 /0 skipped /0 failed /0 flaky**, with the original
+thirty-second and neutral-admission budgets, one worker and zero retries.
+The reviewed nine-file hashes remain unchanged through that run. This single
+local capture is not a demonstrated hosted-latency improvement; new exact-head
+full local and hosted gates must be recorded after completion. The source candidate's previous
+72-file inventory describes the original source-only checkpoint, not the
+expanded observer follow-up. Neither local focused success nor hosted success
+supplies #241 art, gameplay-comprehension or physical-device approval.
