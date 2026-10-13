@@ -1,0 +1,797 @@
+{
+  "schemaVersion": 1,
+  "key": "music-run",
+  "title": "Bolts on the move",
+  "productionAccepted": false,
+  "provenance": {
+    "method": "Original six-bar run score and deterministic additive/noise synthesis authored for Meowcenary; no samples, models, song quotation or downloads.",
+    "author": "Meowcenary issue 237 original audio workstream",
+    "created": "2026-10-13",
+    "thirdPartySources": []
+  },
+  "rendererVersion": 1,
+  "sampleRate": 24000,
+  "channels": 1,
+  "bitsPerSample": 16,
+  "bpm": 120,
+  "beatsPerBar": 4,
+  "bars": 6,
+  "seed": 2371301,
+  "patches": {
+    "pluck": {
+      "partials": [
+        {
+          "ratio": 1,
+          "gain": 1
+        },
+        {
+          "ratio": 2,
+          "gain": 0.26
+        },
+        {
+          "ratio": 3,
+          "gain": 0.09
+        }
+      ],
+      "gain": 0.145,
+      "attackSeconds": 0.004,
+      "releaseSeconds": 0.028,
+      "decay": 4.2,
+      "noiseMix": 0.025
+    },
+    "bass": {
+      "partials": [
+        {
+          "ratio": 1,
+          "gain": 1
+        },
+        {
+          "ratio": 2,
+          "gain": 0.46
+        },
+        {
+          "ratio": 3,
+          "gain": 0.12
+        }
+      ],
+      "gain": 0.145,
+      "attackSeconds": 0.009,
+      "releaseSeconds": 0.035,
+      "decay": 2.2,
+      "noiseMix": 0
+    },
+    "tick": {
+      "partials": [
+        {
+          "ratio": 1,
+          "gain": 1
+        },
+        {
+          "ratio": 2.35,
+          "gain": 0.2
+        }
+      ],
+      "gain": 0.042,
+      "attackSeconds": 0.003,
+      "releaseSeconds": 0.009,
+      "decay": 5.5,
+      "noiseMix": 0.72
+    },
+    "metal": {
+      "partials": [
+        {
+          "ratio": 1,
+          "gain": 1
+        },
+        {
+          "ratio": 2.02,
+          "gain": 0.24
+        },
+        {
+          "ratio": 3.91,
+          "gain": 0.07
+        }
+      ],
+      "gain": 0.068,
+      "attackSeconds": 0.006,
+      "releaseSeconds": 0.038,
+      "decay": 4,
+      "noiseMix": 0
+    }
+  },
+  "events": [
+    {
+      "beat": 0,
+      "patch": "bass",
+      "note": 40,
+      "durationSeconds": 0.26,
+      "velocity": 0.87
+    },
+    {
+      "beat": 1.5,
+      "patch": "bass",
+      "note": 47,
+      "durationSeconds": 0.26,
+      "velocity": 0.65
+    },
+    {
+      "beat": 2.5,
+      "patch": "bass",
+      "note": 40,
+      "durationSeconds": 0.26,
+      "velocity": 0.76
+    },
+    {
+      "beat": 3.5,
+      "patch": "bass",
+      "note": 52,
+      "durationSeconds": 0.26,
+      "velocity": 0.53
+    },
+    {
+      "beat": 0.25,
+      "patch": "pluck",
+      "note": 64,
+      "durationSeconds": 0.23,
+      "velocity": 0.85
+    },
+    {
+      "beat": 1,
+      "patch": "pluck",
+      "note": 67,
+      "durationSeconds": 0.23,
+      "velocity": 0.65
+    },
+    {
+      "beat": 2.25,
+      "patch": "pluck",
+      "note": 71,
+      "durationSeconds": 0.23,
+      "velocity": 0.75
+    },
+    {
+      "beat": 3,
+      "patch": "pluck",
+      "note": 69,
+      "durationSeconds": 0.23,
+      "velocity": 0.59
+    },
+    {
+      "beat": 0.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 0.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 1.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 1.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 2.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 2.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 3.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 3.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 4,
+      "patch": "bass",
+      "note": 48,
+      "durationSeconds": 0.26,
+      "velocity": 0.87
+    },
+    {
+      "beat": 5.5,
+      "patch": "bass",
+      "note": 55,
+      "durationSeconds": 0.26,
+      "velocity": 0.65
+    },
+    {
+      "beat": 6.5,
+      "patch": "bass",
+      "note": 48,
+      "durationSeconds": 0.26,
+      "velocity": 0.76
+    },
+    {
+      "beat": 7.5,
+      "patch": "bass",
+      "note": 60,
+      "durationSeconds": 0.26,
+      "velocity": 0.53
+    },
+    {
+      "beat": 4.25,
+      "patch": "pluck",
+      "note": 64,
+      "durationSeconds": 0.23,
+      "velocity": 0.85
+    },
+    {
+      "beat": 5,
+      "patch": "pluck",
+      "note": 67,
+      "durationSeconds": 0.23,
+      "velocity": 0.65
+    },
+    {
+      "beat": 6.25,
+      "patch": "pluck",
+      "note": 72,
+      "durationSeconds": 0.23,
+      "velocity": 0.75
+    },
+    {
+      "beat": 7,
+      "patch": "pluck",
+      "note": 67,
+      "durationSeconds": 0.23,
+      "velocity": 0.59
+    },
+    {
+      "beat": 4.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 4.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 5.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 5.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 6.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 6.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 7.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 7.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 7.75,
+      "patch": "metal",
+      "note": 79,
+      "durationSeconds": 0.34,
+      "velocity": 0.57
+    },
+    {
+      "beat": 8,
+      "patch": "bass",
+      "note": 43,
+      "durationSeconds": 0.26,
+      "velocity": 0.87
+    },
+    {
+      "beat": 9.5,
+      "patch": "bass",
+      "note": 50,
+      "durationSeconds": 0.26,
+      "velocity": 0.65
+    },
+    {
+      "beat": 10.5,
+      "patch": "bass",
+      "note": 43,
+      "durationSeconds": 0.26,
+      "velocity": 0.76
+    },
+    {
+      "beat": 11.5,
+      "patch": "bass",
+      "note": 55,
+      "durationSeconds": 0.26,
+      "velocity": 0.53
+    },
+    {
+      "beat": 8.25,
+      "patch": "pluck",
+      "note": 62,
+      "durationSeconds": 0.23,
+      "velocity": 0.85
+    },
+    {
+      "beat": 9,
+      "patch": "pluck",
+      "note": 67,
+      "durationSeconds": 0.23,
+      "velocity": 0.65
+    },
+    {
+      "beat": 10.25,
+      "patch": "pluck",
+      "note": 71,
+      "durationSeconds": 0.23,
+      "velocity": 0.75
+    },
+    {
+      "beat": 11,
+      "patch": "pluck",
+      "note": 74,
+      "durationSeconds": 0.23,
+      "velocity": 0.59
+    },
+    {
+      "beat": 8.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 8.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 9.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 9.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 10.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 10.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 11.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 11.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 12,
+      "patch": "bass",
+      "note": 38,
+      "durationSeconds": 0.26,
+      "velocity": 0.87
+    },
+    {
+      "beat": 13.5,
+      "patch": "bass",
+      "note": 45,
+      "durationSeconds": 0.26,
+      "velocity": 0.65
+    },
+    {
+      "beat": 14.5,
+      "patch": "bass",
+      "note": 38,
+      "durationSeconds": 0.26,
+      "velocity": 0.76
+    },
+    {
+      "beat": 15.5,
+      "patch": "bass",
+      "note": 50,
+      "durationSeconds": 0.26,
+      "velocity": 0.53
+    },
+    {
+      "beat": 12.25,
+      "patch": "pluck",
+      "note": 66,
+      "durationSeconds": 0.23,
+      "velocity": 0.85
+    },
+    {
+      "beat": 13,
+      "patch": "pluck",
+      "note": 69,
+      "durationSeconds": 0.23,
+      "velocity": 0.65
+    },
+    {
+      "beat": 14.25,
+      "patch": "pluck",
+      "note": 74,
+      "durationSeconds": 0.23,
+      "velocity": 0.75
+    },
+    {
+      "beat": 15,
+      "patch": "pluck",
+      "note": 69,
+      "durationSeconds": 0.23,
+      "velocity": 0.59
+    },
+    {
+      "beat": 12.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 12.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 13.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 13.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 14.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 14.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 15.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 15.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 15.75,
+      "patch": "metal",
+      "note": 81,
+      "durationSeconds": 0.34,
+      "velocity": 0.57
+    },
+    {
+      "beat": 16,
+      "patch": "bass",
+      "note": 45,
+      "durationSeconds": 0.26,
+      "velocity": 0.87
+    },
+    {
+      "beat": 17.5,
+      "patch": "bass",
+      "note": 52,
+      "durationSeconds": 0.26,
+      "velocity": 0.65
+    },
+    {
+      "beat": 18.5,
+      "patch": "bass",
+      "note": 45,
+      "durationSeconds": 0.26,
+      "velocity": 0.76
+    },
+    {
+      "beat": 19.5,
+      "patch": "bass",
+      "note": 57,
+      "durationSeconds": 0.26,
+      "velocity": 0.53
+    },
+    {
+      "beat": 16.25,
+      "patch": "pluck",
+      "note": 64,
+      "durationSeconds": 0.23,
+      "velocity": 0.85
+    },
+    {
+      "beat": 17,
+      "patch": "pluck",
+      "note": 69,
+      "durationSeconds": 0.23,
+      "velocity": 0.65
+    },
+    {
+      "beat": 18.25,
+      "patch": "pluck",
+      "note": 72,
+      "durationSeconds": 0.23,
+      "velocity": 0.75
+    },
+    {
+      "beat": 19,
+      "patch": "pluck",
+      "note": 71,
+      "durationSeconds": 0.23,
+      "velocity": 0.59
+    },
+    {
+      "beat": 16.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 16.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 17.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 17.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 18.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 18.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 19.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 19.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 20,
+      "patch": "bass",
+      "note": 47,
+      "durationSeconds": 0.26,
+      "velocity": 0.87
+    },
+    {
+      "beat": 21.5,
+      "patch": "bass",
+      "note": 54,
+      "durationSeconds": 0.26,
+      "velocity": 0.65
+    },
+    {
+      "beat": 22.5,
+      "patch": "bass",
+      "note": 47,
+      "durationSeconds": 0.26,
+      "velocity": 0.76
+    },
+    {
+      "beat": 23.5,
+      "patch": "bass",
+      "note": 59,
+      "durationSeconds": 0.26,
+      "velocity": 0.53
+    },
+    {
+      "beat": 20.25,
+      "patch": "pluck",
+      "note": 63,
+      "durationSeconds": 0.23,
+      "velocity": 0.85
+    },
+    {
+      "beat": 21,
+      "patch": "pluck",
+      "note": 66,
+      "durationSeconds": 0.23,
+      "velocity": 0.65
+    },
+    {
+      "beat": 22.25,
+      "patch": "pluck",
+      "note": 71,
+      "durationSeconds": 0.23,
+      "velocity": 0.75
+    },
+    {
+      "beat": 23,
+      "patch": "pluck",
+      "note": 66,
+      "durationSeconds": 0.23,
+      "velocity": 0.59
+    },
+    {
+      "beat": 20.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 20.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 21.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 21.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 22.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 22.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 23.0,
+      "patch": "tick",
+      "note": 55,
+      "durationSeconds": 0.046,
+      "velocity": 0.43
+    },
+    {
+      "beat": 23.5,
+      "patch": "tick",
+      "note": 62,
+      "durationSeconds": 0.046,
+      "velocity": 0.72
+    },
+    {
+      "beat": 23.75,
+      "patch": "metal",
+      "note": 78,
+      "durationSeconds": 0.34,
+      "velocity": 0.57
+    }
+  ]
+}
