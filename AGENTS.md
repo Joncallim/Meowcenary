@@ -18,6 +18,43 @@ Current maintainer instructions and newer merged planning override stale issue
 text. Epics 20-26 also inherit the Alpha 3 shared-foundation and content-
 extensibility contracts named in `docs/ai-workflow.md`.
 
+## Finish-Line Roadmap Discipline
+
+The **Active Alpha 3 finish line** at the top of `docs/roadmap.md` owns the
+current R0–R5 priority order and distinguishes foundations, integration,
+deployment, player acceptance and issue closure. Historical epic sections
+are not current-state reports. Read this section before starting or handing
+off any Meowcenary PR.
+
+- State the owning R-number and product issue for each PR. Deliver bounded
+  implementation slices without silently switching the roadmap priority or
+  treating a green/merged foundation as a finished feature.
+- For every handoff report candidate/main/deployed SHA separately, player-visible
+  delta, exact-head checks, remaining owner/device/art/listening gates, and
+  the next action **within the same roadmap outcome unless its exit gate is accepted**.
+- Do not promote nonshipping art/audio candidates, auto-close umbrella issues,
+  or declare user acceptance from CI. New priority/order decisions require
+  explicit maintainer direction.
+- Material reproducible P0/P1 correctness defects may interrupt delivery;
+  fix at the smallest boundary, prove the regression, run the full suite,
+  and return to the queued outcome. Do not broaden scope for speculative P2/P3.
+- Keep one shared-file integration owner at a time. Existing merge/deploy holds
+  and latest maintainer authorizations still apply; do not assume that permission
+  to merge one verified stack authorizes every follow-on release.
+- Follow the roadmap's **Continuous playtest discovery** track after R0 and
+  each feature outcome. Early tests of incomplete presentation are diagnostic,
+  not final product acceptance. The final R5 candidate needs uncoached whole-run
+  evidence, including repeated runs, varied builds, physical devices, and an
+  independent fun/readability verdict; #171 owns the final product gate.
+- When manual evidence is due, provide a short executable playtest brief naming
+  exact SHA/URL, representative seed/save and device, player task, observation
+  prompts and the owning acceptance criteria. Mark what was actually run versus
+  unverified; do not turn synthetic/browser passes into physical-human approval.
+- Triage observed playtest findings by severity into the existing owning issue,
+  reproduce where possible, fix the smallest cause and retest at the new SHA.
+  A new feature suggestion or one confounded opinion is not permission to
+  reorder R0–R5 or start speculative systems.
+
 ## Non-Negotiable Invariants
 
 - Keep scenes thin: they compose objects and lifecycle; systems own rules.
