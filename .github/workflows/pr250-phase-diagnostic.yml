@@ -1,0 +1,43 @@
+name: PR250 isolated phase diagnostic
+
+on:
+  push:
+    branches: [codex/diagnostic-pr250-menu-phase-timing]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    name: Original Menu case timing (not acceptance)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify frozen candidate sources
+        run: |
+          git fetch --no-tags --depth=1 origin 54a761427de5a9a580ee516e7eb11c6d8d2de0dc
+          git diff --exit-code 54a761427de5a9a580ee516e7eb11c6d8d2de0dc -- src public assets-src package.json package-lock.json playwright.config.ts browser-tests/menu-gesture-ownership.pw.ts
+          git rev-parse HEAD
+      - run: npm ci
+      - name: Match hosted font environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-core
+          test "$(fc-match --format '%{family}' sans-serif)" = "Noto Sans"
+          test "$(fc-match --format '%{family}' system-ui)" = "Noto Sans"
+      - run: npx playwright install --with-deps chromium
+      - name: Build unchanged game with test seam
+        run: VITE_VISUAL_TEST=1 npm run build
+      - name: Three isolated original-budget cases
+        run: npx playwright test browser-tests/menu-gesture-timing-probe.pw.ts --project=desktop-1920x1080 --repeat-each=3 --reporter=line --output=diagnostic-results
+      - name: Upload timing and physical receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr250-isolated-phase-diagnostic
+          path: diagnostic-results/
+          retention-days: 7
