@@ -1,0 +1,100 @@
+[
+  {
+    "file": "art/composition-study-v2.png",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "sha256": "d263857c5ed801ea3cb61ee8b8ee5945d29312c232f29fa682f235b49622574e",
+    "alphaExtrema": [
+      0,
+      254
+    ],
+    "role": "schematic composition; not wearable or shadow exports",
+    "productionAccepted": false,
+    "logicalArtIds": [
+      "character:scrap-tabby",
+      "character:bolt-hound"
+    ],
+    "promptRecord": "GENERATION-PROVENANCE.md"
+  },
+  {
+    "file": "art/hound-direction-study-v2.png",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "sha256": "c1c6b55a7ccbec4a00feb7ccdf761463f6990c83c8086257f76838d68b867c08",
+    "alphaExtrema": [
+      0,
+      254
+    ],
+    "role": "generated-exploration-not-production",
+    "productionAccepted": false,
+    "logicalArtIds": [
+      "character:bolt-hound"
+    ],
+    "nativeTarget": [
+      48,
+      48
+    ],
+    "directionCount": "owner decision pending",
+    "sourcePipeline": "exploration only; native Pixelorama/source/export not produced",
+    "promptRecord": "GENERATION-PROVENANCE.md"
+  },
+  {
+    "file": "art/pickup-family-exploration.png",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGBA",
+    "sha256": "8c1ffb097f2fb035a4d89fba2de7a538a57b0a0a348c2e64d82d82aba1facb0f",
+    "alphaExtrema": [
+      0,
+      255
+    ],
+    "role": "generated-exploration-not-production",
+    "productionAccepted": false,
+    "logicalArtIds": [
+      "drop:xp",
+      "drop:scrap",
+      "drop:chest"
+    ],
+    "nativeTargets": {
+      "drop:xp": [
+        16,
+        16
+      ],
+      "drop:scrap": [
+        20,
+        20
+      ],
+      "drop:chest": [
+        20,
+        20
+      ]
+    },
+    "sourcePipeline": "exploration only; native Pixelorama/source/export not produced",
+    "promptRecord": "GENERATION-PROVENANCE.md"
+  },
+  {
+    "file": "art/tabby-direction-study-v1.png",
+    "width": 1447,
+    "height": 1087,
+    "mode": "RGBA",
+    "sha256": "6c9fddffe055e4005bb3f8e9e849193094e901185311e937128c8fd1dbedb380",
+    "alphaExtrema": [
+      0,
+      255
+    ],
+    "role": "generated-exploration-not-production",
+    "productionAccepted": false,
+    "logicalArtIds": [
+      "character:scrap-tabby"
+    ],
+    "nativeTarget": [
+      48,
+      48
+    ],
+    "directionCount": "owner decision pending",
+    "sourcePipeline": "exploration only; native Pixelorama/source/export not produced",
+    "promptRecord": "GENERATION-PROVENANCE.md"
+  }
+]
