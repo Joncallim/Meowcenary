@@ -8,13 +8,23 @@ The full #247 delta includes #239's audio lifecycle changes exactly once: retain
 
 #246 merged text-cleanly, but `src/main.ts` and `src/scenes/GameScene.ts` remain semantic review boundaries. Gameplay receives the same immutable run request/layout, selected resource closure and Drop physics configuration. The pooled Drop owner resolves the exact weapon definition's tier icon and retains one reusable sprite plus bounded glint. Stopped animation metadata cannot rewind a reused static pickup during diagnostic freeze. No consumed drop/loot, reward, cooldown, targeting, balance, save-ID or RNG semantics changed. The #229 Scavenge transaction and scene-owned objective-clear physics capture remain authoritative.
 
-Inherited owning corrections retain their original RED evidence: #247 native audio refusal/stale music intent; #246 PistolT1→reset→ShotgunT3→blocked→unblocked→reset→Scrap view reuse; #249 failed terminal Replay frontier and abandoned Home-art preparation. This tranche introduces no new claimed defect and does not promote test observer or authored-source findings into #201.
+Inherited owning corrections retain their original RED evidence: #247 native audio refusal/stale music intent; #246 PistolT1→reset→ShotgunT3→blocked→unblocked→reset→Scrap view reuse; #249 failed terminal Replay frontier and abandoned Home-art preparation. This tranche introduces no new claimed gameplay defect and does not promote test observer or authored-source findings into #201.
 
 ## Acceptance contract
 
 Focused integration executes actual owners for audio/resources, pooled Drop view/system, Menu preparation, intro, abilities, pending/terminal clear, Arena resource/layout and progression: 551 tests across15 files passed with zero skips at integrated code head `47b7f59`. Independent source/state/resource review must match final source hashes. The exact final head requires the complete ordinary suite, nine allocation gates, nine runner probes, lint/typecheck, content, complete art/source/export, ordinary production/resource identity/diagnostic exclusion, strict browser modules, diff check, native HTML5 recovery and supported six-profile hosted browser suite. Individual candidate green runs do not certify this combined tree.
 
 The existing integration matrix remains mandatory: touch/pointer, keyboard and controller; both biomes; normal and failed preparation; same-request Retry versus fresh-seed terminal Replay; neutral terminal/Menu exits; warm resource return; save failure and shutdown/resource cancellation. Existing six native pooled-view cases and native autoplay probes remain active, without changed budgets/retries/skips/assertions/thresholds/goldens.
+
+## Preparation evidence amendment
+
+Head `375a78e` hosted run [38351403202](https://github.com/Joncallim/Meowcenary/actions/runs/38351403202) finished RED: 756 passed, 64 existing scoped skips, two desktop1920 touch terminal-return screenshot deadlines. Both rows had already asserted trusted release, neutral Menu and two warm-idle receipts. The native HTML5 recovery gate passed. Independent review found no dropped warm-idle receipt or runtime resource-closure defect. Original two-row local timing evidence passed at 17.61/18.02 seconds with final screenshots taking 0.94/0.96 seconds; those isolated results do not explain or clear the hosted failure.
+
+A separate actual-helper regression reproduced false certification at the final preparation frame: the observer could return its original layout after the intro seed, layout hash or run-start count changed, provided time stayed zero and durable save stayed unchanged. Baseline: eight passed, three RED; the corrected actual helper passes all eleven. This is an evidence-owner defect, not a reproduced gameplay defect or a #201 entry.
+
+Initial intro and Arena facts now share one read. The same original final input frame remains mandatory; only after strict successful completion does one read capture intro, Arena and durable save. Every earlier predicate remains, with additional final intro/identity/layout checks. This removes three redundant renderer transports without removing any owner frame, physical event, screenshot or assertion. No runtime, touch helper, capture, timeout, retry, skip, threshold or golden changes. A passive native-touch correlation probe also rejected reusing an earlier release frame: those early receipts were not yet accepted.
+
+The corrected head still requires complete exact-head gates and the full hosted matrix. No timing improvement or repair of the hosted screenshot deadline is inferred from the added guard or the local probes.
 
 ## Remaining gates
 

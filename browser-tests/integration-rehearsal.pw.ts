@@ -97,9 +97,6 @@ async function installFixture(page: Page, input: Input): Promise<void> {
   }, { ids: campaignIds, controller: input === 'controller', saveKey: SAVE_KEY });
 }
 
-async function frame(page: Page): Promise<void> {
-  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame())).toBe(true);
-}
 async function home(page: Page): Promise<void> {
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
@@ -332,20 +329,45 @@ async function touchSummarySnapshot(page: Page): Promise<{
     return { intro: seam.runStartIntroDiagnostics(), summary: seam.summaryActionDiagnostics(), menuTarget: seam.summaryMenuTarget() };
   });
 }
+async function readPreparedSnapshot(page: Page) {
+  return page.evaluate(() => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    return { intro: seam.runStartIntroDiagnostics(), arena: seam.arenaLayoutDiagnostics() };
+  });
+}
+async function observePreparedBoundary(page: Page) {
+  return page.evaluate(async saveKey => {
+    const seam = (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!;
+    const completed = await seam.waitForInputFrame();
+    if (completed !== true) return { completed };
+    // These facts belong to the same completed owner frame. A later renderer
+    // request must not substitute a different run or layout into the evidence.
+    return { completed, intro: seam.runStartIntroDiagnostics(), arena: seam.arenaLayoutDiagnostics(),
+      saved: localStorage.getItem(saveKey) };
+  }, SAVE_KEY);
+}
 async function prepared(page: Page, request: ComposedRunRequest, arenaId: string, beforeSave: string | null): Promise<ResolvedArenaLayout> {
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
   await neutral(page);
-  const state = await intro(page);
+  const snapshot = await readPreparedSnapshot(page);
+  const state = snapshot.intro;
+  expect(state).toBeDefined();
   expect(state).toMatchObject({ visible: true, phase: 'brief', status: 'intro', timeMs: 0, enemies: 0,
     runStart: { count: 0 }, terminalEvents: 0 });
-  expect(state.identity).toMatchObject({ characterId: request.characterId, stageId: request.kind === 'stage' ? request.stageId : undefined,
+  expect(state!.identity).toMatchObject({ characterId: request.characterId, stageId: request.kind === 'stage' ? request.stageId : undefined,
     arenaId, seed: request.seed });
-  const facts = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.arenaLayoutDiagnostics());
+  const facts = snapshot.arena;
   expect(facts).toBeDefined(); expect(facts).toMatchObject({ status: 'intro', timeMs: 0 });
-  expect(facts!.layout).toMatchObject({ arenaId, seed: request.seed, contentVersion: state.identity.contentVersion });
+  expect(facts!.layout).toMatchObject({ arenaId, seed: request.seed, contentVersion: state!.identity.contentVersion });
   expect(facts!.layout.hash).toMatch(/^[0-9a-f]+$/); expect(facts!.layout.generationVersion).toBeGreaterThan(0);
-  await frame(page);
-  expect((await intro(page)).timeMs).toBe(0); expect(await saved(page)).toBe(beforeSave);
+  const boundary = await observePreparedBoundary(page);
+  expect(boundary.completed).toBe(true);
+  expect(boundary.intro).toMatchObject({ visible: true, phase: 'brief', status: 'intro', timeMs: 0, enemies: 0,
+    runStart: { count: 0 }, terminalEvents: 0 });
+  expect(boundary.intro!.identity).toEqual(state!.identity);
+  expect(boundary.arena).toMatchObject({ status: 'intro', timeMs: 0 });
+  expect(boundary.arena!.layout).toEqual(facts!.layout);
+  expect(boundary.saved).toBe(beforeSave);
   return facts!.layout;
 }
 async function warmIdleObservation(page: Page): Promise<WarmIdleSample> {
