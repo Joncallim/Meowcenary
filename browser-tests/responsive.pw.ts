@@ -1,4 +1,7 @@
+import { assertVisualAuthority, useVisualAuthority } from './visualAuthority';
 import { expect, test } from '@playwright/test';
+
+useVisualAuthority();
 import { completeRunStartIntro } from './run-start-helpers';
 
 type ArenaFramingDiagnostics = {
@@ -569,13 +572,14 @@ test('phone touch starts a run, moves, and activates the graphical ability contr
   await page.screenshot({ path: testInfo.outputPath('touch-gameplay.png') });
 });
 
-test('compact phone landscape is quarantined until portrait returns', async ({ browser }) => {
+test('compact phone landscape is quarantined until portrait returns', async ({ browser }, testInfo) => {
   const compact = await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
   const page = await compact.newPage();
   await page.goto('/');
   await expect(page.locator('#portrait-orientation-guard')).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator('#portrait-orientation-guard')).toBeHidden();
+  await assertVisualAuthority(page, testInfo);
   await compact.close();
 });
 
@@ -618,6 +622,7 @@ test('fine-pointer compact landscape keeps every sparse menu action visible', as
 
   await show('settings');
   await expect(page).toHaveScreenshot('compact-settings.png', { animations: 'disabled' });
+  await assertVisualAuthority(page, testInfo);
   await compact.close();
 });
 

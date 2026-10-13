@@ -1,4 +1,8 @@
+import { useVisualAuthority } from './visualAuthority';
+import { waitForMenuInput } from './menuInputReceipt';
 import { expect, test } from '@playwright/test';
+
+useVisualAuthority();
 import { completeRunStartIntro } from './run-start-helpers';
 import { writeFile } from 'node:fs/promises';
 import { installContractTitleObserver, readContractTitleObserver, withRecordedCleanup } from './diagnostic-records';
@@ -19,6 +23,7 @@ const illustratedScreenshot = {
 
 type VisualTestSeam = {
   freeze(): Promise<void>;
+  waitForInputFrame(): Promise<boolean>;
   useAuthoredArenaArtReference(): boolean;
   focusArtBackdrop(): boolean;
   resume(): void;
@@ -44,10 +49,20 @@ const representativeProjects = new Set([
 ]);
 
 async function press(page: import('@playwright/test').Page, key: string): Promise<void> {
+  const menuActive = await page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__: VisualTestSeam;
+  }).__MEOWCENARY_VISUAL_TEST__.isSceneActive('MenuScene'));
+  if (menuActive) await waitForMenuInput(page, true);
+  const frame = () => page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__: VisualTestSeam;
+  }).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame());
   await page.keyboard.down(key);
-  await page.waitForTimeout(60);
-  await page.keyboard.up(key);
-  await page.waitForTimeout(120);
+  try { expect(await frame(), 'physical key held through its real owner frame').toBe(true); }
+  finally { await page.keyboard.up(key); }
+  expect(await frame(), 'physical release sampled by its owner').toBe(true);
+  if (await page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__: VisualTestSeam;
+  }).__MEOWCENARY_VISUAL_TEST__.isSceneActive('MenuScene'))) await waitForMenuInput(page, true);
 }
 
 async function freezeAtStableFrame(page: import('@playwright/test').Page, artReference?: 'actor' | 'backdrop'): Promise<void> {

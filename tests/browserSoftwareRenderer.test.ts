@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertBrowserRenderer, browserSoftwareRenderer, type BrowserRendererFacts } from '../scripts/browserSoftwareRenderer';
+import { assertBrowserRenderer, browserSoftwareRenderer, visualAuthorityLaunchOptions, type BrowserRendererFacts } from '../scripts/browserSoftwareRenderer';
 
 const actual: BrowserRendererFacts = {
   context: 'webgl', renderer: 'ANGLE (Mesa, llvmpipe (LLVM 18.1.8 256 bits), OpenGL ES 3.2)',
@@ -10,6 +10,11 @@ describe('explicit browser software renderer', () => {
   it('keeps ordinary unspecified browser launches unchanged', () => {
     expect(browserSoftwareRenderer('linux', undefined, {})).toBeUndefined();
     expect(browserSoftwareRenderer('darwin', undefined, {})).toBeUndefined();
+  });
+  it('keeps canonical image suites on default without inheriting runtime flags or environment', () => {
+    expect(visualAuthorityLaunchOptions('linux', 'mesa', { LIBGL_ALWAYS_SOFTWARE: '1' })).toEqual({});
+    expect(visualAuthorityLaunchOptions('darwin', undefined, {})).toEqual({});
+    expect(() => visualAuthorityLaunchOptions('linux', 'mesaa', {})).toThrow('Unsupported');
   });
   it('rejects a misspelled or unsupported request instead of silently passing with another backend', () => {
     expect(() => browserSoftwareRenderer('linux', 'mesaa', {})).toThrow('Unsupported');

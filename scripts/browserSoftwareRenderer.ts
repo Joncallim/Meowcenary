@@ -36,3 +36,14 @@ export function assertBrowserRenderer(facts: BrowserRendererFacts, mode: string 
   if (mode === 'mesa' && (!facts.renderer?.startsWith('ANGLE (Mesa') || !facts.renderer.includes('llvmpipe')))
     throw new Error(`Requested Mesa llvmpipe was not active: ${facts.renderer}`);
 }
+
+/** Committed pixel references retain their original browser-default backend.
+ * Validate explicit requests, then replace (never merge) runtime launch options. */
+export function visualAuthorityLaunchOptions(
+  platform: string,
+  mode: string | undefined,
+  environment: Readonly<Record<string, string | undefined>>,
+): LaunchOptions {
+  browserSoftwareRenderer(platform, mode, environment);
+  return {};
+}

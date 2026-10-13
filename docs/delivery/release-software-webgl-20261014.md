@@ -43,7 +43,8 @@ are mandatory for the candidate. Timing is evidence, not a new flaky CI gate.
   install both the EGL dispatcher (`libegl1`) and Mesa EGL/DRI drivers. The
   first candidate correctly rejected hosted SwiftShader fallback before any
   matrix test; installing the driver alone did not supply its dispatcher.
-- Explicitly request Mesa llvmpipe software WebGL for the hosted matrix. The
+- Explicitly request Mesa llvmpipe software WebGL for runtime/input/lifecycle
+  modules. All three committed-image modules retain browser default. The
   game continues to use Phaser AUTO, unchanged canvas dimensions, antialiasing,
   stencil, textures, viewport/DPR, input and resource ownership. No FPS cap,
   animation stop, Canvas fallback or application test branch is introduced.
@@ -51,27 +52,53 @@ are mandatory for the candidate. Timing is evidence, not a new flaky CI gate.
   misspelled explicit requests fail instead of silently selecting another driver.
   The new preflight also checks local WebGL/dimensions/antialias/stencil support;
   the whole local workflow is therefore not claimed to be unchanged.
-- Before the matrix, open ordinary visual-build Home and check the **actual
+- Before the matrix, probe both labeled roles in separate browsers. Open
+  ordinary visual-build Home and check the **actual
   Phaser canvas**, after its own resource/frame closure. Fail on non-WebGL,
   wrong dimensions, lost antialias/stencil or a requested Mesa fallback.
   Record exact checkout, browser, active renderer, sample count and host CPU/OS
   facts in the CI log and `test-results/browser-renderer.json`. Never record
   environment variables or credentials.
 
-The preflight is a separate browser using the same launch resolver as the
-matrix. It is not per-page GPU lifetime/exhaustion telemetry. The strict browser
-module check must include `rendererSetup.ts`, outside the ordinary tsconfig's
-source/test include. No existing browser module or scoped skip is removed.
+The runtime preflight is not per-page GPU lifetime/exhaustion telemetry. Each
+executed visual-authority fixture additionally checks its actual Phaser driver
+before teardown, including after failed comparisons. The strict browser module
+check includes both `rendererSetup.ts` and `visualAuthority.ts`, outside the
+ordinary tsconfig. No existing module or scoped skip is removed.
 
 The implementation uses Chromium's ANGLE EGL backend with Mesa's documented
 software/surfaceless environment. References:
 [Chromium headless GPU guidance](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/docs/gpu/using-gpu-hardware-in-headless-chrome.md),
 [Mesa environment variables](https://docs.mesa3d.org/envvars.html).
 
+## Preserve committed pixel authority
+
+The full `33d814f2671855079a8b135873f796ec2193c107` Mesa run disproved
+pixel equivalence at the existing limit: phone-390 Home differed by 340 pixels
+and the assembled Gunsmith by 779, each over the original 128-pixel allowance.
+Expected/actual/difference images were inspected. Composition was unchanged;
+edge rasterisation differences do not authorise new golden images or thresholds.
+That run was stopped and remains RED/incomplete, not release evidence.
+
+`responsive.pw.ts`, `ui-audit-capture.pw.ts` and `visual-fidelity.pw.ts` are the
+complete inventory of modules containing committed-image assertions. Their
+**whole modules**, including non-image assertions, explicitly replace runtime
+launch options with browser defaults. There is no exception chosen by failed
+case, retry or image. The separate default preflight requires original Linux
+SwiftShader when Mesa is requested. Every executed fixture logs and attaches
+actual driver/viewport/WebGL/antialias/stencil facts and asserts agreement with
+that default identity. All original image assertions remain authoritative.
+
+The other modules retain explicit Mesa. The earlier 18 hosted deadline failures
+were outside these three image modules; this motivates the boundary but does
+not prove the new complete matrix will pass. Renderer identity is not a substitute
+for pixel comparison. Both labeled preflights, real image-fixture checks and
+all 828 original cases across six profiles remain release requirements.
+
 ## Real Menu input receipts
 
-The faster renderer exposed assertion failures in seven original test
-modules. Their synthetic key-up could precede the Menu input owner's sample:
+The faster renderer exposed assertion failures in seven Menu test
+modules and the visual-fidelity launch helper. Their synthetic key-up could precede the Menu input owner's sample:
 a physical `isDown` flag had been treated as evidence that the logical edge
 was consumed. The unchanged current-mount hydration test reproduced RED
 (expected armour focus, observed helmet) and passed GREEN after the correction.
@@ -87,8 +114,10 @@ physical cores after resize: Gunsmith removal never committed and Equipment
 retained the old helmet. The owner-frame correction retains their original
 explicit held/released and durable mutation assertions. Focus is read after
 receipt, so it is not claimed to belong to that same completed frame.
-No production input
-code changes; no deadline, retry, threshold, golden or scoped-skip change.
+The visual-fidelity helper also replaces fixed 60/120-ms holds with the
+existing real owner-frame receipts, allowing the legitimate Menu-to-Game
+transition. Its original run/readiness/decision assertions remain mandatory.
+No production input code changes; no deadline, retry, threshold, golden or scoped-skip change.
 
 ## Release contract
 
