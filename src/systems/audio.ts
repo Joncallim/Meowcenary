@@ -3,7 +3,7 @@ import type { System } from '../engine/system';
 import { FAMILY_TIER_EVENT_KEYS, type EventBus, type GameEventKey, type GameEventMap } from '../engine/eventBus';
 import { shouldPlay } from '../engine/cooldown';
 import { RuntimeConfig } from '../engine/config';
-import { weaponFeelByFamily, type AudioData, type AudioMapEntry, type WeaponFeelDefinition } from './types';
+import { weaponFeelByFamily, type AudioData, type AudioMapEntry, type AudioPriority, type WeaponFeelDefinition } from './types';
 import type { Settings } from './save';
 /** Epic 17: the only two events whose payload carries `family`/`tier`.
  *  Narrowing here (rather than widening GameEventMap's shared shape) keeps
@@ -82,7 +82,10 @@ interface MusicFade {
 /** All Phaser 3.90 backends expose this lifecycle, including NoAudio. */
 type SoundHandle = ReturnType<Phaser.Scene['sound']['add']>;
 
+const PRIORITY_RANK: Readonly<Record<AudioPriority, number>> = { combat: 0, feedback: 1, alert: 2, terminal: 3 };
+
 interface OwnedVoice {
+  readonly kind: 'sfx' | 'music';
   readonly sound: SoundHandle;
   released: boolean;
   /** Failed starts are removed immediately: NoAudio has no update sweep. */
@@ -100,6 +103,12 @@ function clamp01(value: number): number {
 export class AudioManager implements System {
   private readonly scene: Phaser.Scene;
   private readonly lastPlayed = new Map<string, number>();
+  private readonly priorityByKey = new Map<string, AudioPriority>();
+  // Retiring a sound does not mean Phaser has removed its handle yet.
+  private readonly retainedVoices = new Set<OwnedVoice>();
+  private allocatingHandles = 0;
+  private admittingSfx = 0;
+  private admissionPendingMusic = false;
   private readonly cooldownMsByKey = new Map<string, number>();
   private readonly warnedKeys = new Set<string>();
   // Assigned exactly once by init() (enforced below); read-only thereafter.
@@ -114,7 +123,7 @@ export class AudioManager implements System {
   // logic compares differences, never absolute magnitudes.
   private nowMs = 0;
   private currentMusic?: OwnedVoice;
-  private readonly activeSfx = new Map<OwnedVoice, number>();
+  private readonly activeSfx = new Map<OwnedVoice, { readonly multiplier: number; readonly priority: number }>();
   private currentMusicKey?: string;
   private pendingMusicKey?: string;
   private desiredMusicKey?: string;
@@ -143,6 +152,7 @@ export class AudioManager implements System {
       const cooldownMs = entry.cooldownMs ?? 0;
       if (entry.sfxKey !== undefined) {
         this.cooldownMsByKey.set(entry.sfxKey, cooldownMs);
+        this.priorityByKey.set(entry.sfxKey, entry.priority ?? 'feedback');
       }
       // Each family-keyed variant gets its own independent cooldown clock
       // (lastPlayed is tracked per resolved sfxKey), all using the entry's
@@ -151,6 +161,7 @@ export class AudioManager implements System {
       // spam faster than cooldownMs against itself.
       for (const familyKey of Object.values(entry.sfxKeyByFamily ?? {})) {
         this.cooldownMsByKey.set(familyKey, cooldownMs);
+        this.priorityByKey.set(familyKey, entry.priority ?? 'feedback');
       }
       this.unsubscribers.push(bus.on(entry.event, (payload) => this.handleMappedEvent(entry, payload)));
     }
@@ -181,22 +192,43 @@ export class AudioManager implements System {
     if (!shouldPlay(this.lastPlayed.get(sfxKey), this.nowMs, this.cooldownMsByKey.get(sfxKey) ?? 0)) {
       return;
     }
-    const voice = this.addVoice(sfxKey);
-    if (!voice) return;
-    if (this.destroyed || this.muted || this.scene.sound.locked) {
-      voice.release(true);
-      return;
-    }
-    this.activeSfx.set(voice, volumeMultiplier);
-    if (this.startVoice(voice, { volume: clamp01(this.sfxVolume * volumeMultiplier) })) {
-      this.lastPlayed.set(sfxKey, this.nowMs);
+    if (!this.hasHandleCapacity()) return;
+    const priority = PRIORITY_RANK[this.priorityByKey.get(sfxKey) ?? 'feedback'];
+    const victim = this.liveSfxCount() + this.admittingSfx >= RuntimeConfig.performance.maxSfxVoices
+      ? this.lowerPriorityVictim(priority) : undefined;
+    if (!victim && this.liveSfxCount() + this.admittingSfx >= RuntimeConfig.performance.maxSfxVoices) return;
+    // Charge admission across destroy/add/play callbacks, not only after add returns.
+    this.admittingSfx += 1;
+    let admissionReserved = true;
+    try {
+      victim?.release(); // Never splice Phaser's sound-update iteration.
+      if (this.destroyed || this.muted || this.scene.sound.locked ||
+          this.liveSfxCount() + this.admittingSfx > RuntimeConfig.performance.maxSfxVoices) return;
+      const voice = this.addVoice(sfxKey, 'sfx');
+      if (!voice) return;
+      // The retained voice now owns this slot. Counting its reservation too
+      // would wrongly reject a higher-priority cue requested during play().
+      this.admittingSfx -= 1;
+      admissionReserved = false;
+      if (this.destroyed || this.muted || this.scene.sound.locked) {
+        voice.release(true);
+        return;
+      }
+      this.activeSfx.set(voice, { multiplier: volumeMultiplier, priority });
+      if (this.startVoice(voice, { volume: clamp01(this.sfxVolume * volumeMultiplier) })) {
+        this.lastPlayed.set(sfxKey, this.nowMs);
+      }
+    } finally {
+      if (admissionReserved) this.admittingSfx -= 1;
     }
   }
 
   /** Scene-selected, manager-executed: menu/run loops (§4.5). Same-key calls
    *  are no-ops for retained loops unless a fade is active (Retry during
    *  run-end fade restarts fresh). A refused native start releases the key,
-   *  allowing explicit retry; while locked the key is deferred, never played. */
+   *  allowing explicit retry; while locked the key is deferred, never played.
+   *  At the owned-handle ceiling, keep the audible loop and defer only the
+   *  latest music intent until backend removal (or failed retirement) completes. */
   playMusic(musicKey: string): void {
     if (this.destroyed || !this.initialized) return;
     const intent = ++this.musicIntent;
@@ -208,12 +240,14 @@ export class AudioManager implements System {
     if (!this.isCurrentMusicIntent(intent)) return;
     if (!this.fade && musicKey === this.pendingMusicKey) return;
     if (!this.fade && musicKey === this.currentMusicKey) {
-      this.pendingMusicKey = undefined; // Latest intent may supersede another locked request.
+      this.pendingMusicKey = undefined; // Latest intent supersedes a different pending request.
+      this.admissionPendingMusic = false;
       return;
     }
     // A newer unavailable request also supersedes older locked intent. Keep
     // the retained-loop/pending-same-key no-op cases above unchanged.
     this.pendingMusicKey = undefined;
+    this.admissionPendingMusic = false;
     if (!this.scene.cache.audio.exists(musicKey)) {
       this.warnOnce(musicKey);
       return;
@@ -222,16 +256,30 @@ export class AudioManager implements System {
       this.pendingMusicKey = musicKey;
       return;
     }
-    // Internal replacement cleanup is not a new public intent. Phaser stop
-    // and destroy callbacks may synchronously issue a newer play/stop/teardown.
-    this.pendingMusicKey = undefined;
-    this.currentMusic?.release();
-    if (!this.isCurrentMusicIntent(intent)) return;
-    const voice = this.addVoice(musicKey);
+    if (!this.hasHandleCapacity() || this.hasLiveRetiredMusic()) {
+      this.pendingMusicKey = musicKey;
+      this.admissionPendingMusic = true;
+      return; // Retain the audible current loop until the backend frees capacity.
+    }
+    // Acquire inactive replacement first: retiring the old loop may reenter
+    // admission and consume the last available slot. No second loop is started.
+    const voice = this.addVoice(musicKey, 'music');
     if (!voice) return;
     if (!this.isCurrentMusicIntent(intent)) {
-      voice.release(true);
+      voice.release();
       return;
+    }
+    const previous = this.currentMusic;
+    previous?.release();
+    if (!this.isCurrentMusicIntent(intent)) {
+      voice.release();
+      return;
+    }
+    if (previous && (previous.sound.isPlaying || previous.sound.isPaused)) {
+      voice.release();
+      this.pendingMusicKey = musicKey;
+      this.admissionPendingMusic = true;
+      return; // Failed optional retirement must not create two audible loops.
     }
     // Publish before play: synchronous completion/destruction can retire only
     // this exact voice, never a newer replacement with the same asset key.
@@ -253,6 +301,7 @@ export class AudioManager implements System {
     this.desiredMusicKey = undefined;
     this.failedMusicKey = undefined;
     this.pendingMusicKey = undefined;
+    this.admissionPendingMusic = false;
     const music = this.currentMusic;
     if (!music) {
       this.fade = undefined;
@@ -273,7 +322,7 @@ export class AudioManager implements System {
     this.muted = settings.muted;
     this.musicVolume = clamp01(settings.musicVolume);
     this.sfxVolume = clamp01(settings.sfxVolume);
-    for (const [voice, multiplier] of this.activeSfx) {
+    for (const [voice, { multiplier }] of this.activeSfx) {
       if (this.muted) voice.release();
       else this.applyVoiceGain(voice, clamp01(this.sfxVolume * multiplier));
     }
@@ -308,6 +357,13 @@ export class AudioManager implements System {
     for (const voice of this.activeSfx.keys()) this.reapStoppedVoice(voice);
     if (this.currentMusic) this.reapStoppedVoice(this.currentMusic);
     this.advanceFade(dtMs);
+    this.pruneRemovedVoices();
+    if (this.admissionPendingMusic && !this.scene.sound.locked && this.hasHandleCapacity()) {
+      const key = this.pendingMusicKey;
+      this.pendingMusicKey = undefined;
+      this.admissionPendingMusic = false;
+      if (key !== undefined) this.playMusic(key);
+    }
   }
 
   /** Full-game teardown and tests only. Unsubscribes everything, stops the
@@ -325,7 +381,9 @@ export class AudioManager implements System {
     this.currentMusic = undefined;
     this.currentMusicKey = undefined;
     this.pendingMusicKey = undefined;
+    this.admissionPendingMusic = false;
     this.fade = undefined;
+    this.retainedVoices.clear(); // Dead manager never allocates or retains entity/backend references again.
   }
 
   /** On a mapped event with `stopMusic: true` (an opt-in, §6.2) the music
@@ -373,6 +431,7 @@ export class AudioManager implements System {
     const key = this.pendingMusicKey ?? this.failedMusicKey;
     if (key === undefined) return;
     this.pendingMusicKey = undefined;
+    this.admissionPendingMusic = false;
     this.playMusic(key);
   };
 
@@ -402,12 +461,17 @@ export class AudioManager implements System {
    *  destroy again from an external destroy callback. No global stop/remove.
    *  Completion uses normal deferred Phaser removal so its sound-update
    *  iteration is not spliced while other voices are being updated. */
-  private addVoice(key: string): OwnedVoice | undefined {
+  private addVoice(key: string, kind: OwnedVoice['kind']): OwnedVoice | undefined {
+    if (!this.hasHandleCapacity()) return undefined;
     let sound: SoundHandle;
+    // Backend add may synchronously reenter before returning its new handle.
+    this.allocatingHandles += 1;
     try {
       sound = this.scene.sound.add(key);
     } catch {
       return undefined; // Missing/failed backend stays optional and silent.
+    } finally {
+      this.allocatingHandles -= 1;
     }
     let restoreNativeStart: (() => void) | undefined;
     const forget = (): void => {
@@ -426,23 +490,71 @@ export class AudioManager implements System {
     };
     const complete = (): void => voice.release();
     const voice: OwnedVoice = {
+      kind,
       sound,
       released: false,
       release: (removeImmediately = false): void => {
         if (voice.released) return;
         forget();
         try {
-          if (removeImmediately) this.scene.sound.remove(sound);
-          else sound.destroy();
+          if (removeImmediately) {
+            if (this.scene.sound.remove(sound)) this.retainedVoices.delete(voice);
+          } else sound.destroy();
         } catch {
           // Audio teardown must not prevent terminal feedback or game teardown.
         }
       },
     };
+    if (!this.destroyed) this.retainedVoices.add(voice);
     sound.on('complete', complete);
     sound.on('destroy', forget);
     restoreNativeStart = this.observeNativeStart(voice);
     return voice;
+  }
+
+  /** Only Phaser's actual retained array establishes physical removal. */
+  private pruneRemovedVoices(): void {
+    // Installed Phaser 3.90 exposes this on BaseSoundManager; its NoAudio
+    // declaration omits the inherited field. Keep the narrow runtime guard.
+    const sounds = (this.scene.sound as unknown as { readonly sounds?: readonly SoundHandle[] }).sounds;
+    if (!Array.isArray(sounds)) return; // Malformed/absent optional backend fails closed at the finite ceiling.
+    for (const voice of this.retainedVoices) {
+      if (!sounds.includes(voice.sound)) this.retainedVoices.delete(voice);
+    }
+  }
+
+  private hasHandleCapacity(): boolean {
+    this.pruneRemovedVoices();
+    return this.retainedVoices.size + this.allocatingHandles < RuntimeConfig.performance.maxAudioOwnedHandles;
+  }
+
+  private hasLiveRetiredMusic(): boolean {
+    for (const voice of this.retainedVoices) {
+      if (voice.kind === 'music' && voice.released && (voice.sound.isPlaying || voice.sound.isPaused)) return true;
+    }
+    return false;
+  }
+
+  private liveSfxCount(): number {
+    let count = 0;
+    for (const voice of this.retainedVoices) {
+      // A failed backend retirement must not make a still-playing/paused tail free.
+      if (voice.kind === 'sfx' && (!voice.released || voice.sound.isPlaying || voice.sound.isPaused)) count += 1;
+    }
+    return count;
+  }
+
+  private lowerPriorityVictim(priority: number): OwnedVoice | undefined {
+    let victim: OwnedVoice | undefined;
+    let lowest = priority;
+    // Map insertion order provides oldest-first ties; music never enters this map.
+    for (const [voice, state] of this.activeSfx) {
+      if (state.priority < lowest) {
+        victim = voice;
+        lowest = state.priority;
+      }
+    }
+    return victim;
   }
 
   /** Phaser 3.90 HTML5AudioSound.playCatchPromise has no failure event. This

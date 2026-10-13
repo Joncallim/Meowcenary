@@ -201,7 +201,7 @@ const MAX_LOOT_ENTRIES = 32;
 const AUDIO_ASSET_CATALOG_FIELDS = new Set(['sfx', 'music']);
 const AUDIO_ASSET_ENTRY_FIELDS = new Set(['key', 'url', 'lifecycle']);
 const AUDIO_MAP_FIELDS = new Set(['events']);
-const AUDIO_MAP_ENTRY_FIELDS = new Set(['event', 'sfxKey', 'sfxKeyByFamily', 'cooldownMs', 'stopMusic', 'musicFadeMs']);
+const AUDIO_MAP_ENTRY_FIELDS = new Set(['event', 'sfxKey', 'sfxKeyByFamily', 'cooldownMs', 'priority', 'stopMusic', 'musicFadeMs']);
 const AUDIO_EVENT_KEY_SET = new Set<string>(GAME_EVENT_KEYS);
 const MAX_AUDIO_SFX = 64;
 const MAX_AUDIO_MUSIC = 8;
@@ -1956,6 +1956,11 @@ function checkAudioMapEntry(row: unknown): string[] {
     (typeof cooldownMs !== 'number' || !Number.isSafeInteger(cooldownMs) || cooldownMs <= 0 || cooldownMs > MAX_AUDIO_COOLDOWN_MS)
   ) {
     errors.push(`cooldownMs: required positive integer at most ${MAX_AUDIO_COOLDOWN_MS}`);
+  }
+
+  const priority = readOwnField(row, 'priority');
+  if (priority !== undefined && priority !== 'combat' && priority !== 'feedback' && priority !== 'alert' && priority !== 'terminal') {
+    errors.push('priority: must be combat, feedback, alert or terminal');
   }
 
   const stopMusic = readOwnField(row, 'stopMusic');

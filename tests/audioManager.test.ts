@@ -148,6 +148,8 @@ class FakeSoundManager {
   readonly playedSfx: Array<{ key: string; config: Record<string, unknown> }> = [];
   readonly added: FakeSound[] = [];
   readonly retained: FakeSound[] = [];
+  // Phaser BaseSoundManager exposes the current retained array as sounds.
+  get sounds(): FakeSound[] { return this.retained; }
   private readonly listeners = new Map<string, Array<(...args: unknown[]) => void>>();
 
   constructor(private readonly log?: string[]) {}
@@ -986,5 +988,184 @@ describe('AudioManager owned voice lifecycle (#237)', () => {
     audio.playMusic('music-run');
     expect(sound.playedSfx).toHaveLength(1);
     expect(sound.added.at(-1)?.isPlaying).toBe(true);
+  });
+});
+
+
+describe('issue #237 finite owned voice admission', () => {
+  const map = [
+    { event: 'weapon:fired', sfxKey: 'sfx-weapon-fired', priority: 'combat', sfxKeyByFamily: { pistol: 'sfx-weapon-fired-pistol' } },
+    { event: 'ui:confirm', sfxKey: 'sfx-ui-confirm', priority: 'feedback' },
+    { event: 'run:won', sfxKey: 'sfx-run-won', priority: 'terminal' },
+  ] as readonly AudioMapEntry[];
+  const fill = (audio: AudioManager): void => { for (let i = 0; i < 256; i++) audio.play('sfx-weapon-fired'); };
+  const live = (sound: FakeSoundManager): FakeSound[] => sound.retained.filter(v => v.isPlaying || v.isPaused);
+
+  it('admits at most 32 zero-cooldown SFX and never queues the overflow', () => {
+    const { audio, sound } = createHarness(map); fill(audio);
+    expect(live(sound)).toHaveLength(32); expect(sound.retained).toHaveLength(32);
+    for (const voice of [...sound.retained]) voice.complete(); sound.tick(); audio.update(16);
+    expect(sound.retained).toHaveLength(0); audio.play('sfx-weapon-fired'); expect(live(sound)).toHaveLength(1);
+  });
+
+  it('lets a higher semantic priority retire the oldest lowest-priority SFX without splicing Phaser iteration', () => {
+    const { audio, sound } = createHarness(map); fill(audio); const first = sound.retained[0];
+    const remove = vi.spyOn(sound, 'remove'); audio.play('sfx-run-won');
+    expect(first.pendingRemove).toBe(true); expect(remove).not.toHaveBeenCalled();
+    expect(live(sound)).toHaveLength(32); expect(sound.retained).toHaveLength(33);
+    expect(sound.retained.at(-1)?.key).toBe('sfx-run-won');
+    const created = sound.added.length; audio.play('sfx-weapon-fired'); expect(sound.added).toHaveLength(created);
+  });
+
+  it('inherits mapped priority for family variants and never steals the music loop', () => {
+    const { audio, bus, sound } = createHarness(map); audio.playMusic('music-run');
+    for (let i = 0; i < 32; i++) bus.emit('weapon:fired', WEAPON_FIRED);
+    audio.play('sfx-ui-confirm');
+    expect(sound.retained[0].isPlaying).toBe(true); expect(sound.retained[1].pendingRemove).toBe(true);
+    expect(live(sound).filter(v => !v.key.startsWith('music'))).toHaveLength(32);
+  });
+
+  it('counts completed handles until the backend removes them, bounding repeated complete/start bursts at 64', () => {
+    const { audio, sound } = createHarness(map);
+    for (let i = 0; i < 256; i++) { audio.play('sfx-ui-confirm'); sound.added.at(-1)?.complete(); }
+    expect(sound.retained).toHaveLength(64); expect(live(sound)).toHaveLength(0);
+    sound.tick(); audio.update(16); audio.play('sfx-ui-confirm'); expect(live(sound)).toHaveLength(1);
+  });
+
+  it('bounds alternating music before sweep and retries only the latest deferred intent afterward', () => {
+    const { audio, sound } = createHarness(map);
+    for (let i = 0; i < 257; i++) audio.playMusic(i % 2 === 0 ? 'music-menu' : 'music-run');
+    expect(sound.retained).toHaveLength(64); expect(live(sound)).toHaveLength(1);
+    sound.tick(); audio.update(16);
+    expect(live(sound).map(v => v.key)).toEqual(['music-menu']); expect(sound.retained.length).toBeLessThanOrEqual(2);
+  });
+
+  it.each(['missing', 'stop', 'destroy'] as const)('invalidates capacity-deferred music on %s', command => {
+    const { audio, sound } = createHarness(map);
+    for (let i = 0; i < 65; i++) audio.playMusic(i % 2 === 0 ? 'music-menu' : 'music-run');
+    const created = sound.added.length;
+    if (command === 'missing') audio.playMusic('missing');
+    else if (command === 'stop') audio.stopMusic(); else audio.destroy();
+    sound.tick(); audio.update(16); sound.emit('unlocked'); expect(sound.added).toHaveLength(created);
+    if (command !== 'missing') expect(live(sound)).toHaveLength(0);
+  });
+
+  it('does not consume cooldown when capacity rejects an SFX', () => {
+    const { audio, sound } = createHarness([{ event: 'weapon:fired', sfxKey: 'sfx-weapon-fired', cooldownMs: 90, priority: 'combat' } as AudioMapEntry]);
+    for (let i = 0; i < 64; i++) { audio.play('sfx-ui-confirm'); sound.added.at(-1)?.complete(); }
+    audio.play('sfx-weapon-fired'); expect(sound.added).toHaveLength(64);
+    sound.tick(); audio.play('sfx-weapon-fired'); expect(live(sound).map(v => v.key)).toEqual(['sfx-weapon-fired']);
+  });
+
+  it('reserves SFX slots across reentrant backend add before a handle is published', () => {
+    const { audio, sound } = createHarness(map); const add = sound.add.bind(sound); let nested = 0;
+    vi.spyOn(sound, 'add').mockImplementation(key => { if (++nested <= 100) audio.play('sfx-weapon-fired'); return add(key); });
+    audio.play('sfx-weapon-fired'); expect(live(sound)).toHaveLength(32); expect(sound.retained).toHaveLength(32);
+  });
+
+  it('keeps active and retained limits through reentrant priority retirement', () => {
+    const { audio, sound } = createHarness(map); fill(audio);
+    sound.retained[0].on('stop', () => { for (let i = 0; i < 100; i++) audio.play('sfx-run-won'); });
+    audio.play('sfx-ui-confirm'); expect(live(sound).length).toBeLessThanOrEqual(32); expect(sound.retained.length).toBeLessThanOrEqual(64);
+  });
+
+  it('charges prospective music before old-loop callbacks can claim the last handle slot', () => {
+    const { audio, sound } = createHarness(map); audio.playMusic('music-menu');
+    for (let i = 0; i < 62; i++) { audio.play('sfx-ui-confirm'); sound.added.at(-1)?.complete(); }
+    sound.retained[0].on('stop', () => audio.play('sfx-ui-confirm'));
+    audio.playMusic('music-run'); expect(sound.retained).toHaveLength(64);
+    expect(live(sound).map(v => v.key)).toEqual(['music-run']);
+  });
+
+  it('does not reset audible music when capacity is full or same-key is requested again', () => {
+    const { audio, sound } = createHarness(map); audio.playMusic('music-menu');
+    for (let i = 0; i < 63; i++) { audio.play('sfx-ui-confirm'); sound.added.at(-1)?.complete(); }
+    const music = sound.retained[0]; audio.playMusic('music-run'); audio.playMusic('music-menu');
+    expect(sound.retained).toHaveLength(64); expect(music.isPlaying).toBe(true);
+    sound.tick(); audio.update(16); expect(live(sound)).toEqual([music]);
+  });
+
+  it('fails closed when retirement throws and leaves the old SFX playing', () => {
+    const { audio, sound } = createHarness(map); fill(audio);
+    vi.spyOn(sound.retained[0], 'destroy').mockImplementation(() => { throw new Error('backend retirement'); });
+    audio.play('sfx-run-won'); expect(live(sound)).toHaveLength(32);
+    for (let i = 0; i < 256; i++) audio.play('sfx-weapon-fired'); expect(live(sound)).toHaveLength(32);
+  });
+});
+
+
+describe('issue #237 bounded callback teardown and admission failures', () => {
+  it('revokes a returned handle when backend add tears down its owner', () => {
+    const { audio, sound } = createHarness([]); const add = sound.add.bind(sound);
+    vi.spyOn(sound, 'add').mockImplementation(key => { const voice = add(key); audio.destroy(); return voice; });
+    audio.play('sfx-ui-confirm'); expect(sound.retained).toHaveLength(0);
+    expect(sound.playedSfx).toHaveLength(0); expect((audio as unknown as { retainedVoices: Set<unknown> }).retainedVoices.size).toBe(0);
+  });
+
+  it('does not lose the current loop when replacement allocation fails', () => {
+    const { audio, sound } = createHarness([]); audio.playMusic('music-menu'); const voice = sound.retained[0];
+    vi.spyOn(sound, 'add').mockImplementation(() => { throw new Error('failed optional backend'); });
+    audio.playMusic('music-run'); expect(voice.isPlaying).toBe(true); expect(sound.retained).toEqual([voice]);
+  });
+
+  it('releases obsolete prospective music when old-loop callbacks request a newer intent', () => {
+    const { audio, sound } = createHarness([]); audio.playMusic('music-menu');
+    sound.retained[0].on('stop', () => audio.playMusic('music-menu'));
+    audio.playMusic('music-run');
+    expect(sound.retained.filter(v => v.isPlaying).map(v => v.key)).toEqual(['music-menu']);
+    sound.tick(); audio.update(16); expect(sound.retained).toHaveLength(1);
+  });
+
+  it('keeps paused SFX charged, and locked or muted overflow never replays later', () => {
+    const { audio, sound } = createHarness([]);
+    for (let i = 0; i < 32; i++) { audio.play('sfx-ui-confirm'); const voice = sound.added.at(-1)!; voice.isPlaying = false; voice.isPaused = true; }
+    audio.update(16); audio.play('sfx-ui-confirm'); expect(sound.retained).toHaveLength(32);
+    sound.locked = true; audio.play('sfx-ui-confirm'); sound.locked = false; sound.emit('unlocked');
+    audio.applySettings({ ...SETTINGS, muted: true }); audio.play('sfx-ui-confirm');
+    audio.applySettings(SETTINGS); sound.tick(); audio.update(16); expect(sound.playedSfx).toHaveLength(32);
+  });
+});
+
+
+describe('issue #237 conservative failed music retirement', () => {
+  it('never starts a second audible loop if old-loop destruction throws before stopping', () => {
+    const { audio, sound } = createHarness([]); audio.playMusic('music-menu'); const old = sound.retained[0];
+    vi.spyOn(old, 'destroy').mockImplementation(() => { throw new Error('backend destruction failed'); });
+    for (let i = 0; i < 256; i++) { audio.playMusic('music-run'); audio.update(16); }
+    expect(sound.retained.filter(v => v.isPlaying)).toEqual([old]);
+    expect(sound.retained.length).toBeLessThanOrEqual(2);
+    old.isPlaying = false; old.pendingRemove = true; sound.tick(); audio.update(16);
+    expect(sound.retained.filter(v => v.isPlaying).map(v => v.key)).toEqual(['music-run']);
+  });
+});
+
+
+describe('independent reservation handoff', () => {
+  it('admits terminal from a start callback without killing a cue then dropping terminal', () => {
+    const map: readonly AudioMapEntry[] = [
+      { event: 'weapon:fired', sfxKey: 'sfx-weapon-fired', priority: 'combat' },
+      { event: 'run:won', sfxKey: 'sfx-run-won', priority: 'terminal' },
+    ];
+    const { audio, sound } = createHarness(map);
+    for (let i = 0; i < 31; i++) audio.play('sfx-weapon-fired');
+    const add = sound.add.bind(sound);
+    let armed = true;
+    vi.spyOn(sound, 'add').mockImplementation(key => {
+      const voice = add(key);
+      if (armed) {
+        armed = false;
+        const play = voice.play.bind(voice);
+        vi.spyOn(voice, 'play').mockImplementation(config => {
+          const started = play(config);
+          audio.play('sfx-run-won');
+          return started;
+        });
+      }
+      return voice;
+    });
+    audio.play('sfx-weapon-fired');
+    const live = sound.retained.filter(v => v.isPlaying);
+    expect(live).toHaveLength(32);
+    expect(live.filter(v => v.key === 'sfx-run-won')).toHaveLength(1);
   });
 });
