@@ -105,3 +105,31 @@ passed, four existing profile-conditional skips, zero failures, zero retries or
 flaky cases. Their centered ordinary/boss/Forge actor assertions now executed
 and passed with unchanged crop goldens. This focused result is not the full
 six-profile matrix or a device/owner verdict.
+
+
+## Shared observer follow-up
+
+The old `98d0122c3fb2e10009173a8c6076609a8b7d9391` hosted run
+`38330273391` was RED: **573 passed /64 existing scoped skips /23 failed**.
+Five first-blocking HUD screenshot mismatches were inspected as described
+above; the other eighteen were desktop observer/admission cases, also present
+on the source-only FX candidate. The eight scoped golden corrections alone
+were not claimed to fix those eighteen cases.
+
+A separate nine-file observer commit is now ported from the FX candidate's
+`3c34aef87b1c4607a508ab4ab85b98e48a3d547b`, without its art or
+source-delivery document. All nine hashes match the independently reviewed
+observer slice; runtime, source-art and all goldens remain byte-identical to
+the individually inspected `441481c04c5fdba2e3be9458688ffb81f8a241bd`
+checkpoint. Physical commands, actual owner cancellation/release, admission,
+assertions, budgets, retries, skips and thresholds are unchanged.
+
+The observer-contract comparison fails 36 of the same 137 cases on inherited
+helpers and passes all 137 on corrected owners. The full focused observer
+selection passes 185, independently repeated. Original nineteen desktop
+journeys pass on the source-only FX candidate; this is related evidence,
+not a Controls-specific browser or latency-improvement claim. Complete
+local and hosted gates are required at this Controls follow-up's exact head.
+The earlier 441481c full-local gates and physical phone-emulation activation
+capture remain historical evidence, not a substitute for new-head validation.
+No art, device, gameplay-comprehension or production acceptance is implied.
