@@ -54,13 +54,16 @@ jobs:
           fc-match system-ui
           test "$(fc-match --format '%{family}' sans-serif)" = "Noto Sans"
           test "$(fc-match --format '%{family}' system-ui)" = "Noto Sans"
+      - name: Native HTML5 autoplay recovery
+        id: nativeaudio
+        run: node scripts/check-audio-native-autoplay.mjs --output test-results/audio-native-autoplay.json
 
       - name: Browser viewport and touch acceptance
         id: browser
         run: npm run test:browser
 
       - name: Upload failed browser results
-        if: ${{ failure() && steps.browser.outcome == 'failure' }}
+        if: ${{ failure() && (steps.browser.outcome == 'failure' || steps.nativeaudio.outcome == 'failure') }}
         uses: actions/upload-artifact@v4
         with:
           name: browser-failure-results
