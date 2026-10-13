@@ -1,5 +1,8 @@
 # #230 direction exploration brief
 
+> **ARCHIVE — PROVENANCE ONLY (13 October reconciliation).** This is dated intake, not current implementation or visual authority. Current code/tests and owning issues override its assumptions. #232 establishes eight directions; the older four-direction proposal is superseded. Generated actor/composition/pickup studies remain unapproved and must not be shipped from this packet. #196 is implemented through #238; #194 launch ownership is integrated through #242/#249; #200 pooling through #246. #193/#197 compact views and actor/art/product/device gates remain open. The latest owner instruction authorizes safe PR integration and subsequent deployment, without granting visual acceptance.
+
+
 Decision owner: Jonathan. Status: UNAPPROVED. No actor production, sockets, renderer, topology or shadow-state contract may be frozen yet.
 
 ## Canonical subjects

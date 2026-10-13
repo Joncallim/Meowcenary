@@ -1,8 +1,11 @@
 # Independent art review and delivery boundary
 
+> **ARCHIVE — PROVENANCE ONLY (13 October reconciliation).** This is dated intake, not current implementation or visual authority. Current code/tests and owning issues override its assumptions. #232 establishes eight directions; the older four-direction proposal is superseded. Generated actor/composition/pickup studies remain unapproved and must not be shipped from this packet. #196 is implemented through #238; #194 launch ownership is integrated through #242/#249; #200 pooling through #246. #193/#197 compact views and actor/art/product/device gates remain open. The latest owner instruction authorizes safe PR integration and subsequent deployment, without granting visual acceptance.
+
+
 ## Verdict
 
-**Keep #230 on the visual design hold.** Four-direction presentation is the leading design candidate, not an approved production choice. No eight-character production, socket schema or renderer contract is authorized by this package. Generated source studies and a native-size simulation sheet are provided as real exploratory artwork, not accepted native sprite assets.
+**Keep #230 on the visual design hold.** The dated four-direction proposal is superseded by #232’s eight-direction decision; these exploratory pixels remain unapproved. No eight-character production, socket schema or renderer contract is authorized by this package. Generated source studies and a native-size simulation sheet are provided as real exploratory artwork, not accepted native sprite assets.
 
 ## Sources and generation
 

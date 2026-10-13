@@ -1,5 +1,8 @@
 # Meowcenary — single implementation intake, 9 October 2026
 
+> **ARCHIVE — PROVENANCE ONLY (13 October reconciliation).** This is dated intake, not current implementation or visual authority. Current code/tests and owning issues override its assumptions. #232 establishes eight directions; the older four-direction proposal is superseded. Generated actor/composition/pickup studies remain unapproved and must not be shipped from this packet. #196 is implemented through #238; #194 launch ownership is integrated through #242/#249; #200 pooling through #246. #193/#197 compact views and actor/art/product/device gates remain open. The latest owner instruction authorizes safe PR integration and subsequent deployment, without granting visual acceptance.
+
+
 Baseline reverified at publication preparation: main `a100e053ce4e2bc48bc4b8844e7da5010d562096`. This additive package changes documentation/art references only. No runtime implementation, merge, deployment or new implementation agent was started.
 
 **12 October addendum for #193/#197:** read the [resolved compact-grid focus/input contract](COMPACT-GRID-INPUT-CONTRACT.md) alongside the layout packet. It settles direct focus synchronisation, spatial navigation, the single scroll rectangle, inspector overflow, gestures and Back/bookmark restoration against main `4f79d6210c3b028b995d67a5cc6e35318b17b2ee`. Its [nonshipping proof](audit/verify-grid-input-contract.cjs) verifies the proposed primitive and selected specification models, not an integrated game. The contract corrects the original audit's nine-item example and preserves active #236/#240 ownership. Other packet status below is the dated 9 October record; recheck its live owning issues. No unrelated visual hold, merge or deployment gate is waived.
@@ -28,7 +31,7 @@ Read this index and only the bounded packet you are implementing. Preserve the b
 - [Pickup family exploration](art/pickup-family-exploration.png): real generated artwork reference; native16/20 authoring/export still required.
 - [Art review and rejected assumptions](ART-REVIEW.md), [direction exploration brief](DIRECTION-EXPLORATION.md), [asset manifest](ART-MANIFEST.json).
 
-The #230 exploration has useful front/back evidence but fails anatomical-side consistency, controlled gear/aim comparison and native-pixel/anchor proof. These are explicit design work, not decisions for the implementation agent to guess. Four directions are the leading candidate; eight directions are not justified yet. No production handoff is frozen for the roster.
+The #230 exploration has useful front/back evidence but fails anatomical-side consistency, controlled gear/aim comparison and native-pixel/anchor proof. These are explicit design work, not decisions for the implementation agent to guess. The dated review proposed four directions; the later eight-direction decision in #232 supersedes that proposal. No production handoff is frozen for the roster.
 
 ## Existing work reconciled
 
