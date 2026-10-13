@@ -27,7 +27,7 @@ jobs:
           sudo apt-get update
           # Match the Linux visual baselines' system-font fallback for symbols
           # outside bundled Nunito (notably the selected Contract checkmark).
-          sudo apt-get install -y lua5.4 fonts-noto-core libegl-mesa0 libgl1-mesa-dri
+          sudo apt-get install -y lua5.4 fonts-noto-core libegl1 libegl-mesa0 libgl1-mesa-dri
           python3 -m pip install --requirement docs/art/scripts/requirements.txt
 
       - name: Validate visual art

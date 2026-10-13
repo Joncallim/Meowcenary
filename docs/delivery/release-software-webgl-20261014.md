@@ -39,7 +39,10 @@ are mandatory for the candidate. Timing is evidence, not a new flaky CI gate.
 ## Smallest infrastructure boundary
 
 - Keep the Linux image at Ubuntu 24.04 (the failed run's current image family),
-  installed lockfile Chromium, serial CI worker and zero retries.
+  installed lockfile Chromium, serial CI worker and zero retries. Explicitly
+  install both the EGL dispatcher (`libegl1`) and Mesa EGL/DRI drivers. The
+  first candidate correctly rejected hosted SwiftShader fallback before any
+  matrix test; installing the driver alone did not supply its dispatcher.
 - Explicitly request Mesa llvmpipe software WebGL for the hosted matrix. The
   game continues to use Phaser AUTO, unchanged canvas dimensions, antialiasing,
   stencil, textures, viewport/DPR, input and resource ownership. No FPS cap,
@@ -64,6 +67,23 @@ The implementation uses Chromium's ANGLE EGL backend with Mesa's documented
 software/surfaceless environment. References:
 [Chromium headless GPU guidance](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/docs/gpu/using-gpu-hardware-in-headless-chrome.md),
 [Mesa environment variables](https://docs.mesa3d.org/envvars.html).
+
+## Real Menu input receipts
+
+The faster renderer exposed five assertion failures in three original test
+modules. Their synthetic key-up could precede the Menu input owner's sample:
+a physical `isDown` flag had been treated as evidence that the logical edge
+was consumed. The unchanged current-mount hydration test reproduced RED
+(expected armour focus, observed helmet) and passed GREEN after the correction.
+
+The shared test-only helper now holds each physical key through the existing
+real `POST_STEP` receipt, asserts Menu is active, and observes neutral through
+another owner frame after key-up. An inactive Menu cannot certify neutrality.
+It never steps/wakes simulation, clears quarantine, injects logical actions or
+waits for deliberately blocked artwork. Equipment, Gunsmith replacement and
+Loadout hydration retain their semantic selection, held-state, resource,
+preview, durable-save, screenshot and lifecycle assertions. No production input
+code changes; no deadline, retry, threshold, golden or scoped-skip change.
 
 ## Release contract
 

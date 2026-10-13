@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import equipmentCatalog from '../src/data/equipment.json' with { type: 'json' };
+import { pressMenuKey } from './menuInputReceipt';
 
 type Diagnostic = {
   panel: string;
@@ -23,7 +24,7 @@ async function diagnostic(page: Page): Promise<Diagnostic> {
   return page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam }).__MEOWCENARY_VISUAL_TEST__.menuLoadoutDiagnostics());
 }
 async function press(page: Page, key: string) {
-  await page.keyboard.down(key); await page.waitForTimeout(60); await page.keyboard.up(key); await page.waitForTimeout(70);
+  await pressMenuKey(page, key);
 }
 async function focus(page: Page, key: string) {
   for (let step = 0; step < 80; step += 1) {
