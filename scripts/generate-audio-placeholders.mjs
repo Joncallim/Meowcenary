@@ -1,21 +1,41 @@
 #!/usr/bin/env node
 // Epic 10 · Slice 5 — deterministic audio placeholder generator.
 //
-// Reads src/data/audio-assets.json and writes one 16-bit mono 8 kHz PCM WAV
-// per declared key into public/assets/audio/. Node 18+, built-in modules
-// only. The bytes are fully deterministic: FNV-1a/xorshift32 noise seeded by
+// Reads src/data/audio-assets.json. The default/--check command only checks
+// existing placeholder bytes; it never repairs or replaces shipped audio.
+// --output exports to a fresh directory outside public, marked unaccepted.
+// Use the repository's Node 22 environment; built-in modules only.
+// The bytes are fully deterministic: FNV-1a/xorshift32 noise seeded by
 // the asset key, no wall-clock values, no random source, no metadata chunk,
 // no platform newlines inside the WAV bytes.
 //
 // Per docs/architecture/epic-10-audio-remainder.md §8.2-8.4. Run directly:
-//   node scripts/generate-audio-placeholders.mjs
+//   node scripts/generate-audio-placeholders.mjs --check
+//   node scripts/generate-audio-placeholders.mjs --output /tmp/fresh-audition
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { closeSync, constants, fsyncSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SAMPLE_RATE = 8000;
 const HEADER_SIZE = 44;
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const args = process.argv.slice(2);
+const check = args.length === 0 || (args.length === 1 && args[0] === '--check');
+const exportPath = args.length === 2 && args[0] === '--output' && args[1].length > 0 ? resolve(args[1]) : undefined;
+if (args.length === 1 && args[0] === '--help') {
+  console.log('Usage: generate-audio-placeholders.mjs [--check | --output FRESH_DIRECTORY]\nDefault is read-only. Exports outside public remain unaccepted placeholders.');
+  process.exit(0);
+}
+if (!check && exportPath === undefined) throw new Error('Expected --check or --output FRESH_DIRECTORY; no files changed.');
+
+function assertRealDirectories(path) {
+  for (let current = path; ; current = dirname(current)) {
+    const stat = lstatSync(current);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Audio tooling refuses symlinked or non-directory ancestors.');
+    if (dirname(current) === current) break;
+  }
+}
 
 // ── Frozen synthesis profiles (§8.4) ───────────────────────────────────────
 
@@ -221,7 +241,7 @@ const catalog = JSON.parse(readFileSync(catalogUrl, 'utf8'));
 const rows = [...catalog.sfx, ...catalog.music];
 
 for (const row of rows) {
-  if (typeof row.key !== 'string' || row.key.length === 0) {
+  if (typeof row.key !== 'string' || !/^(?:sfx|music)-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.key)) {
     throw new Error(`audio-assets.json row has an empty key: ${JSON.stringify(row)}`);
   }
   if (row.url !== `assets/audio/${row.key}.wav`) {
@@ -232,6 +252,7 @@ for (const row of rows) {
 }
 
 const declaredKeys = new Set(rows.map((row) => row.key));
+if (declaredKeys.size !== rows.length) throw new Error('Audio placeholder catalog contains duplicate keys.');
 const profileKeys = new Set([...Object.keys(SFX_PROFILES), ...Object.keys(MUSIC_PROFILES)]);
 const missingProfiles = [...profileKeys].filter((key) => !declaredKeys.has(key));
 const extraProfiles = [...declaredKeys].filter((key) => !profileKeys.has(key));
@@ -243,17 +264,56 @@ if (missingProfiles.length > 0 || extraProfiles.length > 0) {
   throw new Error(`Catalog/profile key mismatch — ${details.join('; ')}`);
 }
 
-// ── Write output (§8.2) ─────────────────────────────────────────────────────
-
-const outputDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'assets', 'audio');
-mkdirSync(outputDir, { recursive: true });
-
-for (const row of rows) {
+// Render the complete validated inventory before creating an export directory.
+const rendered = rows.map(row => {
   const profile = SFX_PROFILES[row.key] ?? MUSIC_PROFILES[row.key];
   const samples = profile.durationMs === undefined
     ? renderSfxSamples(row.key, profile)
     : renderMusicSamples(profile);
-  writeFileSync(join(outputDir, `${row.key}.wav`), encodeWav(samples));
-}
+  return { key: row.key, bytes: encodeWav(samples) };
+});
 
-console.log(`Generated ${rows.length} deterministic audio placeholders in ${outputDir}`);
+if (check) {
+  const outputDir = join(root, 'public', 'assets', 'audio');
+  assertRealDirectories(outputDir);
+  const mismatched = [];
+  for (const { key, bytes } of rendered) {
+    let fd;
+    try {
+      fd = openSync(join(outputDir, `${key}.wav`), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+      const stat = fstatSync(fd);
+      if (!stat.isFile() || stat.size !== bytes.length || !readFileSync(fd).equals(bytes)) mismatched.push(key);
+    } catch {
+      mismatched.push(key);
+    } finally {
+      if (fd !== undefined) closeSync(fd);
+    }
+  }
+  if (mismatched.length) throw new Error(`Shipped files differ from placeholders or are missing: ${mismatched.join(', ')}. No files changed; use the owning production source/exporter for authored audio.`);
+  console.log(`Checked ${rendered.length} deterministic placeholders without writing shipped audio.`);
+} else {
+  const publicPath = join(root, 'public');
+  const fromPublic = relative(publicPath, exportPath);
+  if (fromPublic === '' || (fromPublic !== '..' && !fromPublic.startsWith(`..${sep}`) && !fromPublic.startsWith(sep))) {
+    throw new Error('Placeholder exports must be outside public; production audio is never an output destination.');
+  }
+  // Parent must already exist and be real. No recursive mkdir, target reuse,
+  // symlink traversal, force switch, or overwrite mode is supported.
+  assertRealDirectories(dirname(exportPath));
+  mkdirSync(exportPath, { mode: 0o700 });
+  const writeExclusive = (name, bytes) => {
+    const fd = openSync(join(exportPath, name), constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+    try {
+      writeFileSync(fd, bytes);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+  };
+  // Label before the first WAV; an interrupted partial export is unaccepted.
+  writeExclusive('PLACEHOLDER-ONLY.json', `${JSON.stringify({ productionAccepted: false, sampleRate: SAMPLE_RATE, keys: rendered.map(row => row.key) }, null, 2)}\n`);
+  for (const { key, bytes } of rendered) writeExclusive(`${key}.wav`, bytes);
+  // Completion is distinct from production approval and appears only last.
+  writeExclusive('EXPORT-COMPLETE.json', `${JSON.stringify({ complete: true, productionAccepted: false })}\n`);
+  console.log(`Exported ${rendered.length} unaccepted deterministic placeholders outside public to ${exportPath}`);
+}
