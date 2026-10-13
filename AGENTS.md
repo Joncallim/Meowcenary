@@ -41,6 +41,19 @@ off any Meowcenary PR.
 - Keep one shared-file integration owner at a time. Existing merge/deploy holds
   and latest maintainer authorizations still apply; do not assume that permission
   to merge one verified stack authorizes every follow-on release.
+- Follow the roadmap's **Continuous playtest discovery** track after R0 and
+  each feature outcome. Early tests of incomplete presentation are diagnostic,
+  not final product acceptance. The final R5 candidate needs uncoached whole-run
+  evidence, including repeated runs, varied builds, physical devices, and an
+  independent fun/readability verdict; #171 owns the final product gate.
+- When manual evidence is due, provide a short executable playtest brief naming
+  exact SHA/URL, representative seed/save and device, player task, observation
+  prompts and the owning acceptance criteria. Mark what was actually run versus
+  unverified; do not turn synthetic/browser passes into physical-human approval.
+- Triage observed playtest findings by severity into the existing owning issue,
+  reproduce where possible, fix the smallest cause and retest at the new SHA.
+  A new feature suggestion or one confounded opinion is not permission to
+  reorder R0–R5 or start speculative systems.
 
 ## Non-Negotiable Invariants
 
