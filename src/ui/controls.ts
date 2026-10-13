@@ -5,6 +5,7 @@ import type { InputController, InputMode, InputPresentationSnapshot } from '../s
 import { edgeMargin, pointerToRootLocal, physicalToLogical, GAMEPLAY_ZOOM, responsiveGameUiViewport, responsiveUiViewport, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { createUiText } from './text';
+import { DEFAULT_ABILITY_CONTROL_PREFERENCE, resolveAbilityControlLayout, type AbilityButtonSide } from '../presentation/abilityControlLayout';
 import type { AbilityUiState } from '../gameplay/abilities';
 import type { VisualArtLookup } from '../systems/visualArt';
 import { createUiVisualChrome, type UiVisualChrome } from './visualChrome';
@@ -22,6 +23,8 @@ export interface ControlsViewOptions {
   readonly readReducedMotion: () => boolean;
   readonly onPauseRequested: () => void;
   readonly onAbilityRequested?: () => void;
+  /** Captured for this run; future settings changes apply to a new view. */
+  readonly abilityButtonSide?: AbilityButtonSide;
   readonly onExtractRequested?: () => void;
   readonly touchStick?: TouchStickConfig;
   /** Immutable player-facing identity for the active ability.  Controls own
@@ -43,9 +46,6 @@ export interface AbilityControlDefinition {
   };
 }
 
-const ABILITY_CARD_WIDTH_PX = 120;
-const ABILITY_CARD_HEIGHT_PX = 60;
-
 export class ControlsView {
   private readonly scene: Phaser.Scene;
   private readonly input: InputController;
@@ -65,6 +65,7 @@ export class ControlsView {
   private hintText!: Phaser.GameObjects.Text;
   private pauseButton!: Phaser.GameObjects.Rectangle;
   private readonly ability?: AbilityControlDefinition;
+  private readonly abilityButtonSide: AbilityButtonSide;
   private abilityUiState: AbilityUiState = Object.freeze({ phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0, readiness: 1, activeProgress: 0 });
   private abilityVisibleSeconds = 0;
   private abilityStateGlyph?: Phaser.GameObjects.Text;
@@ -108,6 +109,7 @@ export class ControlsView {
     this.stickRadius = touchStick.radius;
     this.visibleStickRadius = Math.min(this.stickRadius, 48);
     this.ability = options.ability ?? undefined;
+    this.abilityButtonSide = options.abilityButtonSide ?? DEFAULT_ABILITY_CONTROL_PREFERENCE.abilityButtonSide;
     this.uiVisuals = options.visualArt ? createUiVisualChrome(options.visualArt) : undefined;
     const add = scene.add as typeof scene.add & { container?: (x: number, y: number) => Phaser.GameObjects.Container };
     this.root = add.container?.(viewport.originX ?? 0, viewport.originY ?? 0);
@@ -144,12 +146,6 @@ export class ControlsView {
     const rightMargin = edgeMargin(viewport, 'right');
     const bottomMargin = edgeMargin(viewport, 'bottom');
     const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
-    // Ability is the active combat affordance: reserve a larger, independent
-    // lower-right thumb target.  It deliberately remains an interactive UI
-    // object so PointerAdapter never adopts its pointer as a movement stick.
-    const abilityWidth = physicalToLogical(ABILITY_CARD_WIDTH_PX, viewport);
-    const abilityHeight = physicalToLogical(ABILITY_CARD_HEIGHT_PX, viewport);
-    const abilityInset = physicalToLogical(12, viewport);
     const btnWidth = physicalToLogical(180, viewport);
     const btnHeight = physicalToLogical(52, viewport);
 
@@ -196,7 +192,7 @@ export class ControlsView {
     this.pauseButton.setInteractive();
     this.pauseButton.on('pointerdown', this.handlePausePointerDown, this);
     if (this.ability) {
-      this.buildAbilityCard(scene, viewport, rightMargin, bottomMargin, abilityInset, abilityWidth, abilityHeight);
+      this.buildAbilityCard(scene, viewport);
     }
     this.pauseArt = this.uiVisuals?.addIcon(scene, this.pauseButton.x, this.pauseButton.y, 'action-icon:pause', {
       size: physicalToLogical(28, viewport), depth: ThemeDepth.hud + 1,
@@ -225,14 +221,8 @@ export class ControlsView {
   private buildAbilityCard(
     scene: Phaser.Scene,
     viewport: UiViewport,
-    rightMargin: number,
-    bottomMargin: number,
-    inset: number,
-    width: number,
-    height: number,
   ): void {
-    const x = viewport.canvasWidth - rightMargin - inset - width / 2;
-    const y = viewport.canvasHeight - bottomMargin - inset - height / 2;
+    const { x, y, width, height } = resolveAbilityControlLayout(viewport, this.abilityButtonSide);
     this.abilityButton = scene.add.rectangle(x, y, width, height, ThemeColor.primary, 0.78);
     this.abilityButton.setDepth(ThemeDepth.hud);
     this.abilityButton.setScrollFactor(0);

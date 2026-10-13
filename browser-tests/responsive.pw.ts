@@ -547,10 +547,24 @@ test('phone touch starts a run, moves, and activates the graphical ability contr
   const movedFloor = await page.screenshot({ clip: floorClip });
   expect(movedFloor.equals(idleFloorB)).toBe(false);
 
-  const abilityBefore = await page.screenshot({ clip: { x: 240, y: 750, width: 140, height: 84 } });
-  await page.touchscreen.tap(320, 800);
+  const readAbility = () => page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: { runStartIntroDiagnostics(): {
+      status: string; activationId: number; abilityUiState: { phase: string };
+      abilityButton: { x: number; y: number; width: number; height: number };
+    } | undefined };
+  }).__MEOWCENARY_VISUAL_TEST__?.runStartIntroDiagnostics());
+  const abilityStateBefore = await readAbility();
+  expect(abilityStateBefore).toMatchObject({ status: 'active', activationId: 0, abilityUiState: { phase: 'ready' } });
+  const abilityBounds = abilityStateBefore!.abilityButton;
+  expect(abilityBounds.x).toBeCloseTo(24, 3);
+  expect(abilityBounds.width).toBeCloseTo(120, 3);
+  expect(abilityBounds.height).toBeCloseTo(60, 3);
+  const abilityClip = { x: abilityBounds.x - 10, y: abilityBounds.y - 12, width: 140, height: 84 };
+  const abilityBefore = await page.screenshot({ clip: abilityClip });
+  await page.touchscreen.tap(abilityBounds.x + abilityBounds.width / 2, abilityBounds.y + abilityBounds.height / 2);
+  await expect.poll(async () => (await readAbility())?.activationId).toBe(abilityStateBefore!.activationId + 1);
   await page.waitForTimeout(100);
-  const abilityAfter = await page.screenshot({ clip: { x: 240, y: 750, width: 140, height: 84 } });
+  const abilityAfter = await page.screenshot({ clip: abilityClip });
   expect(abilityAfter.equals(abilityBefore)).toBe(false);
   await page.screenshot({ path: testInfo.outputPath('touch-gameplay.png') });
 });

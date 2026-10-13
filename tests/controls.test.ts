@@ -6,9 +6,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { MockInputPlugin, MockGamepad } from './__mocks__/phaser';
 import { InputController } from '../src/systems/input';
 import { ControlsView, type AbilityControlDefinition } from '../src/ui/controls';
+import { resolveAbilityControlLayout, type AbilityButtonSide } from '../src/presentation/abilityControlLayout';
 import type { AbilityUiState } from '../src/gameplay/abilities';
 import type { TouchStickConfig } from '../src/engine/config';
-import { logicalCanvasViewport, responsiveGameUiViewport, GAMEPLAY_ZOOM } from '../src/ui/layout';
+import { logicalCanvasViewport, responsiveGameUiViewport, GAMEPLAY_ZOOM, responsiveUiViewport, type UiViewport } from '../src/ui/layout';
 import { ThemeColor, ThemeDepth } from '../src/ui/theme';
 import * as visualChrome from '../src/ui/visualChrome';
 import type { VisualArtLookup } from '../src/systems/visualArt';
@@ -97,6 +98,7 @@ function createFakeScene() {
       setVisible(visible: boolean) { return chain('visible', visible); },
       setAlpha(alpha: number) { return chain('alpha', alpha); },
       setPosition(x: number, y: number) { state.x = x; state.y = y; return api; },
+      setDisplaySize(width: number, height: number) { state.width = width; state.height = height; return api; },
       setRadius(radius: number) { state.radius = radius; return api; },
       setStrokeStyle(width: number, color: number, alpha: number) {
         state.strokeWidth = width;
@@ -138,7 +140,9 @@ function createFakeScene() {
   }
 
   const scene = {
+    textures: { exists: () => true },
     add: {
+      image: (x: number, y: number, textureKey: string, frameKey?: string) => own(fakeObject(x, y)).setText(`image:${textureKey}:${frameKey ?? ''}`),
       arc: (x: number, y: number, radius: number) =>
         own(fakeObject(x, y, radius * 2, radius * 2)).setRadius(radius),
       container: (x = 0, y = 0) => {
@@ -212,30 +216,34 @@ function createFakeScene() {
 
 const scrapBurst: AbilityControlDefinition = Object.freeze({ name: 'Scrap Burst', description: 'Knock nearby enemies away.' });
 
-function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: boolean; touchStick?: TouchStickConfig; zoomed?: boolean; ability?: AbilityControlDefinition | null; visualArt?: VisualArtLookup } = {}) {
+function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: boolean; touchStick?: TouchStickConfig; zoomed?: boolean; ability?: AbilityControlDefinition | null; visualArt?: VisualArtLookup; abilityButtonSide?: AbilityButtonSide; viewport?: UiViewport } = {}) {
   const { readReducedMotion = () => false, gamepad = false, touchStick, zoomed = false, ability = scrapBurst } = options;
   const scene = createFakeScene();
   const input = new MockInputPlugin({ keyboard: true, gamepad });
   const controller = new InputController({ ...scene, input } as never, { touchStick });
   const onPauseRequested = vi.fn();
   const onAbilityRequested = vi.fn();
-  const view = new ControlsView({
+  const onExtractRequested = vi.fn();
+  const controlsOptions = {
     scene: scene as never,
     input: controller,
-    viewport: zoomed ? responsiveGameUiViewport(scene.scale.width, scene.scale.height) : logicalCanvasViewport(),
+    viewport: options.viewport ?? (zoomed ? responsiveGameUiViewport(scene.scale.width, scene.scale.height) : logicalCanvasViewport()),
     readReducedMotion,
     onPauseRequested,
     onAbilityRequested,
+    onExtractRequested,
     touchStick,
     ability,
     visualArt: options.visualArt,
-  });
+    abilityButtonSide: options.abilityButtonSide,
+  };
+  const view = new ControlsView(controlsOptions);
   // GameScene runs InputController.update before the view update each frame.
   const tick = (dtMs = 16) => {
     controller.update(dtMs);
     view.update(dtMs);
   };
-  return { scene, input, controller, view, onPauseRequested, onAbilityRequested, tick };
+  return { scene, input, controller, view, onPauseRequested, onAbilityRequested, onExtractRequested, tick, controlsOptions };
 }
 
 describe('ControlsView virtual stick', () => {
@@ -603,7 +611,7 @@ describe('ControlsView pause button', () => {
 
 describe('ControlsView ability button', () => {
   it('puts a fixed semantic ability card in the lower-right thumb zone while pause stays top-right', () => {
-    const { scene, view } = createHarness({ zoomed: true });
+    const { scene, view } = createHarness({ zoomed: true, abilityButtonSide: 'right' });
     const pause = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.surface)!;
     const ability = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
 
@@ -614,7 +622,7 @@ describe('ControlsView ability button', () => {
   });
 
   it('retains a fixed lower-right card through every supported phone and desktop viewport', () => {
-    const { scene, view } = createHarness({ zoomed: true });
+    const { scene, view } = createHarness({ zoomed: true, abilityButtonSide: 'right' });
     for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080]]) {
       scene.resize(width, height);
       const ability = scene.objects.find((object) => !object.state.destroyed
@@ -654,7 +662,7 @@ describe('ControlsView ability button', () => {
   });
 
   it('rebuilds one lower-right ability target on resize and removes the stale hit target in extraction state', () => {
-    const { scene, view } = createHarness({ zoomed: true });
+    const { scene, view } = createHarness({ zoomed: true, abilityButtonSide: 'right' });
     const oldAbility = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
     scene.resize(844, 390);
     const liveAbility = scene.objects.filter((object) => !object.state.destroyed && object.state.interactive && object.state.fillColor === ThemeColor.primary);
@@ -805,4 +813,190 @@ it.each([360, 390])('contains mechanical teaching copy at %spx without overlappi
   expect(hint.y + hintHeight / 2).toBeLessThan(Number(target.state.y) - Number(target.state.height) / 2);
   expect(hintHeight).toBeGreaterThan(Number(hint.state.fontSize) * 1.2);
   view.destroy();
+});
+
+
+function liveAbility(scene: ReturnType<typeof createFakeScene>) {
+  // Combat has precisely two interactive targets; pause is 44px, ability 120px.
+  const targets = scene.objects.filter(object => !object.state.destroyed && object.state.interactive);
+  expect(targets).toHaveLength(2);
+  return targets.find(object => Number(object.state.width) > Number(object.state.height))!;
+}
+
+const handedProfiles = [[360, 640], [390, 844], [844, 390], [1024, 768], [1114, 720], [1280, 720], [1920, 1080]] as const;
+const handedCases = (['left', 'right'] as const).flatMap(side => [false, true].flatMap(zoomed =>
+  handedProfiles.map(([width, height]) => ({ side, zoomed, width, height }))));
+
+describe('ControlsView captured ability handedness', () => {
+  it.each(handedCases)('places $side card at exact safe bounds ($width×$height, zoom=$zoomed) on construction, resize and inset rebuild', ({ side, zoomed, width, height }) => {
+    const values: Record<string, string> = { '--safe-top': '11px', '--safe-right': '29px', '--safe-bottom': '34px', '--safe-left': '47px' };
+    vi.stubGlobal('document', { documentElement: {} });
+    vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: (property: string) => values[property] ?? '0px' }));
+    const viewportFor = zoomed ? responsiveGameUiViewport : responsiveUiViewport;
+    const harness = createHarness({ zoomed, abilityButtonSide: side, viewport: viewportFor(width, height) });
+    const { scene, view, onAbilityRequested, onPauseRequested } = harness;
+    const check = () => {
+      const card = liveAbility(scene);
+      const viewport = viewportFor(scene.scale.width, scene.scale.height);
+      const expected = resolveAbilityControlLayout(viewport, side);
+      expect(card.state.x).toBeCloseTo(expected.x, 8);
+      expect(card.state.y).toBeCloseTo(expected.y, 8);
+      expect(card.state.width).toBeCloseTo(expected.width, 8);
+      expect(card.state.height).toBeCloseTo(expected.height, 8);
+      const zoom = zoomed ? GAMEPLAY_ZOOM : 1;
+      expect(Number(card.state.width) * zoom).toBeCloseTo(120, 8);
+      expect(Number(card.state.height) * zoom).toBeCloseTo(60, 8);
+      const safeEdge = side === 'left' ? Number(card.state.x) * zoom - 60 : scene.scale.width - Number(card.state.x) * zoom - 60;
+      expect(safeEdge).toBeCloseTo(24 + Number.parseFloat(values[`--safe-${side}`]), 8);
+      expect(scene.scale.height - Number(card.state.y) * zoom - 30).toBeCloseTo(24 + Number.parseFloat(values['--safe-bottom']), 8);
+      const pause = scene.objects.find(object => !object.state.destroyed && object.state.interactive && object !== card)!;
+      expect(pause.x * zoom).toBeCloseTo(scene.scale.width - 12 - 29 - 22, 8);
+      expect(pause.y * zoom).toBeCloseTo(12 + 11 + 22, 8);
+      const hint = scene.objects.find(object => !object.state.destroyed && String(object.state.text).includes(scrapBurst.description))!;
+      const hintBounds = hint.getBounds();
+      const cardBounds = card.getBounds();
+      expect(hintBounds.y + hintBounds.height).toBeLessThan(cardBounds.y);
+      const root = scene.objects[0];
+      expect(root.x).toBeCloseTo(viewport.originX ?? 0, 8);
+      expect(root.y).toBeCloseTo(viewport.originY ?? 0, 8);
+      for (const object of scene.objects.filter(object => !object.state.destroyed)) {
+        expect(object.state.scrollFactorX).toBe(0);
+        expect(object.state.scrollFactorY).toBe(0);
+      }
+      card.emit('pointerdown');
+      expect(onAbilityRequested).toHaveBeenCalled();
+      expect(onPauseRequested).not.toHaveBeenCalled();
+      return card;
+    };
+    try {
+      scene.scale.width = width; scene.scale.height = height;
+      const initial = check();
+      // Mutating the caller's options cannot hot-swap the run's side.
+      harness.controlsOptions.abilityButtonSide = side === 'left' ? 'right' : 'left';
+      const nextWidth = width === 390 ? 360 : 390;
+      scene.resize(nextWidth, 844);
+      expect(initial.listenerCount('pointerdown')).toBe(0);
+      const rebuilt = check();
+      values['--safe-left'] = '63px'; values['--safe-bottom'] = '41px';
+      scene.resize(nextWidth, 844);
+      expect(rebuilt.listenerCount('pointerdown')).toBe(0);
+      check();
+    } finally { view.destroy(); harness.controller.destroy(); vi.unstubAllGlobals(); }
+  });
+
+  it.each(['left', 'right'] as const)('keeps icon before copy and state indicators for the %s card', side => {
+    const { scene, view, controller } = createHarness({ abilityButtonSide: side, ability: { ...scrapBurst, icon: { textureKey: 'fixture-icon', frameKey: 'ability' } } });
+    const card = liveAbility(scene);
+    const icon = scene.objects.find(object => object.state.text === 'image:fixture-icon:ability')!;
+    const name = scene.objects.find(object => object.state.text === scrapBurst.name)!;
+    const state = scene.objects.find(object => object.state.text === 'READY')!;
+    const glyph = scene.objects.find(object => object.state.text === '○')!;
+    expect(icon.x).toBeCloseTo(card.x - 120 * 0.30, 8);
+    expect(name.x).toBeCloseTo(card.x + 120 * 0.12, 8);
+    expect(state.x).toBe(name.x);
+    expect(icon.x).toBeLessThan(name.x);
+    expect(glyph.x).toBeCloseTo(card.x + 60 - 9, 8);
+    expect(icon.state.interactive).toBe(false);
+    expect(name.state.interactive).toBe(false);
+    expect(state.state.interactive).toBe(false);
+    view.destroy(); controller.destroy();
+  });
+
+  it('defaults a new view to Left', () => {
+    const { scene, view, controller } = createHarness();
+    expect(liveAbility(scene).x).toBe(84);
+    view.destroy(); controller.destroy();
+  });
+
+  it.each(['left', 'right'] as const)('retains authoritative phases and reduced motion across %s rebuilds and disposes stale ability targets', side => {
+    const { scene, view, controller, onAbilityRequested, onExtractRequested } = createHarness({ abilityButtonSide: side, readReducedMotion: () => true });
+    const phases: AbilityUiState[] = [
+      { phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0, readiness: 1, activeProgress: 0 },
+      { phase: 'active', activeRemainingMs: 2500, cooldownRemainingMs: 8000, readiness: 0, activeProgress: 0.5 },
+      { phase: 'cooling', activeRemainingMs: 0, cooldownRemainingMs: 6100, readiness: 0.3, activeProgress: 0 },
+    ];
+    for (const state of phases) {
+      view.setAbilityUiState(Object.freeze(state));
+      const old = liveAbility(scene);
+      scene.resize(scene.scale.width === 390 ? 360 : 390, 844);
+      old.emit('pointerdown');
+      expect(old.listenerCount('pointerdown')).toBe(0);
+      expect(onAbilityRequested).not.toHaveBeenCalled();
+      const text = state.phase === 'ready' ? 'READY' : state.phase === 'active' ? 'ACTIVE 3s' : 'WAIT 7s';
+      expect(scene.objects.some(object => !object.state.destroyed && object.state.text === text)).toBe(true);
+      const glyph = state.phase === 'ready' ? '○' : state.phase === 'active' ? '◆' : '▰';
+      expect(scene.objects.some(object => !object.state.destroyed && object.state.text === glyph)).toBe(true);
+      const activeBand = scene.objects.find(object => !object.state.destroyed && object.state.fillColor === ThemeColor.gold && object.state.height === 3)!;
+      const cooldownBand = scene.objects.find(object => !object.state.destroyed && object.state.fillColor === ThemeColor.cream && object.state.height === 3)!;
+      expect(activeBand.visible).toBe(state.phase === 'active');
+      expect(activeBand.state.scaleX).toBe(state.activeProgress);
+      expect(cooldownBand.visible).toBe(state.phase === 'cooling');
+      expect(cooldownBand.state.scaleX).toBe(state.readiness);
+      const rebuilt = liveAbility(scene);
+      view.setExtractionState(true);
+      rebuilt.emit('pointerdown');
+      expect(rebuilt.listenerCount('pointerdown')).toBe(0);
+      expect(onAbilityRequested).not.toHaveBeenCalled();
+      expect(scene.objects.some(object => !object.state.destroyed && object.state.text === 'Scrap Burst')).toBe(false);
+      const extractionTargets = scene.objects.filter(object => !object.state.destroyed && object.state.interactive);
+      expect(extractionTargets).toHaveLength(2);
+      const extract = extractionTargets.find(object => object.state.width === 180)!;
+      expect(extract.x).toBe(scene.scale.width / 2);
+      expect(extract.y).toBe(Math.round(scene.scale.height * 0.55));
+      const extractCalls = onExtractRequested.mock.calls.length;
+      extract.emit('pointerdown');
+      expect(onExtractRequested).toHaveBeenCalledTimes(extractCalls + 1);
+      expect(onAbilityRequested).not.toHaveBeenCalled();
+      view.setExtractionState(false);
+      extract.emit('pointerdown');
+      expect(extract.listenerCount('pointerdown')).toBe(0);
+      expect(onExtractRequested).toHaveBeenCalledTimes(extractCalls + 1);
+      expect(scene.objects.some(object => !object.state.destroyed && object.state.text === text)).toBe(true);
+    }
+    view.update(2200);
+    expect(scene.tweenConfigs).toHaveLength(0);
+    expect(scene.objects.find(object => !object.state.destroyed && String(object.state.text).includes(scrapBurst.description))!.alpha).toBe(0);
+    const finalTarget = liveAbility(scene);
+    finalTarget.emit('pointerdown');
+    expect(onAbilityRequested).toHaveBeenCalledTimes(1);
+    view.destroy(); view.destroy(); finalTarget.emit('pointerdown');
+    expect(finalTarget.listenerCount('pointerdown')).toBe(0);
+    expect(onAbilityRequested).toHaveBeenCalledTimes(1);
+    expect(scene.scale.listenerCount('resize')).toBe(0);
+    controller.destroy();
+  });
+
+  it.each((['left', 'right'] as const).flatMap(side => [false, true].flatMap(abilityFirst => [false, true].map(releaseMovementFirst => ({ side, abilityFirst, releaseMovementFirst })))))
+  ('preserves two-finger ownership: $side abilityFirst=$abilityFirst releaseMovementFirst=$releaseMovementFirst', ({ side, abilityFirst, releaseMovementFirst }) => {
+    const { scene, view, input, controller, tick, onAbilityRequested } = createHarness({ abilityButtonSide: side });
+    const ability = liveAbility(scene);
+    const abilityPointer = { x: ability.x, y: ability.y, isDown: true, id: 1 };
+    const pressAbility = () => { input.emit('pointerdown', abilityPointer, [ability]); ability.emit('pointerdown'); tick(); };
+    if (abilityFirst) { pressAbility(); expect(controller.getPresentationSnapshot().pointerStart).toBeNull(); }
+    input.pointerDown(180, 500, 0); input.pointerMove(240, 500, 0); tick();
+    const moving = controller.getMoveVector();
+    expect(moving.x).toBeGreaterThan(0); expect(moving.y).toBe(0);
+    const start = controller.getPresentationSnapshot().pointerStart;
+    if (!abilityFirst) pressAbility();
+    expect(onAbilityRequested).toHaveBeenCalledTimes(1);
+    expect(controller.getMoveVector()).toEqual(moving);
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual(start);
+    input.pointerDown(20, 20, 2); input.pointerMove(30, 60, 2); tick();
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual(start);
+    expect(controller.getMoveVector()).toEqual(moving);
+    input.pointerUp(2);
+    if (releaseMovementFirst) {
+      input.pointerUp(0); tick();
+      expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+      input.emit('pointermove', { ...abilityPointer, x: ability.x + 60 }); tick();
+      expect(controller.getPresentationSnapshot().pointerStart).toBeNull();
+      input.emit('pointerup', { ...abilityPointer, isDown: false });
+    } else {
+      input.emit('pointerup', { ...abilityPointer, isDown: false }); tick();
+      expect(controller.getMoveVector()).toEqual(moving);
+      input.pointerUp(0);
+    }
+    tick(); expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    view.destroy(); controller.destroy();
+  });
 });
