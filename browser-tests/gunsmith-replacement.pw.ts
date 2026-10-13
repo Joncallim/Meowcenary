@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { FocusStroke } from '../src/ui/theme';
+import { pressMenuKey } from './menuInputReceipt';
 
 type Diagnostic = {
   panel: string;
@@ -19,15 +20,7 @@ const candidate = (state: Diagnostic) => state.buttons.find((button) => button.k
 const replacement = (state: Diagnostic) => state.buttons.find((button) => button.key === 'gunsmith-commit')!;
 
 async function press(page: Page, key: string) {
-  await page.keyboard.down(key);
-  try {
-    await expect.poll(() => page.evaluate(() =>
-      (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam })
-        .__MEOWCENARY_VISUAL_TEST__.isMenuInputNeutral())).toBe(false);
-  } finally { await page.keyboard.up(key); }
-  await expect.poll(() => page.evaluate(() =>
-    (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam })
-      .__MEOWCENARY_VISUAL_TEST__.isMenuInputNeutral())).toBe(true);
+  await pressMenuKey(page, key);
 }
 
 test('focused Gunsmith replacement keeps the entire action clear of its card border across resize', async ({ page }, testInfo) => {

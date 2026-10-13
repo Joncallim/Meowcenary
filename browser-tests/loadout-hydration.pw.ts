@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import visualArt from '../src/data/visual-art.json' with { type: 'json' };
 import partVisuals from '../src/data/gunsmith-part-visuals.json' with { type: 'json' };
+import { waitForMenuInput } from './menuInputReceipt';
 
 type Event = { owner: string; facts: Record<string, string | number | boolean | readonly string[]> };
 type Diagnostic = { panel: string; focusedKey?: string; copy: string[];
@@ -63,11 +64,13 @@ test(`late Loadout art preserves mounted controls without full rebuilds: ${scena
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.showMenu('loadout'))).toBe(true);
     await expect.poll(() => equipmentRequested).toBe(1);
     if (scenario === 'returned and resized mount') {
+      await waitForMenuInput(page, true);
       await page.keyboard.down('Escape');
       try {
+        await waitForMenuInput(page, false);
         await expect.poll(async () => (await checkpoint(page)).diagnostic.panel).toBe('home');
       } finally { await page.keyboard.up('Escape'); }
-      await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.isMenuInputNeutral())).toBe(true);
+      await waitForMenuInput(page, true);
       const target = (await checkpoint(page)).diagnostic.buttons.find(button => button.text === 'Loadout')!;
       expect(target.visible && target.interactive).toBe(true);
       const { x, y, width, height } = target.bounds;
@@ -80,11 +83,12 @@ test(`late Loadout art preserves mounted controls without full rebuilds: ${scena
         event.owner === 'menu.render' && event.facts.reason === 'viewport-resize').length).toBeGreaterThan(0);
     }
     // Exercise the real focus/input path while physical art is still pending.
+    await waitForMenuInput(page, true);
     await page.keyboard.down('ArrowRight');
     try {
-      await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.isMenuInputNeutral())).toBe(false);
+      await waitForMenuInput(page, false);
     } finally { await page.keyboard.up('ArrowRight'); }
-    await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__!.isMenuInputNeutral())).toBe(true);
+    await waitForMenuInput(page, true);
     const before = await checkpoint(page);
     expect(before.diagnostic.panel).toBe('loadout');
     expect(before.diagnostic.focusedKey).toBe('equipment-slot:armour');

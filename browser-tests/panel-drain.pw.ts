@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
+import { pressMenuKey } from './menuInputReceipt';
 
 type Seams = typeof globalThis & {
   __MEOWCENARY_VISUAL_TEST__?: {
@@ -41,11 +42,7 @@ test('overlapping Loadout and Equipment art share one failed physical attempt an
     // the fixed footer even on the short phone, before touch/pointer activation.
     for (let index = 0; index < 12; index += 1) {
       if (await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuLoadoutDiagnostics().focusedKey === 'loadout:equipment')) break;
-      await page.keyboard.down('ArrowDown');
-      try {
-        await expect.poll(() => page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.isMenuInputNeutral())).toBe(false);
-      } finally { await page.keyboard.up('ArrowDown'); }
-      await expect.poll(() => page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.isMenuInputNeutral())).toBe(true);
+      await pressMenuKey(page, 'ArrowDown');
     }
     expect(await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuLoadoutDiagnostics().focusedKey)).toBe('loadout:equipment');
     const equipment = await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuLoadoutDiagnostics().buttons.find(button => button.text === 'Equipment'));

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { waitForMenuInput } from './menuInputReceipt';
 
 type Diagnostic = { panel: string; focusedKey?: string; scroll?: { top: number; bottom: number }; buttons: Array<{ key?: string;
   text: string; focused: boolean; visible: boolean; interactive: boolean;
@@ -27,27 +28,16 @@ function phase(page: Page, name: string): void {
   console.info(`[gunsmith-update] ${name}: ${Date.now() - probe.started}ms keys=${JSON.stringify(probe.keys)}`);
 }
 async function observeInput(page: Page, expectedNeutral: boolean) {
-  // Sample the real logical input owner in the renderer, without a protocol
-  // round trip between frames. Keep the previous poll's five-second deadline.
-  return page.evaluate(expected => new Promise<{ neutral: boolean | undefined; focusedKey?: string }>(resolve => {
+  await waitForMenuInput(page, expectedNeutral);
+  return page.evaluate(() => {
     const seam = (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__;
-    let frame: number | undefined;
-    const finish = () => {
-      clearTimeout(timeout);
-      if (frame !== undefined) cancelAnimationFrame(frame);
-      resolve({ neutral: seam?.isMenuInputNeutral(), focusedKey: seam?.menuFocusedKey() });
-    };
-    const timeout = setTimeout(finish, 5000);
-    const sample = () => {
-      if (seam?.isMenuInputNeutral() === expected) finish();
-      else frame = requestAnimationFrame(sample);
-    };
-    sample();
-  }), expectedNeutral);
+    return { neutral: seam.isMenuInputNeutral(), focusedKey: seam.menuFocusedKey() };
+  });
 }
 async function press(page: Page, key: string): Promise<string | undefined> {
   const keys = probes.get(page)!.keys;
   keys[key] = (keys[key] ?? 0) + 1;
+  await observeInput(page, true);
   try {
     const [held] = await Promise.all([observeInput(page, false), page.keyboard.down(key)]);
     expect(held.neutral, `${key} sampled held`).toBe(false);

@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises';
+import { waitForMenuInput } from './menuInputReceipt';
 import { expect, test, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 
 type Button = { key?: string; text: string; visible: boolean; interactive: boolean;
@@ -76,6 +77,10 @@ async function activateByPointerScroll(page: Page, key: string, testInfo: TestIn
   // Pointer/touch journeys reveal with their own real wheel/drag gestures.
   // Native keyboard/controller navigation has separate release/held-edge cases.
   for (let attempt = 0; attempt < 6; attempt += 1) {
+    // A newly mounted panel can publish geometry before Phaser's next input
+    // pre-update registers its targets. Admit this real gesture only after
+    // an active Menu owner frame observes neutral input, then resolve bounds.
+    await waitForMenuInput(page, true);
     const { diagnostic } = await read(page);
     const target = diagnostic.buttons.find(button => button.key === key);
     expect(target, `semantic pointer target ${key}`).toBeDefined();

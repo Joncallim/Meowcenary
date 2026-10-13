@@ -1,4 +1,7 @@
+import { useVisualAuthority } from './visualAuthority';
 import { expect, test } from '@playwright/test';
+
+useVisualAuthority();
 
 type VisualTestSeam = {
   showMenu(panel: string): boolean;

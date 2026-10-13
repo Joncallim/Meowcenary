@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { pressMenuKey } from './menuInputReceipt';
 
 type Timing = { name?: string; sampleCount: number; averageMs: number; p50Ms: number; p95Ms: number;
   p99Ms: number; worstMs: number; overBudgetSamples: number; overBudgetRatio: number };
@@ -37,17 +38,7 @@ async function settle(page: Page, panel: string): Promise<void> {
   await expect.poll(async () => (await measurement(page)).menu).toMatchObject({ panel, committed: true, settled: true });
 }
 async function press(page: Page, key: string): Promise<void> {
-  // Match the existing responsive keyboard journey: hold until the logical
-  // input owner samples the edge, then wait for its neutral release.
-  await page.keyboard.down(key);
-  try {
-    await expect.poll(() => page.evaluate(() => {
-      const seam = (globalThis as BrowserSeams).__MEOWCENARY_VISUAL_TEST__;
-      return seam !== undefined && !seam.isMenuInputNeutral();
-    }), { intervals: [16, 32, 50] }).toBe(true);
-  } finally { await page.keyboard.up(key); }
-  await expect.poll(() => page.evaluate(() => (globalThis as BrowserSeams).__MEOWCENARY_VISUAL_TEST__?.isMenuInputNeutral()),
-    { intervals: [16, 32, 50] }).toBe(true);
+  await pressMenuKey(page, key);
 }
 async function clickMenuButton(page: Page, text: string, touch: boolean): Promise<void> {
   const target = await page.evaluate(label => (globalThis as BrowserSeams).__MEOWCENARY_VISUAL_TEST__!
