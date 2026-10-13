@@ -40,8 +40,7 @@ The existing native phone acceptance previously used a fixed right-hand tap and
 pixel clip. It now samples the actual card bounds, asserts Left and exact physical
 size, taps the current center, requires exactly one authoritative activation, and
 retains the original before/after pixel inequality. No timeout, screenshot
-threshold, assertion, profile or scoped skip is removed. This new browser check
-remains pending until the exact-head focused/full runs execute; no native success
+threshold, assertion, profile or scoped skip is removed. This new browser check is included in the exact-head matrix; no native success
 is inferred from unit results.
 
 ## Remaining acceptance
@@ -56,3 +55,53 @@ asymmetric notches, real browser hit testing and comfort remain unverified.
 
 No merge, deployment or issue closure is authorised. #241 and related product,
 art, device and #201 ledger gates remain open.
+
+## Individually inspected default-side screenshot correction
+
+The original fixed-art-reference journeys reproduced eight mismatches after the
+mandated default changed from Right to Left. The original assertions, budgets,
+thresholds, profiles and actor crops remain. Each expected/actual/diff pair was
+visually inspected and independently measured before its baseline changed.
+
+| Baseline | Original matcher difference | Exact changed card pixels | Raw changes outside the two card bounds |
+| --- | ---: | ---: | ---: |
+| Gameplay, phone 390×844 | 13,665 | 15,120 | 0 |
+| Gameplay, foldable 1114×720 | 13,782 | 15,120 | 0 |
+| Gameplay, desktop 1280×720 | 13,718 | 15,120 | 0 |
+| Ability effect, phone 390×844 | 13,698 | 15,120 | 52 timer pixels, retained from the old baseline |
+| Ability effect, foldable 1114×720 | 13,782 | 15,120 | 0 |
+| Ability effect, desktop 1280×720 | 13,718 | 15,120 | 0 |
+| Boss gameplay, desktop 1280×720 | 13,718 | 15,120 | 0 |
+| Forge gameplay, desktop 1280×720 | 12,368 | 15,120 | 0 |
+
+The only permitted correction is the old/new card paint rectangle, including its
+one-pixel stroke: `[23,635,145,697)` at Left and `[width−145,635,width−23,697)`
+at Right for the 720-high captures; phone uses y `[759,821)`. The actual hit area
+remains 120×60. Translucent card compositing against the different floor pixels
+was checked separately; translated foreground samples and bounded quantisation
+residuals are consistent with the unchanged card. None of the world, actor,
+ability geometry, banner, HUD or pause pixels outside these rectangles changed
+in seven raw pairs.
+
+The raw phone effect capture instead froze at `0:00` versus the old `0:01`.
+Its 52 non-card changes are confined to `[319,14,326,22)`. That incidental time
+was not adopted: only the two actual card rectangles were copied into the old
+expected image, retaining every original pixel outside them. The unchanged
+screenshot matcher continues to check the entire image with its original
+incidental-timing allowance. This is a scoped baseline correction, not a mask,
+threshold relaxation, bulk refresh, new runtime art authority or device approval.
+All Mercenary/ordinary/boss/Forge actor-crop baselines remain byte-unchanged.
+
+Raw RED artifacts, original golden bytes, per-image hashes, primary checks and
+four independent read-only pixel reports are retained in the programme evidence
+under `issue-burn-2026-10-12/pr257-*` and
+`ability241-controls-*-pixel-independent-review.*`. Exact-head full validation
+must still pass after this correction; the earlier 98d0122 local 3,445 ordinary,
+nine allocation and nine runner passes do not certify the new committed head.
+
+After the scoped corrections, the unchanged original three fixed-art journeys
+(phone, foldable, desktop) and two desktop boss/Forge journeys passed: five
+passed, four existing profile-conditional skips, zero failures, zero retries or
+flaky cases. Their centered ordinary/boss/Forge actor assertions now executed
+and passed with unchanged crop goldens. This focused result is not the full
+six-profile matrix or a device/owner verdict.
