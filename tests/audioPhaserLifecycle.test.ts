@@ -15,7 +15,7 @@ const WebSound = require('phaser/src/sound/webaudio/WebAudioSound.js') as typeof
 const BaseManager = require('phaser/src/sound/BaseSoundManager.js') as {
   prototype: { update(time: number, delta: number): void; remove(sound: unknown): boolean };
 };
-const settings = { muted: false, musicVolume: 0.7, sfxVolume: 0.8, reducedMotion: false };
+const settings = { muted: false, musicVolume: 0.7, sfxVolume: 0.8, reducedMotion: false, abilityButtonSide: 'left' as const };
 
 type Sound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
 
