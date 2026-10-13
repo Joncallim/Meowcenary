@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import { completeRunStartIntro, type IntroDiagnostics } from './run-start-helpers';
 
@@ -36,6 +36,96 @@ type Seam = {
 };
 declare global { var __MEOWCENARY_VISUAL_TEST__: Seam | undefined; }
 
+type PositionObservation = {
+  accepted: boolean;
+  settled: boolean;
+  framing?: Framing;
+};
+
+async function observeArenaPosition(page: Page, x: number, y: number, place: boolean): Promise<PositionObservation> {
+  return page.evaluate(({ x, y, place }): PositionObservation => {
+    const seam = globalThis.__MEOWCENARY_VISUAL_TEST__;
+    if (!seam || (place && seam.placePlayerForArenaFraming(x, y) !== true)) {
+      return { accepted: false, settled: false };
+    }
+    const framing = seam.arenaFramingDiagnostics();
+    if (!framing) return { accepted: false, settled: false };
+
+    // Keep the original floating-scroll predicate. Phaser 3.90 rounds
+    // worldView even when render roundPixels=false, so settle on real scroll.
+    const sx = (framing.player.x - framing.camera.worldView.x) * framing.camera.zoom;
+    const sy = (framing.player.y - framing.camera.worldView.y) * framing.camera.zoom;
+    const expectedScroll = (target: number, size: number, start: number, extent: number) => {
+      const visible = size / framing.camera.zoom;
+      const min = start + (visible - size) / 2;
+      const max = Math.max(min, min + extent - visible);
+      return Math.min(Math.max(target - size / 2, min), max);
+    };
+    const targetX = expectedScroll(x, framing.camera.viewport.width, framing.camera.bounds.x, framing.camera.bounds.width);
+    const targetY = expectedScroll(y, framing.camera.viewport.height, framing.camera.bounds.y, framing.camera.bounds.height);
+    const settled = Math.abs(framing.camera.scroll.x - targetX) < 0.5
+      && Math.abs(framing.camera.scroll.y - targetY) < 0.5 && sx >= 0 && sy >= 0;
+    return { accepted: true, settled, framing };
+  }, { x, y, place });
+}
+
+async function captureArenaPosition(page: Page): Promise<{ framing?: Framing; readability?: Readability; encodes: number }> {
+  return page.evaluate(async (): Promise<{ framing?: Framing; readability?: Readability; encodes: number }> => {
+    const seam = globalThis.__MEOWCENARY_VISUAL_TEST__;
+    const framing = seam?.arenaFramingDiagnostics();
+    if (!seam || !framing) return { encodes: 0 };
+    // Keep all four contrast readbacks in one evaluation after the original
+    // camera-settle poll. Only the two oracle artifacts need PNG encoding.
+    const original = HTMLCanvasElement.prototype.toDataURL;
+    let encodes = 0;
+    HTMLCanvasElement.prototype.toDataURL = function (...args) { encodes++; return original.apply(this, args); };
+    try {
+      return { framing, readability: await seam.captureArenaReadability(), encodes };
+    } finally {
+      HTMLCanvasElement.prototype.toDataURL = original;
+    }
+  });
+}
+
+async function observeMenuReady(page: Page): Promise<{ ready: boolean; neutral: boolean }> {
+  return page.evaluate(async () => {
+    const seam = globalThis.__MEOWCENARY_VISUAL_TEST__;
+    if (!seam) return { ready: false, neutral: false };
+    const ready = await seam.waitForMenuPresentation();
+    return { ready, neutral: ready && seam.isMenuInputNeutral() };
+  });
+}
+
+async function observeInputFrameAndIntro(page: Page): Promise<{ frame: boolean; intro?: IntroDiagnostics }> {
+  return page.evaluate(async () => {
+    const seam = globalThis.__MEOWCENARY_VISUAL_TEST__;
+    if (!seam || await seam.waitForInputFrame() !== true) return { frame: false };
+    return { frame: true, intro: seam.runStartIntroDiagnostics() };
+  });
+}
+
+async function observeSummaryTarget(page: Page, outcome: 'won' | 'lost'): Promise<{ accepted: boolean; target?: { x: number; y: number } }> {
+  return page.evaluate(async (outcome) => {
+    const seam = globalThis.__MEOWCENARY_VISUAL_TEST__;
+    if (!seam || seam.showRunSummary(outcome) !== true || await seam.waitForInputFrame() !== true) return { accepted: false };
+    const target = seam.summaryMenuTarget();
+    return target ? { accepted: true, target } : { accepted: false };
+  }, outcome);
+}
+
+async function observeMenuStorage(page: Page): Promise<{ ready: boolean; storage?: string }> {
+  return page.evaluate(async () => {
+    const seam = globalThis.__MEOWCENARY_VISUAL_TEST__;
+    if (!seam || await seam.waitForMenuPresentation() !== true) return { ready: false };
+    return { ready: true, storage: JSON.stringify(Object.entries(localStorage).sort()) };
+  });
+}
+
+async function observeTwoFramesAndStorage(page: Page): Promise<string> {
+  return page.evaluate(() => new Promise<string>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve(JSON.stringify(Object.entries(localStorage).sort()))))));
+}
+
 test.afterEach(async ({}, testInfo) => { console.log(`[world-ui] afterEach entered: ${testInfo.title} (${testInfo.duration}ms, ${testInfo.status})`); });
 
 test('world actor remains distinguishable beneath HUD meters and corner controls', async ({ page }, testInfo) => {
@@ -66,36 +156,16 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
   ] as const;
   const observations: Array<{ position: string; framing: Framing; readability: Omit<Readability, 'reference' | 'actual'> }> = [];
   for (const [position, x, y] of positions) {
-    expect(await page.evaluate(({ x, y }) => globalThis.__MEOWCENARY_VISUAL_TEST__!.placePlayerForArenaFraming(x, y), { x, y })).toBe(true);
-    await expect.poll(async () => {
-      const state = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
-      if (!state) return false;
-      const sx = (state.player.x - state.camera.worldView.x) * state.camera.zoom;
-      const sy = (state.player.y - state.camera.worldView.y) * state.camera.zoom;
-      // Phaser 3.90 rounds worldView even when render roundPixels=false.
-      // Settle against the real floating scroll, not its integer descriptor:
-      // 1114/1.25=891.2 otherwise yields an impossible half-pixel target.
-      const expectedScroll = (target: number, size: number, start: number, extent: number) => {
-        const visible = size / state.camera.zoom;
-        const min = start + (visible - size) / 2;
-        const max = Math.max(min, min + extent - visible);
-        return Math.min(Math.max(target - size / 2, min), max);
-      };
-      const targetX = expectedScroll(x, state.camera.viewport.width, state.camera.bounds.x, state.camera.bounds.width);
-      const targetY = expectedScroll(y, state.camera.viewport.height, state.camera.bounds.y, state.camera.bounds.height);
-      return Math.abs(state.camera.scroll.x - targetX) < 0.5 && Math.abs(state.camera.scroll.y - targetY) < 0.5 && sx >= 0 && sy >= 0;
-    }).toBe(true);
+    let sample = await observeArenaPosition(page, x, y, true);
+    expect(sample.accepted).toBe(true);
+    if (!sample.settled) {
+      await expect.poll(async () => {
+        sample = await observeArenaPosition(page, x, y, false);
+        return sample.settled;
+      }).toBe(true);
+    }
     mark(`${position} settled`);
-    const capture = await page.evaluate(async () => {
-      const original = HTMLCanvasElement.prototype.toDataURL;
-      let encodes = 0;
-      HTMLCanvasElement.prototype.toDataURL = function (...args) { encodes++; return original.apply(this, args); };
-      try {
-        const framing = globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics();
-        return { framing, readability: await globalThis.__MEOWCENARY_VISUAL_TEST__!.captureArenaReadability(), encodes };
-      }
-      finally { HTMLCanvasElement.prototype.toDataURL = original; }
-    });
+    const capture = await captureArenaPosition(page);
     const { readability, framing } = capture;
     mark(`${position} captured ${JSON.stringify(readability?.timings)}`);
     // Only the two returned artifacts need PNG encoding. Four complete pixel
@@ -137,31 +207,34 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
 });
 
 test('a stopped GameScene cannot repaint an old HUD during Menu resize', async ({ page }) => {
-  const renderFrames = () => page.evaluate(() => new Promise<void>((resolve) =>
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   const inputFrame = async () => expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame())).toBe(true);
+  const plateCount = () => page.evaluate(() => {
+    const state = globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics() as
+      (Framing & { hudLayers: Array<{ type: string }> }) | undefined;
+    return state?.hudLayers.filter((layer) => layer.type === 'Rectangle' || layer.type === 'NineSlice').length;
+  });
   let mark = (_phase: string): void => {};
   const launch = async (begin = true) => {
     mark('launch start');
-    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
-    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isMenuInputNeutral())).toBe(true);
+    const menu = await observeMenuReady(page);
+    expect(menu.ready).toBe(true);
+    expect(menu.neutral).toBe(true);
     await page.keyboard.down('Enter');
     try {
       expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
     } finally {
       await page.keyboard.up('Enter');
     }
-    await inputFrame();
-    if (begin) await completeRunStartIntro(page, 'keyboard');
-    else expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.runStartIntroDiagnostics()))
-      .toMatchObject({ visible: true, status: 'intro', timeMs: 0 });
+    if (begin) {
+      await inputFrame();
+      await completeRunStartIntro(page, 'keyboard');
+    } else {
+      const observation = await observeInputFrameAndIntro(page);
+      expect(observation.frame).toBe(true);
+      expect(observation.intro).toMatchObject({ visible: true, status: 'intro', timeMs: 0 });
+    }
     mark('launch complete');
   };
-  const plateCount = () => page.evaluate(() => {
-    const state = globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics() as
-      (Framing & { hudLayers: Array<{ type: string }> }) | undefined;
-    return state?.hudLayers.filter((layer) => layer.type === 'Rectangle' || layer.type === 'NineSlice').length;
-  });
   const started = performance.now();
   mark = (phase: string) => console.log(`[world-ui] ${phase}: ${Math.round(performance.now() - started)}ms`);
   mark('start');
@@ -174,9 +247,9 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
     // Only terminal content is a fixture. Activate the rendered Main Menu
     // action through real touch/pointer input. Focus-arrow traversal is covered
     // by the Summary input tests; this regression owns HUD lifetime/resize.
-    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.showRunSummary('lost'))).toBe(true);
-    await inputFrame();
-    const target = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.summaryMenuTarget());
+    const summary = await observeSummaryTarget(page, 'lost');
+    expect(summary.accepted).toBe(true);
+    const target = summary.target;
     expect(target).toBeDefined();
     const size = page.viewportSize()!;
     expect(target!.x).toBeGreaterThan(0); expect(target!.x).toBeLessThan(size.width);
@@ -184,24 +257,22 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
     if (test.info().project.use.hasTouch) await page.touchscreen.tap(target!.x, target!.y);
     else await page.mouse.click(target!.x, target!.y);
     await expect.poll(() => page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isSceneActive('MenuScene'))).toBe(true);
-    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
+    const menu = await observeMenuStorage(page);
+    expect(menu.ready).toBe(true);
     mark(`return ${visit} ready`);
-    const savedBeforeResize = await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()));
+    const savedBeforeResize = menu.storage;
     // One real Menu resize per return is sufficient to expose the stale
     // inactive HUD subscription. Balance the viewport across the two visits
     // rather than rebuilding every Menu twice before each warm launch.
     await page.setViewportSize(visit === 0
       ? { width: viewport.width + 8, height: viewport.height + 8 }
       : viewport);
-    await renderFrames();
-    expect(await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()))).toBe(savedBeforeResize);
+    expect(await observeTwoFramesAndStorage(page)).toBe(savedBeforeResize);
     mark(`resize ${visit} complete`);
-    // HUD ownership is established during scene creation, before Start. The
-    // final reconstructed HUD needs no third combat start to expose a leak.
     // Both earlier runs still use real Start and both Menu returns/resizes run.
     await launch(visit === 0);
-    // A leaked PhaserHudView resize subscription creates two extra plates in
-    // the inactive scene, which then coexist with the next live HUD.
+    // A leaked PhaserHudView resize subscription creates extra plates in the
+    // inactive scene, so check after every fresh launch and its real input.
     expect(await plateCount()).toBe(2);
   }
 });
