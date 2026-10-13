@@ -30,7 +30,7 @@ import { EquipmentSurface } from '../ui/menuSurfaces/equipmentSurface';
 import { GunsmithSurface } from '../ui/menuSurfaces/gunsmithSurface';
 import { loadoutArtBounds, resolveLoadoutArtCrop, resolveLoadoutArtPlacement } from '../presentation/loadoutArtFraming';
 import { loadoutFooterPadding } from '../ui/menuSurfaces/layout';
-import type { LoadoutMenuPanel, MenuPanelSurface, MenuSurfaceEnvironment } from '../ui/menuSurfaces/surface';
+import type { LoadoutMenuPanel, MenuPanelSurface, MenuScrollRectangle, MenuSurfaceEnvironment } from '../ui/menuSurfaces/surface';
 import { performanceProbe } from '../platform/performanceProbe';
 import { collectDisplayObjects, displayObjectChange, type DisplayNode } from '../platform/performanceDisplay';
 
@@ -46,6 +46,10 @@ const HOME_THREAT_PREVIEW_LIMIT = 4;
 
 /** The two audible command events a menu button can produce. */
 type MenuAudioEvent = 'ui:confirm' | 'ui:back';
+type MenuPointerGesture = {
+  id: number; generation: number; originX: number; originY: number; lastY: number;
+  dragged: boolean; canScroll: boolean; pressed?: Phaser.GameObjects.Text;
+};
 
 export class MenuScene extends Phaser.Scene {
   private controller?: MainMenuController;
@@ -97,6 +101,7 @@ export class MenuScene extends Phaser.Scene {
   }> = [];
   private scrollViewportTop = 0;
   private scrollViewportBottom = 0;
+  private scrollRectangle?: Readonly<MenuScrollRectangle>;
   private scrollMaskGraphics?: Phaser.GameObjects.Graphics;
   private scrollMask?: Phaser.Display.Masks.GeometryMask;
   private scrollMaskContainer?: Phaser.GameObjects.Container;
@@ -122,9 +127,7 @@ export class MenuScene extends Phaser.Scene {
   private safeCenterX = 0;
   private safeRightMargin = 16;
   private currentViewport?: UiViewport;
-  private touchScrollY?: number;
-  private touchDragDistance = 0;
-  private touchDidScroll = false;
+  private pointerGesture?: MenuPointerGesture;
   private achievementArtLoading = false;
   private mercenaryArtLoading = false;
   private equipmentArtLoading = false;
@@ -260,8 +263,6 @@ export class MenuScene extends Phaser.Scene {
 
   private orientationUnsubscribe?: () => void;
 
-  private touchScrollPointerId?: number;
-
   constructor() {
     super(SceneKey.Menu);
   }
@@ -297,7 +298,7 @@ export class MenuScene extends Phaser.Scene {
     this.bus = ctx.bus;
     this.controller = new MainMenuController(ctx);
 
-    this.pointerGeneration += 1;
+    this.cancelPointerGesture();
     this.backgrounded = false;
     this.inputController = new InputController(this);
     this.inputController.quarantineUntilNeutral();
@@ -306,7 +307,7 @@ export class MenuScene extends Phaser.Scene {
     this.game?.events?.on('focus', this.handleInputFocus, this);
     this.orientationUnsubscribe?.();
     this.orientationUnsubscribe = onPortraitOrientationChange(() => {
-      this.pointerGeneration += 1;
+      this.cancelPointerGesture();
       this.inputController?.quarantineUntilNeutral();
     });
     this.inputController.onAction('back', () => this.handleBack());
@@ -349,7 +350,7 @@ export class MenuScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     if (this.backgrounded || isPortraitOrientationBlocked()) {
-      this.pointerGeneration += 1;
+      this.cancelPointerGesture();
       this.inputController?.quarantineUntilNeutral();
       this.inputController?.update(delta);
       return;
@@ -373,7 +374,7 @@ export class MenuScene extends Phaser.Scene {
     try {
     this.rebuildCount += 1;
     this.renderRevision += 1;
-    this.pointerGeneration += 1;
+    this.cancelPointerGesture();
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
     const achievementGridColumns = snapshot.panel === 'achievements'
       ? (this.scale.width >= 760 ? 3 : 1)
@@ -412,6 +413,7 @@ export class MenuScene extends Phaser.Scene {
     this.focusRings = [];
     this.buttonChrome = [];
     this.scrollRegion = undefined;
+    this.scrollRectangle = undefined;
     this.collectingScrollItems = false;
     this.scrollItemIndexes.clear();
     this.scrollLocalIndexByFocusIndex.clear();
@@ -864,7 +866,7 @@ export class MenuScene extends Phaser.Scene {
     this.nextFocusAlignTop = false;
     this.committedDisplay = false;
     this.renderRevision += 1;
-    this.pointerGeneration += 1;
+    this.cancelPointerGesture();
     let updated = false;
     try {
       for (const button of this.focusables.slice(start)) {
@@ -888,7 +890,7 @@ export class MenuScene extends Phaser.Scene {
       }
       // Replace, rather than grow, the one region's extent: a shorter detail
       // must also shrink the scroll range and its supplemental content tail.
-      this.beginScrollableRegion(this.scrollViewportTop, this.scrollViewportBottom);
+      this.beginScrollableRegion(this.scrollRectangle ?? this.scrollViewportTop, this.scrollViewportBottom);
       this.rebuildScrollItems();
       for (const { object } of this.scrollObjects) {
         const bottom = (object as unknown as { getBounds(): { bottom: number } }).getBounds().bottom;
@@ -993,6 +995,7 @@ export class MenuScene extends Phaser.Scene {
   private get panelContentRoot(): Phaser.GameObjects.Container | undefined { return this.activeSurface?.root; }
 
   private unmountPanelSurface(): void {
+    this.cancelPointerGesture();
     this.loadoutArt?.clear();
     this.loadoutArt = undefined;
     this.loadoutArtState = undefined;
@@ -1653,21 +1656,24 @@ export class MenuScene extends Phaser.Scene {
     text.on(Phaser.Input.Events.POINTER_OUT, () => {
       (chrome as Phaser.GameObjects.NineSlice | undefined)?.clearTint?.();
     });
-    let admitted: { readonly id: number; readonly generation: number } | undefined;
+    let admitted: MenuPointerGesture | undefined;
     text.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+      if (this.pointerGesture && this.pointerGesture.id !== pointer.id) return;
       admitted = undefined;
       const index = this.focusables.indexOf(text);
       if (!this.isLive || !this.committedDisplay || index < 0 || !callback
         || this.disabledFocusables.has(text) || this.runLaunchState === 'loading'
         || this.backgrounded || isPortraitOrientationBlocked() || this.inputController?.isQuarantined()
-        || (this.scrollItemIndexes.has(index) && (pointer.y < this.scrollViewportTop || pointer.y >= this.scrollViewportBottom))) return;
-      admitted = { id: pointer.id, generation: this.pointerGeneration };
+        || (this.scrollItemIndexes.has(index) && !this.isInsideScrollRectangle(pointer))) return;
+      admitted = this.admitPointerGesture(pointer, this.scrollItemIndexes.has(index), text);
     });
     text.on(Phaser.Input.Events.POINTER_UP, (pointer?: Phaser.Input.Pointer) => {
+      if (pointer && admitted && pointer.id !== admitted.id) return;
       const gesture = admitted;
       admitted = undefined;
       if (pointer && (pointer.wasCanceled || (this.game?.canvas && pointer.upElement && pointer.upElement !== this.game.canvas))) return;
       if (pointer && (!gesture || gesture.id !== pointer.id || gesture.generation !== this.pointerGeneration
+        || this.pointerGesture !== gesture || gesture.pressed !== text || gesture.dragged
         || this.inputController?.isQuarantined())) return;
       if (!this.isLive || this.backgrounded) return;
       if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
@@ -1676,11 +1682,10 @@ export class MenuScene extends Phaser.Scene {
       if (!callback || this.disabledFocusables.has(text)) return;
       if (this.scrollItemIndexes.has(focusIndex)
         && pointer
-        && (pointer.y < this.scrollViewportTop || pointer.y >= this.scrollViewportBottom)) return;
-      // A drag is a scrolling gesture, never a command activation. Keep the
-      // flag through the InputPlugin's pointer-up dispatch so this remains
-      // correct regardless of global-vs-object listener ordering.
-      if (pointer && this.touchDidScroll) return;
+        && !this.isInsideScrollRectangle(pointer)) return;
+      // Phaser dispatches the object up before the scene up. The shared token
+      // admits only this original target and latches a drag until release.
+      this.cancelPointerGesture();
       // Pointer Confirm/Back takes the same transition boundary as logical
       // activation: sampled edges from this frame cannot reach the new panel.
       this.inputController?.quarantineUntilNeutral();
@@ -1731,9 +1736,10 @@ export class MenuScene extends Phaser.Scene {
       this.rebuildScrollItems();
     }
     text.on(Phaser.Input.Events.POINTER_OVER, (pointer: Phaser.Input.Pointer) => {
+      if (this.pointerGesture && this.pointerGesture.id !== pointer.id) return;
       const focusIndex = this.focusables.indexOf(text);
       if (this.scrollItemIndexes.has(focusIndex)
-        && (pointer.y < this.scrollViewportTop || pointer.y >= this.scrollViewportBottom)) return;
+        && !this.isInsideScrollRectangle(pointer)) return;
       this.hoveredIndex = index;
       this.navigator.setIndex(index);
       // Hover follows the pointer without auto-revealing the whole row. Wheel
@@ -1741,7 +1747,8 @@ export class MenuScene extends Phaser.Scene {
       // partly inside the geometry mask.
       this.applyFocus();
     });
-    text.on(Phaser.Input.Events.POINTER_OUT, () => {
+    text.on(Phaser.Input.Events.POINTER_OUT, (pointer?: Phaser.Input.Pointer) => {
+      if (pointer && this.pointerGesture && pointer.id !== this.pointerGesture.id) return;
       admitted = undefined;
       if (this.hoveredIndex === index) this.hoveredIndex = -1;
       this.applyFocus();
@@ -1893,7 +1900,7 @@ export class MenuScene extends Phaser.Scene {
     try {
       hydratedCount = slots.hydrate((key, frame) => this.textures.exists(key)
         && (frame === undefined || this.textures.get(key).has(String(frame))));
-      if (hydratedCount > 0) { this.renderRevision += 1; this.pointerGeneration += 1; }
+      if (hydratedCount > 0) { this.renderRevision += 1; this.cancelPointerGesture(); }
       return true;
     } catch {
       // A partial texture update cannot publish success. The caller's existing
@@ -2311,9 +2318,16 @@ export class MenuScene extends Phaser.Scene {
   /** Start/finish hooks deliberately sit in MenuScene rather than each
    * surface.  They make pointer eligibility a property of the shared region,
    * not an easy-to-forget per-screen convention. */
-  private beginScrollableRegion(viewportTop: number, viewportBottom: number): void {
-    this.scrollViewportTop = viewportTop;
-    this.scrollViewportBottom = Math.max(viewportTop + 1, viewportBottom);
+  private beginScrollableRegion(rectangleOrTop: Readonly<MenuScrollRectangle> | number, bottom?: number): void {
+    const rectangle = typeof rectangleOrTop === 'number'
+      ? { x: 0, y: rectangleOrTop, width: this.scale.width, height: Math.max(1, (bottom ?? rectangleOrTop) - rectangleOrTop) }
+      : { ...rectangleOrTop };
+    if (![rectangle.x, rectangle.y, rectangle.width, rectangle.height].every(Number.isFinite)
+      || rectangle.width <= 0 || rectangle.height <= 0) throw new RangeError('Scroll rectangle needs finite coordinates and positive dimensions');
+    this.cancelPointerGesture();
+    this.scrollRectangle = Object.freeze(rectangle);
+    this.scrollViewportTop = rectangle.y;
+    this.scrollViewportBottom = rectangle.y + rectangle.height;
     this.scrollRegion = new ScrollableFocusRegion({
       viewportTop: this.scrollViewportTop,
       viewportBottom: this.scrollViewportBottom,
@@ -2410,10 +2424,10 @@ export class MenuScene extends Phaser.Scene {
     if (!graphics) return;
     graphics.fillStyle(0xffffff, 1);
     graphics.fillRect(
-      0,
-      this.scrollViewportTop,
-      this.scale.width,
-      this.scrollViewportBottom - this.scrollViewportTop,
+      this.scrollRectangle?.x ?? 0,
+      this.scrollRectangle?.y ?? this.scrollViewportTop,
+      this.scrollRectangle?.width ?? this.scale.width,
+      this.scrollRectangle?.height ?? (this.scrollViewportBottom - this.scrollViewportTop),
     );
     const mask = graphics.createGeometryMask();
     this.scrollMaskGraphics = graphics;
@@ -2454,16 +2468,10 @@ export class MenuScene extends Phaser.Scene {
   private syncScrollFocus(focusedIndex: number): void {
     const localIndex = this.scrollLocalIndexByFocusIndex.get(focusedIndex);
     if (!this.scrollRegion || localIndex === undefined) return;
-    // ScrollableFocusRegion intentionally has no mutable-index escape hatch:
-    // move it through the same deterministic navigation path as real input.
-    while (this.scrollRegion.focusedIndex < localIndex) this.scrollRegion.moveFocus('down');
-    while (this.scrollRegion.focusedIndex > localIndex) this.scrollRegion.moveFocus('up');
-    // The region and global navigator both begin at zero. Moving between
-    // indexes therefore cannot reveal an initially focused first action that
-    // follows a tall, non-focusable summary. Apply the same visibility rule
-    // even when their indexes already agree; Up can still deliberately reveal
-    // that prefix and the next Down restores this retained action.
-    this.scrollRegion.ensureVisible(localIndex);
+    // Semantic scene focus is already resolved. Directional traversal can
+    // stay in another grid column forever; assign the exact mapped index.
+    // The region also reveals an unchanged first action below summary text.
+    this.scrollRegion.setFocusedIndex(localIndex);
   }
 
   private applyScrollViewport(): void {
@@ -2497,68 +2505,97 @@ export class MenuScene extends Phaser.Scene {
         ? text.getBounds()
         : { top: groupBounds.top - offset, bottom: groupBounds.bottom - offset };
       const visible = bounds.bottom > this.scrollViewportTop && bounds.top < this.scrollViewportBottom;
+      const hit = text.getBounds();
+      const horizontal = !this.scrollRectangle || (hit.right > this.scrollRectangle.x
+        && hit.left < this.scrollRectangle.x + this.scrollRectangle.width);
       text.setVisible(true);
       const ring = this.focusRings[index];
       ring?.setVisible?.(true);
-      if (visible && !this.disabledFocusables.has(text)) text.setInteractive({ useHandCursor: true });
+      if (visible && horizontal && !this.disabledFocusables.has(text)) text.setInteractive({ useHandCursor: true });
       else text.disableInteractive();
     }
   }
 
   private handleScroll(delta: number): void {
-    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
+    if (!this.isLive || this.backgrounded || this.runLaunchState === 'loading' || isPortraitOrientationBlocked()
+      || this.inputController?.isQuarantined()) return;
     if (!this.committedDisplay || !this.scrollRegion) return;
     this.scrollRegion.scrollBy(delta);
     this.applyScrollViewport();
     this.applyFocus();
   }
 
-  private readonly handleWheel = (_pointer: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number): void => {
-    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
+  private cancelPointerGesture(): void {
     this.pointerGeneration += 1;
+    this.pointerGesture = undefined;
+  }
+
+  private isInsideScrollRectangle(pointer: Pick<Phaser.Input.Pointer, 'x' | 'y'>): boolean {
+    const rectangle = this.scrollRectangle;
+    return !!rectangle && Number.isFinite(pointer.x) && Number.isFinite(pointer.y)
+      && pointer.x >= rectangle.x && pointer.x < rectangle.x + rectangle.width
+      && pointer.y >= rectangle.y && pointer.y < rectangle.y + rectangle.height;
+  }
+
+  private admitPointerGesture(pointer: Phaser.Input.Pointer, canScroll: boolean, pressed?: Phaser.GameObjects.Text): MenuPointerGesture | undefined {
+    if (!this.isLive || !this.committedDisplay || this.backgrounded || this.runLaunchState === 'loading'
+      || isPortraitOrientationBlocked() || this.inputController?.isQuarantined()
+      || !Number.isFinite(pointer.x) || !Number.isFinite(pointer.y)) return;
+    const owner = this.pointerGesture;
+    if (owner) return owner.id === pointer.id && (!pressed || owner.pressed === pressed) ? owner : undefined;
+    const gesture: MenuPointerGesture = {
+      id: pointer.id, generation: this.pointerGeneration,
+      originX: pointer.x, originY: pointer.y, lastY: pointer.y, dragged: false, pressed,
+      canScroll: canScroll && this.isInsideScrollRectangle(pointer) && !!this.scrollRegion
+        && this.scrollRegion.contentHeight > this.scrollRegion.viewportHeight,
+    };
+    this.pointerGesture = gesture;
+    return gesture;
+  }
+
+  private readonly handleWheel = (pointer: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number): void => {
+    this.cancelPointerGesture();
+    if (!this.isInsideScrollRectangle(pointer)) return;
     this.handleScroll(deltaY);
   };
 
   private readonly handlePointerMove = (pointer: Phaser.Input.Pointer): void => {
-    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
-    if (!pointer.isDown) {
-      this.touchScrollY = undefined;
+    const gesture = this.pointerGesture;
+    if (!gesture || pointer.id !== gesture.id || gesture.generation !== this.pointerGeneration) return;
+    if (!pointer.isDown || pointer.wasCanceled || this.backgrounded || this.runLaunchState === 'loading'
+      || isPortraitOrientationBlocked() || this.inputController?.isQuarantined()) {
+      this.cancelPointerGesture();
       return;
     }
-    // Panels whose measured content fits do not own a drag gesture. Treating normal
-    // touch jitter there as a scroll suppresses the button's pointer-up and
-    // makes a command appear to require a second tap.
-    if (!this.scrollRegion || pointer.id !== this.touchScrollPointerId) return;
-    if (this.touchScrollY !== undefined) {
-      const delta = this.touchScrollY - pointer.y;
-      this.touchDragDistance += Math.abs(delta);
-      if (this.touchDragDistance >= 8) { this.touchDidScroll = true; this.pointerGeneration += 1; }
-      this.handleScroll(delta);
+    if (!gesture.canScroll || !this.scrollRegion || !Number.isFinite(pointer.x) || !Number.isFinite(pointer.y)) return;
+    // Pointer coordinates are already logical pixels. Phaser's displayScale
+    // is logical pixels per CSS pixel, independent of device pixel ratio.
+    const scale = this.scale.displayScale;
+    const cssX = (pointer.x - gesture.originX) / scale.x;
+    const cssY = (pointer.y - gesture.originY) / scale.y;
+    let delta = gesture.lastY - pointer.y;
+    if (!gesture.dragged) {
+      if (Math.hypot(cssX, cssY) < 8) return;
+      gesture.dragged = true;
+      gesture.generation = ++this.pointerGeneration;
+      delta = gesture.originY - pointer.y;
     }
-    this.touchScrollY = pointer.y;
+    gesture.lastY = pointer.y;
+    this.handleScroll(delta);
   };
 
   private readonly handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
-    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
-    if (!this.scrollRegion) {
-      this.touchScrollY = undefined;
-      this.touchDragDistance = 0;
-      this.touchDidScroll = false;
-      return;
-    }
-    if (this.touchScrollPointerId !== undefined && this.touchScrollPointerId !== pointer.id) return;
-    this.touchScrollPointerId = pointer.id;
-    this.touchScrollY = pointer.y;
-    this.touchDragDistance = 0;
-    this.touchDidScroll = false;
+    if (!this.scrollRegion || !this.isInsideScrollRectangle(pointer)) return;
+    // Object-down has already claimed a button when present. A scene-down
+    // never replaces that target or reanchors an existing physical gesture.
+    this.admitPointerGesture(pointer, true);
   };
 
   private readonly handlePointerUp = (pointer: Phaser.Input.Pointer): void => {
-    if (this.touchScrollPointerId !== undefined && this.touchScrollPointerId !== pointer.id) return;
-    this.touchScrollPointerId = undefined;
-    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
-    this.touchScrollY = undefined;
-    this.touchDragDistance = 0;
+    if (this.pointerGesture?.id !== pointer.id) return;
+    // TOUCH_CANCEL is an up with wasCanceled in Phaser, including the global
+    // up after object dispatch. Normal up and outside up also end ownership.
+    this.cancelPointerGesture();
   };
 
   private handleBack(audioAlreadyEmitted = false): void {
@@ -2580,7 +2617,7 @@ export class MenuScene extends Phaser.Scene {
   };
 
   private handleNavMove(direction: FocusDirection | number): void {
-    this.pointerGeneration += 1;
+    this.cancelPointerGesture();
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     // No committed display (never rendered, or a failed rebuild left only the
     // fallback): the retained navigator must not move or emit (F1).
@@ -2737,7 +2774,7 @@ export class MenuScene extends Phaser.Scene {
     this.isLive = false;
     this.preparedArenaLayout = undefined;
     this.capturedLaunch = undefined;
-    this.pointerGeneration += 1;
+    this.cancelPointerGesture();
     this.game?.events?.off('blur', this.handleInputBlur, this);
     this.game?.events?.off('focus', this.handleInputFocus, this);
     this.orientationUnsubscribe?.();
@@ -2785,6 +2822,7 @@ export class MenuScene extends Phaser.Scene {
     this.focusRings = [];
     this.scrollRegion?.destroy();
     this.scrollRegion = undefined;
+    this.scrollRectangle = undefined;
     this.scrollTrack = undefined;
     this.scrollThumb = undefined;
     this.scrollThumbHeight = 0;
@@ -2863,21 +2901,18 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private readonly handlePointerUpOutside = (pointer: Phaser.Input.Pointer): void => {
-    this.pointerGeneration += 1;
     this.handlePointerUp(pointer);
   };
 
   private readonly handleInputFocus = (): void => {
     this.backgrounded = false;
-    this.pointerGeneration += 1;
+    this.cancelPointerGesture();
     this.inputController?.quarantineUntilNeutral();
   };
 
   private readonly handleInputBlur = (): void => {
-    this.touchScrollPointerId = undefined;
-    this.touchScrollY = undefined;
     this.backgrounded = true;
-    this.pointerGeneration += 1;
+    this.cancelPointerGesture();
     this.inputController?.quarantineUntilNeutral();
   };
 

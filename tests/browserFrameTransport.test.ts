@@ -77,6 +77,41 @@ it.each([null, 'stale-owner'])('a malformed %s frame stops before any following 
   expect(waits).toHaveBeenCalledTimes(1);
 });
 
+function menuGestureSampleHarness(homeSettled = true) {
+  const path = 'browser-tests/menu-gesture-ownership.pw.ts';
+  const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
+  const fn = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'sample');
+  if (!fn) throw new Error('Missing actual gesture observation helper');
+  const calls: string[] = [];
+  const seam = {
+    waitForMenuPresentation: async () => { calls.push('menu'); return homeSettled; },
+    showMenu: (panel: string) => { calls.push(panel); return true; },
+    waitForInputFrame: async () => { calls.push('frame'); return true; },
+    menuLoadoutDiagnostics: () => { calls.push('diagnostic'); return { panel: 'equipment' }; },
+    isMenuInputNeutral: () => true,
+  };
+  const run = runInNewContext(ts.transpileModule(fn.getText(source) + '\nsample;', {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText, { __MEOWCENARY_VISUAL_TEST__: seam,
+    document: { querySelector: () => ({ dataset: {} }) }, localStorage: { getItem: () => 'same durable save' } }) as
+    (page: unknown, prepare: boolean) => Promise<{ homeSettled: boolean; shown?: boolean; equipmentSettled?: boolean }>;
+  const evaluate = vi.fn(async (callback: (prepare: boolean) => unknown, prepare: boolean) => callback(prepare));
+  return { run: () => run({ evaluate }, true), evaluate, calls };
+}
+
+it('joins Home readiness, Equipment hydration and both real owner frames in one gesture-setup transport', async () => {
+  const h = menuGestureSampleHarness();
+  expect(await h.run()).toMatchObject({ homeSettled: true, shown: true, equipmentSettled: true });
+  expect(h.calls).toEqual(['menu', 'equipment', 'menu', 'frame', 'frame', 'diagnostic']);
+  expect(h.evaluate).toHaveBeenCalledTimes(1);
+});
+
+it('failed Home readiness cannot mount Equipment or read a fabricated gesture baseline', async () => {
+  const h = menuGestureSampleHarness(false);
+  expect(await h.run()).toMatchObject({ homeSettled: false });
+  expect(h.calls).toEqual(['menu']);
+});
+
 function abilityObservationHarness(waits: Array<() => Promise<boolean>>, owner: unknown = { status: 'intro', timeMs: 0 }) {
   const path = 'browser-tests/ability-comprehension.pw.ts';
   const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);

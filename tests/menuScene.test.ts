@@ -289,7 +289,7 @@ function createFakeScene(
         return undefined;
       },
     },
-    scale: { width: 390, height: 844, displaySize: { width: 390, height: 844 } },
+    scale: { width: 390, height: 844, displaySize: { width: 390, height: 844 }, displayScale: { x: 1, y: 1 } },
     add: {
       container(_x: number, _y: number) {
         const base = fakeObject('container', '', 0, 0, { left: 10, top: 8, right: 10, bottom: 8 }, _x, _y);
@@ -690,7 +690,7 @@ describe('MenuScene', () => {
       equipmentArtLoading: boolean;
       ensureEquipmentPresentation(ids: readonly string[]): Promise<void>;
       add: { image?: (x: number, y: number, key: string, frame?: string | number) => unknown };
-      scrollRegion: { scrollOffset: number }; applyScrollViewport(): void;
+      scrollRegion: { scrollOffset: number }; scrollViewportTop: number; applyScrollViewport(): void;
     };
     scene.add.image = (x, y, key, frame) => {
       const base = fakeObject('rect', '', 16, 16, undefined, x, y);
@@ -736,7 +736,7 @@ describe('MenuScene', () => {
     const button = harness.buttonByLabel('HELMET\nT1 • EQUIPPED')!;
     const command = button.state.handlers.pointerup;
     const retainedBack = harness.buttonByLabel('Return to Contract')!;
-    harness.input.emit('wheel', { isDown: false }, [], 0, 120);
+    harness.input.emit('wheel', { id: 1, x: 120, y: scene.scrollViewportTop + 30, isDown: false }, [], 0, 120);
     const controls = harness.menuScene.loadoutUiDiagnostics().buttons;
     const scrollOffset = scene.scrollRegion.scrollOffset;
     const hydrationGesture = scenario === 'current mount' ? gesture(harness, retainedBack) : undefined;
@@ -2840,11 +2840,11 @@ describe('MenuScene', () => {
     } as import('../src/ui/menus').MainMenuSnapshot;
     scene.controller.snapshot = () => scrollingSnapshot;
     scene.render(scrollingSnapshot);
-    harness.input.emit('wheel', { isDown: false }, [], 0, 600);
+    harness.input.emit('wheel', { id: 1, x: 120, y: 500, isDown: false }, [], 0, 600);
     const afterWheel = scene.scrollRegion!.scrollOffset;
     expect(afterWheel).toBeGreaterThan(0);
-    harness.input.emit('pointermove', { isDown: true, y: 500 });
-    harness.input.emit('pointermove', { isDown: true, y: 300 });
+    harness.input.emit('pointerdown', { id: 1, x: 120, isDown: true, y: 500 });
+    harness.input.emit('pointermove', { id: 1, x: 120, isDown: true, y: 300 });
     expect(scene.scrollRegion!.scrollOffset).toBeGreaterThan(afterWheel);
 
     for (let index = 0; index < 49; index += 1) {
@@ -2999,7 +2999,7 @@ describe('MenuScene', () => {
     expect(originalBounds.top - scene.scrollRegion.scrollOffset).toBeLessThan(scene.scrollViewportTop);
 
     const partialOffset = scene.scrollRegion.scrollOffset;
-    target.state.handlers.pointerover!({ y: scene.scrollViewportTop + 2 });
+    target.state.handlers.pointerover!({ x: target.getBounds().centerX, y: scene.scrollViewportTop + 2 });
     expect(scene.scrollRegion.scrollOffset).toBe(partialOffset);
 
     const priorFocus = scene.navigator.index;
@@ -3071,14 +3071,14 @@ describe('MenuScene', () => {
     const confirms: string[] = [];
     harness.bus.on('ui:confirm', () => confirms.push('confirm'));
     const row = scene.focusables[0]!;
-    harness.input.emit('pointerdown', { isDown: true, y: 500 });
-    harness.input.emit('pointermove', { isDown: true, y: 300 });
+    harness.input.emit('pointerdown', { id: 1, x: 120, isDown: true, y: 500 });
+    harness.input.emit('pointermove', { id: 1, x: 120, isDown: true, y: 300 });
     const afterFirstDrag = scene.scrollRegion!.scrollOffset;
     row.emit('pointerup', { id: 1, isDown: false, y: 300 });
     expect(confirms).toEqual([]);
-    harness.input.emit('pointerup', { isDown: false, y: 300 });
-    harness.input.emit('pointerdown', { isDown: true, y: 500 });
-    harness.input.emit('pointermove', { isDown: true, y: 490 });
+    harness.input.emit('pointerup', { id: 1, x: 120, isDown: false, y: 300 });
+    harness.input.emit('pointerdown', { id: 1, x: 120, isDown: true, y: 500 });
+    harness.input.emit('pointermove', { id: 1, x: 120, isDown: true, y: 490 });
     expect(scene.scrollRegion!.scrollOffset - afterFirstDrag).toBeLessThanOrEqual(10);
     // Controller navigation after a touch gesture must resume from the
     // scene's logical focus, not from a stale touch-row identity.
@@ -3098,8 +3098,8 @@ describe('MenuScene', () => {
 
     // The home panel has no scroll viewport. A mobile touch can drift a few
     // logical pixels between down/up, but that must remain a button tap.
-    harness.input.emit('pointerdown', { isDown: true, y: 500 });
-    harness.input.emit('pointermove', { isDown: true, y: 490 });
+    harness.input.emit('pointerdown', { id: 1, x: 120, isDown: true, y: 500 });
+    harness.input.emit('pointermove', { id: 1, x: 120, isDown: true, y: 490 });
     harness.buttonByLabel('Play Contract')!.state.handlers['pointerup']!();
 
     expect(confirms).toEqual(['confirm']);
@@ -5286,6 +5286,282 @@ function gesture(harness: ReturnType<typeof createHarness>, button: FakeObject, 
     scene.update(0, 0);
   } };
 }
+
+describe('Menu scroll gesture rectangle ownership', () => {
+  function scrolling(panel: 'equipment' | 'gunsmith') {
+    const h = createHarness(); const scene = h.menuScene as any;
+    scene.scale.width = 360; scene.scale.height = 640;
+    scene.scale.displaySize = { width: 360, height: 640 };
+    scene.render(scene.controller.open(panel)); scene.update(0, 0);
+    expect(scene.scrollRegion.contentHeight).toBeGreaterThan(scene.scrollRegion.viewportHeight);
+    const before = { save: JSON.stringify(h.context.saveData), snapshot: scene.controller.snapshot(),
+      focus: scene.navigator.index, offset: scene.scrollRegion.scrollOffset };
+    const events = vi.fn(); h.bus.on('ui:confirm', events); h.bus.on('ui:back', events);
+    return { h, scene, before, events };
+  }
+
+  it.each(['equipment', 'gunsmith'] as const)('keeps outside wheel and outside-down drag out of the current %s body', panel => {
+    const { h, scene, before, events } = scrolling(panel);
+    const point = { id: 81, x: 120, y: scene.scrollViewportTop - 12, isDown: false };
+    h.input.emit('wheel', point, [], 0, 40);
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    const back = h.buttonByLabel('Back')!; const bounds = back.getBounds();
+    expect(bounds.centerY < scene.scrollViewportTop || bounds.centerY >= scene.scrollViewportBottom).toBe(true);
+    h.input.emit('wheel', { ...point, x: bounds.centerX, y: bounds.centerY }, [], 0, 40);
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    h.input.emit('pointerdown', { ...point, isDown: true }, []);
+    h.input.emit('pointermove', { ...point, isDown: true, y: point.y - 20 });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    h.input.emit('pointermove', { ...point, isDown: true, y: scene.scrollViewportTop + 60 });
+    h.input.emit('pointermove', { ...point, isDown: true, y: scene.scrollViewportTop + 30 });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    h.input.emit('pointerup', point);
+    expect(scene.navigator.index).toBe(before.focus);
+    expect(scene.controller.snapshot()).toEqual(before.snapshot);
+    expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+    expect(events).not.toHaveBeenCalled();
+  });
+
+  it.each(['equipment', 'gunsmith'] as const)('retains real inside wheel and drag scrolling in %s', panel => {
+    const { h, scene, before, events } = scrolling(panel);
+    const point = { id: 82, x: 120, y: scene.scrollViewportTop + 70, isDown: false };
+    h.input.emit('wheel', point, [], 0, 40);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(before.offset);
+    const offset = scene.scrollRegion.scrollOffset;
+    h.input.emit('pointerdown', { ...point, isDown: true }, []);
+    h.input.emit('pointermove', { ...point, isDown: true, y: point.y - 20 });
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(offset);
+    h.input.emit('pointerup', point);
+    expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+    expect(events).not.toHaveBeenCalled();
+  });
+
+  it.each([1, 2])('does not scroll below 8 CSS pixels at Phaser displayScale=%s', ratio => {
+    const { h, scene, before } = scrolling('equipment');
+    scene.scale.displayScale = { x: ratio, y: ratio };
+    const pointer = { id: 83, x: 120, y: scene.scrollViewportTop + 90, isDown: true };
+    h.input.emit('pointerdown', pointer, []);
+    h.input.emit('pointermove', { ...pointer, y: pointer.y - 7 * ratio });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    h.input.emit('pointermove', { ...pointer, y: pointer.y - 8 * ratio });
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(before.offset);
+    h.input.emit('pointerup', { ...pointer, isDown: false });
+  });
+
+  it('uses maximum displacement rather than accumulated jitter and latches return-to-origin drags', () => {
+    const { h, scene, before } = scrolling('equipment');
+    const row = scene.focusables.find((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.getBounds().centerY >= scene.scrollViewportTop && button.getBounds().centerY < scene.scrollViewportBottom)!;
+    const press = gesture(h, row, 84);
+    for (const dy of [-3, 0, -3, 0]) h.input.emit('pointermove', { ...press.pointer, y: press.pointer.y + dy });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    expect(scene.pointerGesture?.dragged).toBe(false);
+    h.input.emit('pointermove', { ...press.pointer, y: press.pointer.y - 12 });
+    h.input.emit('pointermove', press.pointer);
+    expect(scene.pointerGesture?.dragged).toBe(true);
+    const confirm = vi.fn(); h.bus.on('ui:confirm', confirm); press.release();
+    expect(confirm).not.toHaveBeenCalled(); expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+  });
+
+  it('measures diagonal displacement in CSS pixels with separate Phaser axis scales', () => {
+    const { h, scene, before } = scrolling('equipment');
+    scene.scale.displayScale = { x: 2, y: 0.5 };
+    const pointer = { id: 95, x: 120, y: scene.scrollViewportTop + 90, isDown: true };
+    h.input.emit('pointerdown', pointer, []);
+    h.input.emit('pointermove', { ...pointer, x: pointer.x + 8, y: pointer.y - 2 });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset); // hypot(4, 4) < 8 CSS pixels.
+    h.input.emit('pointermove', { ...pointer, x: pointer.x + 16, y: pointer.y - 0.5 });
+    expect(scene.pointerGesture.dragged).toBe(true);
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset + 0.5);
+    h.input.emit('pointerup', { ...pointer, isDown: false });
+  });
+
+  it('rejects a second pointer command and does not adopt it after the owner lifts', () => {
+    const { h, scene, before, events } = scrolling('equipment');
+    const rows = scene.focusables.filter((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportBottom);
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+    const first = gesture(h, rows[0], 85), second = gesture(h, rows[1], 86);
+    second.release(); expect(events).not.toHaveBeenCalled();
+    expect(scene.controller.snapshot()).toEqual(before.snapshot); expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+    // Lift the owner without activating it; the secondary still needs a new down.
+    h.input.emit('pointerup', { ...first.pointer, isDown: false });
+    rows[1].state.handlers.pointerup?.({ ...second.pointer, isDown: false });
+    expect(events).not.toHaveBeenCalled();
+    gesture(h, rows[1], 86).release(); expect(events).toHaveBeenCalledOnce();
+  });
+
+  it('retains the original button press when a secondary pointer downs and lifts on that same button', () => {
+    const { h, scene, events } = scrolling('equipment');
+    const row = scene.focusables.find((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportBottom)!;
+    const owner = gesture(h, row, 91), secondary = gesture(h, row, 92);
+    row.state.handlers.pointerout?.(secondary.pointer);
+    secondary.release(); expect(events).not.toHaveBeenCalled();
+    owner.release(); expect(events).toHaveBeenCalledOnce();
+  });
+
+  it.each(['distinct', 'same'] as const)('preserves owner focus through secondary native-order hover/release on a %s target', target => {
+    const { h, scene, before, events } = scrolling('equipment');
+    const row = scene.focusables.find((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportBottom)!;
+    const owner = gesture(h, row, 96);
+    // Phaser TOUCH_START dispatches object/scene DOWN before object OVER.
+    row.state.handlers.pointerover?.(owner.pointer);
+    const focus = { index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex };
+    const secondaryTarget = target === 'same' ? row : h.buttonByLabel('Back')!;
+    const bounds = secondaryTarget.getBounds();
+    const secondary = { id: 97, x: bounds.centerX, y: bounds.centerY, isDown: true };
+    secondaryTarget.state.handlers.pointerdown?.(secondary); h.input.emit('pointerdown', secondary, [secondaryTarget]);
+    secondaryTarget.state.handlers.pointerover?.(secondary);
+    // TOUCH_END dispatches object UP, scene UP, then object OUT.
+    secondary.isDown = false;
+    secondaryTarget.state.handlers.pointerup?.(secondary); h.input.emit('pointerup', secondary);
+    secondaryTarget.state.handlers.pointerout?.(secondary);
+    expect(scene.pointerGesture?.id).toBe(owner.pointer.id);
+    expect(scene.controller.snapshot()).toEqual(before.snapshot); expect(JSON.stringify(h.context.saveData)).toBe(before.save);
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset); expect(events).not.toHaveBeenCalled();
+    expect({ index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex }).toEqual(focus);
+    // Ending ownership restores ordinary hover on the existing target.
+    h.input.emit('pointerup', { ...owner.pointer, wasCanceled: true, isDown: false }); scene.update(0, 0);
+    secondaryTarget.state.handlers.pointerover?.(secondary);
+    expect(scene.navigator.index).toBe(scene.focusables.indexOf(secondaryTarget));
+    expect(scene.hoveredIndex).toBe(scene.focusables.indexOf(secondaryTarget));
+    secondaryTarget.state.handlers.pointerout?.(secondary); expect(scene.hoveredIndex).toBe(-1);
+  });
+
+  it.each(['body', 'button'] as const)('rejects secondary native OUT on the primary hovered row with a %s owner', admission => {
+    const { h, scene, events } = scrolling('equipment');
+    const row = scene.focusables.find((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportBottom)!;
+    const bounds = row.getBounds();
+    const owner = { id: 98, x: bounds.centerX, y: bounds.centerY, isDown: true };
+    if (admission === 'button') row.state.handlers.pointerdown?.(owner);
+    h.input.emit('pointerdown', owner, admission === 'button' ? [row] : []);
+    row.state.handlers.pointerover?.(owner);
+    const focus = { index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex };
+    const secondary = { ...owner, id: 99 };
+    row.state.handlers.pointerdown?.(secondary); h.input.emit('pointerdown', secondary, [row]);
+    row.state.handlers.pointerover?.(secondary);
+    secondary.isDown = false;
+    row.state.handlers.pointerup?.(secondary); h.input.emit('pointerup', secondary);
+    row.state.handlers.pointerout?.(secondary);
+    expect(scene.pointerGesture?.id).toBe(owner.id); expect(events).not.toHaveBeenCalled();
+    expect({ index: scene.navigator.index, key: scene.focusedButtonKey, hover: scene.hoveredIndex }).toEqual(focus);
+  });
+
+  it('does not let secondary movement or outside up end or reanchor the owner', () => {
+    const { h, scene, before } = scrolling('equipment');
+    const owner = { id: 93, x: 120, y: scene.scrollViewportTop + 90, isDown: true };
+    h.input.emit('pointerdown', owner, []);
+    h.input.emit('pointerdown', { ...owner, id: 94, y: owner.y + 40 }, []);
+    h.input.emit('pointermove', { ...owner, id: 94, y: owner.y - 100 });
+    h.input.emit('pointermove', { ...owner, id: 94, isDown: false });
+    h.input.emit('pointerupoutside', { ...owner, id: 94, isDown: false });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset);
+    expect(scene.pointerGesture?.id).toBe(owner.id);
+    h.input.emit('pointermove', { ...owner, y: owner.y - 10 });
+    expect(scene.scrollRegion.scrollOffset).toBe(before.offset + 10);
+    h.input.emit('pointerup', { ...owner, isDown: false });
+  });
+
+  it.each(['resize', 'render', 'unmount', 'blur', 'cancel', 'shutdown'] as const)(
+    'cancels the real drag owner on %s so stale movement cannot reach new geometry', interruption => {
+      const { h, scene, events } = scrolling('equipment');
+      const pointer = { id: 87, x: 120, y: scene.scrollViewportTop + 90, isDown: true };
+      h.input.emit('pointerdown', pointer, []);
+      if (interruption === 'resize') scene.handleResize();
+      if (interruption === 'render') scene.render(scene.controller.snapshot());
+      if (interruption === 'unmount') scene.unmountPanelSurface();
+      if (interruption === 'blur') { scene.handleInputBlur(); scene.handleInputFocus(); scene.update(0, 0); }
+      if (interruption === 'cancel') h.input.emit('pointerup', { ...pointer, wasCanceled: true, isDown: false });
+      if (interruption === 'shutdown') h.lifecycle.emit('shutdown');
+      const offset = scene.scrollRegion?.scrollOffset;
+      h.input.emit('pointermove', { ...pointer, y: pointer.y - 20 });
+      expect(scene.scrollRegion?.scrollOffset).toBe(offset);
+      expect(scene.pointerGesture).toBeUndefined(); expect(events).not.toHaveBeenCalled();
+      if (interruption !== 'shutdown') {
+        if (interruption === 'blur') {
+          // The still-held physical pointer keeps the existing neutral gate closed.
+          expect(scene.inputController.isQuarantined()).toBe(true);
+          h.input.emit('pointerup', { ...pointer, isDown: false }); scene.update(0, 0);
+          expect(scene.inputController.isQuarantined()).toBe(false);
+        }
+        if (interruption === 'unmount') scene.render(scene.controller.snapshot());
+        const fresh = { ...pointer, id: 88, y: scene.scrollViewportTop + 90 };
+        const start = scene.scrollRegion.scrollOffset;
+        h.input.emit('pointerdown', fresh, []); h.input.emit('pointermove', { ...fresh, y: fresh.y - 20 });
+        expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(start);
+        h.input.emit('pointerup', { ...fresh, isDown: false });
+      }
+    });
+
+  it('cancels a drag during portrait blocking without resurrecting it after restoration', async () => {
+    const { h, scene } = scrolling('equipment');
+    const orientation = await import('../src/platform/orientation');
+    const blocked = vi.spyOn(orientation, 'isPortraitOrientationBlocked').mockReturnValue(true);
+    try {
+      const pointer = { id: 89, x: 120, y: scene.scrollViewportTop + 90, isDown: true };
+      blocked.mockReturnValue(false); h.input.emit('pointerdown', pointer, []);
+      blocked.mockReturnValue(true); scene.update(0, 16);
+      blocked.mockReturnValue(false);
+      const offset = scene.scrollRegion.scrollOffset;
+      h.input.emit('pointermove', { ...pointer, y: pointer.y - 20 });
+      expect(scene.scrollRegion.scrollOffset).toBe(offset); expect(scene.pointerGesture).toBeUndefined();
+    } finally { blocked.mockRestore(); }
+  });
+
+  it('uses one four-edge rectangle for its stencil, wheel and clipped button admission', () => {
+    const { h, scene } = scrolling('equipment');
+    const index = scene.focusables.findIndex((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive && button.getBounds().centerY >= scene.scrollViewportTop
+      && button.getBounds().centerY < scene.scrollViewportTop + 300);
+    expect(index).toBeGreaterThanOrEqual(0);
+    const row = scene.focusables[index] as FakeObject;
+    const bounds = row.getBounds();
+    const rect = { x: 80, y: scene.scrollViewportTop, width: 160, height: 300 };
+    scene.beginScrollableRegion(rect);
+    scene.scrollRegion.setItems([{ index: 0, top: bounds.top, bottom: bounds.bottom }]);
+    scene.scrollRegion.includeContentBottom(rect.y + 1000);
+    const confirm = vi.fn(); h.bus.on('ui:confirm', confirm);
+    const fillRect = vi.fn(); const priorGraphics = scene.make.graphics;
+    scene.make.graphics = (...args: unknown[]) => ({ ...priorGraphics(...args), fillRect });
+    scene.createScrollMask(scene.root);
+    expect(fillRect).toHaveBeenCalledWith(rect.x, rect.y, rect.width, rect.height);
+    for (const point of [{ x: rect.x - 1, y: rect.y + 20 }, { x: rect.x + rect.width, y: rect.y + 20 },
+      { x: rect.x + 10, y: rect.y - 1 }, { x: rect.x + 10, y: rect.y + rect.height }]) {
+      const before = scene.scrollRegion.scrollOffset;
+      h.input.emit('wheel', { ...point, id: 90, isDown: false }, [], 0, 40);
+      expect(scene.scrollRegion.scrollOffset).toBe(before);
+      row.state.handlers.pointerdown?.({ ...point, id: 90, isDown: true });
+      row.state.handlers.pointerup?.({ ...point, id: 90, isDown: false });
+      expect(confirm).not.toHaveBeenCalled();
+    }
+    const point = { id: 90, x: Math.max(bounds.left, rect.x) + 10, y: Math.max(bounds.top, rect.y) + 10, isDown: true };
+    row.state.handlers.pointerdown?.(point); row.state.handlers.pointerup?.({ ...point, isDown: false });
+    expect(confirm).toHaveBeenCalledOnce();
+  });
+
+  it('retains full-width legacy strips and copies a valid rectangle before exposing clipped hit areas', () => {
+    const { scene } = scrolling('equipment');
+    expect(scene.scrollRectangle).toEqual({ x: 0, y: scene.scrollViewportTop,
+      width: scene.scale.width, height: scene.scrollViewportBottom - scene.scrollViewportTop });
+    const index = scene.focusables.findIndex((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
+      && button.state.interactive);
+    const row = scene.focusables[index] as FakeObject; const bounds = row.getBounds();
+    const rect = { x: bounds.right + 1, y: scene.scrollViewportTop, width: 20, height: 300 };
+    scene.beginScrollableRegion(rect); rect.x = 0;
+    expect(scene.scrollRectangle.x).toBe(bounds.right + 1);
+    const region = scene.scrollRegion, rectangle = scene.scrollRectangle;
+    expect(() => scene.beginScrollableRegion({ ...rect, width: NaN })).toThrow(RangeError);
+    expect(scene.scrollRegion).toBe(region); expect(scene.scrollRectangle).toBe(rectangle);
+    scene.applyScrollViewport(); expect(row.state.interactive).toBe(false);
+  });
+});
 
 describe('retained Menu physical controls', () => {
   it.each(['equipment', 'gunsmith'] as const)('admits new prefix/Back gestures after %s body mutation but revokes old presses', panel => {
