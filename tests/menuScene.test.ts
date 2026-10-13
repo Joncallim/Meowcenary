@@ -2269,6 +2269,63 @@ describe('MenuScene', () => {
     await vi.waitFor(() => expect(harness.sceneStart).toHaveBeenCalledOnce());
   });
 
+  it.each([
+    { training: false, recreated: false },
+    { training: true, recreated: false },
+    { training: false, recreated: true },
+    { training: true, recreated: true },
+  ])('revoked Home-art launch queues no physical resources: $training Training, $recreated recreation', async ({ training, recreated }) => {
+    const h = createHarness();
+    const scene = h.menuScene as unknown as {
+      panelArtInFlight?: Promise<void>;
+      isLive: boolean;
+      startRunWithResources(request: import('../src/gameplay/runRequest').ComposedRunRequest, training: boolean): Promise<void>;
+      create(): void;
+    };
+    const queued: string[] = [];
+    const handlers = new Map<string, Set<(file: { key: string }) => void>>();
+    const add = (event: string, handler: (file: { key: string }) => void) => {
+      const listeners = handlers.get(event) ?? new Set();
+      listeners.add(handler); handlers.set(event, listeners);
+    };
+    Object.assign(scene, {
+      // Keep the actual launch, serializer and resource owner; the fixture
+      // only isolates render-triggered panel loads and fails loader files.
+      render: () => undefined,
+      textures: { exists: () => false },
+      load: {
+        on: add, once: add,
+        off: (event: string, handler: (file: { key: string }) => void) => handlers.get(event)?.delete(handler),
+        atlas: (key: string) => queued.push(key),
+        image: (key: string) => queued.push(key),
+        spritesheet: (key: string) => queued.push(key),
+        start: () => {
+          for (const key of queued) {
+            for (const handler of [...(handlers.get('loaderror') ?? [])]) handler({ key });
+          }
+        },
+      },
+    });
+    let finishHome!: () => void;
+    scene.panelArtInFlight = new Promise<void>(resolve => { finishHome = resolve; });
+    const request = Object.freeze(training
+      ? { kind: 'legacy-arena' as const, characterId: h.context.selectedCharacterId, arenaId: 'junkyard-lot', seed: 42 }
+      : { kind: 'stage' as const, characterId: h.context.selectedCharacterId, stageId: h.context.selectedStageId, seed: 42 });
+    const save = h.context.saveData;
+    const launch = scene.startRunWithResources(request, training);
+    expect(queued).toEqual([]);
+    h.lifecycle.emit('shutdown');
+    expect(scene.isLive).toBe(false);
+    if (recreated) { scene.create(); expect(scene.isLive).toBe(true); }
+    finishHome();
+    await launch;
+    expect(h.sceneStart).not.toHaveBeenCalled();
+    expect(h.context.saveData).toBe(save);
+    expect(queued, 'an abandoned launch must not acquire the replacement loader generation').toEqual([]);
+    expect([...handlers.values()].every(listeners => listeners.size === 0)).toBe(true);
+    if (recreated) h.lifecycle.emit('shutdown');
+  });
+
   it.each([false, true])('waits for run audio and rejects late completion after shutdown=%s', async (shutdown) => {
     const harness = createHarness();
     const handlers = new Map<string, Set<(...args: unknown[]) => void>>();

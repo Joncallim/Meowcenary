@@ -1071,6 +1071,12 @@ export class MenuScene extends Phaser.Scene {
       // own it for the hero closure, so launch must reuse that completion
       // before asking the same loader for the full run closure.
       await this.panelArtInFlight;
+      // This await can outlive shutdown/recreation, which resets the loader
+      // queue. A revoked launch must not acquire that replacement generation.
+      if (!this.isLive || generation !== this.runLaunchGeneration || this.runLaunchState !== 'loading') {
+        if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'cancelled', isTraining });
+        return;
+      }
       await this.serializeTextureLoad(() => prepareRunPresentation(this, ctx.data, resources, (progress) => {
         if (this.isLive && generation === this.runLaunchGeneration && this.runLaunchState === 'loading') {
           this.runLaunchProgress = progress;

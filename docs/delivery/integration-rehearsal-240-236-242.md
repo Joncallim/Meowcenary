@@ -117,3 +117,31 @@ resource requests; twelve touch screenshots and all JSON receipts are preserved
 outside the mutable runner output. Full exact-successor local/hosted validation
 remains pending. No runtime, artwork,
 golden, retry, skip, timeout or threshold changes are authorised by this repair.
+
+
+## Orthogonal cancellation finding and owning correction
+
+Independent runtime review after the touch-observer correction reproduced an
+inherited cancellation gap on protected main `4f79d621` and rehearsal `b9b7deb`.
+A launch awaiting cold Home art survives shutdown; shutdown resets the LoaderPlugin
+serialization generation, then late Home completion registered the old launch
+with the replacement generation. The real resource owner queued 66 physical
+entries on main / 67 in the composed rehearsal. The final scene-entry guard
+correctly prevented Game admission, but did not prevent revoked resource work.
+No physical-device, real-network request or persistence-loss claim follows from
+these deterministic loader-boundary probes.
+
+The smallest fix checks captured launch generation, live scene and loading state
+immediately after the Home-art await and before queue acquisition. Existing
+serialized-load generation checks, immutable resources/layout, Retry/Replay,
+input, save, reward, RNG and scene-entry guards remain. Four new regressions
+failed before the correction: Contract/Training crossed with shutdown/recreation,
+using the real Menu launch, serializer, preparation and texture-resource owner.
+All four then pass; the complete focused Menu/resource-owner files pass 205 tests
+(196 Menu, nine resource tests). Full allocation/runner and other acceptance gates
+are separate and still required at the final corrected head.
+
+The earlier `b9b7deb` full run stays frozen as historical evidence and cannot
+certify this correction. Final-head full local/hosted gates and independent
+follow-up are reported on #249/#201; neither the rehearsal nor this fix authorises
+merge/deployment or closes a product/device acceptance gate.
