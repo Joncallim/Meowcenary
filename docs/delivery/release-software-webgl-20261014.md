@@ -70,7 +70,7 @@ software/surfaceless environment. References:
 
 ## Real Menu input receipts
 
-The faster renderer exposed five assertion failures in three original test
+The faster renderer exposed assertion failures in seven original test
 modules. Their synthetic key-up could precede the Menu input owner's sample:
 a physical `isDown` flag had been treated as evidence that the logical edge
 was consumed. The unchanged current-mount hydration test reproduced RED
@@ -80,9 +80,14 @@ The shared test-only helper now holds each physical key through the existing
 real `POST_STEP` receipt, asserts Menu is active, and observes neutral through
 another owner frame after key-up. An inactive Menu cannot certify neutrality.
 It never steps/wakes simulation, clears quarantine, injects logical actions or
-waits for deliberately blocked artwork. Equipment, Gunsmith replacement and
-Loadout hydration retain their semantic selection, held-state, resource,
-preview, durable-save, screenshot and lifecycle assertions. No production input
+waits for deliberately blocked artwork. Equipment, Gunsmith replacement, Loadout hydration, overlapping panel
+load, performance navigation and local Equipment/Gunsmith mutations retain their semantic selection, held-state, resource,
+preview, durable-save, screenshot and lifecycle assertions. The local mutation journeys additionally reproduced RED on two distinct
+physical cores after resize: Gunsmith removal never committed and Equipment
+retained the old helmet. The owner-frame correction retains their original
+explicit held/released and durable mutation assertions. Focus is read after
+receipt, so it is not claimed to belong to that same completed frame.
+No production input
 code changes; no deadline, retry, threshold, golden or scoped-skip change.
 
 ## Release contract
