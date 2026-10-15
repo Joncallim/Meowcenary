@@ -102,7 +102,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       this.detailLayoutWidth = this.layout.width;
       this.detailLayoutHeight = this.layout.height;
       this.collectionTop = this.detailTop;
-      this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.detailTop, contentWidth));
+      this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.detailTop, contentWidth,
+        this.detailScrollableBottom(snapshot)));
       this.drawSelection(scrollRoot, this.root!, snapshot, scrap);
       this.requestSelectionResources(snapshot);
       return;
@@ -252,7 +253,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       this.detailLayoutWidth = this.layout.width;
       this.detailLayoutHeight = this.layout.height;
       this.collectionTop = this.detailTop;
-      this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.detailTop, contentWidth));
+      this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.detailTop, contentWidth,
+        this.detailScrollableBottom(snapshot)));
       this.drawSelection(root, root, snapshot, scrap);
       return;
     }
@@ -581,6 +583,31 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     return { x: left, y: top, width, height };
   }
 
+  /** Detail commit actions are fixed chrome, so reserve their stack above the
+   * fixed Fabricate/footer action before measuring the reader body. This keeps
+   * Equip/Upgrade reachable without asking pointer users to scroll an action
+   * under the fixed footer, while preserving one body-owned scroll region. */
+  private detailActionCount(snapshot: MainMenuSnapshot): number {
+    const equipment = snapshot.equipment;
+    const selectedSlot = equipment.presentation.slots.find(slot => slot.slot === equipment.selectedSlot);
+    const selected = selectedSlot?.candidates.find(item => item.instanceId === equipment.selectedInstanceId);
+    if (!selected) return 0;
+    const upgrade = equipment.owned.find(item => item.instanceId === selected.instanceId);
+    return 1 + (upgrade?.upgradePreview?.cost !== undefined ? 1 : 0);
+  }
+
+  private detailScrollableBottom(snapshot: MainMenuSnapshot): number {
+    const count = this.detailActionCount(snapshot);
+    if (count === 0) return this.layout.scrollBottom;
+    const actionGap = 8;
+    const fixedActionsTop = this.footerTop() - count * (this.layout.hitTarget + actionGap);
+    return Math.min(this.layout.scrollBottom, fixedActionsTop - actionGap);
+  }
+
+  private detailFixedActionTop(snapshot: MainMenuSnapshot): number {
+    return this.footerTop() - this.detailActionCount(snapshot) * (this.layout.hitTarget + 8);
+  }
+
   /** Fixed wide-layout inspector. The candidate collection is closed before
    * this is drawn, so inspector art/actions never inherit collection scroll. */
   private drawWideInspector(root: Phaser.GameObjects.Container, fixedRoot: Phaser.GameObjects.Container,
@@ -757,6 +784,10 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     try {
     const selected = selectedSlot.candidates.find((item) => item.instanceId === equipment.selectedInstanceId);
     const selectedBlueprint = blueprints.find((piece) => piece.equipmentId === equipment.selectedBlueprintId);
+    const fixedDetailActions: Array<{ label: string; action: () => void; key: string; disabled?: boolean }> = [];
+    const queueFixedDetailAction = (label: string, action: () => void, key: string, disabled = false): void => {
+      fixedDetailActions.push({ label, action, key, disabled });
+    };
     if (selected) {
       const source = equipment.acquisition.find((row) => row.equipmentId === selected.equipmentId)?.summary ?? '';
       const set = equipment.presentation.sets.find((row) => row.setId === selected.setId)!;
@@ -772,11 +803,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         put(`REMOVES: ${this.loadoutEffectCopy(comparison.displaced.effects) || 'None'}`, '#fbbf24');
       }
       if (comparison) y = this.renderEquipmentComparison(root, comparison, left, y, contentWidth, new Map(snapshot.gunsmith.families.map((family) => [family.id, family.name])));
-      const equip = this.button(root, left, y, equipped ? `Unequip ${selected.name}` : `Equip ${selected.name}`, hitTarget, () => this.environment.onSnapshot(equipped
+      queueFixedDetailAction(equipped ? `Unequip ${selected.name}` : `Equip ${selected.name}`, () => this.environment.onSnapshot(equipped
         ? this.commands.unequipEquipment(selectedSlot.slot)
-        : this.commands.equipEquipment(selected.instanceId)), 'ui:confirm', contentWidth);
-      this.rememberLoadoutFocus(equip, `equipment-equip:${selected.instanceId}`);
-      y += equip.height + 10;
+        : this.commands.equipEquipment(selected.instanceId)), `equipment-equip:${selected.instanceId}`);
       const upgrade = equipment.owned.find((item) => item.instanceId === selected.instanceId)!;
       if (upgrade.upgradePreview) {
         const cost = upgrade.upgradePreview.cost;
@@ -799,10 +828,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         y += extent + 72;
         put(`ITEM NOW\n${this.loadoutEffectCopy(selected.effects)}\nITEM AFTER UPGRADE\n${this.loadoutEffectCopy(afterItem.effects)}`);
         if (cost !== undefined) {
-          const action = this.button(root, left, y, upgrade.upgradeLockReason ? `LOCKED • ${upgrade.upgradeLockReason}` : `Upgrade for ${cost} Scrap`, hitTarget, () => this.environment.onSnapshot(this.commands.upgradeEquipment(selected.instanceId, selected.tier)), 'ui:confirm', contentWidth);
-          this.rememberLoadoutFocus(action, `equipment-upgrade:${selected.instanceId}`);
-          if (upgrade.upgradeLocked || scrap < cost) this.environment.controls.disableButton(action);
-          y += action.height + 8;
+          queueFixedDetailAction(upgrade.upgradeLockReason ? `LOCKED • ${upgrade.upgradeLockReason}` : `Upgrade for ${cost} Scrap`,
+            () => this.environment.onSnapshot(this.commands.upgradeEquipment(selected.instanceId, selected.tier)),
+            `equipment-upgrade:${selected.instanceId}`, upgrade.upgradeLocked || scrap < cost);
         }
       }
       if (upgrade.upgradeLockReason) put(`LOCKED • ${upgrade.upgradeLockReason}`, '#fbbf24');
@@ -826,6 +854,14 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     }
     if (equipment.unavailable.length) put('A legacy Equipment item is unavailable in this version.', '#fbbf24');
     this.environment.controls.endScrollableRegion();
+    let fixedActionY = this.detailFixedActionTop(snapshot);
+    for (const detailAction of fixedDetailActions) {
+      const action = this.button(fixedRoot, left, fixedActionY, detailAction.label, hitTarget, detailAction.action,
+        'ui:confirm', contentWidth);
+      this.rememberLoadoutFocus(action, detailAction.key);
+      if (detailAction.disabled) this.environment.controls.disableButton(action);
+      fixedActionY += hitTarget + 8;
+    }
     const fabricate = this.loadoutFooter(fixedRoot, left, contentWidth, hitTarget,
       selectedBlueprint ? `Fabricate for ${selectedBlueprint.fabricationCost} Scrap` : 'Fabricate Selected', () => {
         if (!selectedBlueprint) return;

@@ -1039,6 +1039,8 @@ describe('MenuScene', () => {
       focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
       handleNavMove(direction: string): void;
       scrollRegion: { scrollOffset: number; contentHeight: number; viewportHeight: number };
+      scrollRectangle: { y: number; height: number };
+      scrollObjects: Array<{ object: FakeObject }>;
     };
     const reading = scene.focusables.find((button) => scene.focusKeyByButton.get(button) === 'equipment-detail:recon')!;
     expect(reading.state.interactive).toBe(true);
@@ -1064,6 +1066,9 @@ describe('MenuScene', () => {
     expect(scene.focusables[scene.navigator.index]).toBe(reading);
     expect(scene.scrollRegion.scrollOffset).toBe(actionOffset);
     expect(harness.context.saveData).toBe(before);
+    const equip = harness.buttonByLabel('Equip Recon Helmet')!;
+    expect(scene.scrollObjects.some(({ object }) => object === equip)).toBe(false);
+    expect(equip.state.y).toBeGreaterThanOrEqual(scene.scrollRectangle.y + scene.scrollRectangle.height);
   });
 
   it.each([[360, 640], [844, 390], [1040, 390], [1280, 720]])('keeps selection-only fixed content outside the collection mask at %i×%i', (width, height) => {

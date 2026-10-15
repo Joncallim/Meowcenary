@@ -237,8 +237,10 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   const action = state.buttons.find((button) => button.focused)!;
   expect(action.bounds.height).toBeGreaterThanOrEqual(44);
   expect(action.bounds.width).toBeGreaterThanOrEqual(44);
-  expect(action.bounds.y).toBeGreaterThanOrEqual(state.scroll!.top);
-  expect(action.bounds.y + action.bounds.height).toBeLessThanOrEqual(state.scroll!.bottom);
+  // Detail commit actions are fixed chrome. The reader body remains the sole
+  // scroll owner, so Equip must sit below its viewport rather than moving
+  // under the mask as the explanation is paged.
+  expect(action.bounds.y).toBeGreaterThanOrEqual(state.scroll!.bottom);
   await press(page, 'Enter'); await settle(page);
   expect((await diagnostic(page)).equipment?.equipped.helmet).toBe(candidate);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')!));
