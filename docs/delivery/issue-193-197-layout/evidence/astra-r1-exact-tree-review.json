@@ -1,0 +1,47 @@
+{
+  "schema": "astra-r1-exact-tree-review/v1",
+  "capturedAt": "2026-10-15T14:38:19Z",
+  "repository": {
+    "root": "/workspace/Meowcenary",
+    "branch": "r1-equipment-gunsmith-review",
+    "head": "3b854bac7437ad9aef60394d03c1caa597e5c7c8",
+    "headTree": "bc3548f519ff133434bd6f95e0b32dcaba1691af",
+    "headTrackedFileCount": 1991,
+    "headTreeListingSha256": "de366aab86ac5af2e93759ef0d0a90a03dbffe7bdcb61236565e3ab2c8635599",
+    "worktreeStatus": "dirty",
+    "trackedChangedFileCount": 11,
+    "exportedArtifactFileCount": 2,
+    "worktreeStatusSha256": "f5f7e5ae94d8210541afe96292c698bdd79b4d28cf6fbbbf8481aea8c1ef565e",
+    "worktreeDiffSha256": "49e035c9fe1fe7329e216286d607c565269827c5f963fe976f8cf026b1c146fe",
+    "mergePerformed": false,
+    "deploymentPerformed": false,
+    "goldenReplacementPerformed": false
+  },
+  "changedFiles": [
+    { "path": "browser-tests/equipment-loadout.pw.ts", "headBlobGitObject": "33d86b28bcd648d637dbef16d9742d459711c785", "worktreeSha256": "17d4d1bd5aecc103ca4ceb78308a3359ba267edc958173a6844405fdaf43e826", "lines": 303, "role": "Equipment selection/detail browser coverage" },
+    { "path": "browser-tests/equipment-updates.pw.ts", "headBlobGitObject": "8772ade0d2b1a733c58d98a8b8eca5997a3f6a27", "worktreeSha256": "e4a52ee47ea9cab36c7fe47ed998745c0dfcb8b82a811fe9ee7609a34a1c1770", "lines": 212, "role": "Equipment update and reader browser coverage" },
+    { "path": "browser-tests/loadout-layout-completion.pw.ts", "headBlobGitObject": "66e0bccd03f0ee106856df1520be21504652ad13", "worktreeSha256": "7c4c81a4984ee3da147cb9cda0012673695f58a10739b76f0f0c3c9e1f59a489", "lines": 552, "role": "responsive layout and physical-input diagnostics" },
+    { "path": "browser-tests/menu-gesture-ownership.pw.ts", "headBlobGitObject": "644b020a5b3ea28a761bf9a90da81d4150b67fcd", "worktreeSha256": "7ceba98b6c6901da7c6efa13e7ac74d244b2e1ca93621823fec9674aeb146100", "lines": 254, "role": "rectangle and gesture ownership coverage" },
+    { "path": "src/scenes/MenuScene.ts", "headBlobGitObject": "185b63412eecb43b244be83354eafd9fb8131d26", "worktreeSha256": "727015e055740d5661591efebe0603bfcea1cc497cbb6314f66d4620ef695532", "lines": 3353, "role": "single focus/scroll owner, reader paging, suppression and spatial inspector navigation" },
+    { "path": "src/ui/gunsmithController.ts", "headBlobGitObject": "a12bcfa51fbe3d0a6434ec9d3b0396b86706fa52", "worktreeSha256": "af55db5b6db888931873afd4be644ea3f43011abe1b8a09499d3f4de4e310e5e", "lines": 1345, "role": "display-tier and infused-trait preview truth" },
+    { "path": "src/ui/menuSurfaces/equipmentSurface.ts", "headBlobGitObject": "f0722bdbb3d0961999806e3465b3cb571661106d", "worktreeSha256": "7e56425553c73e159084656dde6f69036f6260de5a40c81810d3fbd5f0401d94", "lines": 866, "role": "Equipment responsive layout, selection anchors and explicit detail route" },
+    { "path": "src/ui/menuSurfaces/loadoutChrome.ts", "headBlobGitObject": "c67c460f443bd45bd77168dd2f7c23649510770b", "worktreeSha256": "d858aebb88a4c88224fb095ff1e654fb4527960e978e8c704a9590de7f4cefe1", "lines": 224, "role": "nonmutating detail reading target and compact slot chrome" },
+    { "path": "tests/equipmentArtLayout.test.ts", "headBlobGitObject": "f14f4d761df55a254ba22a5f25cef1cf7b1902a5", "worktreeSha256": "9dc1b54a4ab17861b1acf76655c47408ae5073fc8d5edbe020528995e73e1969", "lines": 331, "role": "responsive art/layout regressions" },
+    { "path": "tests/gunsmithController.test.ts", "headBlobGitObject": "105204e682db163ddfae953a862550c6493163fd", "worktreeSha256": "c20e51f27289a36363d4cefe40653c22cc26edbdfd196cd936bdd9b9b3d2de9e", "lines": 767, "role": "tier and infused-trait regressions" },
+    { "path": "tests/menuScene.test.ts", "headBlobGitObject": "afaacff87969bc2a4247d10e793df7e9b6530163", "worktreeSha256": "c26024a76faffd8f2c9d40d801b4f2a63c83d90efffdfbed8c8005d01caba8f9", "lines": 6512, "role": "detail mask, selection-anchor, spatial navigation and reachability regressions" }
+  ],
+  "reviewAnchors": [
+    { "path": "src/scenes/MenuScene.ts", "lines": "902-967", "claim": "Same-mount mutations preserve the existing scroll bookmark and focus, while explicit top alignment remains available for detail entry." },
+    { "path": "src/scenes/MenuScene.ts", "lines": "2998-3061", "claim": "Equipment row-end Right stays local on compact layouts, enters the wide inspector when available, and records the actual departure card for Inspector Left." },
+    { "path": "src/ui/menuSurfaces/equipmentSurface.ts", "lines": "410-438", "claim": "Ordinary candidate and blueprint selection no longer requests forced top alignment, preserving the current viewport anchor." },
+    { "path": "src/ui/menuSurfaces/equipmentSurface.ts", "lines": "703-715", "claim": "The fixed wide inspector uses its own semantic focus key; activation creates the separate detail reader target." },
+    { "path": "src/ui/gunsmithController.ts", "lines": "484-510", "claim": "Catalog comparisons use displayTier and the representative fitted instance's infused traits and comparison summary." },
+    { "path": "docs/art/design-handoff-2026-10-09/COMPACT-GRID-INPUT-CONTRACT.md", "lines": "71-79", "claim": "Authoritative contract for one reading target, page ownership, pointer scrolling and stationary-summary parity." }
+  ],
+  "exportedArtifacts": [
+    { "path": "docs/delivery/issue-193-197-layout/evidence/astra-r1-exact-tree-review.json", "sha256AtExport": "recompute with sha256sum after checkout" },
+    { "path": "docs/delivery/issue-193-197-layout/evidence/astra-r1-review-receipts.json", "sha256AtExport": "2bfd8421f879501b204577d21a4c3ff47d047e622b16d013ae07e418a967f4c9" },
+    { "path": "Library:astra-r1-browser-evidence-20261015.tar.gz", "libraryFileId": "libfile_5fff37ed7b048191852c98d4f15b76f3", "sha256": "5aa5fd182ee5041878a5380a89be1ffd8dc0ff38e4f373c5b79eb0b0574afe28" }
+  ],
+  "scopeNote": "This snapshot inventories the preserved dirty worktree and all eleven tracked files in the Astra R1 review diff. It is review evidence, not a merge/deploy or golden-authority claim."
+}

@@ -532,7 +532,7 @@ describe('MenuScene', () => {
         equipmentController: { snapshot(): import('../src/ui/equipmentController').EquipmentSnapshot } };
       focusables: FakeObject[];
       focusKeyByButton: Map<FakeObject, string>;
-      navigator: { index: number };
+      navigator: { index: number; setIndex(index: number): void };
       loadoutUiDiagnostics(): unknown;
     };
     const focusKey = () => scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!);
@@ -868,6 +868,7 @@ describe('MenuScene', () => {
       .toBe('equipment-candidate:recon');
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('Replaces Commando Helmet');
+    expect(harness.textContents().join('\n')).toContain('REMOVES: +5% Fire Rate [All Weapons]');
     expect(harness.textContents().join('\n')).toContain('LOSE 2-piece');
     expect(harness.textContents().join('\n')).toContain('[All Weapons]');
     harness.buttonByLabel('Equip Recon Helmet')!.state.handlers.pointerup!();
@@ -926,12 +927,15 @@ describe('MenuScene', () => {
       renderRebuildCount: number; focusKeyByButton: Map<FakeObject, string>;
       navigator: { index: number; setIndex(index: number): void }; handleNavMove(direction: string): void;
     };
+    const browsePrefix = scene.focusables.slice(0, 4);
     const candidate = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
     const rebuilds = scene.renderRebuildCount;
     scene.activationSource = 'pointer';
     candidate.state.handlers.pointerup!();
     scene.activationSource = undefined;
     expect(scene.renderRebuildCount).toBe(rebuilds);
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-candidate:recon');
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-detail:recon');
     const detailIndex = scene.navigator.index;
     scene.handleNavMove('up');
@@ -939,12 +943,55 @@ describe('MenuScene', () => {
     scene.navigator.setIndex(detailIndex);
     expect(candidate.state.destroyed).toBe(true);
     expect(harness.textContents()).not.toContain('Recon Helmet\nT1 • STORED');
-    expect(scene.focusables.slice(0, 4).every(button => !button.state.visible && !button.state.interactive)).toBe(true);
+    expect(browsePrefix.every(button => button.state.destroyed || (!button.state.visible && !button.state.interactive))).toBe(true);
     expect(harness.textContents().join('\n')).toContain('Replaces Commando Helmet');
     const action = harness.buttonByLabel('Equip Recon Helmet')!;
     scene.navigator.setIndex(scene.focusables.indexOf(action));
     scene.handleNavMove('up');
-    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-equip:recon');
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-detail:recon');
+  });
+
+  it('rebuilds a keyboard-selected wide inspector into a full-width detail mask without hidden prefix scroll range', () => {
+    const harness = createHarness({ create: false });
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando' } }));
+    Object.assign(harness.menuScene.scale, { width: 1280, height: 720, displaySize: { width: 1280, height: 720 } });
+    harness.menuScene.create();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      scrollRectangle: { x: number; y: number; width: number; height: number };
+      scrollItemIndexes: Set<number>; focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
+    };
+    expect(harness.buttonByLabel('View details')).toBeDefined();
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-detail:recon');
+    expect(scene.scrollRectangle.width).toBeGreaterThan(1100);
+    expect([...scene.scrollItemIndexes].every(index => scene.focusables[index]?.state.visible)).toBe(true);
+    expect(harness.textContents().join('\n')).toContain('Replaces Commando Helmet');
+  });
+
+  it('shows exact Equipment effects, Set threshold deltas, and upgrade before/after in the immediate wide inspector', () => {
+    const harness = createHarness({ create: false });
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      armour: { equipmentId: 'equipment:commando-armour', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando', armour: 'armour' } }));
+    Object.assign(harness.menuScene.scale, { width: 1280, height: 720, displaySize: { width: 1280, height: 720 } });
+    harness.menuScene.create();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    const copy = harness.textContents().join('\n');
+    expect(copy).toContain('EFFECTS');
+    expect(copy).toContain('LOSE 2-piece');
+    expect(copy).toContain('UPGRADE T1 → T2');
+    expect(copy).toContain('ITEM NOW');
+    expect(copy).toContain('ITEM AFTER UPGRADE');
   });
 
   it.each([[360, 640], [844, 390]])('keeps compact pointer detail navigation on a visible target at %i×%i', (width, height) => {
@@ -965,6 +1012,7 @@ describe('MenuScene', () => {
     scene.activationSource = 'pointer';
     harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
     scene.activationSource = undefined;
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-detail:recon');
     const mode = vi.spyOn(scene.inputController, 'getInputMode').mockReturnValue('keyboard');
     scene.handleNavMove('up');
@@ -973,6 +1021,49 @@ describe('MenuScene', () => {
     expect(scene.focusKeyByButton.get(focused)).not.toBe('equipment-slot:helmet');
     expect(scene.focusRings[scene.navigator.index]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     mode.mockRestore();
+  });
+
+  it('keeps the local detail identity as a nonmutating reading target and pages its body before actions', () => {
+    const harness = createHarness({ create: false });
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando' } }));
+    Object.assign(harness.menuScene.scale, { width: 390, height: 844, displaySize: { width: 390, height: 844 } });
+    harness.menuScene.create();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
+      handleNavMove(direction: string): void;
+      scrollRegion: { scrollOffset: number; contentHeight: number; viewportHeight: number };
+    };
+    const reading = scene.focusables.find((button) => scene.focusKeyByButton.get(button) === 'equipment-detail:recon')!;
+    expect(reading.state.interactive).toBe(true);
+    expect(reading.state.handlers.pointerup).toBeDefined();
+    expect(scene.focusables[scene.navigator.index]).toBe(reading);
+    const before = harness.context.saveData;
+    const beforeIndex = scene.navigator.index;
+    reading.state.handlers.pointerup!();
+    expect(scene.navigator.index).toBe(beforeIndex);
+    expect(harness.context.saveData).toBe(before);
+    const offset = scene.scrollRegion.scrollOffset;
+    expect(scene.scrollRegion.contentHeight - scene.scrollRegion.viewportHeight).toBeGreaterThan(offset);
+    scene.handleNavMove('down');
+    expect(scene.focusables[scene.navigator.index]).toBe(reading);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(offset);
+    for (let step = 0; step < scene.focusables.length + 2
+      && scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!) !== 'equipment-equip:recon'; step += 1) {
+      scene.handleNavMove('down');
+    }
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-equip:recon');
+    const actionOffset = scene.scrollRegion.scrollOffset;
+    scene.handleNavMove('up');
+    expect(scene.focusables[scene.navigator.index]).toBe(reading);
+    expect(scene.scrollRegion.scrollOffset).toBe(actionOffset);
+    expect(harness.context.saveData).toBe(before);
   });
 
   it.each([[360, 640], [844, 390], [1040, 390], [1280, 720]])('keeps selection-only fixed content outside the collection mask at %i×%i', (width, height) => {
@@ -1004,8 +1095,13 @@ describe('MenuScene', () => {
       expect(object.parentContainer).not.toBe(maskContainer);
       expect(scene.scrollObjects.some(entry => entry.object === object)).toBe(false);
     }
-    scene.navigator.setIndex(scene.focusables.indexOf(harness.buttonByLabel('View details')!));
+    const details = harness.buttonByLabel('View details')!;
+    if (width >= 1040) expect(scene.focusKeyByButton.get(details)).toBe('equipment-inspector:recon');
+    scene.navigator.setIndex(scene.focusables.indexOf(details));
     scene.handleNavMove('up');
+    // The fixed wide inspector action is not the paged detail reader. Up from
+    // it returns to the candidate collection; only activating it creates the
+    // equipment-detail reader target.
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-candidate:recon');
   });
 
@@ -1350,7 +1446,7 @@ describe('MenuScene', () => {
     const browse = harness.buttonByLabel('BROWSE SETS')!;
     const bounds = browse.getBounds();
     expect(panels.mock.calls.filter((call) => call[2] === bounds.centerY && call[3] === bounds.width && call[4] === bounds.height && /card$/.test(String(call[5]))).map((call) => [call[1], call[2], call[3], call[4], call[5]])).toEqual([]);
-    expect(browse.state.style).toMatchObject({ color: '#f78003', fontSize: '10px', align: 'left' });
+    expect(browse.state.style).toMatchObject({ color: '#f78003', fontSize: '14px', align: 'left' });
     expect(bounds.height).toBeGreaterThanOrEqual(minimumHitTarget(scene.currentViewport));
     expect(browse.state.interactive).toBe(true);
     expect(scene.focusKeyByButton.get(browse)).toBe('equipment:browse-sets');
@@ -1720,7 +1816,7 @@ describe('MenuScene', () => {
     expect(key()).toBe('equipment-candidate:recon');
     const selectedY = scene.focusables[scene.navigator.index]!.state.y;
     expect(selectedY).toBeGreaterThanOrEqual(scene.scrollViewportTop);
-    expect(selectedY).toBeLessThan(scene.scrollViewportTop + (scene.scrollViewportBottom - scene.scrollViewportTop) / 2);
+    expect(selectedY + scene.focusables[scene.navigator.index]!.state.height).toBeLessThanOrEqual(scene.scrollViewportBottom);
     scene.render(scene.controller.snapshot());
     expect(key()).toBe('equipment-candidate:recon');
     expect(scene.focusables[scene.navigator.index]!.state.y).toBe(selectedY);
@@ -1816,8 +1912,145 @@ describe('MenuScene', () => {
       scene.navigator.setIndex(0);
       pad.setButton(13, true); harness.menuScene.update(0, 16);
       pad.setButton(13, false); harness.menuScene.update(0, 16);
-      expect(focused()).toBe(width >= 1114 ? 'equipment:browse-sets' : 'equipment-slot:gloves');
+      expect(focused()).toBe(width >= 844 ? 'equipment:browse-sets' : 'equipment-slot:gloves');
     }
+  });
+
+  it.each([[390, 844, false], [1040, 720, true]] as const)(
+    'keeps Equipment row-end Right local at %i×%i and preserves the wide inspector departure card',
+    (width, height, wide) => {
+      const harness = createHarness({ create: false });
+      harness.context.updateEquipment(() => ({ equipment: {
+        a: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+        b: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+        c: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+        d: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      }, loadout: {} }));
+      Object.assign(harness.menuScene.scale, { width, height, displaySize: { width, height } });
+      harness.menuScene.create();
+      harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+      harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+      const scene = harness.menuScene as unknown as {
+        focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>;
+        navigator: { index: number; setIndex(index: number): void };
+        handleNavMove(direction: string): void;
+      };
+      const focused = () => scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!);
+      const cardIndex = (id: string) => scene.focusables.findIndex((button) =>
+        scene.focusKeyByButton.get(button) === `equipment-candidate:${id}`);
+      if (wide) scene.focusables[cardIndex('a')]!.state.handlers.pointerup!();
+      const rows = ['a', 'b', 'c', 'd'].map((id) => scene.focusables[cardIndex(id)]!.getBounds().top);
+      expect(rows[0]).toBe(rows[1]);
+      if (wide) {
+        // The wide inspector leaves three catalogue columns at this profile;
+        // c is the first row-end and d is the ragged final row.
+        expect(rows[0]).toBe(rows[2]);
+        expect(rows[0]).not.toBe(rows[3]);
+      } else {
+        expect(rows[2]).toBe(rows[3]);
+        expect(rows[0]).not.toBe(rows[2]);
+      }
+
+      scene.navigator.setIndex(cardIndex('a'));
+      scene.handleNavMove('left');
+      expect(focused()).toBe('equipment-candidate:a');
+
+      scene.navigator.setIndex(cardIndex(wide ? 'c' : 'b'));
+      scene.handleNavMove('right');
+      expect(focused()).toBe(wide ? 'equipment-inspector:a' : 'equipment-candidate:b');
+
+      if (wide) {
+        scene.navigator.setIndex(cardIndex('d'));
+        scene.handleNavMove('right');
+        expect(focused()).toBe('equipment-inspector:a');
+        const lastCard = Math.max(...scene.focusables.map((button, index) => {
+          const key = scene.focusKeyByButton.get(button);
+          return key?.startsWith('equipment-candidate:') || key?.startsWith('equipment-blueprint:') ? index : -1;
+        }));
+        const fixedOrder = scene.focusables.slice(lastCard + 1)
+          .map((button) => scene.focusKeyByButton.get(button))
+          .filter((key): key is string => key !== undefined);
+        expect(fixedOrder.length).toBeGreaterThan(1);
+        expect(focused()).toBe(fixedOrder[0]);
+        scene.handleNavMove('down');
+        expect(focused()).toBe(fixedOrder[1]);
+        scene.handleNavMove('up');
+        expect(focused()).toBe(fixedOrder[0]);
+        scene.handleNavMove('left');
+        expect(focused()).toBe('equipment-candidate:d');
+      }
+    },
+  );
+
+  it('keeps an ordinary Equipment candidate selection anchored to the existing scroll viewport', () => {
+    const harness = createHarness({ create: false });
+    harness.context.updateEquipment(() => ({ equipment: {
+      a: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      b: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      c: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      d: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+    }, loadout: {} }));
+    Object.assign(harness.menuScene.scale, { width: 390, height: 844, displaySize: { width: 390, height: 844 } });
+    harness.menuScene.create();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>;
+      scrollRegion: { scrollOffset: number; setScrollOffset(offset: number): void };
+      navigator: { index: number; setIndex(index: number): void };
+      applyScrollViewport(): void;
+    };
+    const anchoredOffset = 434;
+    scene.scrollRegion.setScrollOffset(anchoredOffset);
+    scene.applyScrollViewport();
+    expect(scene.scrollRegion.scrollOffset).toBe(anchoredOffset);
+    const candidateIndex = scene.focusables.findIndex((button) => scene.focusKeyByButton.get(button) === 'equipment-candidate:b');
+    scene.navigator.setIndex(candidateIndex);
+    const candidate = scene.focusables[candidateIndex]!;
+    candidate.state.handlers.pointerup!();
+    expect(scene.scrollRegion.scrollOffset).toBe(anchoredOffset);
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-candidate:b');
+  });
+
+  it('does not reveal a partially clipped Equipment card before its pointer callback', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({ equipment: {
+      a: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      b: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      c: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      d: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+    }, loadout: {} }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      controller: { selectEquipmentCandidate(instanceId: string): import('../src/ui/menus').MainMenuSnapshot };
+      focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>;
+      scrollItemBounds: Map<number, { top: number; bottom: number }>;
+      scrollRegion: { scrollOffset: number; setScrollOffset(offset: number): void };
+      scrollViewportTop: number; scrollViewportBottom: number; applyScrollViewport(): void;
+      navigator: { index: number };
+    };
+    const candidateIndex = scene.focusables.findIndex(button => scene.focusKeyByButton.get(button) === 'equipment-candidate:b');
+    const candidate = scene.focusables[candidateIndex]!;
+    const itemBounds = scene.scrollItemBounds.get(candidateIndex)!;
+    const anchoredOffset = itemBounds.top - scene.scrollViewportTop + 8;
+    scene.scrollRegion.setScrollOffset(anchoredOffset);
+    scene.applyScrollViewport();
+    const clipped = candidate.getBounds();
+    expect(clipped.top).toBeLessThan(scene.scrollViewportTop);
+    expect(clipped.bottom).toBeGreaterThan(scene.scrollViewportTop);
+    const callbackOffset: number[] = [];
+    const original = scene.controller.selectEquipmentCandidate.bind(scene.controller);
+    const selection = vi.spyOn(scene.controller, 'selectEquipmentCandidate').mockImplementation((instanceId: string) => {
+      callbackOffset.push(scene.scrollRegion.scrollOffset);
+      return original(instanceId);
+    });
+    gesture(harness, candidate, 901).release();
+    expect(selection).toHaveBeenCalledWith('b');
+    expect(callbackOffset).toEqual([anchoredOffset]);
+    expect(scene.scrollRegion.scrollOffset).toBe(anchoredOffset);
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!))
+      .toBe('equipment-candidate:b');
   });
 
   it('keeps the Equipment header above its art-led slot grid and candidate grid', () => {
@@ -5960,9 +6193,10 @@ describe('Menu scroll gesture rectangle ownership', () => {
   it('uses the content-width collection rectangle and reserves the fixed summary band', () => {
     const { scene } = scrolling('equipment');
     expect(scene.scrollRectangle).toEqual({ x: 16, y: scene.scrollViewportTop,
-      // The summary/action band is measured from the actual wrapped copy, so
-      // this compact equipment viewport leaves a 230px candidate region.
-      width: scene.scale.width - 32, height: 230 });
+      // The narrow portrait slot header and Browse Sets remain fixed above
+      // the candidate body, so the measured summary/action band leaves a
+      // 148px candidate region below that fixed chrome.
+      width: scene.scale.width - 32, height: 148 });
     const index = scene.focusables.findIndex((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
       && button.state.interactive);
     const row = scene.focusables[index] as FakeObject; const bounds = row.getBounds();

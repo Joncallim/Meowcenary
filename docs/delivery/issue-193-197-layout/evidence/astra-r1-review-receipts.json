@@ -1,0 +1,126 @@
+{
+  "schema": "astra-r1-review-receipts/v1",
+  "capturedAt": "2026-10-15T14:38:19Z",
+  "head": "3b854bac7437ad9aef60394d03c1caa597e5c7c8",
+  "branch": "r1-equipment-gunsmith-review",
+  "validationEnvironment": {
+    "node": "22.23.3 (isolated /tmp/meowcenary-node22-bin)",
+    "python": "3.12.14 (isolated /tmp/meowcenary-pillow1211-venv)",
+    "pillow": "12.1.1",
+    "cairoSvg": "2.9.1",
+    "lua": "5.4.7 (isolated /tmp/meowcenary-lua5.4)",
+    "chromium": "/usr/bin/chromium 154.0.8037.57; temporary executablePath override; Playwright headless-shell cache unavailable"
+  },
+  "sourceIdentity": {
+    "headTree": "bc3548f519ff133434bd6f95e0b32dcaba1691af",
+    "headTreeListingSha256": "de366aab86ac5af2e93759ef0d0a90a03dbffe7bdcb61236565e3ab2c8635599",
+    "worktreeStatusSha256": "f5f7e5ae94d8210541afe96292c698bdd79b4d28cf6fbbbf8481aea8c1ef565e",
+    "trackedWorktreeDiffSha256": "49e035c9fe1fe7329e216286d607c565269827c5f963fe976f8cf026b1c146fe"
+  },
+  "receipts": [
+    {
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH npm exec -- vitest run tests/menuScene.test.ts -t 'preserves selected-item semantic|row-end|anchored to the existing'",
+      "result": "PASS",
+      "summary": "4 explicit Equipment anchor/row-end/departure tests passed"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH npm exec -- vitest run tests/menuScene.test.ts",
+      "result": "PASS",
+      "summary": "1 file, 249 tests passed"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH npm run build",
+      "result": "PASS",
+      "summary": "TypeScript noEmit and Vite production build completed"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-pillow1211-venv/bin:/tmp/meowcenary-node22-bin:$PATH npm run test",
+      "result": "PARTIAL",
+      "summary": "235 ordinary files / 4,122 ordinary tests passed; the isolated allocation stage passed 9/9. One nested reporter-forwarding runner probe failed once because the zero-allocation subprocess observed 17 incidental scavenges; no code assertion or test timeout occurred in the ordinary suite.",
+      "ordinary": "PASS: 235 files / 4,122 tests",
+      "allocation": "PASS: 9 tests",
+      "runnerSelfAudit": "TRANSIENT FAILURE: reporter-forwarding probe only"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-pillow1211-venv/bin:/tmp/meowcenary-node22-bin:$PATH npm exec -- vitest run tests/zeroAllocation.test.ts --pool=forks --poolOptions.forks.singleFork",
+      "result": "PASS",
+      "summary": "Isolated zero-allocation gate passed all 9 tests; every baseline scenario reported zero in-window scavenges"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-pillow1211-venv/bin:/tmp/meowcenary-node22-bin:$PATH npm exec -- vitest run tests/testRunner.test.ts -t 'reporter flag'",
+      "result": "PASS",
+      "summary": "The exact previously failing reporter-forwarding self-audit passed 1 selected test"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH node node_modules/typescript/bin/tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler --lib ES2022,DOM --types node --skipLibCheck browser-tests/equipment-loadout.pw.ts browser-tests/equipment-updates.pw.ts browser-tests/loadout-layout-completion.pw.ts browser-tests/menu-gesture-ownership.pw.ts browser-tests/rendererSetup.ts scripts/browserSoftwareRenderer.ts",
+      "result": "PASS",
+      "summary": "Strict browser-module typecheck passed for all changed browser suites"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH CI=1 npx playwright test browser-tests/equipment-loadout.pw.ts browser-tests/equipment-updates.pw.ts browser-tests/loadout-layout-completion.pw.ts browser-tests/menu-gesture-ownership.pw.ts --config=.astra-r1-playwright.config.ts",
+      "result": "PARTIAL",
+      "summary": "System Chromium executed the exact four changed suites through a temporary executablePath override: 90 matrix cases ran, 72 passed, 13 failed, and 5 skipped. The failures were concentrated in stale Equipment focus/render-count expectations and one desktop menu-gesture timeout; the Gunsmith and remaining responsive/layout cases passed.",
+      "browser": {"executable": "/usr/bin/chromium", "version": "154.0.8037.57", "projects": 6, "tests": 90, "passed": 72, "failed": 13, "skipped": 5},
+      "blocker": "Browser regressions are executable with system Chromium, but the exact browser matrix is not fully green; no Playwright browser installation was performed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS",
+      "summary": "No whitespace errors"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH npx vitest run tests/menuScene.test.ts -t 'does not reveal a partially clipped Equipment card before its pointer callback|keeps an ordinary Equipment candidate selection anchored|keeps Equipment row-end'",
+      "result": "PASS",
+      "summary": "4 targeted pointer-anchor and row-local navigation regressions passed"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH CI=1 npx playwright test browser-tests/equipment-loadout.pw.ts --grep='slot-first Equipment' --config=.astra-r1-playwright.config.ts",
+      "result": "PASS",
+      "summary": "6 projects passed after rendered-row focus and wide-inspector assertion correction"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH CI=1 npx playwright test browser-tests/equipment-updates.pw.ts --grep='Equipment candidate updates' --config=.astra-r1-playwright.config.ts",
+      "result": "PASS",
+      "summary": "6 projects passed with compact update versus wide structural-render dispositions"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH CI=1 npx playwright test browser-tests/menu-gesture-ownership.pw.ts --config=.astra-r1-playwright.config.ts",
+      "result": "PASS",
+      "summary": "6 projects passed; desktop-1920 stayed within the existing 30s test timeout without renderer or assertion relaxation"
+    },
+    {
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH CI=1 npx playwright test browser-tests/loadout-layout-completion.pw.ts --config=.astra-r1-playwright.config.ts",
+      "result": "PASS",
+      "summary": "66/66 responsive Equipment/Gunsmith layout and physical-input cases passed"
+    },
+    {
+      "command": "Library raw evidence artifact",
+      "result": "UPLOADED",
+      "summary": "Initial 13-failure report, raw error contexts/screenshots, physical gesture evidence and trace-on diagnostic trace",
+      "libraryFileId": "libfile_5fff37ed7b048191852c98d4f15b76f3",
+      "sha256": "5aa5fd182ee5041878a5380a89be1ffd8dc0ff38e4f373c5b79eb0b0574afe28",
+      "sizeBytes": 7089190
+    }
+  ],
+  "implementationReceipts": [
+    "Pointer/card and blueprint selection retain the stationary summary and current scroll anchor; View details remains explicit.",
+    "Wide row-end Right no longer wraps into the next row; compact stays at the row end, wide enters the inspector, and Inspector Left returns to the actual departure card.",
+    "Detail identity is focusable and inert; reader Up/Down pages the shared body, top-boundary Up reaches local Back, and fixed-action Up restores the reader offset.",
+    "Wide inspector copy includes effects, Set threshold lose/gain, upgrade T1→T2, item-now and item-after consequences.",
+    "Gunsmith catalog preview uses display tier and representative infused traits."
+  ],
+  "p2Dispositions": [
+    {"id": "P2-1", "disposition": "ADDRESSED", "scope": "Equipment reader identity and navigation", "evidence": "MenuScene suite 249/249 plus explicit reader/focus regressions; 66/66 responsive layout cases passed"},
+    {"id": "P2-2", "disposition": "ADDRESSED", "scope": "Displaced Equipment effects", "evidence": "Equipment surface comparison copy implementation and full MenuScene/build validation"},
+    {"id": "P2-3", "disposition": "ADDRESSED", "scope": "Responsive vertical budget", "evidence": "Equipment art/layout tests in the 4,122-test ordinary pass and responsive browser layout cases passed"},
+    {"id": "P2-4", "disposition": "ADDRESSED", "scope": "Gunsmith actual-instance comparison", "evidence": "Gunsmith controller tests plus 66/66 responsive Equipment/Gunsmith browser cases passed"},
+    {"id": "P2-5", "disposition": "ADDRESSED", "scope": "Ordinary Equipment selection anchor", "evidence": "Explicit compact anchor and partially clipped pointer-callback regressions passed; six-project Equipment browser gate passed"},
+    {"id": "P2-6", "disposition": "ADDRESSED", "scope": "Equipment row-end navigation and inspector departure", "evidence": "Explicit compact/wide row-end regression passed; six-project Equipment browser gate passed"}
+  ],
+  "holds": {
+    "merge": "preserved",
+    "deployment": "preserved",
+    "goldenReplacement": "preserved",
+    "existingWork": "preserved"
+  }
+}

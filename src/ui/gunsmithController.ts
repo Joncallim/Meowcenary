@@ -321,7 +321,8 @@ export class GunsmithController {
       && cached.save === this.context.saveData
       && cached.selectionRevision === this.context.selectionRevision
       && cached.presentationRevision === this.presentationRevision) return cached.value;
-    const state = this.context.saveData.gunsmith;
+    const save = this.context.saveData;
+    const state = save.gunsmith;
     const selected = state.builds.find((build) => build.id === state.selectedBuildId);
     const selectedTraitInstanceId = this.selectedTraitInstanceId && selected?.traitParts.includes(this.selectedTraitInstanceId)
       ? this.selectedTraitInstanceId : undefined;
@@ -362,7 +363,7 @@ export class GunsmithController {
       const statChips = Object.freeze(formatPartEffects(definition, stored.tier));
       const comparison = selected !== undefined && (fittedHere || (compatible && capacity))
         ? selectedBuildComparisonPresentation(selected, instanceId, state, this.registry, representativeWeapon,
-          definition.slot === 'trait' ? selectedTraitInstanceId : undefined)
+          definition.slot === 'trait' ? selectedTraitInstanceId : undefined, save, this.context.data)
         : undefined;
       const view: GunsmithPartView = Object.freeze({
         instanceId, partId: stored.partId, name: definition.name, slot: definition.slot,
@@ -439,7 +440,6 @@ export class GunsmithController {
         })()),
         candidates: Object.freeze(parts.filter((part) => part.slot === slot && part.compatible)),
       } satisfies GunsmithSlotView));
-    const save = this.context.saveData;
     const facts = createConditionContext(save.progression, { stages: save.stages, achievements: save.achievements, characters: save.characters, bosses: save.bosses });
     const availableBlueprints = new Set(resolveAvailabilitySnapshot(
       facts,
@@ -481,8 +481,17 @@ export class GunsmithController {
         : catalogState === 'owned' ? `STORED ×${owned.length} • best T${displayTier}`
           : catalogState === 'fabricable' ? `FABRICABLE • ${fabricationCost} Scrap`
             : catalogState === 'locked' ? 'LOCKED' : 'REWARD ONLY';
+      const representativeInfusedTraits = representative?.instanceId === undefined
+        ? [] as readonly BehaviorTrait[]
+        : (state.parts[representative.instanceId]?.infusedTraits ?? []) as readonly BehaviorTrait[];
+      // A representative is a real owned instance, not a catalog-only
+      // placeholder. Reuse its complete selected-build comparison (including
+      // infused traits and cross-build movement) so the detailed comparison
+      // cannot disagree with the row's action summary. Only an unowned row
+      // needs the synthetic catalog preview.
       const catalogComparison = selected === undefined ? undefined
-        : catalogCandidateComparisonPresentation(selected, definition, bestTier, state, this.registry, representativeWeapon);
+        : representative?.comparison ?? catalogCandidateComparisonPresentation(selected, definition, displayTier, representativeInfusedTraits,
+          state, this.registry, representativeWeapon, save, this.context.data);
       return Object.freeze({
         partId: definition.id, name: definition.name, slot: definition.slot, rarity: definition.rarity,
         effectScope: compatibleFamilyScope(definition.slot),
@@ -491,8 +500,13 @@ export class GunsmithController {
         state: catalogState, stateLabel, ownedCount: owned.length,
         effectLines: statChips, statChips,
         ...(catalogComparison === undefined ? {} : { comparison: catalogComparison }),
+        // The comparison object above is sourced from the representative
+        // actual instance whenever one exists. Keep its action summary too,
+        // so a cross-build move/unequip disclosure cannot disagree with the
+        // detailed before/after mechanics shown when the row opens.
         comparisonSummary: representative?.comparisonSummary ?? (catalogComparison === undefined
-          ? catalogCandidateComparison(selected, definition, catalogState, bestTier, state, this.registry, representativeWeapon)
+          ? catalogCandidateComparison(selected, definition, catalogState, displayTier, representativeInfusedTraits,
+            state, this.registry, representativeWeapon, save, this.context.data)
           : formatBuildComparisonSummary(catalogComparison)),
         sourceLabel,
         canFabricate,
@@ -1165,6 +1179,27 @@ function buildComparisonPresentation(
     lines: [`Current build: ${changed.join(' • ') || (weapon === undefined ? 'comparison unavailable' : 'No mechanical change')}`], stats });
 }
 
+type EquipmentPresentationCatalog = Parameters<typeof resolveEquipmentLoadoutPresentation>[1];
+
+/** Keep row summaries compact, but source structured mechanics from the
+ * persistent Equipment + Set resolver used by committed previews. */
+function persistentBuildComparisonPresentation(
+  beforeBuild: WeaponBuild,
+  afterBuild: WeaponBuild,
+  beforeState: GunsmithState,
+  afterState: GunsmithState,
+  baseSave: GameContext['saveData'],
+  catalog: EquipmentPresentationCatalog,
+  registry: DataPartRegistry,
+  weapon: WeaponDefinition | undefined,
+): GunsmithComparisonPresentation {
+  const before = resolveEquipmentLoadoutPresentation({ ...baseSave, gunsmith: beforeState }, catalog).runTruth;
+  const after = resolveEquipmentLoadoutPresentation({ ...baseSave, gunsmith: afterState }, catalog).runTruth;
+  const persistent = persistentComparisonPresentation(before, after, weapon);
+  const summary = buildComparisonPresentation(beforeBuild, afterBuild, afterState, registry, weapon);
+  return deepFreeze({ ...persistent, lines: summary.lines });
+}
+
 function selectedBuildComparisonPresentation(
   selected: Build,
   instanceId: string,
@@ -1172,20 +1207,28 @@ function selectedBuildComparisonPresentation(
   registry: DataPartRegistry,
   weapon: WeaponDefinition | undefined,
   displacedInstanceId?: string,
+  baseSave?: GameContext['saveData'],
+  catalog?: EquipmentPresentationCatalog,
 ): GunsmithComparisonPresentation | undefined {
   const stored = state.parts[instanceId];
   const definition = stored === undefined ? undefined : registry.partById(stored.partId);
   if (!stored || !definition) return undefined;
   const fitted = Object.values(selected.fitted).includes(instanceId) || selected.traitParts.includes(instanceId);
   let after: WeaponBuild | undefined;
+  let afterState: GunsmithState | undefined;
   if (fitted) {
     const result = unequipPart(selected, instanceId);
     after = result.ok ? result.build : undefined;
+    afterState = result.ok ? { ...state, builds: state.builds.map((build) => build.id === selected.id ? result.build : build) } : undefined;
   } else {
     const result = replacePartInBuild(state, selected.id, definition.slot, instanceId, registry.asMap(), displacedInstanceId);
-    after = result.ok ? result.state.builds.find((build) => build.id === selected.id) : undefined;
+    afterState = result.ok ? result.state : undefined;
+    after = afterState?.builds.find((build) => build.id === selected.id);
   }
-  return after === undefined ? undefined : buildComparisonPresentation(selected, after, state, registry, weapon);
+  if (after === undefined || afterState === undefined) return undefined;
+  return baseSave !== undefined && catalog !== undefined
+    ? persistentBuildComparisonPresentation(selected, after, state, afterState, baseSave, catalog, registry, weapon)
+    : buildComparisonPresentation(selected, after, state, registry, weapon);
 }
 
 function formatBuildComparisonSummary(comparison: GunsmithComparisonPresentation | undefined): string {
@@ -1256,9 +1299,12 @@ function catalogCandidateComparisonPresentation(
   selected: Build,
   definition: PartDefinition,
   tier: number,
+  infusedTraits: readonly BehaviorTrait[],
   gunsmith: GunsmithState,
   registry: DataPartRegistry,
   weapon: WeaponDefinition | undefined,
+  baseSave: GameContext['saveData'],
+  catalog: EquipmentPresentationCatalog,
 ): GunsmithComparisonPresentation | undefined {
   if (!isSlotCompatible(selected.baseWeaponFamily, definition.slot)) return undefined;
   const occupied = definition.slot === 'trait'
@@ -1268,10 +1314,12 @@ function catalogCandidateComparisonPresentation(
   const previewId = '__catalog-preview__';
   const previewState: GunsmithState = {
     ...gunsmith,
-    parts: { ...gunsmith.parts, [previewId]: { partId: definition.id, tier, infusedTraits: [] } },
+    parts: { ...gunsmith.parts, [previewId]: { partId: definition.id, tier, infusedTraits } },
   };
-  const fitted = equipPart(selected, { instanceId: previewId, partId: definition.id, tier, infusedTraits: [] }, registry.asMap());
-  return fitted.ok ? buildComparisonPresentation(selected, fitted.build, previewState, registry, weapon) : undefined;
+  const fitted = equipPart(selected, { instanceId: previewId, partId: definition.id, tier, infusedTraits }, registry.asMap());
+  if (!fitted.ok) return undefined;
+  const afterState = { ...previewState, builds: previewState.builds.map((build) => build.id === selected.id ? fitted.build : build) };
+  return persistentBuildComparisonPresentation(selected, fitted.build, previewState, afterState, baseSave, catalog, registry, weapon);
 }
 
 function catalogCandidateComparison(
@@ -1279,9 +1327,12 @@ function catalogCandidateComparison(
   definition: PartDefinition,
   catalogState: GunsmithCatalogPartView['state'],
   tier: number,
+  infusedTraits: readonly BehaviorTrait[],
   gunsmith: GunsmithState,
   registry: DataPartRegistry,
   weapon: WeaponDefinition | undefined,
+  baseSave: GameContext['saveData'],
+  catalog: EquipmentPresentationCatalog,
 ): string {
   if (selected === undefined) return 'Choose a build to compare.';
   if (!isSlotCompatible(selected.baseWeaponFamily, definition.slot)) return `Does not fit ${familyName(selected.baseWeaponFamily)}.`;
@@ -1294,11 +1345,13 @@ function catalogCandidateComparison(
       const previewId = '__catalog-preview__';
       const previewState: GunsmithState = {
         ...gunsmith,
-        parts: { ...gunsmith.parts, [previewId]: { partId: definition.id, tier, infusedTraits: [] } },
+        parts: { ...gunsmith.parts, [previewId]: { partId: definition.id, tier, infusedTraits } },
       };
-      const fitted = equipPart(selected, { instanceId: previewId, partId: definition.id, tier, infusedTraits: [] }, registry.asMap());
+      const fitted = equipPart(selected, { instanceId: previewId, partId: definition.id, tier, infusedTraits }, registry.asMap());
       if (!fitted.ok) return `${catalogState === 'locked' || catalogState === 'reward-only' ? 'When acquired' : 'Candidate'}: ${effects}`;
-      return formatBuildComparisonSummary(buildComparisonPresentation(selected, fitted.build, previewState, registry, weapon));
+      const afterState = { ...previewState, builds: previewState.builds.map((build) => build.id === selected.id ? fitted.build : build) };
+      return formatBuildComparisonSummary(persistentBuildComparisonPresentation(selected, fitted.build, previewState, afterState,
+        baseSave, catalog, registry, weapon));
     })();
 }
 

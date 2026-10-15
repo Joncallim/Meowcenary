@@ -13,9 +13,10 @@ import { EquipmentSurface } from '../src/ui/menuSurfaces/equipmentSurface';
 import { LoadoutSurface } from '../src/ui/menuSurfaces/loadoutSurface';
 import type { MenuSurfaceEnvironment, MenuSurfaceLayout } from '../src/ui/menuSurfaces/surface';
 import { responsiveUiViewport } from '../src/ui/layout';
+import type { EquipmentLoadoutState, EquipmentState } from '../src/systems/save';
 
 interface LayoutObject {
-  x: number; y: number; text: string; width: number; height: number; list: LayoutObject[];
+  x: number; y: number; text: string; width: number; height: number; textLeft: number; list: LayoutObject[];
   add(child: LayoutObject): LayoutObject; moveTo(): LayoutObject; setScrollFactor(): LayoutObject;
   setPosition(x: number, y: number): LayoutObject;
   setStrokeStyle(): LayoutObject; setStyle(): LayoutObject; setPadding(): LayoutObject;
@@ -26,7 +27,7 @@ interface LayoutObject {
 
 function object(x = 0, y = 0, text = '', width = 0, height = 20): LayoutObject {
   const result = {
-    x, y, text, width, height, list: [] as ReturnType<typeof object>[],
+    x, y, text, width, height, textLeft: x, list: [] as ReturnType<typeof object>[],
     add(child: ReturnType<typeof object>) { this.list.push(child); return this; },
     moveTo() { return this; }, setScrollFactor() { return this; }, setStrokeStyle() { return this; },
     setPosition(nextX: number, nextY: number) { this.x = nextX; this.y = nextY; return this; },
@@ -38,21 +39,24 @@ function object(x = 0, y = 0, text = '', width = 0, height = 20): LayoutObject {
   return result;
 }
 
-function harness(width: number, height: number, panel: 'equipment' | 'loadout' = 'equipment') {
+function harness(width: number, height: number, panel: 'equipment' | 'loadout' = 'equipment', empty = false) {
   const data = loadGameData();
   const context = createGameContext({ bus: createEventBus(), menuRng: createRng(1), data,
     arenas: new DataArenaRegistry(data), characters: new DataCharacterRegistry(data),
     save: new SaveManager(new MemoryStorageAdapter(), 'equipment-art-layout') });
-  context.updateEquipment(() => ({ equipment: { helmet: { equipmentId: 'equipment:scavenger-helmet', tier: 1 } }, loadout: { helmet: 'helmet' } }));
+  context.updateEquipment((): { equipment: EquipmentState; loadout: EquipmentLoadoutState } => empty
+    ? ({ equipment: {}, loadout: {} })
+    : ({ equipment: { helmet: { equipmentId: 'equipment:scavenger-helmet', tier: 1 } }, loadout: { helmet: 'helmet' } }));
   const commands = new MainMenuController(context);
   commands.open(panel);
-  const snapshot = commands.selectEquipmentCandidate('helmet');
+  const snapshot = empty ? commands.snapshot() : commands.selectEquipmentCandidate('helmet');
   const buttons: ReturnType<typeof object>[] = [];
   const handlers = new Map<ReturnType<typeof object>, () => void>();
   const focusKeys = new Map<ReturnType<typeof object>, string>();
   let latestSnapshot = snapshot;
   const art = vi.fn();
   const icons = vi.fn();
+  const texts: ReturnType<typeof object>[] = [];
   const columns = vi.fn();
   const disable = vi.fn();
   const begin = vi.fn();
@@ -65,10 +69,14 @@ function harness(width: number, height: number, panel: 'equipment' | 'loadout' =
   const environment = {
     scene: { scale: { width, height }, add: { container: () => object(),
       rectangle: (x: number, y: number, w: number, h: number) => object(x, y, '', w, h),
-      text: (x: number, y: number, value: string) => object(x, y, value, Math.min(width - 32, value.length * 7), value.split('\n').length * 20),
+      text: (x: number, y: number, value: string) => {
+        const text = object(x, y, value, Math.min(width - 32, value.length * 7), value.split('\n').length * 20);
+        texts.push(text);
+        return text;
+      },
     } },
-    controls: { addButton: (root: ReturnType<typeof object>, x: number, y: number, label: string, minHeight: number, callback: unknown, _event: unknown, maxWidth = 300) => {
-      const button = object(x, y, label, maxWidth, minHeight); buttons.push(button);
+    controls: { addButton: (root: ReturnType<typeof object>, x: number, y: number, label: string, minHeight: number, callback: unknown, _event: unknown, maxWidth = 300, _artId?: unknown, _trailingReserve = 0, leadingReserve = 0) => {
+      const button = object(x, y, label, maxWidth, minHeight); button.textLeft = x + Math.max(12, leadingReserve); buttons.push(button);
       if (typeof callback === 'function') handlers.set(button, callback as () => void);
       root.add(button); return button;
     }, addLoadoutArt: art, addCatalogIcon: icons, addPanelArt: vi.fn(), equipmentSlotColumns: columns,
@@ -82,16 +90,16 @@ function harness(width: number, height: number, panel: 'equipment' | 'loadout' =
   const layout: MenuSurfaceLayout = { width, height, top: 72, margin: 16, rightMargin: 16, centerX: width / 2, hitTarget: 48, viewport, scrollBottom: height - 120 };
   const surface = panel === 'equipment' ? new EquipmentSurface(environment, commands) : new LoadoutSurface(environment, commands);
   surface.present(object() as unknown as Phaser.GameObjects.Container, snapshot, layout, 320);
-  return { art, icons, columns, buttons, handlers, focusKeys, disable, begin, end, context, snapshot, surface, commands,
+  return { art, icons, texts, columns, buttons, handlers, focusKeys, disable, begin, end, context, snapshot, surface, commands,
     currentFocusKey, currentScrollOffset, currentScrollBookmark, restoreScrollOffset, restoreScrollBookmark,
     latest: () => latestSnapshot };
 }
 
 describe('art-led Equipment layout', () => {
-  it.each([[360, 640], [390, 844], [844, 390], [1114, 720], [1280, 720], [1920, 1080]])('keeps four distinct responsive slots with visible media inside each card at %i×%i', (width, height) => {
+  it.each([[360, 640], [375, 640], [390, 844], [844, 390], [1114, 720], [1280, 720], [1920, 1080]])('keeps four distinct responsive slots with visible media inside each card at %i×%i', (width, height) => {
     const view = harness(width, height);
     const slots = view.buttons.slice(0, 4);
-    expect(view.columns).toHaveBeenCalledWith(width >= 1040 ? 4 : 2);
+    expect(view.columns).toHaveBeenCalledWith(width >= 1040 || (height <= 480 && width >= 600) ? 4 : 2);
     expect(slots.map(slot => slot.text.split('\n')[0])).toEqual(['HELMET', 'ARMOUR', 'GLOVES', 'BOOTS']);
     for (const slot of slots) {
       expect(slot.width).toBeGreaterThanOrEqual(44);
@@ -106,11 +114,65 @@ describe('art-led Equipment layout', () => {
     const expectedExtent = width < 600 ? 72 : width >= 1040 ? 96 : 88;
     expect(firstArt![4]).toBe(expectedExtent);
     expect(firstArt![5]).toBe(expectedExtent);
+    if (width <= 375 || height <= 480) {
+      const slotOwner = view.buttons.indexOf(slots[0]!);
+      const slotArt = view.art.mock.calls.find(call => call[3] === 'equipment-icon:scavenger-helmet' && call[6] === slotOwner);
+      expect(slotArt).toBeDefined();
+      expect(slotArt![4]).toBeGreaterThanOrEqual(24);
+      expect(slotArt![4]).toBeLessThanOrEqual(32);
+      expect(slotArt![5]).toBeGreaterThanOrEqual(24);
+      expect(slotArt![5]).toBeLessThanOrEqual(32);
+      const artRight = slotArt![1] + slotArt![4] / 2;
+      expect(artRight).toBeLessThan(slots[0]!.textLeft);
+      expect(slots[0]!.textLeft - artRight).toBeGreaterThanOrEqual(8);
+    }
+    if (width <= 375) expect(slots.every(slot => slot.height >= 64)).toBe(true);
     // Browse Sets is deliberately outside the collection mask, so the
     // surface closes and reopens the single scroll region around that fixed
     // control.
     expect(view.begin).toHaveBeenCalledTimes(2);
     expect(view.end).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([[375, 640], [844, 390]])('keeps the first candidate below fixed Browse Sets at the compact boundaries %i×%i', (width, height) => {
+    const view = harness(width, height);
+    const browse = view.buttons.find(button => button.text === 'BROWSE SETS')!;
+    const candidate = view.buttons.find(button => button.text.startsWith('Scavenger Helmet'))!;
+    expect(browse).toBeDefined();
+    expect(candidate).toBeDefined();
+    expect(candidate.y).toBeGreaterThanOrEqual(browse.y + browse.height);
+  });
+
+  it.each([[390, 641], [390, 677]])('budgets the 390px slot header above Browse Sets and the footer at %i×%i', (width, height) => {
+    const view = harness(width, height);
+    const slots = view.buttons.slice(0, 4);
+    const browse = view.buttons.find(button => button.text === 'BROWSE SETS')!;
+    const footer = view.buttons.find(button => button.text === 'Fabricate Selected')!;
+    expect(slots.every(slot => slot.height === 48)).toBe(true);
+    expect(browse.y + browse.height).toBeLessThanOrEqual(footer.y);
+    expect(browse.y).toBeGreaterThanOrEqual(slots[3]!.y + slots[3]!.height);
+  });
+
+  it('keeps named Set summaries inside the narrowed wide inspector collection lane', () => {
+    const view = harness(1280, 720);
+    const names = ['Commando', 'Scavenger', 'Juggernaut', 'Pyro', 'Recon', 'Medic', 'Technician', 'Demolition'];
+    const labels = view.texts.filter(text => {
+      const [name, count] = text.text.split('\n');
+      return names.includes(name!) && count?.endsWith('/4 EQUIPPED');
+    });
+    expect(labels).toHaveLength(names.length);
+    // 1280px reserves a 320px inspector plus a 16px gutter; the collection
+    // lane therefore ends at x=928 rather than at the full content edge.
+    expect(Math.max(...labels.map(label => label.x + label.width))).toBeLessThanOrEqual(928);
+  });
+
+  it.each([[376, 640], [390, 640]])('keeps empty Equipment Browse Sets above fixed actions at %i×%i', (width, height) => {
+    const view = harness(width, height, 'equipment', true);
+    const browse = view.buttons.find(button => button.text === 'BROWSE SETS')!;
+    const footer = view.buttons.find(button => button.text === 'Fabricate Selected')!;
+    expect(browse).toBeDefined();
+    expect(footer).toBeDefined();
+    expect(browse.y + browse.height).toBeLessThanOrEqual(footer.y);
   });
 
   it.each([[390, 844, 168], [1280, 720, 80]])('gives inspection its own bounded frame and compares both tiers in one optical frame at %i×%i', (width, height, detailExtent) => {

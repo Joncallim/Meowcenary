@@ -4,8 +4,11 @@ import { expect, test, type BrowserContext, type Page, type TestInfo } from '@pl
 
 type Button = { key?: string; text: string; visible: boolean; interactive: boolean;
   bounds: { x: number; y: number; width: number; height: number } };
-type Diagnostic = { panel: string; focusedKey?: string; copy: string[]; buttons: Button[];
-  scroll?: { top: number; bottom: number; offset: number } };
+type Point = { x: number; y: number };
+type Rect = { x: number; y: number; width: number; height: number };
+type CopyBounds = { text: string; visible: boolean; bounds: Rect };
+type Diagnostic = { panel: string; focusedKey?: string; copy: string[]; copyBounds?: CopyBounds[]; buttons: Button[];
+  scroll?: { top: number; bottom: number; offset: number; contentHeight: number; rectangle?: Rect } };
 type Art = { texture: string; frame: string | number; x: number; y: number;
   width: number; height: number; alpha: number; visible: boolean;
   crop?: { x: number; y: number; width: number; height: number } };
@@ -53,7 +56,8 @@ async function focus(page: Page, key: string) {
     const target = diagnostic.buttons.findIndex(button => button.key === key);
     expect(current).toBeGreaterThanOrEqual(0);
     expect(target).toBeGreaterThanOrEqual(0);
-    const columns = diagnostic.panel === 'loadout' || page.viewportSize()!.width >= 1000 ? 4 : 2;
+    const columns = diagnostic.panel === 'loadout' || page.viewportSize()!.width >= 1000
+      || (diagnostic.panel === 'equipment' && page.viewportSize()!.height <= 480) ? 4 : 2;
     let direction = current < target ? 'ArrowRight' : 'ArrowLeft';
     if (diagnostic.panel === 'gunsmith') {
       const count = diagnostic.buttons.length;
@@ -73,8 +77,46 @@ async function focus(page: Page, key: string) {
 async function activate(page: Page, key: string, testInfo: TestInfo): Promise<void> {
   return activateByPointerScroll(page, key, testInfo);
 }
+async function physicalDrag(page: Page, testInfo: TestInfo, start: Point, end: Point): Promise<void> {
+  if (testInfo.project.use.hasTouch) {
+    const session = await page.context().newCDPSession(page);
+    try {
+      await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...start, id: 1 }] });
+      for (let step = 1; step <= 3; step += 1) {
+        await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{
+          x: start.x + (end.x - start.x) * step / 3,
+          y: start.y + (end.y - start.y) * step / 3,
+          id: 1,
+        }] });
+        expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
+      }
+    } finally {
+      try { await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); }
+      finally { await session.detach(); }
+    }
+  } else {
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 3 });
+    await page.mouse.up();
+  }
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
+}
+async function assertBrowseSetsDoesNotScroll(page: Page, testInfo: TestInfo, diagnostic: Diagnostic): Promise<void> {
+  const browse = diagnostic.buttons.find(button => button.key === 'equipment:browse-sets');
+  expect(browse, 'Equipment journey must expose Browse Sets for the fixed-control negative test').toBeDefined();
+  expect(diagnostic.scroll, 'Equipment journey must expose its collection scroll region').toBeDefined();
+  if (!browse || !diagnostic.scroll) throw new Error('Browse Sets diagnostic geometry is unavailable');
+  const point = { x: browse.bounds.x + browse.bounds.width / 2, y: browse.bounds.y + browse.bounds.height / 2 };
+  const before = diagnostic.scroll.offset;
+  await physicalDrag(page, testInfo, point, { ...point, y: point.y - 40 });
+  const after = await read(page);
+  expect(after.diagnostic.panel).toBe('equipment');
+  expect(after.diagnostic.scroll?.offset, 'Browse Sets must not initiate collection drag').toBe(before);
+}
 async function activateByPointerScroll(page: Page, key: string, testInfo: TestInfo, hover = false): Promise<void> {
   // Pointer/touch journeys reveal with their own real wheel/drag gestures.
+  let browseSetsChecked = false;
   // Native keyboard/controller navigation has separate release/held-edge cases.
   for (let attempt = 0; attempt < 6; attempt += 1) {
     // A newly mounted panel can publish geometry before Phaser's next input
@@ -84,8 +126,17 @@ async function activateByPointerScroll(page: Page, key: string, testInfo: TestIn
     const { diagnostic } = await read(page);
     const target = diagnostic.buttons.find(button => button.key === key);
     expect(target, `semantic pointer target ${key}`).toBeDefined();
-    const top = diagnostic.scroll?.top ?? 0;
-    const bottom = diagnostic.scroll?.bottom ?? page.viewportSize()!.height;
+    // Browse Sets belongs to the initial Equipment browse journey. Later
+    // desktop activations enter the local detail view, where that fixed
+    // control is intentionally absent; do not reinterpret its stale bounds
+    // as a collection gesture target.
+    if (!browseSetsChecked && diagnostic.panel === 'equipment' && key.startsWith('equipment-candidate:')) {
+      await assertBrowseSetsDoesNotScroll(page, testInfo, diagnostic);
+      browseSetsChecked = true;
+    }
+    const rectangle = diagnostic.scroll?.rectangle;
+    const top = rectangle?.y ?? diagnostic.scroll?.top ?? 0;
+    const bottom = rectangle ? rectangle.y + rectangle.height : diagnostic.scroll?.bottom ?? page.viewportSize()!.height;
     const visibleTop = Math.max(top, target!.bounds.y);
     const visibleBottom = Math.min(bottom, target!.bounds.y + target!.bounds.height);
     const x = target!.bounds.x + target!.bounds.width / 2;
@@ -107,9 +158,15 @@ async function activateByPointerScroll(page: Page, key: string, testInfo: TestIn
     const delta = target!.bounds.y + target!.bounds.height / 2 - middle;
     if (testInfo.project.use.hasTouch) {
       const session = await page.context().newCDPSession(page);
-      const distance = Math.max(-(bottom - top) * 0.65, Math.min((bottom - top) * 0.65, delta));
-      const gestureX = page.viewportSize()!.width * 0.82;
-      const startY = middle + distance / 2;
+      const viewportHeight = bottom - top;
+      const maxDistance = Math.max(8, viewportHeight - Math.min(12, Math.max(4, viewportHeight / 8)) * 2);
+      const distance = Math.max(-maxDistance, Math.min(maxDistance, delta));
+      const gestureX = rectangle ? rectangle.x + rectangle.width / 2 : page.viewportSize()!.width * 0.5;
+      const edgeInset = Math.min(12, Math.max(4, viewportHeight / 8));
+      // Begin at the target-side edge of the real collection viewport. On the
+      // foldable this places the first touch below the fixed Browse Sets row,
+      // while remaining inside the mask and its scene-owned scroll rectangle.
+      const startY = delta >= 0 ? bottom - edgeInset : top + edgeInset;
       try {
         await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: gestureX, y: startY, id: 1 }] });
         for (let step = 1; step <= 3; step += 1) {
@@ -122,7 +179,10 @@ async function activateByPointerScroll(page: Page, key: string, testInfo: TestIn
         finally { await session.detach(); }
       }
     } else {
-      await page.mouse.move(x, middle);
+      const viewportHeight = bottom - top;
+      const edgeInset = Math.min(12, Math.max(4, viewportHeight / 8));
+      const startY = delta >= 0 ? bottom - edgeInset : top + edgeInset;
+      await page.mouse.move(rectangle ? rectangle.x + rectangle.width / 2 : x, startY);
       await page.mouse.wheel(0, delta);
     }
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
@@ -157,17 +217,49 @@ test('Equipment renders the equipped native helmet at the approved visible size'
     bounds.x >= slot.x && bounds.x + bounds.width <= slot.x + slot.width
     && bounds.y >= slot.y && bounds.y + bounds.height <= slot.y + slot.height);
   expect(visible.length, 'visible native artwork belongs to the equipped slot').toBeGreaterThan(0);
-  const target = page.viewportSize()!.width < 380 ? 128 : page.viewportSize()!.width < 600 ? 144 : 264;
+  // The narrow phone uses the compact slot grid: its equipped art is an
+  // intentionally small touch-safe leading mark, while the larger profiles
+  // retain the authored visible-size contracts for their media cards.
+  const target = page.viewportSize()!.width < 380 ? 32 : page.viewportSize()!.width < 600 ? 144 : 264;
   // Normalize sub-picometre IEEE754 multiplication noise, not pixel tolerance.
   const extent = Number(Math.max(...visible.map(bounds => Math.max(bounds.width, bounds.height))).toFixed(9));
   if (page.viewportSize()!.width >= 1000 && page.viewportSize()!.width < 1200) {
     expect(extent).toBeGreaterThanOrEqual(240);
     expect(extent).toBeLessThanOrEqual(264);
-    for (const button of state.diagnostic.buttons.slice(0, 4)) {
+    const slots = state.diagnostic.buttons.filter(button => button.key?.startsWith('equipment-slot:'));
+    expect(slots).toHaveLength(4);
+    expect(slots[0]!.text).toContain('Scavenger Helmet');
+    expect(slots[1]!.text).toContain('Scavenger Armour');
+    for (const button of slots) {
+      expect(button.visible && button.interactive).toBe(true);
       expect(button.bounds.y).toBeGreaterThanOrEqual(state.diagnostic.scroll!.top);
       expect(button.bounds.y + button.bounds.height).toBeLessThanOrEqual(state.diagnostic.scroll!.bottom);
     }
+    const browse = state.diagnostic.buttons.find(button => button.key === 'equipment:browse-sets')!;
+    const candidate = state.diagnostic.buttons.find(button => button.key === 'equipment-candidate:helmet')!;
+    expect(browse.bounds.y).toBeGreaterThanOrEqual(Math.max(...slots.map(button => button.bounds.y + button.bounds.height)));
+    expect(candidate.bounds.y).toBeGreaterThanOrEqual(browse.bounds.y + browse.bounds.height);
+    const mask = state.diagnostic.scroll!.rectangle!;
+    const setNames = ['Commando', 'Scavenger', 'Juggernaut', 'Pyro', 'Recon', 'Medic', 'Technician', 'Demolition'];
+    const setLabels = (state.diagnostic.copyBounds ?? []).filter(copy =>
+      setNames.some(name => copy.text.startsWith(`${name}\n`)
+        && /^\d\/4 EQUIPPED$/.test(copy.text.slice(name.length + 1))));
+    expect(setLabels.map(copy => copy.text.split('\n')[0])).toEqual(expect.arrayContaining(setNames));
+    const visibleSetLabels = setLabels.filter(copy => copy.visible
+      && copy.bounds.x >= mask.x && copy.bounds.x + copy.bounds.width <= mask.x + mask.width
+      && copy.bounds.y >= mask.y && copy.bounds.y + copy.bounds.height <= mask.y + mask.height);
+    expect(visibleSetLabels.map(copy => copy.text.split('\n')[0])).toEqual(expect.arrayContaining(setNames.slice(0, 4)));
+    expect(state.diagnostic.scroll!.contentHeight).toBeGreaterThan(mask.height);
   } else expect(extent).toBeCloseTo(target, 1);
+  const browse = state.diagnostic.buttons.find(button => button.key === 'equipment:browse-sets');
+  const candidate = state.diagnostic.buttons.find(button => button.key === 'equipment-candidate:helmet');
+  expect(browse).toBeDefined();
+  expect(candidate).toBeDefined();
+  if (page.viewportSize()!.width <= 375) {
+    const compactSlots = state.diagnostic.buttons.filter(button => button.key?.startsWith('equipment-slot:'));
+    expect(compactSlots.every(button => button.bounds.height >= 64)).toBe(true);
+    expect(candidate!.bounds.y).toBeGreaterThanOrEqual(browse!.bounds.y + browse!.bounds.height);
+  }
   expect(JSON.parse(state.saved).equipmentLoadout.helmet).toBe('helmet');
 });
 test('Gunsmith Pistol chassis and receiver use one native assembly transform at the approved visible width', async ({ page }, testInfo) => {
@@ -337,6 +429,15 @@ test('Gunsmith Parts selection and fabrication cancellation spend nothing before
 test('Equipment equipped upgrade shows exact values and keeps its instance and set after atomic commit', async ({ page }, testInfo) => {
   await storageFixture(page); await open(page, 'equipment'); await resetStorage(page, false);
   await activate(page, 'equipment-candidate:helmet', testInfo);
+  // Candidate selection intentionally retains the compact stationary summary;
+  // consequences are an explicit local detail view for pointer/touch parity.
+  const details = (await read(page)).diagnostic.buttons.find(button => button.key === 'equipment-summary:equipment-candidate:helmet');
+  if (details) {
+    const detailsPoint = { x: details.bounds.x + details.bounds.width / 2, y: details.bounds.y + details.bounds.height / 2 };
+    if (testInfo.project.use.hasTouch) await page.touchscreen.tap(detailsPoint.x, detailsPoint.y);
+    else await page.mouse.click(detailsPoint.x, detailsPoint.y);
+    expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
+  }
   const before = await read(page);
   expect(before.diagnostic.copy.join('\n')).toContain('100 Scrap');
   expect(before.diagnostic.copy.join('\n')).toContain('12');
@@ -353,6 +454,10 @@ test('Equipment equipped upgrade shows exact values and keeps its instance and s
   await pulse(page, 'Enter');
   await expect.poll(async () => JSON.parse((await read(page)).saved).equipment.helmet.tier).toBe(2);
   const committed = JSON.parse((await read(page)).saved);
+  const beforeEquipment = JSON.parse(before.saved).equipment.helmet;
+  expect(beforeEquipment).toEqual({ equipmentId: 'equipment:scavenger-helmet', tier: 1 });
+  expect(committed.equipment.helmet.equipmentId).toBe(beforeEquipment.equipmentId);
+  expect(committed.equipment.helmet.tier).toBe(2);
   expect(committed.progression.scrap).toBe(540);
   expect(committed.equipmentLoadout).toEqual(JSON.parse(before.saved).equipmentLoadout);
   expect(committed.equipment.armour).toEqual(JSON.parse(before.saved).equipment.armour);

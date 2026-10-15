@@ -125,9 +125,12 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
   protected equipmentInspection(root: Phaser.GameObjects.Container, left: number, top: number,
     width: number, label: string, artId: string, requestedExtent?: number): Phaser.GameObjects.Text {
     const extent = Math.min(requestedExtent ?? this.equipmentInspectionExtent(width), width - 24);
-    const button = this.button(root, left, top, label, extent + 110, () => undefined,
-      'ui:confirm', width, undefined, 0, 12, true, 'left', 'card', extent + 24);
-    this.environment.controls.disableButton(button);
+    // Detail opens with one genuine reading/focus target. It is deliberately
+    // not a command: no save callback, action sound, or pointer activation.
+    // Keyboard/controller focus can still page the masked body through the
+    // Scene-owned navigation boundary.
+    const button = this.button(root, left, top, label, extent + 110, undefined,
+      undefined, width, undefined, 0, 12, true, 'left', 'card', extent + 24);
     this.environment.controls.addLoadoutArt(root, left + width / 2, top + 12 + extent / 2,
       artId, extent, extent, this.environment.controls.buttonIndex(button));
     return button;
@@ -135,10 +138,15 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
 
   protected renderEquipmentSlots(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, left: number, top: number, contentWidth: number, hitTarget: number, overview = false, compactTabs = false): number {
     if (compactTabs) {
-      const columns = this.layout.width >= 1040 ? 4 : 2;
+      const columns = this.layout.width >= 1040
+        || (compactTabs && this.layout.height <= 480 && this.layout.width >= 600) ? 4 : 2;
       const gap = 8;
       const slotWidth = (contentWidth - gap * (columns - 1)) / columns;
-      const rowHeight = Math.max(hitTarget, 48);
+      // The 360px portrait treatment wraps the equipped-state copy to three
+      // lines once the leading art reserve is applied. Give that narrow
+      // header a little more vertical room so the last line does not crowd
+      // the card border; compact landscape still keeps its 48px touch row.
+      const rowHeight = Math.max(hitTarget, compactTabs && this.layout.width <= 375 ? 64 : 48);
       this.environment.controls.equipmentSlotColumns(columns);
       let y = top;
       for (let row = 0; row < Math.ceil(4 / columns); row += 1) {
@@ -150,8 +158,14 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
             const next = this.commands.selectEquipmentSlot(slot.slot);
             this.environment.controls.focusNext(`equipment-slot:${slot.slot}`);
             this.environment.onSnapshot(next);
-          }, 'ui:confirm', slotWidth, undefined, 0, 4, false, 'center', 'card');
+          }, 'ui:confirm', slotWidth, undefined, 0, item ? 48 : 4, false, item ? 'left' : 'center', 'card');
           this.rememberLoadoutFocus(button, `equipment-slot:${slot.slot}`);
+          if (item) {
+            const artExtent = Math.min(32, Math.max(24, rowHeight - 16));
+            const index = this.environment.controls.buttonIndex(button);
+            this.environment.controls.addLoadoutArt(root, x + 8 + artExtent / 2,
+              y + rowHeight / 2, item.iconArtId, artExtent, artExtent, index);
+          }
         });
         y += rowHeight + gap;
       }

@@ -9,6 +9,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   private equipmentSetBrowserOpen = false;
   private selectionInvariant?: string;
   private detailTop = 0;
+  private detailLayoutWidth = 0;
+  private detailLayoutHeight = 0;
   private selectionGeneration = 0;
   private drawingSelection = false;
   private collectionTop = 0;
@@ -39,6 +41,12 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   handleBack(): boolean {
     if (!this.detailViewOpen) return false;
     this.detailViewOpen = false;
+    // A later explicit inspection is a new local view. Do not reuse the
+    // previous body's top after Back, especially when the restored browse
+    // summary has a different measured height.
+    this.detailTop = 0;
+    this.detailLayoutWidth = 0;
+    this.detailLayoutHeight = 0;
     this.environment.controls.focusNext(this.browseReturnFocusKey ?? `equipment-slot:${this.browseScope}`);
     this.environment.onSnapshot(this.commands.snapshot());
     if (this.browseReturnBookmark) this.environment.controls.restoreScrollBookmark(this.browseReturnBookmark);
@@ -67,6 +75,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const old = this.selectionObjects;
     this.tailObjects = [];
     for (const object of old) object.destroy();
+    const contentWidth = this.loadoutContentWidth();
+    const left = this.layout.centerX - contentWidth / 2;
     if (this.detailViewOpen) {
       // The Scene owns the mask and scroll pass. Suppress only the retained
       // browse prefix that this surface explicitly tracked; do not hide or
@@ -78,13 +88,26 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       }
       this.browsePrefixObjects = [];
       this.browseCandidateObjects = [];
+      // Keyboard selection reaches local detail through the retained browse
+      // mount. Reopen the shared region against the full content lane before
+      // drawing the detail body; otherwise the old narrow inspector mask and
+      // its blank prefix scroll range remain authoritative for this update.
+      // A same-geometry mutation (including a save failure notice) must not
+      // move the local reader's viewport underneath its focused action. A
+      // resize or orientation change remounts this view and establishes a
+      // fresh detailTop in draw(); retained updates keep the existing anchor.
+      const sameDetailGeometry = this.detailLayoutWidth === this.layout.width
+        && this.detailLayoutHeight === this.layout.height;
+      this.detailTop = sameDetailGeometry && this.detailTop > 0 ? this.detailTop : this.layout.top + 26;
+      this.detailLayoutWidth = this.layout.width;
+      this.detailLayoutHeight = this.layout.height;
+      this.collectionTop = this.detailTop;
+      this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.detailTop, contentWidth));
       this.drawSelection(scrollRoot, this.root!, snapshot, scrap);
       this.requestSelectionResources(snapshot);
       return;
     }
     const equipment = snapshot.equipment;
-    const contentWidth = this.loadoutContentWidth();
-    const left = this.layout.centerX - contentWidth / 2;
     const listWidth = this.layout.width >= 1040
       ? contentWidth - this.wideInspectorWidth(contentWidth) - 16 : contentWidth;
     const selectedSlot = equipment.presentation.slots.find(slot => slot.slot === equipment.selectedSlot)!;
@@ -135,6 +158,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     this.tailObjects = [];
     this.browsePrefixObjects = [];
     this.browseCandidateObjects = [];
+    this.detailLayoutWidth = 0;
+    this.detailLayoutHeight = 0;
     super.dispose();
   }
 
@@ -221,7 +246,11 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     if (this.detailViewOpen) {
       // Detail is a local view: browse slots/cards are not mounted and the
       // single Scene-owned rectangle belongs only to this detail body.
-      this.detailTop = y;
+      const sameDetailGeometry = this.detailLayoutWidth === this.layout.width
+        && this.detailLayoutHeight === this.layout.height;
+      this.detailTop = sameDetailGeometry && this.detailTop > 0 ? this.detailTop : y;
+      this.detailLayoutWidth = this.layout.width;
+      this.detailLayoutHeight = this.layout.height;
       this.collectionTop = this.detailTop;
       this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.detailTop, contentWidth));
       this.drawSelection(root, root, snapshot, scrap);
@@ -243,7 +272,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // narrowest phone. Keep its slot navigation compact too; native slot art
     // would consume the entire collection viewport before the candidates can
     // be reached.
-    const compactTabs = this.layout.width < 375 || this.layout.height <= 480;
+    const compactTabs = this.useCompactEquipmentTabs(collectionViewportTop, collectionWidth);
     const fixedSlotGrid = compactTabs || this.layout.height <= 480;
     this.collectionTop = collectionViewportTop;
     // Open the single collection region before slot rendering so authored
@@ -281,21 +310,44 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       // candidate bookmark would skip all of it when expansion completes.
       if (this.equipmentSetBrowserOpen) this.environment.controls.restoreScrollOffset(0);
     }, 'ui:confirm', contentWidth, undefined, 0, 0, false, 'left', 'section');
+    // Browse Sets is a semantic section control, but it is also the primary
+    // entry point for the named chooser. Keep its label at the readable body
+    // size on both the phone and foldable layouts.
+    browse.setStyle({ fontSize: '14px' });
     this.rememberLoadoutFocus(browse, 'equipment:browse-sets');
-    this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.collectionTop, collectionWidth));
     const compactCollection = this.layout.width < 600 || this.layout.height <= 480;
-    y += browse.height + (compactCollection ? 6 : 12);
-    // The structured catalog supplies the visible Set row and its exact IDs.
-    // Browsing expands threshold detail without implying an equipped Set.
-    if (!compactCollection) {
-      const setColumns = Math.min(4, equipment.presentation.sets.length);
-      const setWidth = contentWidth / Math.max(1, setColumns);
-      equipment.presentation.sets.forEach((set, index) => {
-        this.environment.controls.addCatalogIcon(root, left + (index % setColumns + 0.5) * setWidth,
-          y + Math.floor(index / setColumns) * 52 + 22, set.emblemArtId, 44, this.environment.controls.buttonIndex(browse));
-      });
-      y += Math.ceil(equipment.presentation.sets.length / Math.max(1, setColumns)) * 52;
-    }
+    y += browse.height + (compactCollection ? 6 : 4);
+    // The narrow portrait slot header and Browse Sets are fixed, reachable
+    // chrome. Its candidate body must begin below both; otherwise the initial
+    // scroll offset can move the first helmet card underneath Browse Sets.
+    // Compact landscape has a smaller vertical budget and retains its shared
+    // region so the candidate viewport stays positive.
+    if (fixedSlotGrid) this.collectionTop = y;
+    this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.collectionTop, collectionWidth));
+    // The structured catalog supplies a named, masked Set chooser. The old
+    // closed state painted only four small emblems, which made the chooser
+    // look like decoration and pushed the remaining names below the viewport.
+    // Keep Browse Sets as the single semantic action, but give every emblem a
+    // readable name/count summary in the same scroll-owned region. Compact
+    // phones use two columns; wider profiles use four and naturally expose a
+    // scroll rail for the second row when the viewport cannot show it all.
+    const setColumns = compactCollection ? Math.min(2, equipment.presentation.sets.length)
+      : Math.min(4, equipment.presentation.sets.length);
+    const setWidth = (collectionWidth - Math.max(0, setColumns - 1) * 8) / Math.max(1, setColumns);
+    const setRowHeight = compactCollection ? 58 : 64;
+    const setRows = Math.ceil(equipment.presentation.sets.length / Math.max(1, setColumns));
+    equipment.presentation.sets.forEach((set, index) => {
+      const column = index % setColumns;
+      const row = Math.floor(index / setColumns);
+      const tileX = left + column * (setWidth + 8);
+      const tileY = y + row * setRowHeight;
+      this.environment.controls.addCatalogIcon(root, tileX + 20, tileY + setRowHeight / 2,
+        set.emblemArtId, compactCollection ? 32 : 36);
+      const label = this.loadoutCopy(root, tileX + 44, tileY + (compactCollection ? 6 : 2),
+        `${set.name}\n${set.equippedCount}/4 EQUIPPED`, setWidth - 52, '#f7f1d5');
+      label.setStyle({ fontSize: '12px', fontStyle: '700', lineSpacing: 1 });
+    });
+    y += setRows * setRowHeight;
     const browsePrefixObjects = new Set([...root.list]);
     this.browsePrefixObjects = [...browsePrefixObjects];
     const put = (text: string, color?: string) => { const copy = this.loadoutCopy(root, left, y, text, collectionWidth, color); y += copy.height + 8; };
@@ -313,9 +365,11 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // The fixed summary is below it; the region begins before the slot grid so
     // short phones retain a positive viewport instead of pushing collection
     // content below the fixed action band.
-    this.environment.controls.resizeScrollableRegion(this.collectionRectangle(left, this.collectionTop,
-      collectionWidth,
-      fixedSummary ? this.browseSummaryTop(browseSummary!.summary.height) - 8 : this.layout.scrollBottom));
+      const collectionBottom = fixedSummary
+        ? this.browseSummaryTop(browseSummary!.summary.height) - (fixedSlotGrid && this.layout.width >= 600 ? 0 : 8)
+        : this.layout.scrollBottom;
+      this.environment.controls.resizeScrollableRegion(this.collectionRectangle(left, this.collectionTop,
+        collectionWidth, collectionBottom));
     if (this.equipmentSetBrowserOpen) {
       for (const set of equipment.presentation.sets) {
         const copy = this.loadoutCopy(root, left + 46, y, this.setProgressCopy(set), collectionWidth - 46);
@@ -361,15 +415,10 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         this.browseReturnScrollOffset = this.environment.controls.currentScrollOffset();
         this.browseReturnBookmark = this.environment.controls.currentScrollBookmark();
         // Pointer selection is an explicit visual inspection gesture and can
-        // open the locally mounted detail tail without a scene rebuild.
-        // Controller/keyboard confirmation keeps the browse card focused so
-        // the separate View details action remains reachable. This also keeps
-        // direct controller seams deterministic while preserving the browser
-        // pointer acceptance contract.
-        if ((this.environment.scene as unknown as { activationSource?: string }).activationSource === 'pointer') {
-          this.detailViewOpen = true;
-          this.environment.controls.focusNext(`equipment-detail:${item.instanceId}`, true);
-        } else this.environment.controls.focusNext(`equipment-candidate:${item.instanceId}`, true);
+        // stationary-summary contract: card selection never auto-opens local
+        // detail. The explicit View details action owns that transition for
+        // both pointer and keyboard/controller users.
+        this.environment.controls.focusNext(`equipment-candidate:${item.instanceId}`);
         this.environment.onSnapshot(this.commands.selectEquipmentCandidate(item.instanceId), 'equipment-selection');
       });
     for (const route of equipment.acquisition.filter((row) => row.slot === equipment.selectedSlot && !row.available && !row.owned)) put(`${route.name}: ${route.summary}`);
@@ -382,10 +431,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         this.browseReturnFocusKey = `equipment-blueprint:${blueprint.equipmentId}`;
         this.browseReturnScrollOffset = this.environment.controls.currentScrollOffset();
         this.browseReturnBookmark = this.environment.controls.currentScrollBookmark();
-        if ((this.environment.scene as unknown as { activationSource?: string }).activationSource === 'pointer') {
-          this.detailViewOpen = true;
-          this.environment.controls.focusNext(`equipment-blueprint-detail:${blueprint.equipmentId}`, true);
-        } else this.environment.controls.focusNext(`equipment-blueprint:${blueprint.equipmentId}`, true);
+        // Blueprint selection follows the same stationary-summary rule as
+        // owned candidates; detail remains an explicit action.
+        this.environment.controls.focusNext(`equipment-blueprint:${blueprint.equipmentId}`);
         this.environment.onSnapshot(this.commands.selectEquipmentBlueprint(blueprint.equipmentId), 'equipment-selection');
       }, 48, (blueprint, x, rowY, ownerIndex, rowHeight) => {
         this.environment.controls.addCatalogIcon(root, x + cardWidth - 24,
@@ -494,6 +542,24 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     return this.layout.height - edgeMargin(this.layout.viewport, 'bottom', 16) - this.layout.hitTarget - this.loadoutFooterPadding();
   }
 
+  /** Decide whether the authored slot header fits above the fixed Browse Sets
+   * control using the viewport's real vertical budget. The old height cutoff
+   * left the 390px phone's 641–677px band with a native two-row grid whose
+   * Browse Sets row overlapped the footer. */
+  private useCompactEquipmentTabs(collectionTop: number, contentWidth: number): boolean {
+    if (this.layout.width <= 375 || this.layout.height <= 480) return true;
+    const columns = this.layout.width >= 1040 ? 4 : 2;
+    const gap = columns === 4 ? 8 : 12;
+    const slotWidth = (contentWidth - gap * (columns - 1)) / columns;
+    const media = Math.min(this.equipmentMediaExtent(), Math.max(0, slotWidth - 24));
+    const rowHeight = Math.max(this.layout.hitTarget, media + 72);
+    const rows = Math.ceil(4 / columns);
+    const nativeGridHeight = rows * rowHeight + Math.max(0, rows - 1) * gap + 6;
+    const browseHeight = this.layout.hitTarget + (this.layout.width < 600 ? 6 : 4);
+    const available = this.footerTop() - collectionTop;
+    return nativeGridHeight + browseHeight > available;
+  }
+
   private browseSummaryTop(summaryHeight = 0): number {
     const bandHeight = this.layout.height <= 480 && this.layout.width >= 600
       ? Math.max(this.layout.hitTarget, summaryHeight) + 8
@@ -544,13 +610,42 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot })
         : equipment.comparison
       : undefined;
+    const selectedEffects = selected ? this.loadoutEffectCopy(selected.effects) || 'None' : undefined;
+    const removedEffects = selected
+      ? this.loadoutEffectCopy(comparison?.displaced?.effects
+        ?? (selected.state === 'EQUIPPED' ? selected.effects : [])) || 'None'
+      : undefined;
+    const setChangeCopy = comparison?.setChanges.flatMap((change) => {
+      const set = comparison.after.sets.find((row) => row.setId === change.setId);
+      if (!set) return [];
+      const lines = [`${set.name} ${change.before}/4 → ${change.after}/4`];
+      for (const count of change.lost) lines.push(`LOSE ${count}-piece: ${this.loadoutEffectCopy(
+        comparison.before.sets.find((row) => row.setId === change.setId)?.thresholds.find((threshold) => threshold.count === count)?.effects ?? [],
+      ) || 'None'}`);
+      for (const count of change.gained) lines.push(`GAIN ${count}-piece: ${this.loadoutEffectCopy(
+        set.thresholds.find((threshold) => threshold.count === count)?.effects ?? [],
+      ) || 'None'}`);
+      return lines;
+    }) ?? [];
+    const upgradeAfter = selected && upgrade?.upgradePreview
+      ? upgrade.upgradePreview.after.slots.find((slot) => slot.slot === selected.slot)
+        ?.candidates.find((item) => item.instanceId === selected.instanceId)
+      : undefined;
     const summaryText = selected
       ? [
-        `${selected.state} • ${selected.effects.length} item effect${selected.effects.length === 1 ? '' : 's'}`,
-        selected.state === 'EQUIPPED' ? 'Unequips current item' : comparison?.displaced ? `Replaces ${comparison.displaced.name}` : 'Fills empty slot',
-        hasUpgrade ? `Upgrade available • ${upgrade!.upgradePreview!.cost ?? 'locked'} Scrap` : selected.tier >= 4 ? 'Maximum Equipment tier' : 'No upgrade preview',
+        `${selected.state} • ${selected.state === 'EQUIPPED' ? 'Unequips current item' : comparison?.displaced ? `Replaces ${comparison.displaced.name}` : 'Fills empty slot'}`,
+        `EFFECTS: ${selectedEffects}`,
+        ...(comparison?.displaced && selected.state !== 'EQUIPPED' ? [`REMOVES: ${removedEffects}`] : []),
+        `SET CHANGES: ${setChangeCopy.length ? setChangeCopy.join(' • ') : 'None'}`,
+        upgradeAfter
+          ? `UPGRADE T${selected.tier} → T${upgradeAfter.tier} • ITEM NOW: ${selectedEffects} • ITEM AFTER UPGRADE: ${this.loadoutEffectCopy(upgradeAfter.effects) || 'None'}`
+          : 'UPGRADE: No preview',
       ].join('\n')
-      : `${blueprint!.effects.length} blueprint effect${blueprint!.effects.length === 1 ? '' : 's'}\nCreates a stored T1 item; equip it separately.`;
+      : [
+        `${blueprint!.effects.length} blueprint effect${blueprint!.effects.length === 1 ? '' : 's'}`,
+        'EFFECTS', this.loadoutEffectCopy(blueprint!.effects) || 'None',
+        'Creates a stored T1 item; equip it separately.',
+      ].join('\n');
     const fallbackSummaryText = 'View details for full consequences';
     const summary = this.loadoutCopy(root, left, contentTop + heading.height + 12, summaryText, width);
     const fitsContent = (): boolean => heading.y + heading.height <= contentBottom()
@@ -592,7 +687,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       const after = upgrade.upgradePreview.after.slots.find(slot => slot.slot === selected.slot)
         ?.candidates.find(item => item.instanceId === selected.instanceId);
       const pairWidth = (width - 16) / 2;
-      const pairExtent = Math.min(72, pairWidth - 24);
+      const pairExtent = Math.min(56, pairWidth - 24);
       if (after && y + pairExtent + 56 <= actionTop) {
         const framing = [selected.iconArtId, after.iconArtId];
         this.loadoutMaterial(root, left, y, pairWidth, pairExtent + 56);
@@ -613,7 +708,11 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       this.environment.controls.focusNext(selected ? `equipment-detail:${selected.instanceId}` : `equipment-blueprint-detail:${blueprint!.equipmentId}`, true);
       this.environment.onSnapshot(this.commands.snapshot());
     }, 'ui:confirm', width);
-    this.rememberLoadoutFocus(details, selected ? `equipment-detail:${selected.instanceId}` : `equipment-blueprint-detail:${blueprint!.equipmentId}`);
+    // The fixed inspector action and the detail reader are separate semantic
+    // targets. Sharing the reader key made Up/Down on this button enter the
+    // paged-reader shortcut before the reader existed, so the collection
+    // appeared stuck instead of opening the local view.
+    this.rememberLoadoutFocus(details, selected ? `equipment-inspector:${selected.instanceId}` : `equipment-blueprint-inspector:${blueprint!.equipmentId}`);
     nextActionY += details.height + actionGap;
     if (selected && showCommitActions) {
       const action = this.button(fixedRoot, left, nextActionY,
@@ -669,6 +768,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       const equipped = selected.state === 'EQUIPPED';
       const comparison = equipped ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot }) : equipment.comparison;
       put(equipped ? 'IF UNEQUIPPED' : comparison?.displaced ? `Replaces ${comparison.displaced.name}` : `Fills empty ${selectedSlot.label.toLowerCase()} slot`);
+      if (!equipped && comparison?.displaced) {
+        put(`REMOVES: ${this.loadoutEffectCopy(comparison.displaced.effects) || 'None'}`, '#fbbf24');
+      }
       if (comparison) y = this.renderEquipmentComparison(root, comparison, left, y, contentWidth, new Map(snapshot.gunsmith.families.map((family) => [family.id, family.name])));
       const equip = this.button(root, left, y, equipped ? `Unequip ${selected.name}` : `Equip ${selected.name}`, hitTarget, () => this.environment.onSnapshot(equipped
         ? this.commands.unequipEquipment(selectedSlot.slot)
