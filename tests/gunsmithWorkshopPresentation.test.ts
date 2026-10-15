@@ -133,6 +133,8 @@ describe('Workshop structured consequence presentation', () => {
     const traitModifiers = confirmation.comparison.after.modifiers.filter((modifier) => modifier.sourceId.startsWith('trait:pistol:'));
     expect(traitModifiers).toHaveLength(1);
     expect(confirmation.comparison.lines).toContain('Pistol traits FIRE to FIRE (shared; applied once)');
+    expect(confirmation.comparison.effects?.traits).toMatchObject([{ familyId: 'pistol', trait: 'FIRE', before: true, after: true, afterDeduplicated: true }]);
+    expect(confirmation.comparison.effects?.projectileEffects).toHaveLength(0);
     expectDeepFrozen(confirmation.comparison);
   });
 

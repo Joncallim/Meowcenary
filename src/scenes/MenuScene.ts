@@ -30,7 +30,7 @@ import { EquipmentSurface } from '../ui/menuSurfaces/equipmentSurface';
 import { GunsmithSurface } from '../ui/menuSurfaces/gunsmithSurface';
 import { loadoutArtBounds, resolveLoadoutArtCrop, resolveLoadoutArtPlacement } from '../presentation/loadoutArtFraming';
 import { loadoutFooterPadding } from '../ui/menuSurfaces/layout';
-import type { LoadoutMenuPanel, MenuPanelSurface, MenuScrollRectangle, MenuSurfaceEnvironment } from '../ui/menuSurfaces/surface';
+import type { LoadoutMenuPanel, MenuPanelSurface, MenuScrollBookmark, MenuScrollRectangle, MenuSurfaceEnvironment } from '../ui/menuSurfaces/surface';
 import { performanceProbe } from '../platform/performanceProbe';
 import { collectDisplayObjects, displayObjectChange, type DisplayNode } from '../platform/performanceDisplay';
 
@@ -105,6 +105,12 @@ export class MenuScene extends Phaser.Scene {
   private scrollMaskGraphics?: Phaser.GameObjects.Graphics;
   private scrollMask?: Phaser.Display.Masks.GeometryMask;
   private scrollMaskContainer?: Phaser.GameObjects.Container;
+  /** Surface-owned retained prefixes that a local detail mutation has
+   * intentionally removed from visual/input presentation. This is separate
+   * from destruction: the Scene still owns the mask and can rebuild cleanly
+   * on Back, resize, slot switch, or panel transition. */
+  private readonly suppressedScrollObjects = new Set<Phaser.GameObjects.GameObject>();
+  private readonly suppressedScrollIndexes = new Set<number>();
   private scrollTrack?: Phaser.GameObjects.GameObject;
   private scrollThumb?: Phaser.GameObjects.GameObject & { setPosition?(x: number, y: number): unknown };
   private scrollThumbHeight = 0;
@@ -259,6 +265,11 @@ export class MenuScene extends Phaser.Scene {
 
   private pointerGeneration = 0;
 
+  /** Pointer selection may open local detail immediately; keyboard/controller
+   * confirmation preserves the browse focus contract. Direct test seams leave
+   * this unset and therefore exercise the browse path. */
+  private activationSource?: 'pointer' | 'keyboard';
+
   private backgrounded = false;
 
   private orientationUnsubscribe?: () => void;
@@ -381,6 +392,7 @@ export class MenuScene extends Phaser.Scene {
       : undefined;
     const preserveFocusIndex = this.navigator.index;
     const preserveFocusKey = this.nextFocusKey ?? (!panelChanged ? this.focusKeyByButton.get(this.focusables[preserveFocusIndex]!) : undefined);
+    const retainedScrollBookmark = !panelChanged ? this.currentScrollBookmark() : undefined;
     const focusedViewportY = this.scrollItemBounds.get(preserveFocusIndex)?.top;
     const retainedFocusY = focusedViewportY === undefined ? undefined : focusedViewportY - (this.scrollRegion?.scrollOffset ?? 0);
     const alignFocusedStart = this.nextFocusAlignTop;
@@ -418,6 +430,8 @@ export class MenuScene extends Phaser.Scene {
     this.scrollItemIndexes.clear();
     this.scrollLocalIndexByFocusIndex.clear();
     this.scrollObjects = [];
+    this.suppressedScrollObjects.clear();
+    this.suppressedScrollIndexes.clear();
     this.scrollItemBounds.clear();
     this.scrollTrack = undefined;
     this.scrollThumb = undefined;
@@ -586,7 +600,20 @@ export class MenuScene extends Phaser.Scene {
       if (this.focusIndexAfterRender !== undefined) this.navigator.setIndex(this.focusIndexAfterRender);
       this.finishScrollableRegion(this.panelContentRoot ?? root);
       const rebuiltRegion = this.scrollRegion as ScrollableFocusRegion | undefined;
-      if (preserveFocusKey && this.focusKeyByButton.get(this.focusables[this.navigator.index]!) === preserveFocusKey) {
+      const restoredBookmark = !alignFocusedStart && retainedScrollBookmark
+        ? this.restoreScrollBookmark(retainedScrollBookmark)
+        : false;
+      if (restoredBookmark && preserveFocusKey) {
+        const focusedBounds = this.scrollItemBounds.get(this.navigator.index);
+        const offset = rebuiltRegion?.scrollOffset ?? 0;
+        if (focusedBounds && (focusedBounds.top < this.scrollViewportTop + offset
+          || focusedBounds.bottom > this.scrollViewportBottom + offset)) {
+          // Semantic anchor wins when the retained focus still fits. If a
+          // column change makes it impossible to keep visible, the contract
+          // permits one minimal reveal for keyboard/controller focus.
+          this.syncScrollFocus(this.navigator.index);
+        }
+      } else if (preserveFocusKey && this.focusKeyByButton.get(this.focusables[this.navigator.index]!) === preserveFocusKey) {
         const nextBounds = this.scrollItemBounds.get(this.navigator.index);
         if (nextBounds && rebuiltRegion && (alignFocusedStart || (!panelChanged && retainedFocusY !== undefined))) {
           rebuiltRegion.setScrollOffset(nextBounds.top - (alignFocusedStart ? this.scrollViewportTop : retainedFocusY!));
@@ -859,6 +886,7 @@ export class MenuScene extends Phaser.Scene {
     const before = performanceProbe ? collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[]) : undefined;
     const started = performanceProbe?.now();
     const focusKey = this.nextFocusKey ?? this.focusKeyByButton.get(this.focusables[this.navigator.index]!);
+    const bookmark = this.currentScrollBookmark();
     const retainedY = this.scrollItemBounds.get(this.navigator.index)?.top;
     const offset = this.scrollRegion.scrollOffset;
     const alignTop = this.nextFocusAlignTop;
@@ -905,10 +933,18 @@ export class MenuScene extends Phaser.Scene {
       }
       this.scrollRegion!.setScrollOffset(offset);
       this.syncScrollFocus(this.navigator.index);
-      const bounds = this.scrollItemBounds.get(this.navigator.index);
-      if (bounds && focusKey && this.focusKeyByButton.get(this.focusables[this.navigator.index]!) === focusKey) {
-        this.scrollRegion!.setScrollOffset(bounds.top - (alignTop ? this.scrollViewportTop : retainedY === undefined ? bounds.top - offset : retainedY - offset));
-        this.syncScrollFocus(this.navigator.index);
+      if (bookmark && !alignTop) {
+        this.restoreScrollBookmark(bookmark);
+        const focusedBounds = this.scrollItemBounds.get(this.navigator.index);
+        const restoredOffset = this.scrollRegion!.scrollOffset;
+        if (focusedBounds && (focusedBounds.top < this.scrollViewportTop + restoredOffset
+          || focusedBounds.bottom > this.scrollViewportBottom + restoredOffset)) this.syncScrollFocus(this.navigator.index);
+      } else {
+        const bounds = this.scrollItemBounds.get(this.navigator.index);
+        if (bounds && focusKey && this.focusKeyByButton.get(this.focusables[this.navigator.index]!) === focusKey) {
+          this.scrollRegion!.setScrollOffset(bounds.top - (alignTop ? this.scrollViewportTop : retainedY === undefined ? bounds.top - offset : retainedY - offset));
+          this.syncScrollFocus(this.navigator.index);
+        }
       }
       this.refreshScrollRail(surface.root!);
       this.applyScrollViewport();
@@ -965,9 +1001,16 @@ export class MenuScene extends Phaser.Scene {
           addPanelArt: (...args) => this.addPanelArt(...args),
           beginScrollableRegion: (start, bottom) => this.beginScrollableRegion(start, bottom),
           endScrollableRegion: () => this.endScrollableRegion(),
+          suppressScrollObjects: objects => this.suppressScrollObjects(objects),
           registerScrollObject: (object, owner) => this.registerScrollObject(object, owner),
+          resizeScrollableRegion: rectangle => this.resizeScrollableRegion(rectangle),
           buttonIndex: button => this.focusables.indexOf(button),
           rememberFocus: (button, key) => { this.focusKeyByButton.set(button, key); return button; },
+          currentFocusKey: () => this.focusKeyByButton.get(this.focusables[this.navigator.index]!),
+          currentScrollOffset: () => this.scrollRegion?.scrollOffset ?? 0,
+          currentScrollBookmark: () => this.currentScrollBookmark(),
+          restoreScrollOffset: offset => { this.scrollRegion?.setScrollOffset(offset); this.applyScrollViewport(); },
+          restoreScrollBookmark: bookmark => this.restoreScrollBookmark(bookmark),
           focusNext: (key, alignTop = false) => { this.nextFocusKey = key; this.nextFocusAlignTop = alignTop; },
           focusAfterRender: button => { this.focusIndexAfterRender = this.focusables.indexOf(button); },
           equipmentSlotColumns: columns => { this.equipmentSlotColumns = columns; },
@@ -1695,7 +1738,10 @@ export class MenuScene extends Phaser.Scene {
       // The single command boundary: pointer clicks and synthetic
       // Enter/Space activation both land here and emit exactly one event.
       this.bus?.emit(audioEvent, {});
-      callback();
+      const previousActivationSource = this.activationSource;
+      if (pointer) this.activationSource = 'pointer';
+      try { callback(); }
+      finally { this.activationSource = previousActivationSource; }
     });
 
     this.focusables.push(text);
@@ -1759,13 +1805,14 @@ export class MenuScene extends Phaser.Scene {
   private disableButton(text: Phaser.GameObjects.Text): void {
     this.disabledFocusables.add(text);
     text.disableInteractive();
+    text.setStyle({ color: '#a7b2b8' });
     const index = this.focusables.indexOf(text);
     const chrome = this.buttonChrome[index] as Phaser.GameObjects.GameObject & {
       setAlpha?(alpha: number): unknown;
       setTint?(tint: number): unknown;
     } | undefined;
     chrome?.setAlpha?.(0.72);
-    chrome?.setTint?.(0x526273);
+    chrome?.setTint?.(ThemeColor.disabled);
   }
 
   private addHeading(
@@ -2340,6 +2387,36 @@ export class MenuScene extends Phaser.Scene {
     this.collectingScrollItems = false;
   }
 
+  private suppressScrollObjects(objects: readonly Phaser.GameObjects.GameObject[]): void {
+    const suppressed = new Set(objects);
+    for (const object of suppressed) this.suppressedScrollObjects.add(object);
+    this.focusables.forEach((button, index) => {
+      if (!suppressed.has(button)) return;
+      this.suppressedScrollObjects.add(button);
+      this.suppressedScrollIndexes.add(index);
+      button.setVisible(false);
+      button.disableInteractive();
+      this.focusRings[index]?.setVisible?.(false);
+      this.focusRings[index]?.setAlpha?.(0);
+    });
+  }
+
+  /** Selection can change the measured fixed summary height while retaining
+   * the collection objects. Update both input bounds and its existing mask. */
+  private resizeScrollableRegion(rectangle: Readonly<MenuScrollRectangle>): void {
+    const offset = this.scrollRegion?.scrollOffset ?? 0;
+    this.beginScrollableRegion(rectangle);
+    this.rebuildScrollItems();
+    for (const entry of this.scrollObjects) {
+      const bounds = (entry.object as unknown as { getBounds(): { bottom: number }; y: number }).getBounds();
+      const currentY = (entry.object as unknown as { y: number }).y;
+      this.scrollRegion!.includeContentBottom(bounds.bottom + entry.y - currentY);
+    }
+    this.scrollRegion!.setScrollOffset(offset);
+    this.scrollMaskGraphics?.clear().fillStyle(0xffffff, 1)
+      .fillRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
+  }
+
   private registerScrollObject(object: Phaser.GameObjects.GameObject, ownerIndex?: number,
     visibleBounds?: Readonly<{ top: number; bottom: number }>): void {
     if (!this.scrollRegion || !this.collectingScrollItems) return;
@@ -2474,6 +2551,52 @@ export class MenuScene extends Phaser.Scene {
     this.scrollRegion.setFocusedIndex(localIndex);
   }
 
+  private currentScrollBookmark(): MenuScrollBookmark | undefined {
+    if (!this.scrollRegion) return undefined;
+    const offset = this.scrollRegion.scrollOffset;
+    const visibleTop = this.scrollViewportTop + offset;
+    const candidates = [...this.scrollItemBounds.entries()]
+      .filter(([, bounds]) => bounds.bottom > visibleTop)
+      .sort((a, b) => a[1].top - b[1].top);
+    const first = candidates[0];
+    if (!first) return undefined;
+    const key = this.focusKeyByButton.get(this.focusables[first[0]!]);
+    if (!key) return undefined;
+    const orderedKeys = [...this.scrollItemBounds.keys()]
+      .sort((a, b) => (this.scrollItemBounds.get(a)!.top - this.scrollItemBounds.get(b)!.top) || (a - b))
+      .map(index => this.focusKeyByButton.get(this.focusables[index]!))
+      .filter((value): value is string => value !== undefined);
+    return { anchorKey: key, intraRowOffset: Math.max(0, visibleTop - first[1].top), orderedKeys };
+  }
+
+  private restoreScrollBookmark(bookmark: MenuScrollBookmark): boolean {
+    if (!this.scrollRegion) return false;
+    const indexByKey = new Map<string, number>();
+    for (const index of this.scrollItemBounds.keys()) {
+      const key = this.focusKeyByButton.get(this.focusables[index]!);
+      if (key) indexByKey.set(key, index);
+    }
+    const currentKeys = [...indexByKey.keys()];
+    const oldOrder = bookmark.orderedKeys ?? [bookmark.anchorKey];
+    const oldIndex = oldOrder.indexOf(bookmark.anchorKey);
+    const repairCandidates = oldIndex >= 0
+      ? [...oldOrder.slice(oldIndex), ...oldOrder.slice(0, oldIndex).reverse()]
+      : [bookmark.anchorKey];
+    const key = repairCandidates.find(candidate => indexByKey.has(candidate)) ?? currentKeys[0];
+    const index = key === undefined ? undefined : indexByKey.get(key);
+    const bounds = index === undefined ? undefined : this.scrollItemBounds.get(index);
+    if (!bounds) {
+      this.scrollRegion.setScrollOffset(0);
+      this.applyScrollViewport();
+      return false;
+    }
+    const rowHeight = Math.max(1, bounds.bottom - bounds.top);
+    const intra = Math.max(0, Math.min(bookmark.intraRowOffset, rowHeight));
+    this.scrollRegion.setScrollOffset(bounds.top + intra - this.scrollViewportTop);
+    this.applyScrollViewport();
+    return true;
+  }
+
   private applyScrollViewport(): void {
     if (!this.scrollRegion) return;
     const offset = this.scrollRegion.scrollOffset;
@@ -2491,6 +2614,10 @@ export class MenuScene extends Phaser.Scene {
         setVisible?(visible: boolean): unknown;
       };
       object.setPosition?.(entry.x, entry.y - offset);
+      if (this.suppressedScrollObjects.has(entry.object)) {
+        object.setVisible?.(false);
+        continue;
+      }
       // Keep every scroll object alive and let the geometry mask crop it at
       // the viewport edge. Hiding a whole card as soon as one grouped child
       // crossed the boundary produced the abrupt, paged-looking scroll the
@@ -2500,6 +2627,13 @@ export class MenuScene extends Phaser.Scene {
     for (const index of this.scrollItemIndexes) {
       const text = this.focusables[index];
       if (!text) continue;
+      if (this.suppressedScrollIndexes.has(index)) {
+        text.setVisible(false);
+        text.disableInteractive();
+        this.focusRings[index]?.setVisible?.(false);
+        this.focusRings[index]?.setAlpha?.(0);
+        continue;
+      }
       const groupBounds = this.scrollItemBounds.get(index);
       const bounds = groupBounds === undefined
         ? text.getBounds()
@@ -2605,6 +2739,7 @@ export class MenuScene extends Phaser.Scene {
     // refuses (already home).
     if (!audioAlreadyEmitted) this.bus?.emit('ui:back', {});
     this.abandonFailedLaunch();
+    if (this.activeSurface instanceof EquipmentSurface && this.activeSurface.handleBack()) return;
     if (this.activeSurface instanceof GunsmithSurface
       && this.activeSurface.handleBack(this.requireController().snapshot())) return;
     const next = this.requireController().back();
@@ -2623,33 +2758,81 @@ export class MenuScene extends Phaser.Scene {
     // fallback): the retained navigator must not move or emit (F1).
     if (!this.committedDisplay) return;
     const resolved = typeof direction === 'number' ? (direction < 0 ? 'up' : 'down') : direction;
+    // Scroll reveal shortcuts run before spatial navigation. Repair an invalid
+    // equipment target first so a compact detail view cannot consume Up by
+    // merely changing its offset while leaving focus on a hidden control.
+    if (this.committedPanel === 'equipment' && !this.isFocusNavigable(this.navigator.index)) {
+      const fallback = this.findNearestNavigableFocus(this.navigator.index, resolved);
+      if (fallback >= 0) {
+        this.navigator.setIndex(fallback);
+        this.syncScrollFocus(fallback);
+        this.applyScrollViewport();
+        this.bus?.emit('ui:navigate', {});
+        this.applyFocus();
+      }
+      return;
+    }
     const localFocus = this.scrollLocalIndexByFocusIndex.get(this.navigator.index);
-    if (resolved === 'up' && this.scrollRegion && localFocus === 0
+    const currentFocusKey = this.focusKeyByButton.get(this.focusables[this.navigator.index]!);
+    // The authored Equipment slot header owns its spatial transitions even
+    // when its large cards overlap the collection's physical scroll envelope.
+    // The reveal fast path is for collection/detail items only.
+    const focusIsEquipmentSlot = currentFocusKey?.startsWith('equipment-slot:') === true;
+    if (resolved === 'up' && this.scrollRegion && localFocus === 0 && !focusIsEquipmentSlot
       && this.scrollRegion.scrollToStart()) {
       this.applyScrollViewport();
       this.bus?.emit('ui:navigate', {});
       this.applyFocus();
       return;
     }
-    if (resolved === 'down' && this.scrollRegion && localFocus === 0
+    if (resolved === 'down' && this.scrollRegion && localFocus === 0 && !focusIsEquipmentSlot
       && this.scrollRegion.ensureFocusedVisible()) {
       this.applyScrollViewport();
       this.bus?.emit('ui:navigate', {});
       this.applyFocus();
       return;
     }
-    if (resolved === 'down' && this.scrollRegion && localFocus === this.scrollRegion.itemCount - 1
+    if (resolved === 'down' && this.scrollRegion && localFocus === this.scrollRegion.itemCount - 1 && !focusIsEquipmentSlot
       && this.scrollRegion.scrollToEnd()) {
       this.applyScrollViewport();
       this.bus?.emit('ui:navigate', {});
       this.applyFocus();
       return;
     }
-    const moved = this.committedPanel === 'home'
+    const moveFocus = (): boolean => this.committedPanel === 'home'
       ? this.moveHomeFocus(resolved)
       : this.committedPanel === 'equipment' || this.committedPanel === 'loadout'
         ? this.moveLoadoutFocus(resolved)
         : this.navigator.move(resolved);
+    const previousIndex = this.navigator.index;
+    const previousNavigable = this.isFocusNavigable(previousIndex);
+    let moved: boolean;
+    if (this.committedPanel === 'equipment' && !previousNavigable) {
+      const fallback = this.findNearestNavigableFocus(previousIndex, resolved);
+      moved = fallback >= 0;
+      if (moved) this.navigator.setIndex(fallback);
+    } else moved = moveFocus();
+    // Disabled and surface-suppressed controls remain in the retained array
+    // so semantic focus keys survive a rebuild, but they must never become
+    // invisible keyboard/controller stops. Continue one spatial move at a
+    // time until a live target is reached, bounded by the focus list size.
+    let skipped = 0;
+    while (this.committedPanel === 'equipment' && moved
+      && !this.isFocusNavigable(this.navigator.index) && skipped < this.focusables.length) {
+      const nextMoved = moveFocus();
+      if (!nextMoved) {
+        if (previousNavigable) this.navigator.setIndex(previousIndex);
+        moved = false;
+        break;
+      }
+      moved = nextMoved;
+      skipped += 1;
+    }
+    if (this.committedPanel === 'equipment' && moved && !this.isFocusNavigable(this.navigator.index)
+      && previousNavigable) {
+      this.navigator.setIndex(previousIndex);
+      moved = false;
+    }
     if (moved) {
       this.syncScrollFocus(this.navigator.index);
       this.applyScrollViewport();
@@ -2661,8 +2844,9 @@ export class MenuScene extends Phaser.Scene {
   }
 
   /** The slot header is spatial; its full-width candidate/detail body retains
-   * the shared linear navigator and scroll owner. */
+   * the shared scene-owned navigator and scroll owner. */
   private moveLoadoutFocus(direction: FocusDirection): boolean {
+    if (this.committedPanel === 'equipment') return this.moveEquipmentFocus(direction);
     const current = this.navigator.index;
     if (current < 0 || this.focusables.length < 4) return this.navigator.move(direction);
     const columns = this.equipmentSlotColumns;
@@ -2676,6 +2860,91 @@ export class MenuScene extends Phaser.Scene {
     else return this.navigator.move(direction);
     return this.navigator.setIndex(next);
   }
+
+  /** Equipment cards are authored as rendered rows, not a single linear
+   * stream. The table is derived from committed hit geometry so two/three
+   * column reflow, ragged final rows and the fixed inspector all share the
+   * same semantic focus keys. */
+  private moveEquipmentFocus(direction: FocusDirection): boolean {
+    const currentIndex = this.navigator.index;
+    const currentKey = this.focusKeyByButton.get(this.focusables[currentIndex]!);
+    const columns = this.equipmentSlotColumns;
+    if (currentIndex >= 0 && currentIndex < 4 && currentKey?.startsWith('equipment-slot:')) {
+      if (direction === 'left' && currentIndex % columns > 0) return this.navigator.setIndex(currentIndex - 1);
+      if (direction === 'right' && currentIndex % columns < columns - 1) return this.navigator.setIndex(currentIndex + 1);
+      if (direction === 'down') {
+        // The slot grid hands vertical navigation to the authored collection
+        // header after the last slot row. This keeps the transition stable
+        // across the phone two-column and desktop four-column layouts.
+        return this.navigator.setIndex(currentIndex + columns < 4 ? currentIndex + columns : 4);
+      }
+      if (direction === 'up' && currentIndex >= columns) return this.navigator.setIndex(currentIndex - columns);
+      return false;
+    }
+    if (currentIndex === 4 && currentKey === 'equipment:browse-sets' && direction === 'up') {
+      return this.navigator.setIndex(0);
+    }
+    const cardEntries = this.focusables.map((button, index) => ({
+      button, index, key: this.focusKeyByButton.get(button), bounds: button.getBounds(),
+    })).filter(entry => entry.key?.startsWith('equipment-candidate:') || entry.key?.startsWith('equipment-blueprint:'));
+    if (!currentKey || !cardEntries.length) return this.navigator.move(direction);
+    const rows: Array<typeof cardEntries> = [];
+    for (const entry of cardEntries.sort((a, b) => a.bounds.top - b.bounds.top || a.bounds.left - b.bounds.left)) {
+      const row = rows.at(-1);
+      if (!row || Math.abs(row[0]!.bounds.top - entry.bounds.top) > 2) rows.push([entry]);
+      else row.push(entry);
+    }
+    const rowIndex = rows.findIndex(row => row.some(entry => entry.index === currentIndex));
+    if (rowIndex < 0) {
+      // Fixed compact summary/actions return to the retained card on Up;
+      // fixed wide inspector returns to its selected/departure card on Left.
+      if (direction === 'up' || direction === 'left') {
+        const linked = currentKey.startsWith('equipment-detail:')
+          ? `equipment-candidate:${currentKey.slice('equipment-detail:'.length)}`
+          : currentKey.startsWith('equipment-blueprint-detail:')
+            ? `equipment-blueprint:${currentKey.slice('equipment-blueprint-detail:'.length)}`
+            : currentKey.startsWith('equipment-summary:')
+              ? currentKey.slice('equipment-summary:'.length) : undefined;
+        const target = cardEntries.find(entry => entry.key === linked) ?? rows.at(-1)?.[0];
+        return target ? this.navigator.setIndex(target.index) : false;
+      }
+      return this.navigator.move(direction);
+    }
+    const row = rows[rowIndex]!;
+    const column = row.findIndex(entry => entry.index === currentIndex);
+    if (direction === 'left' || direction === 'right') {
+      const target = row[column + (direction === 'left' ? -1 : 1)];
+      if (target) return this.navigator.setIndex(target.index);
+      // The browser/controller focus contract treats the candidate catalogue
+      // as one reading-order stream while preserving row-local horizontal
+      // movement. At a row edge, continue at the adjacent row edge so a
+      // repeated Right/Left traversal cannot strand focus on a ragged grid.
+      const adjacentRow = rows[rowIndex + (direction === 'right' ? 1 : -1)];
+      const edgeTarget = adjacentRow?.[direction === 'right' ? 0 : adjacentRow.length - 1];
+      if (edgeTarget) return this.navigator.setIndex(edgeTarget.index);
+      if (direction === 'right' && this.layoutAllowsEquipmentInspector()) {
+        const firstFixed = this.focusables.findIndex((button, index) => index > currentIndex
+          && !this.isEquipmentCardKey(this.focusKeyByButton.get(button)));
+        if (firstFixed >= 0) return this.navigator.setIndex(firstFixed);
+      }
+      return false;
+    }
+    const adjacent = rows[rowIndex + (direction === 'up' ? -1 : 1)];
+    if (adjacent) return this.navigator.setIndex(adjacent[Math.min(column, adjacent.length - 1)]!.index);
+    if (direction === 'up') {
+      const header = this.focusables.findIndex(button => this.focusKeyByButton.get(button) === 'equipment:browse-sets');
+      return header >= 0 ? this.navigator.setIndex(header) : false;
+    }
+    const firstFixed = this.focusables.findIndex((button, index) => index > currentIndex
+      && !this.isEquipmentCardKey(this.focusKeyByButton.get(button)));
+    return firstFixed >= 0 ? this.navigator.setIndex(firstFixed) : false;
+  }
+
+  private isEquipmentCardKey(key: string | undefined): boolean {
+    return key?.startsWith('equipment-candidate:') === true || key?.startsWith('equipment-blueprint:') === true;
+  }
+
+  private layoutAllowsEquipmentInspector(): boolean { return this.scale.width >= 1040; }
 
   /**
    * Home is a mixed layout: two full-width actions, two paired rows, then a
@@ -2735,14 +3004,42 @@ export class MenuScene extends Phaser.Scene {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!this.committedDisplay) return;
     const focused = this.focusables[this.navigator.index];
-    if (!focused || this.disabledFocusables.has(focused)) return;
+    if (!focused || !this.isFocusNavigable(this.navigator.index)) return;
     // The destination panel cannot consume other edges sampled for this one.
     this.inputController?.quarantineUntilNeutral();
-    focused.emit(Phaser.Input.Events.POINTER_UP);
+    this.activationSource = 'keyboard';
+    try { focused.emit(Phaser.Input.Events.POINTER_UP); }
+    finally { this.activationSource = undefined; }
+  }
+
+  private isFocusNavigable(index: number): boolean {
+    const text = this.focusables[index];
+    return !!text && !this.disabledFocusables.has(text) && !this.suppressedScrollIndexes.has(index);
+  }
+
+  private findNearestNavigableFocus(index: number, direction: FocusDirection): number {
+    const count = this.focusables.length;
+    if (!count) return -1;
+    const step = direction === 'up' || direction === 'left' ? -1 : 1;
+    for (let offset = 1; offset <= count; offset += 1) {
+      const candidate = (index + step * offset + count * 2) % count;
+      if (this.isFocusNavigable(candidate)) return candidate;
+    }
+    return -1;
   }
 
   private applyFocus(): void {
     this.focusables.forEach((text, index) => {
+      if (this.suppressedScrollIndexes.has(index)) {
+        this.focusRings[index]?.setAlpha?.(0);
+        this.focusRings[index]?.setStrokeStyle?.(FocusStroke.width, FocusStroke.color, 0);
+        return;
+      }
+      if (this.disabledFocusables.has(text)) {
+        this.focusRings[index]?.setAlpha?.(0);
+        this.focusRings[index]?.setStrokeStyle?.(FocusStroke.width, FocusStroke.color, 0);
+        return;
+      }
       const color = this.sectionButtons.has(text) ? '#f78003' : '#f7f1d5';
       // Phaser rerasterizes Text even when setStyle repeats the same colour.
       if (text.style?.color !== color) text.setStyle({ color });
@@ -2823,6 +3120,8 @@ export class MenuScene extends Phaser.Scene {
     this.scrollRegion?.destroy();
     this.scrollRegion = undefined;
     this.scrollRectangle = undefined;
+    this.suppressedScrollObjects.clear();
+    this.suppressedScrollIndexes.clear();
     this.scrollTrack = undefined;
     this.scrollThumb = undefined;
     this.scrollThumbHeight = 0;

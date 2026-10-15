@@ -3,16 +3,17 @@ export { resolveGunsmithPartVisual, validateGunsmithPartVisuals } from '../prese
 export type { GunsmithPartVisualFamily, GunsmithPartVisualTier } from '../presentation/gunsmithPartVisuals';
 import { deepFreeze } from '../engine/freeze';
 import { PART_SLOTS, type PartDefinition } from '../gameplay/gunsmith';
+import { getAllWeaponFamilies } from '../gameplay/weaponFamilies';
 import type { Build, GunsmithState } from '../systems/save';
 import type { GunsmithAssembledPreview } from './gunsmithController';
 
 /** Persistent engineering has one presentation-owned chassis per family.
  * Weapon merge tiers describe acquired weapons, never the workshop base. */
-export const GUNSMITH_CHASSIS = deepFreeze([
-  { familyId: 'pistol', iconArtId: 'gun-chassis-icon:pistol', baseArtId: 'gun-build-base:pistol' },
-  { familyId: 'smg', iconArtId: 'gun-chassis-icon:smg', baseArtId: 'gun-build-base:smg' },
-  { familyId: 'shotgun', iconArtId: 'gun-chassis-icon:shotgun', baseArtId: 'gun-build-base:shotgun' },
-]);
+export const GUNSMITH_CHASSIS = deepFreeze(getAllWeaponFamilies().map((family) => ({
+  familyId: family.id,
+  iconArtId: `gun-chassis-icon:${family.id}`,
+  baseArtId: family.gunsmithBaseArtId,
+})));
 
 /** Current, candidate and committed composition share exact fitted tier art. */
 export function resolveGunsmithVisualAssembly(build: Build, state: GunsmithState,

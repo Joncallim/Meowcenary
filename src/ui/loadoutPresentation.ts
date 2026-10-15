@@ -1,7 +1,8 @@
 import { deepFreeze } from '../engine/freeze';
-import { scaleModifierByTier, WEAPON_MODIFIER_STAT_KEYS, type ModifierSpec, type ModifierStatKey } from '../gameplay/stats';
+import { scaleModifierByTier, WEAPON_MODIFIER_STAT_KEYS, type Modifier, type ModifierSpec, type ModifierStatKey } from '../gameplay/stats';
 import { getWeaponFamily } from '../gameplay/weaponFamilies';
 import type { BehaviorTrait } from '../gameplay/weaponTraits';
+import type { ProjectileEffect } from '../gameplay/projectileEffects';
 import type { EffectiveWeaponStats } from '../gameplay/weaponStats';
 
 export type LoadoutState = 'EQUIPPED' | 'STORED' | 'ACTIVE' | 'LOCKED' | 'FABRICABLE' | 'REWARD ONLY';
@@ -34,6 +35,130 @@ export interface LoadoutTraitPresentation {
   readonly target: LoadoutEffectTarget;
 }
 export type LoadoutEffectPresentation = LoadoutModifierPresentation | LoadoutTraitPresentation;
+
+/** Shared resolved run truth consumed by Equipment and Gunsmith comparison
+ * surfaces. Keeping this structural avoids making either UI controller own
+ * the other feature's domain model. */
+export interface LoadoutRunTruth {
+  readonly modifiers: readonly Modifier[];
+  readonly families: readonly {
+    readonly familyId: string;
+    readonly projectileEffects: readonly ProjectileEffect[];
+    readonly traits: readonly {
+      readonly trait: BehaviorTrait;
+      readonly sourceIds: readonly string[];
+      readonly sourceLabels: readonly string[];
+      readonly deduplicated: boolean;
+    }[];
+  }[];
+}
+
+export interface LoadoutModifierDelta {
+  readonly stat: ModifierStatKey;
+  readonly label: string;
+  readonly target: LoadoutEffectTarget;
+  readonly before?: LoadoutModifierPresentation;
+  readonly after?: LoadoutModifierPresentation;
+  readonly beforeValue?: string;
+  readonly afterValue?: string;
+  readonly state: 'added' | 'removed' | 'changed';
+}
+
+export interface LoadoutTraitDelta {
+  readonly familyId: string;
+  readonly trait: BehaviorTrait;
+  readonly target: LoadoutEffectTarget;
+  readonly before: boolean;
+  readonly after: boolean;
+  readonly beforeDeduplicated: boolean;
+  readonly afterDeduplicated: boolean;
+  readonly beforeSourceLabels: readonly string[];
+  readonly afterSourceLabels: readonly string[];
+  readonly sourceChanged: boolean;
+}
+
+export interface LoadoutProjectileEffectDelta {
+  readonly familyId: string;
+  readonly before: readonly ProjectileEffect[];
+  readonly after: readonly ProjectileEffect[];
+}
+
+export interface LoadoutRunTruthComparison {
+  readonly modifiers: readonly LoadoutModifierDelta[];
+  readonly traits: readonly LoadoutTraitDelta[];
+  readonly projectileEffects: readonly LoadoutProjectileEffectDelta[];
+}
+
+type ComparableModifier = ModifierSpec & { readonly sourceId?: string };
+
+function comparableModifierKey(modifier: ComparableModifier): string {
+  return JSON.stringify([modifier.sourceId ?? '', modifier.stat, modifier.op, modifier.scope]);
+}
+
+/** Resolve effect, trait, and projectile changes once for all Loadout and
+ * Gunsmith consumers. Surfaces may format these facts, but never infer them
+ * from prose or raw modifier keys. */
+export function presentLoadoutRunTruthComparison(
+  before: LoadoutRunTruth,
+  after: LoadoutRunTruth,
+): LoadoutRunTruthComparison {
+  const group = (truth: LoadoutRunTruth): ReadonlyMap<string, ComparableModifier> => {
+    const duplicates = new Map<string, number>();
+    return new Map(truth.modifiers.map((modifier) => {
+      const base = comparableModifierKey(modifier);
+      const index = duplicates.get(base) ?? 0;
+      duplicates.set(base, index + 1);
+      return [`${base}:${index}`, modifier] as const;
+    }));
+  };
+  const beforeModifiers = group(before);
+  const afterModifiers = group(after);
+  const modifiers: LoadoutModifierDelta[] = [];
+  for (const key of new Set([...beforeModifiers.keys(), ...afterModifiers.keys()])) {
+    const previous = beforeModifiers.get(key);
+    const current = afterModifiers.get(key);
+    if (previous?.value === current?.value) continue;
+    const beforePresentation = previous === undefined ? undefined : presentLoadoutModifier(previous);
+    const afterPresentation = current === undefined ? undefined : presentLoadoutModifier(current);
+    const sample = afterPresentation ?? beforePresentation!;
+    modifiers.push({
+      stat: sample.stat, label: sample.label, target: sample.target,
+      ...(beforePresentation === undefined ? {} : { before: beforePresentation, beforeValue: beforePresentation.value }),
+      ...(afterPresentation === undefined ? {} : { after: afterPresentation, afterValue: afterPresentation.value }),
+      state: previous === undefined ? 'added' : current === undefined ? 'removed' : 'changed',
+    });
+  }
+
+  const beforeFamilies = new Map(before.families.map((family) => [family.familyId, family] as const));
+  const afterFamilies = new Map(after.families.map((family) => [family.familyId, family] as const));
+  const traits: LoadoutTraitDelta[] = [];
+  const projectileEffects: LoadoutProjectileEffectDelta[] = [];
+  for (const familyId of new Set([...beforeFamilies.keys(), ...afterFamilies.keys()])) {
+    const previous = beforeFamilies.get(familyId);
+    const current = afterFamilies.get(familyId);
+    const beforeTraits = new Map(previous?.traits.map((trait) => [trait.trait, trait] as const));
+    const afterTraits = new Map(current?.traits.map((trait) => [trait.trait, trait] as const));
+    for (const trait of new Set([...beforeTraits.keys(), ...afterTraits.keys()])) {
+      const oldTrait = beforeTraits.get(trait);
+      const newTrait = afterTraits.get(trait);
+      const beforeSourceLabels = oldTrait?.sourceLabels ?? [];
+      const afterSourceLabels = newTrait?.sourceLabels ?? [];
+      const sourceChanged = JSON.stringify(oldTrait?.sourceIds ?? []) !== JSON.stringify(newTrait?.sourceIds ?? [])
+        || JSON.stringify(beforeSourceLabels) !== JSON.stringify(afterSourceLabels);
+      if (oldTrait?.deduplicated === newTrait?.deduplicated && (oldTrait !== undefined) === (newTrait !== undefined) && !sourceChanged) continue;
+      traits.push({ familyId, trait, target: presentLoadoutTrait(trait, familyId).target,
+        before: oldTrait !== undefined, after: newTrait !== undefined,
+        beforeDeduplicated: oldTrait?.deduplicated ?? false, afterDeduplicated: newTrait?.deduplicated ?? false,
+        beforeSourceLabels, afterSourceLabels, sourceChanged });
+    }
+    const beforeEffects = previous?.projectileEffects ?? [];
+    const afterEffects = current?.projectileEffects ?? [];
+    if (JSON.stringify(beforeEffects) !== JSON.stringify(afterEffects)) {
+      projectileEffects.push({ familyId, before: beforeEffects, after: afterEffects });
+    }
+  }
+  return deepFreeze({ modifiers, traits, projectileEffects });
+}
 
 export function resolveLoadoutEffectTarget(effect: Pick<ModifierSpec, 'stat' | 'scope'>): LoadoutEffectTarget {
   if (effect.scope) {

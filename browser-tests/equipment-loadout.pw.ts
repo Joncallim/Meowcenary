@@ -154,3 +154,59 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   expect(saved.equipmentLoadout.helmet).toBe(candidate);
   await test.step('capture the committed candidate', () => capture(page, testInfo.outputPath('equipment-committed.png')));
 });
+
+test('keeps the selected desktop slot grid inside the inspector mask through Back and resize', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  test.skip(testInfo.project.name !== 'desktop-1280x720', 'The inspector ownership assertion is desktop-specific.');
+  const seed = {
+    version: 4, settings: { muted: true, musicVolume: 0, sfxVolume: 0, reducedMotion: true },
+    progression: { scrap: 640, unlocks: ['capability:equipment-tier-2'] },
+    stages: {}, achievements: {}, achievementMetrics: {}, characters: {},
+    gunsmith: { builds: [], parts: {}, fabricationSerials: {} },
+    equipment: Object.fromEntries(equipmentCatalog.map((piece) => [id(piece.id), { equipmentId: piece.id, tier: 1 }])),
+    equipmentLoadout: { helmet: id('equipment:commando-helmet'), armour: id('equipment:commando-armour'), gloves: id('equipment:recon-gloves') },
+    items: {}, bosses: {}, compendium: {}, pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
+  };
+  await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), seed);
+  await page.goto('/?visual-test=1&perf-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: Seam }).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  await settle(page);
+  await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam }).__MEOWCENARY_VISUAL_TEST__.showMenu('loadout'))).toBe(true);
+  await settle(page);
+  await focus(page, 'loadout:equipment'); await press(page, 'Enter'); await settle(page);
+  const candidate = id('equipment:recon-helmet');
+  await focus(page, `equipment-candidate:${candidate}`); await press(page, 'Enter'); await settle(page);
+
+  let state = await diagnostic(page);
+  expect(state.panel).toBe('equipment');
+  expect(state.equipment?.selectedInstanceId).toBe(candidate);
+  const slots = state.buttons.filter((button) => button.key?.startsWith('equipment-slot:'));
+  expect(slots).toHaveLength(4);
+  // 1280px wide uses a 1248px content band and reserves 320px + 16px for
+  // the inspector, leaving the collection mask at x=16..928.
+  slots.forEach((slot) => {
+    expect(slot.bounds.x).toBeGreaterThanOrEqual(16);
+    expect(slot.bounds.x + slot.bounds.width).toBeLessThanOrEqual(928);
+  });
+  await page.mouse.move(100, 180); await page.mouse.wheel(0, -10_000);
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam }).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
+  state = await diagnostic(page);
+  const visibleSlots = state.buttons.filter((button) => button.key?.startsWith('equipment-slot:'));
+  expect(visibleSlots.every((slot) => slot.visible && slot.interactive)).toBe(true);
+  await test.step('capture the selected inspector ownership', () => capture(page, testInfo.outputPath('equipment-selected-inspector.png')));
+
+  await press(page, 'Escape'); await settle(page);
+  expect((await diagnostic(page)).panel).toBe('loadout');
+  await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam }).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
+  await settle(page);
+  await page.setViewportSize({ width: 844, height: 390 }); await settle(page);
+  state = await diagnostic(page);
+  expect(state.panel).toBe('equipment');
+  expect(state.buttons.filter((button) => button.key?.startsWith('equipment-slot:'))).toHaveLength(4);
+  state.buttons.filter((button) => button.key?.startsWith('equipment-slot:')).forEach((slot) => {
+    expect(slot.bounds.x).toBeGreaterThanOrEqual(0);
+    expect(slot.bounds.x + slot.bounds.width).toBeLessThanOrEqual(844);
+    expect(slot.bounds.y).toBeGreaterThanOrEqual(0);
+    expect(slot.bounds.y + slot.bounds.height).toBeLessThanOrEqual(390);
+  });
+});

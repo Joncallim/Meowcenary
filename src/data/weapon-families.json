@@ -2,16 +2,19 @@
   {
     "id": "pistol",
     "name": "Pistol",
+    "gunsmithBaseArtId": "gun-build-base:pistol",
     "gunsmithSlots": ["receiver", "barrel", "optic", "trigger"]
   },
   {
     "id": "smg",
     "name": "SMG",
+    "gunsmithBaseArtId": "gun-build-base:smg",
     "gunsmithSlots": ["receiver", "barrel", "optic", "stock", "trigger", "magazine"]
   },
   {
     "id": "shotgun",
     "name": "Shotgun",
+    "gunsmithBaseArtId": "gun-build-base:shotgun",
     "gunsmithSlots": ["receiver", "barrel", "optic", "stock", "trigger", "underbarrel"]
   }
 ]
