@@ -202,6 +202,15 @@ function preparedScene(options: { absent?: boolean; training?: boolean; stageId?
 }
 
 describe('actual GameScene create transaction', () => {
+  it('passes the captured ability side into the per-run ControlsView', () => {
+    const h = preparedScene();
+    h.scene.create({ ...h.payload, abilityButtonSide: 'right' });
+
+    const controls = composition.state.owned.find(row => row.name === 'controls');
+    expect(controls?.options.abilityButtonSide).toBe('right');
+    h.scene.events.emit('shutdown');
+  });
+
   it('captures the exact supplied layout before a fallible plan and replaces it on Scene reuse', () => {
     const h = preparedScene();
     vi.spyOn(h.context.stages, 'runPlanCatalog').mockImplementation(() => { throw new Error('early plan failure'); });

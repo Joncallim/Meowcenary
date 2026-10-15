@@ -92,6 +92,7 @@ import { AbilityPresentationSystem } from '../systems/abilityPresentation';
 import type { FocusDirection } from '../ui/focusList';
 import { performanceProbe } from '../platform/performanceProbe';
 import { isPortraitOrientationBlocked, onPortraitOrientationChange } from '../platform/orientation';
+import type { AbilityButtonSide } from '../systems/save';
 
 // Indices follow the sampler's registered order; resolved once, never in update.
 const PERFORMANCE_OWNER_INDEX: Readonly<Record<string, number>> = Object.fromEntries(
@@ -241,7 +242,7 @@ export class GameScene extends Phaser.Scene {
     super(SceneKey.Game);
   }
 
-  create(data?: { readonly arenaLayout?: ResolvedArenaLayout; readonly introModel?: RunStartIntroModel; readonly stagePlan?: ResolvedRunPlan; readonly runRequest?: ComposedRunRequest; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean }): void {
+  create(data?: { readonly arenaLayout?: ResolvedArenaLayout; readonly introModel?: RunStartIntroModel; readonly stagePlan?: ResolvedRunPlan; readonly runRequest?: ComposedRunRequest; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean; readonly abilityButtonSide?: AbilityButtonSide }): void {
     // Register disposal before the first fallible preparation operation. A
     // failed create is still a scene lifetime, even without run/input/entities.
     if (this.lifecycleOwned) this.handleShutdown();
@@ -455,6 +456,7 @@ export class GameScene extends Phaser.Scene {
       onAbilityRequested: () => this.routeAction('ability'),
       onExtractRequested: () => this.routeAction('confirm'),
       visualArt,
+      abilityButtonSide: data?.abilityButtonSide ?? ctx.settings.abilityButtonSide,
       ability: this.abilityDefinition === undefined ? undefined : {
         name: this.abilityDefinition.name,
         description: resolveAbilityEffectPresentation(this.abilityDefinition).detail,

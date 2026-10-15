@@ -4277,7 +4277,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Back')!.state.handlers.pointerup!();
 
     harness.buttonByLabel('Settings')!.state.handlers.pointerup!();
-    expectClearOfBack(['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off']);
+    expectClearOfBack(['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', 'Ability Button: Left']);
   });
 
   it('navigates and confirms through the real gamepad with zero pointer-plugin calls (F9)', () => {
@@ -4471,7 +4471,7 @@ describe('MenuScene', () => {
     press('Enter');
     expect(seams.navigator.index).toBe(0);
 
-    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    for (let i = 0; i < 5; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Play Contract');
     expect(seams.navigator.index).toBe(0);
@@ -4523,7 +4523,7 @@ describe('MenuScene', () => {
       expect.arrayContaining(['Something went wrong — press Esc to retry']),
     );
 
-    // The retained navigator (still index 2, count 5) must not move or emit,
+    // The retained navigator (still index 2, count 6) must not move or emit,
     // and activate must not fire a command on the fallback.
     press('ArrowDown');
     expect(events).toEqual([]);
@@ -4585,7 +4585,7 @@ describe('MenuScene', () => {
     { name: 'mercenary', directions: ['ArrowDown', 'ArrowDown'], expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', 'Back'] },
     { name: 'career', directions: ['ArrowDown', 'ArrowDown', 'ArrowDown'], expected: ['Next Goals', 'Achievements', 'Compendium', 'Back'] },
     { name: 'training', directions: ['ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowDown'], expected: ['Start Training', 'Back'] },
-    { name: 'settings', directions: ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown'], expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', 'Back'] },
+    { name: 'settings', directions: ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown'], expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', 'Ability Button: Left', 'Back'] },
 
   ])('registers the exact V4 focus-target order/count with exactly one FocusStroke ring (F6)', ({ directions, expected }) => {
     const harness = createHarness();
@@ -5349,7 +5349,7 @@ describe('MenuScene', () => {
     for (let i = 0; i < 4; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Settings');
-    expect(buttonLabels()).toEqual(['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', 'Back']);
+    expect(buttonLabels()).toEqual(['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', 'Ability Button: Left', 'Back']);
     expect(seams.navigator.index).toBe(0);
 
     // Navigate through settings rows.
@@ -5363,6 +5363,56 @@ describe('MenuScene', () => {
     expect(seams.navigator.index).toBe(4);
     press('Escape');
     expect(harness.textContents()).toContain('Meowcenary');
+  });
+
+  it('exposes the saved ability side as a same-panel Settings toggle', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Settings')!.state.handlers.pointerup!();
+
+    expect(harness.buttonByLabel('Ability Button: Left')).toBeDefined();
+    harness.buttonByLabel('Ability Button: Left')!.state.handlers.pointerup!();
+
+    expect(harness.context.settings.abilityButtonSide).toBe('right');
+    expect(harness.buttonByLabel('Ability Button: Right')).toBeDefined();
+    expect(harness.buttonByLabel('Back')).toBeDefined();
+  });
+
+  it('keeps the handedness row readable and clear of fixed Back on a short phone viewport', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as any;
+    Object.assign(scene.scale, { width: 360, height: 640, displaySize: { width: 360, height: 640 } });
+    scene.handleResize();
+    scene.render(scene.controller.open('settings'));
+
+    const rows = ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', 'Ability Button: Left']
+      .map(label => harness.buttonByLabel(label)!);
+    const back = harness.buttonByLabel('Back')!;
+    expect(rows).toHaveLength(5);
+    rows.forEach(row => {
+      const bounds = row.getBounds();
+      expect(bounds.right).toBeLessThanOrEqual(360 - scene.safeRightMargin);
+      expect(bounds.bottom).toBeLessThan(back.getBounds().top);
+      expect(row.state.interactive).toBe(true);
+    });
+    expect(back.getBounds().bottom).toBeLessThanOrEqual(640);
+  });
+
+  it('scrolls Settings above fixed Back when safe insets and a storage notice consume the body', () => {
+    try {
+      const { h, scene } = createHomeGeometryHarness(360, 640, false, true);
+      const controller = scene.controller as { open(panel: 'settings'): unknown; snapshot(): { notice?: string } } & { notice?: string };
+      controller.open('settings');
+      controller.notice = 'Saved for this session only';
+      scene.render(controller.snapshot());
+
+      expect(scene.scrollRegion).toBeDefined();
+      expect(scene.scrollRegion.contentHeight).toBeGreaterThan(scene.scrollViewportBottom - scene.scrollViewportTop);
+      const back = h.buttonByLabel('Back')!;
+      expect(back.getBounds().top).toBeGreaterThanOrEqual(scene.scrollViewportBottom);
+      expect(back.state.interactive).toBe(true);
+      expect(scene.scrollMaskContainer.list).not.toContain(back);
+      h.lifecycle.emit('shutdown');
+    } finally { vi.unstubAllGlobals(); }
   });
 
   it('switches the home hint exactly per input mode (F9)', () => {
@@ -6252,6 +6302,31 @@ describe('retained Menu physical controls', () => {
 });
 
 describe('Menu optional ability launch and retry', () => {
+  it.each(['left', 'right'] as const)('captures the saved ability side on a fresh %s run', async side => {
+    const h = createHarness(); const scene = h.menuScene as any;
+    h.context.updateSettings({ abilityButtonSide: side });
+    Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+    const request = { kind: 'stage' as const, characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', seed: 90 };
+
+    await scene.startRunWithResources(request, false);
+
+    expect(h.sceneStart).toHaveBeenCalledOnce();
+    expect(h.sceneStart.mock.calls[0]![1].abilityButtonSide).toBe(side);
+  });
+
+  it('captures the current saved side when retrying a failed preparation', async () => {
+    const h = createHarness({ create: false }); const scene = h.menuScene as any;
+    const request = { kind: 'stage' as const, characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', seed: 90 };
+    scene.create({ failedRunRequest: request, failedRunError: 'fixture preparation failure' });
+    h.context.updateSettings({ abilityButtonSide: 'right' });
+    Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
+
+    await scene.startContractWithResources();
+
+    expect(h.sceneStart).toHaveBeenCalledOnce();
+    expect(h.sceneStart.mock.calls[0]![1].abilityButtonSide).toBe('right');
+  });
+
   it.each([false, true])('prepares a captured explicit ability-absent briefing for Training=%s', async training => {
     const data = structuredClone(loadGameData()); delete (data.characters[0] as { abilityId?: string }).abilityId;
     const h = createHarness({ data }); const scene = h.menuScene as any;
@@ -6518,6 +6593,7 @@ describe('Home fixed hint input-mode reservation', () => {
 
 it('joins terminal Replay fresh seed with prepared plan, intro and immutable layout', async () => {
   const h = createHarness({ create: false }); const scene = h.menuScene as any;
+  h.context.updateSettings({ abilityButtonSide: 'right' });
   Object.assign(scene, { textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) }, anims: { exists: () => true }, addPanelArt: () => undefined });
   const request = Object.freeze({ kind: 'stage' as const, characterId: 'scrap-tabby', stageId: 'stage:junkyard-06', seed: 881 });
   scene.create({ replayRequest: request });
@@ -6528,4 +6604,5 @@ it('joins terminal Replay fresh seed with prepared plan, intro and immutable lay
   expect(payload.introModel.identity.arenaId).toBe(h.context.stages.stageById(request.stageId)!.arenaId);
   expect(payload.arenaLayout).toBe(scene.preparedArenaLayout);
   expect(payload.arenaLayout.seed).toBe(payload.runRequest.seed); h.lifecycle.emit('shutdown');
+  expect(payload.abilityButtonSide).toBe('right');
 });

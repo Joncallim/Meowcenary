@@ -1095,6 +1095,9 @@ export class MenuScene extends Phaser.Scene {
     if (this.capturedLaunch?.request !== request) this.preparedArenaLayout = undefined;
     this.capturedLaunch = { request, isTraining };
     const ctx = this.getContext();
+    // Capture handedness when this run is constructed, before any async
+    // resource work. ControlsView receives this immutable per-run value.
+    const abilityButtonSide = ctx.settings.abilityButtonSide;
     // Result truth belongs to this exact launch, not whatever durable state
     // happens to exist when asynchronous resource loading eventually ends.
     const runStartPresentation = ctx.captureRunPresentationBaseline();
@@ -1168,7 +1171,15 @@ export class MenuScene extends Phaser.Scene {
         return;
       }
       if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'ready', isTraining, physicalResources: resources.length, audioFiles: runAudio.length, seed: request.seed });
-      this.scene.start(SceneKey.Game, { runRequest: request, stagePlan: plan, introModel, arenaLayout: layout, runStartPresentation, isTraining });
+      this.scene.start(SceneKey.Game, {
+        runRequest: request,
+        stagePlan: plan,
+        introModel,
+        arenaLayout: layout,
+        runStartPresentation,
+        isTraining,
+        abilityButtonSide,
+      });
     } catch (error) {
       if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'failed', isTraining });
       if (!this.isLive || generation !== this.runLaunchGeneration) return;
@@ -1569,9 +1580,10 @@ export class MenuScene extends Phaser.Scene {
     const actionX = this.safeCenterX - actionWidth / 2;
     let y = top + heading.height + (compactLandscape ? 8 : 20);
     const actionHeight = Math.max(hitTarget, compactLandscape ? 44 : 64);
+    const rowGap = compactLandscape ? 4 : 12;
 
     const settings = snapshot.settings;
-    const rows: Array<{ label: string; artId: string; action: () => MainMenuSnapshot }> = [
+    const rows: Array<{ label: string; artId?: string; action: () => MainMenuSnapshot }> = [
       {
         label: `Mute: ${settings.muted ? 'On' : 'Off'}`,
         artId: 'settings-icon:master-audio',
@@ -1592,15 +1604,31 @@ export class MenuScene extends Phaser.Scene {
         artId: 'settings-icon:reduced-motion',
         action: () => this.requireController().setSettings({ reducedMotion: !settings.reducedMotion }),
       },
+      {
+        label: `Ability Button: ${settings.abilityButtonSide === 'left' ? 'Left' : 'Right'}`,
+        // There is no shipped handedness-specific semantic icon yet. Keep the
+        // row text-first instead of presenting an unrelated settings glyph.
+        action: () => this.requireController().setSettings({
+          abilityButtonSide: settings.abilityButtonSide === 'left' ? 'right' : 'left',
+        }),
+      },
     ];
 
+    // Settings normally fits above the fixed Back action. On unusually short
+    // viewports, keep the footer fixed and let only the rows scroll instead
+    // of allowing the last toggle to collide with navigation.
+    const scrollBottom = this.scrollViewportBottomFor(hitTarget);
+    const contentBottom = y + rows.length * actionHeight + Math.max(0, rows.length - 1) * rowGap;
+    const scrollSettings = contentBottom > scrollBottom && scrollBottom > y;
+    if (scrollSettings) this.beginScrollableRegion(y, scrollBottom);
     rows.forEach((row) => {
       this.addButton(root, actionX, y, row.label, actionHeight, () => {
         const next = row.action();
         this.render(next);
       }, 'ui:confirm', actionWidth, row.artId);
-      y += actionHeight + (compactLandscape ? 4 : 12);
+      y += actionHeight + rowGap;
     });
+    if (scrollSettings) this.endScrollableRegion();
 
     this.addBackButton(root, width, margin, hitTarget);
   }
