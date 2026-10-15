@@ -120,6 +120,18 @@ export class AbilityPresentationSystem {
     }
   }
 
+  /** Terminal runs no longer advance presentation time, so remove the last
+   * frame immediately instead of leaving ability FX beneath the summary. */
+  clear(): void {
+    if (this.disposed) return;
+    this.transient = undefined;
+    this.persistent = undefined;
+    this.latestActivationId = undefined;
+    this.bannerRemaining = 0;
+    this.banner.setVisible(false);
+    this.graphics.clear();
+  }
+
   private draw(effect: LiveAbilityEffect, sustained: boolean, dt: number, reducedMotion: boolean): void {
     const x = sustained ? this.player.x : effect.x;
     const y = sustained ? this.player.y : effect.y;

@@ -159,4 +159,16 @@ describe('GameScene character ability runtime bridge', () => {
     expect(resolved.activationId).toBe(activated.activationId);
     expect(ended).toEqual({ abilityId: 'ability:shield-flicker', activationId: activated.activationId });
   });
+
+  it('ends and clears an active presentation when terminal UI takes ownership', () => {
+    mockBus.emit.mockClear();
+    const scene = new GameScene() as any;
+    scene.abilityDefinition = abilities.get('ability:shield-flicker');
+    scene.activeAbilityActivationId = 7;
+    scene.abilityPresentationSystem = { clear: vi.fn() };
+    scene.endAbilityPresentationForTerminal();
+    expect(mockBus.emit).toHaveBeenCalledWith('ability:ended', { abilityId: 'ability:shield-flicker', activationId: 7 });
+    expect(scene.abilityPresentationSystem.clear).toHaveBeenCalledOnce();
+    expect(scene.activeAbilityActivationId).toBeUndefined();
+  });
 });

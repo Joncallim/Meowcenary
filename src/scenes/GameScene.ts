@@ -766,12 +766,14 @@ export class GameScene extends Phaser.Scene {
         this.syncPhysicsPause(this.requireRunState());
       }),
       ctx.bus.on('run:won', () => {
+        this.endAbilityPresentationForTerminal();
         this.inputController?.suspendGameplayPointer?.();
         this.gameplayPointerSuspended = true;
         this.syncPhysicsPause(this.requireRunState());
       }),
       ctx.bus.on('run:lost', () => {
         if (!this.introStartCommitted || this.runState?.status !== 'lost') return;
+        this.endAbilityPresentationForTerminal();
         // Player owns health/death and emits the authoritative terminal run
         // fact; StageRuntime owns the corresponding contract lifecycle.
         this.stageRuntime?.fail();
@@ -1570,6 +1572,18 @@ export class GameScene extends Phaser.Scene {
       this.activeAbilityActivationId = undefined;
     }
     this.syncAbilityPresentation();
+  }
+
+  /** Terminal UI is a presentation lifetime boundary even when simulation
+   * stopped before the active ability's ordinary expiry tick. */
+  private endAbilityPresentationForTerminal(): void {
+    const definition = this.abilityDefinition;
+    const activationId = this.activeAbilityActivationId;
+    if (definition && activationId !== undefined) {
+      this.getContext().bus.emit('ability:ended', { abilityId: definition.id, activationId });
+    }
+    this.activeAbilityActivationId = undefined;
+    this.abilityPresentationSystem?.clear?.();
   }
 
   private syncAbilityPresentation(): void {

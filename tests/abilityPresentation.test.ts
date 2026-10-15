@@ -155,4 +155,17 @@ describe('AbilityPresentationSystem mechanical facts', () => {
     expect(banner.setText).not.toHaveBeenCalled();
     expect(scale.off).toHaveBeenCalledTimes(1);
   });
+
+  it('clears transient and persistent presentation at a terminal boundary', () => {
+    const { system, bus, graphics, banner } = harness();
+    bus.emit('ability:activated', activation({ mechanicKind: 'invulnerable' }));
+    system.update(0, false);
+    graphics.clear.mockClear();
+    system.clear();
+    expect(graphics.clear).toHaveBeenCalledOnce();
+    expect(banner.setVisible).toHaveBeenLastCalledWith(false);
+    graphics.lineBetween.mockClear();
+    system.update(0, false);
+    expect(graphics.lineBetween).not.toHaveBeenCalled();
+  });
 });
