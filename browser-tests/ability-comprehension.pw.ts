@@ -13,7 +13,7 @@ type Diagnostics = IntroDiagnostics & {
   abilityDefinition: { id: string; effect: { kind: string; radius?: number } };
   model?: RunStartIntroModel;
   controlsHint?: Rect & { text: string; visible: boolean }; body?: Rect; scroll?: { offset: number; max: number }; introText: Array<Rect & { text: string; inScrollBody: boolean }>; abilityButton: Rect; abilityBanner: string;
-  abilityFx: { persistent?: { kind: string; radius: number; glyphMask: number }; transient?: { kind: string; radius: number } };
+  abilityFx: { persistent?: { activationId: number; kind: string; radius: number; glyphMask: number }; transient?: { activationId: number; kind: string; radius: number } };
   activationId: number; latestResolution?: { kind: string; applied?: number; collected?: number; affected?: number; modifiers?: Array<{ stat: string; op: string; value: number }> };
   inputMode: string; inputNeutral: boolean; inputQuarantined: boolean;
   abilityHeld: boolean; confirmHeld: boolean; orientationBlocked: boolean;
@@ -209,7 +209,12 @@ for (const [character, name, detail, cooldown, kind, phase] of CATALOG) {
         expect(result.abilityUiState.activeRemainingMs).toBeGreaterThan(0);
         expect(result.abilityFx.persistent!.kind).toBe(kind);
       } else expect(result.abilityUiState.activeRemainingMs).toBe(0);
-      if (result.abilityDefinition.effect.radius !== undefined) expect(result.abilityFx.transient!.radius).toBe(result.abilityDefinition.effect.radius);
+      if (phase === 'active') expect(result.abilityFx.persistent!.activationId).toBe(result.activationId);
+      if (phase === 'cooling') expect(result.abilityFx.transient!.activationId).toBe(result.activationId);
+      if (result.abilityDefinition.effect.radius !== undefined) {
+        expect(result.abilityFx.transient!.radius).toBe(result.abilityDefinition.effect.radius);
+        expect(result.abilityFx.transient!.activationId).toBe(result.activationId);
+      }
       await capture(page, info, `${character}-activation`);
     }, [['ability-key-up', () => page.keyboard.up('q')]]);
   }));
@@ -303,6 +308,7 @@ test('DPR3 reduced-motion phone stays frozen through blocked landscape and foreg
     expect((await read(page)).status).toBe('intro'); expect((await read(page)).player).toEqual(initial.player);
     await page.keyboard.up('Enter'); await frame(page, 2); await start(page);
     await pulse(page, 'q'); const active = await read(page); expect(active.abilityUiState.phase).toBe('active');
+    expect(active.abilityFx.persistent).toMatchObject({ kind: 'invulnerable', activationId: active.activationId });
     await pulse(page, 'p'); const paused = await read(page); await frame(page, 5);
     expect((await read(page)).abilityState).toEqual(paused.abilityState);
     expect((await read(page)).abilityFx.persistent!.kind).toBe('invulnerable');

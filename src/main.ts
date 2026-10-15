@@ -1021,7 +1021,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         scene.runState.timeMs = 0;
         scene.hudController?.update(0);
         ctx.bus.emit('ability:activated', {
-          abilityId: 'ability:visual-test', cue: definition.presentation.cue, mechanicKind: definition.effect.kind,
+          abilityId: 'ability:visual-test', activationId: 0, cue: definition.presentation.cue, mechanicKind: definition.effect.kind,
           headline: explanation.headline, detail: explanation.detail,
           x: scene.player.x, y: scene.player.y,
           durationMs: definition.durationMs, color: definition.presentation.color, radius: definition.effect.radius,

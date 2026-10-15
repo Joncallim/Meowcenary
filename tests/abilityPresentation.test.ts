@@ -23,7 +23,7 @@ function harness() {
 }
 
 function activation(overrides: Partial<GameEventMap['ability:activated']> = {}): GameEventMap['ability:activated'] {
-  return { abilityId: 'fixture:new-content', mechanicKind: 'knockback', cue: 'shockwave',
+  return { abilityId: 'fixture:new-content', activationId: 1, mechanicKind: 'knockback', cue: 'shockwave',
     x: 4, y: 5, radius: 73, durationMs: 500, color: '#ffffff',
     headline: 'Fixture Burst', detail: 'Knock back nearby enemies within 73 range.', ...overrides };
 }
@@ -59,12 +59,14 @@ describe('AbilityPresentationSystem mechanical facts', () => {
 
   it('shows immediate name/effect and then actual capped heal and collected receipts', () => {
     const { system, bus, banner } = harness();
-    bus.emit('ability:activated', activation({ mechanicKind: 'heal' }));
+    bus.emit('ability:activated', activation({ activationId: 1, mechanicKind: 'heal' }));
     expect(banner.setText).toHaveBeenCalledWith('Fixture Burst\nKnock back nearby enemies within 73 range.');
     bus.emit('ability:resolved', { abilityId: 'fixture:new-content', activationId: 1, name: 'Fixture Burst', origin: { x: 4, y: 5 }, resolution: { kind: 'heal', requested: 40, applied: 7 } });
     expect(banner.setText).toHaveBeenLastCalledWith('Fixture Burst\n+7 HP');
+    bus.emit('ability:activated', activation({ activationId: 2, mechanicKind: 'heal' }));
     bus.emit('ability:resolved', { abilityId: 'fixture:new-content', activationId: 2, name: 'Fixture Burst', origin: { x: 4, y: 5 }, resolution: { kind: 'heal', requested: 40, applied: 0 } });
     expect(banner.setText).toHaveBeenLastCalledWith('Fixture Burst\n+0 HP');
+    bus.emit('ability:activated', activation({ activationId: 3, mechanicKind: 'heal' }));
     bus.emit('ability:resolved', { abilityId: 'fixture:new-content', activationId: 3, name: 'Fixture Burst', origin: { x: 4, y: 5 }, resolution: { kind: 'loot-pulse', radius: 73, collected: 5 } });
     expect(banner.setText).toHaveBeenLastCalledWith('Fixture Burst\nCollected 5');
     system.destroy();
@@ -79,7 +81,24 @@ describe('AbilityPresentationSystem mechanical facts', () => {
     graphics.lineBetween.mockClear();
     system.update(0, true);
     expect(graphics.lineBetween.mock.calls.some(call => call[0] >= 4 && call[0] <= 76)).toBe(true);
-    bus.emit('ability:ended', { abilityId: 'fixture:new-content' });
+    bus.emit('ability:ended', { abilityId: 'fixture:new-content', activationId: 1 });
+    graphics.lineBetween.mockClear();
+    system.update(0, true);
+    expect(graphics.lineBetween).not.toHaveBeenCalled();
+  });
+
+  it('matches result and end facts to the active token without clearing a newer effect', () => {
+    const { system, bus, graphics, banner } = harness();
+    bus.emit('ability:activated', activation({ activationId: 1, mechanicKind: 'stat-burst' }));
+    bus.emit('ability:resolved', { abilityId: 'fixture:new-content', activationId: 1, name: 'Fixture Burst', origin: { x: 4, y: 5 }, resolution: { kind: 'stat-burst', durationMs: 500, modifiers: [] } });
+    bus.emit('ability:activated', activation({ activationId: 2, mechanicKind: 'invulnerable', headline: 'New Shield', detail: 'New shield.' }));
+    const beforeStaleResult = banner.setText.mock.calls.length;
+    bus.emit('ability:resolved', { abilityId: 'fixture:new-content', activationId: 1, name: 'Old Burst', origin: { x: 4, y: 5 }, resolution: { kind: 'stat-burst', durationMs: 500, modifiers: [] } });
+    expect(banner.setText).toHaveBeenCalledTimes(beforeStaleResult);
+    bus.emit('ability:ended', { abilityId: 'fixture:new-content', activationId: 1 });
+    system.update(0, true);
+    expect(graphics.lineBetween).toHaveBeenCalled();
+    bus.emit('ability:ended', { abilityId: 'fixture:new-content', activationId: 2 });
     graphics.lineBetween.mockClear();
     system.update(0, true);
     expect(graphics.lineBetween).not.toHaveBeenCalled();

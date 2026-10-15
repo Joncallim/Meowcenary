@@ -9,6 +9,7 @@ import type { ResolvedArenaLayout } from '../gameplay/arenaLayout';
  */
 import type Phaser from 'phaser';
 import type { ArenaDefinition, EnemyDefinition, GameData, VisualTextureResource } from './types';
+import { abilityPresentationArtIds } from '../gameplay/abilities';
 import { DataVisualArtRegistry, ensureVisualAnimations, visualAnimationKey } from './visualArt';
 import { performanceProbe } from '../platform/performanceProbe';
 
@@ -247,7 +248,7 @@ export function resolveRunPhysicalResources(options: {
     const ability = options.data.abilities?.find((candidate) => candidate.id === selectedCharacter.abilityId);
     if (!ability) throw new Error(`Run resource closure references missing ability "${selectedCharacter.abilityId}"`);
     if (!ability.presentation.iconArtId) throw new Error(`Run resource closure references ability "${selectedCharacter.abilityId}" without presentation art`);
-    addArt(ability.presentation.iconArtId);
+    for (const artId of abilityPresentationArtIds(ability.presentation)) addArt(artId);
   }
   for (const id of options.layout ? [options.arena.visual.floorArtIds[0]!, ...options.layout.floorPlan] : options.arena.visual.floorArtIds) addArt(id);
   for (const id of Object.values(options.arena.visual.boundary)) addArt(id);

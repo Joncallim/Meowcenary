@@ -16,6 +16,7 @@ const STAT_GLYPH: Readonly<Record<ModifierStatKey, Glyph>> = {
 };
 interface LiveAbilityEffect {
   readonly abilityId: string;
+  readonly activationId: number;
   readonly kind: AbilityEffect['kind'];
   readonly color: number;
   readonly radius: number;
@@ -29,7 +30,8 @@ interface LiveAbilityEffect {
 
 /** Gameplay-inert, bounded feedback: two reusable display objects, one
  * transient slot, one sustained slot, at most sixteen drawing primitives.
- * Persistent lifetime comes only from ability:ended; no view ticks gameplay. */
+ * Persistent lifetime comes only from the matching authoritative ability:ended
+ * fact; no view ticks gameplay. */
 export class AbilityPresentationSystem {
   private readonly graphics: Phaser.GameObjects.Graphics;
   private readonly banner: Phaser.GameObjects.Text;
@@ -38,6 +40,7 @@ export class AbilityPresentationSystem {
   private persistent?: LiveAbilityEffect;
   private bannerRemaining = 0;
   private primitivesRemaining = 16;
+  private latestActivationId: number | undefined;
   private disposed = false;
 
   constructor(private readonly scene: Phaser.Scene, bus: EventBus, private readonly player: { x: number; y: number }) {
@@ -50,14 +53,23 @@ export class AbilityPresentationSystem {
     scene.scale.on('resize', this.layoutBanner, this);
     this.stop.push(bus.on('ability:activated', event => this.activate(event)));
     this.stop.push(bus.on('ability:resolved', event => {
+      if (event.activationId !== this.latestActivationId) return;
       this.showBanner(event.name, resolveAbilityResolutionCopy(event.resolution));
     }));
     this.stop.push(bus.on('ability:ended', event => {
-      if (this.persistent?.abilityId === event.abilityId) this.persistent = undefined;
+      const persistent = this.persistent;
+      if (persistent && persistent.abilityId === event.abilityId && persistent.activationId === event.activationId) {
+        this.persistent = undefined;
+      }
+      if (this.latestActivationId === event.activationId &&
+        (!persistent || (persistent.abilityId === event.abilityId && persistent.activationId === event.activationId))) {
+        this.latestActivationId = undefined;
+      }
     }));
   }
 
   private activate(event: GameEventMap['ability:activated']): void {
+    this.latestActivationId = event.activationId;
     const color = Number.parseInt(event.color.slice(1), 16);
     let glyphMask = 0;
     if (event.mechanicKind === 'stat-burst') {
@@ -65,7 +77,7 @@ export class AbilityPresentationSystem {
     }
     const sustained = event.mechanicKind === 'stat-burst' || event.mechanicKind === 'invulnerable';
     const effect: LiveAbilityEffect = {
-      abilityId: event.abilityId, kind: event.mechanicKind,
+      abilityId: event.abilityId, activationId: event.activationId, kind: event.mechanicKind,
       color: Number.isFinite(color) ? color : 0xffffff,
       radius: sustained || event.mechanicKind === 'heal' ? event.visualRadius ?? 36 : event.radius ?? 0,
       glyphMask, remaining: Math.max(280, event.durationMs), elapsed: 0,

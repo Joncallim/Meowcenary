@@ -21,6 +21,18 @@ export interface AbilityPresentationDefinition {
   readonly visualRadius?: number;
   /** Explicit logical identity; physical atlas packing remains registry-owned. */
   readonly iconArtId: string;
+  /** Additional logical art bindings required by this selected Ability's
+   * presentation. The run loader resolves these generically; production data
+   * may leave the list empty until an approved FX source is registered. */
+  readonly resourceArtIds?: readonly string[];
+}
+
+/** All logical art owned by one Ability presentation, independent of the
+ * physical resource/atlas chosen by the visual-art registry. */
+export function abilityPresentationArtIds(
+  presentation: AbilityPresentationDefinition,
+): readonly string[] {
+  return [presentation.iconArtId, ...(presentation.resourceArtIds ?? [])];
 }
 
 export interface AbilityRuntime {

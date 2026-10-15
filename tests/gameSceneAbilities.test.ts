@@ -129,6 +129,7 @@ describe('GameScene character ability runtime bridge', () => {
   });
 
   it('executes Scavenge Pulse through the drop-system collection boundary', () => {
+    mockBus.emit.mockClear();
     const scene = new GameScene() as any;
     const collectNearbyConsumables = vi.fn(()=>{scene.runState.status='paused';scene.runState.pauseReason='levelUp';return 3;});
     scene.abilityPresentationSystem={update:vi.fn()};
@@ -141,5 +142,21 @@ describe('GameScene character ability runtime bridge', () => {
     expect(scene.abilityPresentationSystem.update).toHaveBeenCalledWith(0,false);
     expect(scene.runState.pauseReason).toBe('levelUp');
     expect(mockBus.emit).toHaveBeenCalledWith('ability:resolved',expect.objectContaining({resolution:{kind:'loot-pulse',radius:160,collected:3}}));
+    const activated = mockBus.emit.mock.calls.find(([event]) => event === 'ability:activated')?.[1];
+    const resolved = mockBus.emit.mock.calls.find(([event]) => event === 'ability:resolved')?.[1];
+    expect(activated.activationId).toBe(1);
+    expect(resolved.activationId).toBe(activated.activationId);
+  });
+
+  it('ends a sustained effect with the same activation token that started and resolved it', () => {
+    mockBus.emit.mockClear();
+    const shield = activate('ability:shield-flicker');
+    shield.scene.tickAbility(1_200);
+    const activated = mockBus.emit.mock.calls.find(([event]) => event === 'ability:activated')?.[1];
+    const resolved = mockBus.emit.mock.calls.find(([event]) => event === 'ability:resolved')?.[1];
+    const ended = mockBus.emit.mock.calls.find(([event]) => event === 'ability:ended')?.[1];
+    expect(activated.activationId).toBe(1);
+    expect(resolved.activationId).toBe(activated.activationId);
+    expect(ended).toEqual({ abilityId: 'ability:shield-flicker', activationId: activated.activationId });
   });
 });

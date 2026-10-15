@@ -202,6 +202,7 @@ export class GameScene extends Phaser.Scene {
   private pendingBossStart?: () => boolean;
 
   private abilityActivationId = 0;
+  private activeAbilityActivationId: number | undefined;
   private abilityDefinition?: AbilityDefinition;
   private abilityState: AbilityState = createAbilityState();
   private achievementToast?: { readonly text: string; readonly untilMs: number };
@@ -826,6 +827,7 @@ export class GameScene extends Phaser.Scene {
     this.arenaDebugLine = '';
     this.runStartPresentation = undefined;
     this.abilityActivationId = 0;
+    this.activeAbilityActivationId = undefined;
     this.introStartCommitted = false;
     this.introRendererLost = false;
     this.introBackgrounded = false;
@@ -1523,8 +1525,10 @@ export class GameScene extends Phaser.Scene {
     const explanation = resolveAbilityEffectPresentation(definition);
     const origin = Object.freeze({x:player.x,y:player.y});
     const activationId = ++this.abilityActivationId;
+    this.activeAbilityActivationId = activationId;
     ctx.bus.emit('ability:activated', Object.freeze({
       abilityId: definition.id,
+      activationId,
       cue: definition.presentation.cue,
       x: player.x,
       y: player.y,
@@ -1559,7 +1563,11 @@ export class GameScene extends Phaser.Scene {
     this.abilityState = tickAbility(before, deltaMs);
     if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) {
       expireAbilityEffect(definition, { stats: this.runState.stats });
-      this.getContext().bus.emit('ability:ended', { abilityId: definition.id });
+      const activationId = this.activeAbilityActivationId;
+      if (activationId !== undefined) {
+        this.getContext().bus.emit('ability:ended', { abilityId: definition.id, activationId });
+      }
+      this.activeAbilityActivationId = undefined;
     }
     this.syncAbilityPresentation();
   }

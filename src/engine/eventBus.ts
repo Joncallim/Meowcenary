@@ -34,9 +34,9 @@ export interface GameEventMap {
   'enemy:shield-blocked': { instanceId: number; enemyId: string; x: number; y: number };
   /** Post-persistence player feedback; achievement state remains save-owned. */
   'achievement:completed': { achievementId: string; name: string };
-  'ability:activated': { abilityId: string; cue: AbilityPresentationCue; mechanicKind: AbilityEffect['kind']; headline?: string; detail?: string; modifiers?: readonly Readonly<Modifier>[]; x: number; y: number; durationMs: number; radius?: number; visualRadius?: number; color: string };
+  'ability:activated': { abilityId: string; activationId: number; cue: AbilityPresentationCue; mechanicKind: AbilityEffect['kind']; headline?: string; detail?: string; modifiers?: readonly Readonly<Modifier>[]; x: number; y: number; durationMs: number; radius?: number; visualRadius?: number; color: string };
   'ability:resolved': { readonly abilityId: string; readonly activationId: number; readonly name: string; readonly origin: Readonly<{x:number;y:number}>; readonly resolution: AbilityResolution };
-  'ability:ended': { abilityId: string };
+  'ability:ended': { abilityId: string; activationId: number };
   'enemy:heavyStep': { x: number; y: number };
   // family/tier (Epic 17) are cosmetic-only duplicates of data WeaponSystem
   // already holds at the emit site — listeners key presentation/audio off

@@ -818,7 +818,15 @@ export function assertMercenaryPresentationArtReferences(
     character.passives.forEach((passive, passiveIndex) =>
       check(passive.presentation.iconArtId, 'icon', `characters.json[${characterIndex}].passives[${passiveIndex}].presentation.iconArtId`));
   });
-  abilities.forEach((ability, index) => check(ability.presentation.iconArtId, 'icon', `abilities.json[${index}].presentation.iconArtId`));
+  abilities.forEach((ability, index) => {
+    check(ability.presentation.iconArtId, 'icon', `abilities.json[${index}].presentation.iconArtId`);
+    for (const [artIndex, artId] of (ability.presentation.resourceArtIds ?? []).entries()) {
+      const binding = byId.get(artId);
+      const path = `abilities.json[${index}].presentation.resourceArtIds[${artIndex}]`;
+      if (!binding) errors.push(`${path}: unknown visual-art id "${artId}"`);
+      else if (!binding.required || !binding.resourceId) errors.push(`${path}: must be a required binding with a physical resource`);
+    }
+  });
   throwIfErrors(errors);
 }
 

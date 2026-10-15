@@ -214,4 +214,29 @@ describe('Resource Loader', () => {
       }
     }
   });
+
+  it('closes only the selected Ability presentation art beyond its canonical icon', () => {
+    const data = loadGameData();
+    const extraResource: VisualTextureResource = {
+      id: 'resource:ability-effect-fixture', textureKey: 'art-ability-effect-fixture', sampling: 'nearest',
+      load: { type: 'image', imageUrl: 'assets/effects/ability-effect-fixture.png' },
+    };
+    const extraBinding = {
+      id: 'fx:ability-effect-fixture', kind: 'icon' as const, required: true,
+      resourceId: extraResource.id, display: { width: 24, height: 24 },
+    };
+    const fixtureData = {
+      ...data,
+      visualResources: [...data.visualResources, extraResource],
+      visualArt: { bindings: [...data.visualArt.bindings, extraBinding] },
+      abilities: data.abilities!.map((ability) => ability.id === 'ability:scrap-burst'
+        ? { ...ability, presentation: { ...ability.presentation, resourceArtIds: [extraBinding.id] } }
+        : ability),
+    } as typeof data;
+    const arena = data.arenas.find((candidate) => candidate.id === 'junkyard-lot')!;
+    const selected = resolveRunPhysicalResources({ data: fixtureData, characterId: 'scrap-tabby', arena, encounterEnemyIds: [] });
+    const unselected = resolveRunPhysicalResources({ data: fixtureData, characterId: 'bolt-hound', arena, encounterEnemyIds: [] });
+    expect(selected.map((resource) => resource.id)).toContain(extraResource.id);
+    expect(unselected.map((resource) => resource.id)).not.toContain(extraResource.id);
+  });
 });

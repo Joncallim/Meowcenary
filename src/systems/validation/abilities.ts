@@ -13,6 +13,7 @@ const VALID_EFFECT_KINDS = new Set([
 ]);
 const STAT_KEYS = new Set<string>(RUN_UPGRADE_STAT_KEYS);
 const PRESENTATION_CUES = new Set(['shockwave', 'overclock-aura', 'shield-aura', 'heal-burst', 'speed-trail', 'heat-ring', 'loot-pulse', 'precision-mark']);
+const PRESENTATION_FIELDS = new Set(['cue', 'color', 'visualRadius', 'iconArtId', 'resourceArtIds']);
 
 /** Row-level check for a single AbilityDefinition. */
 export const checkAbility: RowCheckFn = (row: unknown, _index: number): string[] => {
@@ -38,9 +39,27 @@ export const checkAbility: RowCheckFn = (row: unknown, _index: number): string[]
   const presentation = a.presentation as Record<string, unknown> | undefined;
   if (!presentation || typeof presentation !== 'object') errors.push('presentation: must be an object');
   else {
+    for (const field of Object.keys(presentation)) {
+      if (!PRESENTATION_FIELDS.has(field)) errors.push(`presentation.${field}: unknown field`);
+    }
     if (typeof presentation.cue !== 'string' || !PRESENTATION_CUES.has(presentation.cue)) errors.push('presentation.cue: invalid registered cue');
     if (typeof presentation.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(presentation.color)) errors.push('presentation.color: must be a hex color');
     if (typeof presentation.iconArtId !== 'string' || presentation.iconArtId !== `ability-icon:${String(a.id).replace(/^ability:/, '')}`) errors.push('presentation.iconArtId: must exactly match the ability ID');
+    if (presentation.resourceArtIds !== undefined) {
+      if (!Array.isArray(presentation.resourceArtIds)) errors.push('presentation.resourceArtIds: must be an array when provided');
+      else {
+        const seen = new Set<string>();
+        presentation.resourceArtIds.forEach((id, index) => {
+          if (typeof id !== 'string' || !/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/.test(id)) {
+            errors.push(`presentation.resourceArtIds[${index}]: must be a canonical visual-art ID`);
+          } else if (seen.has(id)) {
+            errors.push(`presentation.resourceArtIds[${index}]: duplicate visual-art ID`);
+          } else {
+            seen.add(id);
+          }
+        });
+      }
+    }
     if ('radius' in presentation) errors.push('presentation.radius: gameplay geometry belongs only to effect.radius');
     if (presentation.visualRadius !== undefined && (typeof presentation.visualRadius !== 'number' || !Number.isFinite(presentation.visualRadius) || presentation.visualRadius <= 0)) errors.push('presentation.visualRadius: must be positive and finite when provided');
   }
