@@ -2598,6 +2598,11 @@ export class MenuScene extends Phaser.Scene {
   private currentScrollBookmark(): MenuScrollBookmark | undefined {
     if (!this.scrollRegion) return undefined;
     const offset = this.scrollRegion.scrollOffset;
+    // At scroll start, the non-focusable prefix (headings, summaries and
+    // family labels) is part of the authored composition. Anchoring the first
+    // focusable row on rebuild would discard that prefix and visibly shift the
+    // whole surface upward. A zero offset is already the complete bookmark.
+    if (offset <= 0) return undefined;
     const visibleTop = this.scrollViewportTop + offset;
     const candidates = [...this.scrollItemBounds.entries()]
       .filter(([, bounds]) => bounds.bottom > visibleTop)
