@@ -1,4 +1,4 @@
-import { assertVisualAuthority, useVisualAuthority } from './visualAuthority';
+import { assertVisualAuthority, registerVisualAuthorityPage, useVisualAuthority } from './visualAuthority';
 import { expect, test } from '@playwright/test';
 
 useVisualAuthority();
@@ -587,6 +587,7 @@ test('fine-pointer compact landscape keeps every sparse menu action visible', as
   test.skip(testInfo.project.name !== 'desktop-1280x720');
   const compact = await browser.newContext({ viewport: { width: 844, height: 390 }, colorScheme: 'dark' });
   const page = await compact.newPage();
+  registerVisualAuthorityPage(page, testInfo);
   await page.goto('/?visual-test=1');
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as typeof globalThis & {
     __MEOWCENARY_VISUAL_TEST__?: unknown;
