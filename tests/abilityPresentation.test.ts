@@ -158,14 +158,27 @@ describe('AbilityPresentationSystem mechanical facts', () => {
 
   it('clears transient and persistent presentation at a terminal boundary', () => {
     const { system, bus, graphics, banner } = harness();
-    bus.emit('ability:activated', activation({ mechanicKind: 'invulnerable' }));
+    bus.emit('ability:activated', activation({ activationId: 1, mechanicKind: 'knockback' }));
+    bus.emit('ability:activated', activation({ activationId: 2, mechanicKind: 'invulnerable' }));
     system.update(0, false);
+    expect(graphics.strokeCircle).toHaveBeenCalled();
+    expect(graphics.lineBetween).toHaveBeenCalled();
     graphics.clear.mockClear();
     system.clear();
     expect(graphics.clear).toHaveBeenCalledOnce();
     expect(banner.setVisible).toHaveBeenLastCalledWith(false);
+    const textCallsBeforeLateReceipt = banner.setText.mock.calls.length;
     graphics.lineBetween.mockClear();
+    graphics.strokeCircle.mockClear();
+    bus.emit('ability:resolved', {
+      abilityId: 'fixture:new-content', activationId: 2, name: 'Late Shield', origin: { x: 4, y: 5 },
+      resolution: { kind: 'invulnerable', durationMs: 100 },
+    });
     system.update(0, false);
     expect(graphics.lineBetween).not.toHaveBeenCalled();
+    expect(graphics.strokeCircle).not.toHaveBeenCalled();
+    expect(banner.setText).toHaveBeenCalledTimes(textCallsBeforeLateReceipt);
+    expect(banner.setVisible).toHaveBeenLastCalledWith(false);
   });
+
 });

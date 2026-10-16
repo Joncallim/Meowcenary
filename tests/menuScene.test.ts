@@ -5415,6 +5415,45 @@ describe('MenuScene', () => {
     } finally { vi.unstubAllGlobals(); }
   });
 
+  it('navigates short Settings, toggles handedness with retained focus, and returns through Back', () => {
+    try {
+      const { h, scene } = createHomeGeometryHarness(360, 640, false, true);
+      const controller = scene.controller as { open(panel: 'settings'): unknown; snapshot(): unknown };
+      scene.render(controller.open('settings'));
+      expect(scene.scrollRegion).toBeDefined();
+      expect(scene.navigator.index).toBe(0);
+
+      const press = (key: string) => {
+        h.keyboard.keydown(key);
+        scene.update(0, 16);
+        h.keyboard.keyup(key);
+        scene.update(0, 16);
+      };
+
+      for (let index = 0; index < 4; index += 1) press('ArrowDown');
+      expect(scene.navigator.index).toBe(4);
+      expect(h.buttonByLabel('Ability Button: Left')).toBeDefined();
+      expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(0);
+
+      press('Enter');
+      expect(h.context.settings.abilityButtonSide).toBe('right');
+      expect(scene.navigator.index).toBe(4);
+      expect(scene.focusables[scene.navigator.index].text).toBe('Ability Button: Right');
+
+      // Same-panel confirmation quarantines sampled input at the transition
+      // boundary. Consume one empty frame before the next physical edge so
+      // this Back transition is deterministic rather than timing-dependent.
+      scene.update(0, 16);
+      press('ArrowDown');
+      expect(scene.navigator.index).toBe(5);
+      expect(scene.focusables[scene.navigator.index].text).toBe('Back');
+      press('Enter');
+      expect(scene.committedPanel).toBe('home');
+      expect(h.textContents()).toContain('Play Contract');
+      h.lifecycle.emit('shutdown');
+    } finally { vi.unstubAllGlobals(); }
+  });
+
   it('switches the home hint exactly per input mode (F9)', () => {
     const harness = createHarness();
     const hint = () =>
