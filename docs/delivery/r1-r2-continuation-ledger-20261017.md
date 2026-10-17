@@ -47,6 +47,7 @@ This is still an automated bounded checkpoint. Production FX approval/resource c
 
 - R2 `447525e`: lint and production build passed on Node `22.23.3`; full suite reached `4,138` passing tests and `2` failures, both art-importer checks blocked by the cloud environment's unpinned Pillow version instead of the repository-required `12.1.1`.
 - R1 `c6b4939`: lint and production build passed on Node `22.23.3`; full suite reached `4,122` passing tests and the same `2` Pillow-gated art failures.
+- R2 visual build at `45567a0`: `browser-tests/ability-comprehension.pw.ts` passed `222/222` serially across the six configured projects on system Chromium `154.0.8037.57`/SwiftShader. This is emulated browser evidence, not physical Android/iOS acceptance.
 
 ## Holds and next work
 
