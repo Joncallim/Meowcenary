@@ -114,6 +114,14 @@ describe('art-led Equipment layout', () => {
     const expectedExtent = width < 600 ? 72 : width >= 1040 ? 96 : 88;
     expect(firstArt![4]).toBe(expectedExtent);
     expect(firstArt![5]).toBe(expectedExtent);
+    if (width >= 1040) {
+      const slotOwner = view.buttons.indexOf(slots[0]!);
+      const slotArt = view.art.mock.calls.find(call => call[3] === 'equipment-icon:scavenger-helmet' && call[6] === slotOwner);
+      expect(slotArt).toBeDefined();
+      expect(slotArt![4]).toBeGreaterThanOrEqual(128);
+      expect(slotArt![4]).toBeLessThanOrEqual(176);
+      expect(slotArt![5]).toBe(slotArt![4]);
+    }
     if (width <= 375 || height <= 480) {
       const slotOwner = view.buttons.indexOf(slots[0]!);
       const slotArt = view.art.mock.calls.find(call => call[3] === 'equipment-icon:scavenger-helmet' && call[6] === slotOwner);
@@ -127,11 +135,17 @@ describe('art-led Equipment layout', () => {
       expect(slots[0]!.textLeft - artRight).toBeGreaterThanOrEqual(8);
     }
     if (width <= 375) expect(slots.every(slot => slot.height >= 64)).toBe(true);
-    // Browse Sets is deliberately outside the collection mask, so the
-    // surface closes and reopens the single scroll region around that fixed
-    // control.
-    expect(view.begin).toHaveBeenCalledTimes(2);
-    expect(view.end).toHaveBeenCalledTimes(2);
+    // Desktop keeps the section label, Browse Sets, and candidates in one
+    // scroll-owned lane. Narrow layouts retain their fixed header and body
+    // split, so only those paths open two regions.
+    const expectedRegions = width >= 1040 ? 1 : 2;
+    expect(view.begin).toHaveBeenCalledTimes(expectedRegions);
+    expect(view.end).toHaveBeenCalledTimes(expectedRegions);
+    if (width >= 1040) {
+      const region = view.begin.mock.calls[0]![0] as { width: number; height: number };
+      expect(region.width).toBeGreaterThan(0);
+      expect(region.height).toBeGreaterThan(0);
+    }
   });
 
   it.each([[375, 640], [844, 390]])('keeps the first candidate below fixed Browse Sets at the compact boundaries %i×%i', (width, height) => {
@@ -191,9 +205,15 @@ describe('art-led Equipment layout', () => {
     const calls = view.art.mock.calls;
     expect(calls.some(call => call[3] === 'equipment-icon:scavenger-helmet' && call[4] === detailExtent && call[5] === detailExtent)).toBe(true);
     const pairs = calls.filter(call => Array.isArray(call[7]));
-    expect(pairs).toHaveLength(2);
-    expect(pairs[0]![7]).toEqual(pairs[1]![7]);
-    expect(pairs[0]![3]).not.toBe(pairs[1]![3]);
+    if (width >= 1040) {
+      // The wide inspector uses the selected card's artwork once; duplicate
+      // tier-pair thumbnails previously covered its Effect-after-equip copy.
+      expect(pairs).toHaveLength(0);
+    } else {
+      expect(pairs).toHaveLength(2);
+      expect(pairs[0]![7]).toEqual(pairs[1]![7]);
+      expect(pairs[0]![3]).not.toBe(pairs[1]![3]);
+    }
     expect(view.buttons.some(button => button.text === (width >= 1040 ? 'Unequip current item' : 'Unequip Scavenger Helmet'))).toBe(true);
     if (width >= 1040) expect(view.buttons.some(button => button.text.startsWith('Upgrade'))).toBe(true);
     expect(view.context.saveData.equipment.helmet!.tier).toBe(1);

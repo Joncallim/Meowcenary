@@ -23,6 +23,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   private browseReturnScrollOffset = 0;
   private browseReturnBookmark?: MenuScrollBookmark;
   private browseScope?: string;
+  private revealSetBrowserOnNextDraw = false;
+  private setBrowserRevealOffset = 0;
   private renderedBlueprintId?: string;
   private renderedSlot?: string;
   private renderedWideInspector = false;
@@ -311,10 +313,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const browse = this.button(root, left, y, this.equipmentSetBrowserOpen ? 'CLOSE SETS' : 'BROWSE SETS', hitTarget, () => {
       this.equipmentSetBrowserOpen = !this.equipmentSetBrowserOpen;
       this.environment.controls.focusNext('equipment:browse-sets');
+      if (this.equipmentSetBrowserOpen) this.revealSetBrowserOnNextDraw = true;
       this.environment.onSnapshot(this.commands.snapshot());
-      // The newly opened reading precedes the first candidate. A retained
-      // candidate bookmark would skip all of it when expansion completes.
-      if (this.equipmentSetBrowserOpen) this.environment.controls.restoreScrollOffset(0);
+      if (this.equipmentSetBrowserOpen) this.environment.controls.restoreScrollOffset(this.setBrowserRevealOffset);
     }, 'ui:confirm', contentWidth, undefined, 0, 0, false, 'left', 'section');
     // Browse Sets is a semantic section control, but it is also the primary
     // entry point for the named chooser. Keep its label at the readable body
@@ -353,7 +354,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         set.emblemArtId, compactCollection ? 32 : 36);
       const label = this.loadoutCopy(root, tileX + 44, tileY + (compactCollection ? 6 : 2),
         `${set.name}\n${set.equippedCount}/4 EQUIPPED`, setWidth - 52, '#f7f1d5');
-      label.setStyle({ fontSize: '12px', fontStyle: '700', lineSpacing: 1 });
+      label.setStyle({ fontSize: this.layout.width >= 600 ? '14px' : '12px', fontStyle: '700', lineSpacing: 1 });
     });
     y += setRows * setRowHeight;
     const browsePrefixObjects = new Set([...root.list]);
@@ -378,6 +379,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         : this.layout.scrollBottom;
       this.environment.controls.resizeScrollableRegion(this.collectionRectangle(left, this.collectionTop,
         collectionWidth, collectionBottom));
+    const setReadingTop = y;
     if (this.equipmentSetBrowserOpen) {
       for (const set of equipment.presentation.sets) {
         const copy = this.loadoutCopy(root, left + 46, y, this.setProgressCopy(set), collectionWidth - 46);
@@ -466,6 +468,14 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         left + listWidth + 16, contentWidth - listWidth - 16);
     } else {
       this.drawBrowseSummary(root, root, browseSummary!, scrap);
+    }
+    if (this.revealSetBrowserOnNextDraw) {
+      // Opening the chooser should reveal its first useful reading, rather
+      // than leave the player at the large slot header with only the toggle
+      // label changed. The full body has been registered by this point, so
+      // the shared region clamps this offset against the actual content end.
+      this.revealSetBrowserOnNextDraw = false;
+      this.setBrowserRevealOffset = Math.max(0, setReadingTop - this.collectionTop - 8);
     }
     // Candidate cards, collection copy, and fixed browse controls form one
     // replaceable body. Browse/detail transitions rebuild the surface mount;
@@ -740,17 +750,13 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       ? upgrade.upgradePreview.after.slots.find((slot) => slot.slot === selected.slot)
         ?.candidates.find((item) => item.instanceId === selected.instanceId)
       : undefined;
-    const upgradeBenefit = upgradeAfter
-      ? `UPGRADE BENEFIT: ${selectedEffects} → ${this.loadoutEffectCopy(upgradeAfter.effects) || 'None'}`
-      : undefined;
     const summaryText = selected
       ? [
         ...this.equipmentDecisionCopy(selected, selectedSlot, comparison),
         ...(comparison?.displaced && selected.state !== 'EQUIPPED'
           ? [`REMOVES: ${this.loadoutEffectCopy(comparison.displaced.effects) || 'None'}`] : []),
-        ...(upgradeBenefit ? [upgradeBenefit] : []),
         upgradeAfter
-          ? `UPGRADE T${selected.tier} → T${upgradeAfter.tier} • ITEM NOW: ${selectedEffects} • ITEM AFTER UPGRADE: ${this.loadoutEffectCopy(upgradeAfter.effects) || 'None'}`
+          ? `UPGRADE: T${selected.tier} → T${upgradeAfter.tier} • ${selectedEffects} → ${this.loadoutEffectCopy(upgradeAfter.effects) || 'None'}${upgrade?.upgradePreview?.cost === undefined ? '' : ` • ${upgrade.upgradePreview.cost} Scrap`}`
           : 'UPGRADE: No preview',
       ].join('\n')
       : [

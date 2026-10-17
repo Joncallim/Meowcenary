@@ -112,7 +112,10 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
 
   protected equipmentMediaExtent(): number {
     if (this.layout.height <= 480) return 128;
-    return this.layout.width < 375 ? 128 : this.layout.width < 600 ? 144 : 264;
+    // Equipment is a decision surface, not an art gallery: on desktop the
+    // four equipped cards must leave room for set counts and the chooser in
+    // the first viewport while retaining a clearly readable item silhouette.
+    return this.layout.width < 375 ? 128 : this.layout.width < 600 ? 144 : 176;
   }
 
   protected equipmentInspectionExtent(contentWidth: number): number {

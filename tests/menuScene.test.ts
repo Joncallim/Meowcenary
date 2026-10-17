@@ -976,7 +976,7 @@ describe('MenuScene', () => {
     expect(harness.textContents().join('\n')).toContain('REPLACES: Commando Helmet');
   });
 
-  it('shows exact Equipment effects, Set threshold deltas, and upgrade before/after in the immediate wide inspector', () => {
+  it('shows exact Equipment effects, Set threshold deltas, and one concise upgrade consequence in the immediate wide inspector', () => {
     const harness = createHarness({ create: false });
     harness.context.updateEquipment(() => ({ equipment: {
       commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
@@ -991,10 +991,11 @@ describe('MenuScene', () => {
     const copy = harness.textContents().join('\n');
     expect(copy).toContain('EFFECT AFTER EQUIP');
     expect(copy).toContain('LOSE 2-piece');
-    expect(copy).toContain('UPGRADE T1 → T2');
-    expect(copy).toContain('ITEM NOW');
-    expect(copy).toContain('ITEM AFTER UPGRADE');
-    expect(copy).toContain('UPGRADE BENEFIT');
+    expect(copy).toContain('UPGRADE: T1 → T2');
+    expect(copy).toContain('→');
+    expect(copy).not.toContain('ITEM NOW');
+    expect(copy).not.toContain('ITEM AFTER UPGRADE');
+    expect(copy).not.toContain('UPGRADE BENEFIT');
   });
 
   it('keeps the desktop Equipment collection chrome in one scroll lane without inspector art overlap', () => {
@@ -1009,7 +1010,7 @@ describe('MenuScene', () => {
     const scene = harness.menuScene as unknown as {
       focusables: FakeObject[]; scrollObjects: Array<{ object: FakeObject }>;
       scrollRegion: { scrollOffset: number; setScrollOffset(offset: number): void };
-      scrollViewportTop: number; applyScrollViewport(): void;
+      scrollViewportTop: number; scrollViewportBottom: number; applyScrollViewport(): void;
     };
     const addLoadoutArt = vi.fn();
     (harness.menuScene as unknown as { addLoadoutArt: typeof addLoadoutArt }).addLoadoutArt = addLoadoutArt;
@@ -1024,7 +1025,9 @@ describe('MenuScene', () => {
     browse.state.handlers.pointerup!();
     const setReading = harness.objects.find((object) => !object.state.destroyed && object.state.text.includes('2-piece INACTIVE'))!;
     expect(scene.scrollObjects.some(({ object }) => object === setReading)).toBe(true);
-    expect(setReading.state.y).toBeGreaterThan(browse.state.y);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(0);
+    expect(setReading.state.y).toBeGreaterThanOrEqual(scene.scrollViewportTop);
+    expect(setReading.state.y).toBeLessThan(scene.scrollViewportBottom);
     harness.buttonByLabel('CLOSE SETS')!.state.handlers.pointerup!();
 
     harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
@@ -1206,15 +1209,16 @@ describe('MenuScene', () => {
     expect(maskBounds).toHaveBeenLastCalledWith(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
   });
 
-  it('keeps newly expanded Set reading below the authored slot header', () => {
+  it('reveals newly expanded Set reading inside the scroll viewport', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     harness.buttonByLabel('BROWSE SETS')!.state.handlers.pointerup!();
-    const scene = harness.menuScene as unknown as { scrollRegion: { scrollOffset: number }; scrollViewportTop: number };
+    const scene = harness.menuScene as unknown as { scrollRegion: { scrollOffset: number }; scrollViewportTop: number; scrollViewportBottom: number };
     const reading = harness.objects.find(object => !object.state.destroyed && object.state.text.includes('2-piece INACTIVE'))!;
-    expect(scene.scrollRegion.scrollOffset).toBe(0);
-    expect(reading.state.y).toBeGreaterThan(scene.scrollViewportTop);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(0);
+    expect(reading.state.y).toBeGreaterThanOrEqual(scene.scrollViewportTop);
+    expect(reading.state.y).toBeLessThan(scene.scrollViewportBottom);
   });
 
   it('routes logical Back through local Equipment detail before leaving for Loadout', () => {
