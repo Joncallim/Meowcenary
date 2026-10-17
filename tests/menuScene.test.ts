@@ -868,8 +868,8 @@ describe('MenuScene', () => {
       .toBe('equipment-candidate:recon');
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('REPLACES: Commando Helmet');
-    expect(harness.textContents().join('\n')).toContain('DECISION PREVIEW');
-    expect(harness.textContents().join('\n')).toContain('LOSE 2-piece');
+    expect(harness.textContents().join('\n')).toContain('Decision preview');
+    expect(harness.textContents().join('\n')).toContain('Set loss → 2-piece');
     expect(harness.textContents().join('\n')).toContain('REMOVES: +5% Fire Rate [All Weapons]');
     expect(harness.textContents().join('\n')).toContain('LOSE 2-piece');
     expect(harness.textContents().join('\n')).toContain('[All Weapons]');

@@ -619,7 +619,10 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   private detailDecisionPreviewHeight(snapshot: MainMenuSnapshot): number {
     if (this.layout.width >= 600) return 0;
     const selectedSlot = snapshot.equipment.presentation.slots.find(slot => slot.slot === snapshot.equipment.selectedSlot);
-    return selectedSlot?.candidates.some(item => item.instanceId === snapshot.equipment.selectedInstanceId) ? 72 : 0;
+    // Four concise lines at the readable 14px minimum can wrap once on a
+    // 360px viewport. Reserve the measured band plus a little breathing room
+    // so the preview never collides with the first sticky action.
+    return selectedSlot?.candidates.some(item => item.instanceId === snapshot.equipment.selectedInstanceId) ? 112 : 0;
   }
 
   private detailDecisionPreviewCopy(
@@ -631,15 +634,19 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   ): string {
     const setChanges = this.equipmentSetChangeCopy(comparison);
     const consequence = selected.state === 'EQUIPPED'
-      ? `UNEQUIP → Empty ${selectedSlot.label}`
-      : `EQUIP → ${comparison?.displaced ? `Replaces ${comparison.displaced.name}` : `Fills ${selectedSlot.label} slot`}`;
+      ? `Unequip → Empty ${selectedSlot.label}`
+      : `Equip → ${comparison?.displaced ? `Replaces ${comparison.displaced.name}` : `Fills ${selectedSlot.label} slot`}`;
     const setLoss = setChanges.find(line => line.startsWith('LOSE '))
       ?? setChanges.find(line => line.startsWith('GAIN '))
-      ?? 'SET BONUS: No threshold change';
+      ?? 'Set change → No threshold change';
+    const setCopy = setLoss.startsWith('LOSE ')
+      ? `Set loss → ${setLoss.slice('LOSE '.length)}`
+      : setLoss.startsWith('GAIN ')
+        ? `Set gain → ${setLoss.slice('GAIN '.length)}` : setLoss;
     const upgrade = upgradeAfter
-      ? `UPGRADE → ${this.loadoutEffectCopy(selected.effects)} → ${this.loadoutEffectCopy(upgradeAfter.effects)}${upgradeCost === undefined ? '' : ` • ${upgradeCost} Scrap`}`
-      : 'UPGRADE: No preview';
-    return `DECISION PREVIEW\n${consequence}\n${setLoss}\n${upgrade}`;
+      ? `Upgrade → ${this.loadoutEffectCopy(selected.effects)} → ${this.loadoutEffectCopy(upgradeAfter.effects)}${upgradeCost === undefined ? '' : ` • ${upgradeCost} Scrap`}`
+      : 'Upgrade → No preview';
+    return `Decision preview\n${consequence}\n${setCopy}\n${upgrade}`;
   }
 
   private fabricationActionLabel(
@@ -945,7 +952,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         this.detailDecisionPreviewCopy(selected, selectedSlot,
           selected.state === 'EQUIPPED' ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot }) : equipment.comparison,
           previewAfter, selectedUpgrade?.cost), contentWidth, '#fbbf24', false);
-      preview.setStyle({ fontSize: '11px', lineSpacing: 1 });
+      preview.setStyle({ fontSize: '14px', lineSpacing: 2 });
     }
     for (const detailAction of fixedDetailActions) {
       const action = this.button(fixedRoot, left, fixedActionY, detailAction.label, hitTarget, detailAction.action,
