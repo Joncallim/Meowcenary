@@ -312,6 +312,36 @@ describe('GameScene character ability runtime bridge', () => {
     },
   );
 
+  it('clears a composed sustained shield presentation when terminal UI takes ownership', () => {
+    const h = preparedScene();
+    h.scene.create(h.payload);
+    h.scene.trySettleTerminal = vi.fn();
+    h.scene.introStartCommitted = true;
+    h.scene.runState.status = 'active';
+    h.scene.abilityDefinition = abilities.get('ability:shield-flicker');
+    h.scene.abilityState = createAbilityState();
+
+    h.scene.activateCharacterAbility();
+    expect(h.scene.activeAbilityActivationId).toBe(1);
+    expect(h.presentation.graphics.lineBetween).toHaveBeenCalled();
+
+    h.presentation.graphics.lineBetween.mockClear();
+    h.presentation.graphics.strokeCircle.mockClear();
+    h.bus.emit('run:won', { timeMs: 1_200, level: 2, kills: 3 });
+    expect(h.scene.activeAbilityActivationId).toBeUndefined();
+
+    h.bus.emit('ability:resolved', {
+      abilityId: 'ability:shield-flicker', activationId: 1, name: 'Late Shield', origin: { x: 0, y: 0 },
+      resolution: { kind: 'invulnerable', durationMs: 1_200 },
+    });
+    h.bus.emit('ability:ended', { abilityId: 'ability:shield-flicker', activationId: 1 });
+    h.scene.abilityPresentationSystem.update(0, false);
+    expect(h.presentation.graphics.lineBetween).not.toHaveBeenCalled();
+    expect(h.presentation.graphics.strokeCircle).not.toHaveBeenCalled();
+    expect(h.presentation.banner.setVisible).toHaveBeenLastCalledWith(false);
+    h.scene.events.emit('shutdown');
+  });
+
   it('ends and clears an active presentation when terminal UI takes ownership', () => {
     mockBus.emit.mockClear();
     const scene = new GameScene() as any;
