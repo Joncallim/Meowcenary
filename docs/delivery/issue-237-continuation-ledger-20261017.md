@@ -37,10 +37,10 @@ the repository-pinned setup (`Pillow 12.1.1`, `CairoSVG 2.9.1`, Node
 `22.23.3`, and system Chromium), the full local suite passed `235` files and
 `4,078/4,078` tests, including the audio files above. The earlier two art
 failures were reproduced on the unchanged baseline with the container's
-default Pillow `12.3.0` and disappear under the pinned Pillow; the broader
-gun-art gate remains separately unable to invoke its required `lua` executable
-in this cloud image. No audio/runtime source was changed to accommodate either
-setup issue.
+default Pillow `12.3.0` and disappear under the pinned Pillow. The complete
+repository art chain was subsequently run successfully on the same pinned
+setup using the official Debian `lua5.4_5.4.7-1+b2` package extracted under
+`/tmp`; no audio/runtime source was changed to accommodate either setup issue.
 
 ## Open acceptance gates
 
