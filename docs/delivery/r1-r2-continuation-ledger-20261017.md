@@ -4,10 +4,10 @@ This is a dated engineering-progress record, not a product-acceptance or issue-c
 
 ## Reconciled heads
 
-| Scope | Branch | HEAD | State |
+| Scope | Branch | Validated source head | State |
 | --- | --- | --- | --- |
 | R1 Loadout/Equipment/Gunsmith | `r1-equipment-gunsmith-review` | `c6b4939e989cf1f5613cbc9fd72b8e704699f667` | pushed; preserved browser diagnostics and test artifacts remain untracked |
-| R2 Ability lifecycle | `r2-issue-241-ability-lifecycle` | `1dd46ae72b0d0f3b7e652cb970d5c1d8a51726fb` | pushed; `test-results/` remains pre-existing/untracked |
+| R2 Ability lifecycle | `r2-issue-241-ability-lifecycle` | `1dd46ae72b0d0f3b7e652cb970d5c1d8a51726fb` | pushed; later ledger-only commits may advance the branch tip; `test-results/` remains pre-existing/untracked |
 | hosted PR #261 branch | remote `r1-equipment-gunsmith-review` | `c6b4939e989cf1f5613cbc9fd72b8e704699f667` | pushed; no merge performed; hosted Actions status unavailable from this session |
 
 The R1 branch contains the saved layout work plus the gamepad/keyboard tuple-allocation fix (`c6b4939`), browser page-ownership verification (`7a574a9`), and Gunsmith prefix anchor fix (`2764475`). The R2 branch contains the saved handed-controls and terminal-presentation work through `6b9c7c9`, plus the composed sustained-terminal regression test in `ef2d2ed`. No Blender work was touched.
