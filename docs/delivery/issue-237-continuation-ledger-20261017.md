@@ -32,6 +32,11 @@ Both exporter checks passed. The focused suite passed `254/254` tests across
 eight files on this branch. The candidate measurements remain offline source
 evidence; they are not browser decode, backend, listening, or device evidence.
 
+The exact branch lint and production build also passed on Node `22.23.3`. The
+full local suite reached `4,076` passing tests and `2` failures; both failures
+are the unrelated Gunsmith/weapon art checks blocked by this cloud session's
+Pillow version, which is not the repository-required `12.1.1`.
+
 ## Open acceptance gates
 
 - Owner listening approval remains open for repeated loops, menu/run contrast,
