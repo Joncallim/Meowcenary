@@ -21,6 +21,11 @@ The R1 branch contains the saved layout work plus the gamepad/keyboard tuple-all
 
 ## R1 browser evidence
 
+The evidence in this section is R1 Loadout/Equipment/Gunsmith responsive,
+touch, controller and screenshot coverage only. The separate
+`ability-comprehension.pw.ts` run is R2 ability evidence and is recorded only
+under the R2 section below.
+
 System Chromium `154.0.8037.57`, SwiftShader WebGL, real Phaser canvas, antialias/stencil enabled, serial worker:
 
 - `responsive.pw.ts` compact phone-landscape quarantine: `6/6` passed; all six projects reported the expected `390x844` drawing buffer after portrait restoration.
@@ -45,8 +50,22 @@ This is still an automated bounded checkpoint. Production FX approval/resource c
 
 ## Exact-head validation
 
-- R2 `1dd46ae`: lint and production build passed on Node `22.23.3`; full suite reached `4,138` passing tests and `2` failures, both art-importer checks blocked by the cloud environment's unpinned Pillow version instead of the repository-required `12.1.1`.
-- R1 `c6b4939`: lint and production build passed on Node `22.23.3`; full suite reached `4,122` passing tests and the same `2` Pillow-gated art failures.
+- Repository-pinned setup was reproduced in `/tmp/meowcenary-pillow1211-venv`:
+  Pillow `12.1.1`, CairoSVG `2.9.1`, Node `22.23.3`, and the existing system
+  Chromium. On that setup, R2 source-equivalent head `8dee1fd` passed the full
+  ordinary suite: `235` files, `4,140/4,140` tests. R1 `c6b4939` passed its
+  full ordinary suite: `235` files, `4,124/4,124` tests; the allocation and
+  runner stages also passed on the repeat invocation. The first R1 full
+  invocation exposed one runner-level pointer-anchored Scavenge event; direct
+  zero-allocation probes passed `3/3`, and the complete rerun passed, so the
+  runtime-dependent Node 24 discrepancy remains unresolved rather than
+  relabeled as a source fix.
+- On the unchanged baseline `6e4cdf8`, both weapon and Gunsmith art checks fail
+  under the container's default Pillow `12.3.0` and pass under the pinned
+  Pillow `12.1.1`; the relevant art inputs are unchanged from that baseline.
+  The broader `art:gun-build:check` still cannot complete in this cloud image
+  because the required `lua` executable is absent. This is a setup blocker,
+  separate from the corrected Pillow mismatch; no test was weakened.
 - R2 visual build at `1dd46ae`: `browser-tests/ability-comprehension.pw.ts` passed `222/222` serially across the six configured projects on system Chromium `154.0.8037.57`/SwiftShader. This is emulated browser evidence, not physical Android/iOS acceptance.
 
 ## Holds and next work
