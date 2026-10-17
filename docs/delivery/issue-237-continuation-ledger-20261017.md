@@ -32,10 +32,15 @@ Both exporter checks passed. The focused suite passed `254/254` tests across
 eight files on this branch. The candidate measurements remain offline source
 evidence; they are not browser decode, backend, listening, or device evidence.
 
-The exact branch lint and production build also passed on Node `22.23.3`. The
-full local suite reached `4,076` passing tests and `2` failures; both failures
-are the unrelated Gunsmith/weapon art checks blocked by this cloud session's
-Pillow version, which is not the repository-required `12.1.1`.
+The exact branch lint and production build also passed on Node `22.23.3`. With
+the repository-pinned setup (`Pillow 12.1.1`, `CairoSVG 2.9.1`, Node
+`22.23.3`, and system Chromium), the full local suite passed `235` files and
+`4,078/4,078` tests, including the audio files above. The earlier two art
+failures were reproduced on the unchanged baseline with the container's
+default Pillow `12.3.0` and disappear under the pinned Pillow; the broader
+gun-art gate remains separately unable to invoke its required `lua` executable
+in this cloud image. No audio/runtime source was changed to accommodate either
+setup issue.
 
 ## Open acceptance gates
 
