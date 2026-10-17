@@ -23,7 +23,7 @@ const abilities = new Map((abilitiesJson as AbilityDefinition[]).map((ability) =
 // terminal regression below needs the actual graphics/banner state.
 const composition = vi.hoisted(() => {
   const state = { owned: [] as any[] };
-  const owner = (name: string) => class {
+  const owner = (_name: string) => class {
     options: any;
     x = 100; y = 100; health = 100; maxHealth = 100; bodyRadius = 12;
     sprite = {}; activeProjectileCount = 0; allocatedProjectileCount = 0;
