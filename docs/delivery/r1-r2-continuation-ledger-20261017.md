@@ -6,9 +6,9 @@ This is a dated engineering-progress record, not a product-acceptance or issue-c
 
 | Scope | Branch | HEAD | State |
 | --- | --- | --- | --- |
-| R1 Loadout/Equipment/Gunsmith | `r1-equipment-gunsmith-review` | `c6b4939e989cf1f5613cbc9fd72b8e704699f667` | source clean; preserved browser diagnostics and test artifacts remain untracked |
-| R2 Ability lifecycle | `r2-issue-241-ability-lifecycle` | `447525ec8832ab96f4eb1404c5c3c674fccd87ff` | source clean; `test-results/` remains pre-existing/untracked |
-| hosted PR #261 | remote PR head | `3b854bac7437ad9aef60394d03c1caa597e5c7c8` | older than the local R1 fixes; no push or merge performed |
+| R1 Loadout/Equipment/Gunsmith | `r1-equipment-gunsmith-review` | `c6b4939e989cf1f5613cbc9fd72b8e704699f667` | pushed; preserved browser diagnostics and test artifacts remain untracked |
+| R2 Ability lifecycle | `r2-issue-241-ability-lifecycle` | `1dd46ae72b0d0f3b7e652cb970d5c1d8a51726fb` | pushed; `test-results/` remains pre-existing/untracked |
+| hosted PR #261 branch | remote `r1-equipment-gunsmith-review` | `c6b4939e989cf1f5613cbc9fd72b8e704699f667` | pushed; no merge performed; hosted Actions status unavailable from this session |
 
 The R1 branch contains the saved layout work plus the gamepad/keyboard tuple-allocation fix (`c6b4939`), browser page-ownership verification (`7a574a9`), and Gunsmith prefix anchor fix (`2764475`). The R2 branch contains the saved handed-controls and terminal-presentation work through `6b9c7c9`, plus the composed sustained-terminal regression test in `ef2d2ed`. No Blender work was touched.
 
@@ -45,9 +45,9 @@ This is still an automated bounded checkpoint. Production FX approval/resource c
 
 ## Exact-head validation
 
-- R2 `447525e`: lint and production build passed on Node `22.23.3`; full suite reached `4,138` passing tests and `2` failures, both art-importer checks blocked by the cloud environment's unpinned Pillow version instead of the repository-required `12.1.1`.
+- R2 `1dd46ae`: lint and production build passed on Node `22.23.3`; full suite reached `4,138` passing tests and `2` failures, both art-importer checks blocked by the cloud environment's unpinned Pillow version instead of the repository-required `12.1.1`.
 - R1 `c6b4939`: lint and production build passed on Node `22.23.3`; full suite reached `4,122` passing tests and the same `2` Pillow-gated art failures.
-- R2 visual build at `45567a0`: `browser-tests/ability-comprehension.pw.ts` passed `222/222` serially across the six configured projects on system Chromium `154.0.8037.57`/SwiftShader. This is emulated browser evidence, not physical Android/iOS acceptance.
+- R2 visual build at `1dd46ae`: `browser-tests/ability-comprehension.pw.ts` passed `222/222` serially across the six configured projects on system Chromium `154.0.8037.57`/SwiftShader. This is emulated browser evidence, not physical Android/iOS acceptance.
 
 ## Holds and next work
 
