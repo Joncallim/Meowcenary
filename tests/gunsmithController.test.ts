@@ -265,17 +265,44 @@ describe('GunsmithController durable commands', () => {
     }));
     controller.selectSlot('barrel');
     const before = context.saveData;
-    const comparison = controller.snapshot().parts.find((part) => part.instanceId === 'long')!.comparisonSummary;
+    const longPart = controller.snapshot().parts.find((part) => part.instanceId === 'long')!;
+    const comparison = longPart.comparisonSummary;
     expect(comparison).toContain('Range 220 to 305');
+    expect(longPart.comparison?.effects.modifiers.some((delta) => delta.label === 'Range' && delta.target.label === 'Pistol')).toBe(true);
     expect(comparison).not.toContain('→');
     expect(controller.previewPart('long')).toMatchObject({ ok: true, persisted: false });
     const facts = controller.snapshot().candidateComparison!;
     expect(facts.lines).toContain('Pistol Range 220 to 305');
     expect(facts.lines).toContain('Pistol traits None to FIRE');
+    expect(facts.effects?.traits).toMatchObject([{ familyId: 'pistol', trait: 'FIRE', before: false, after: true }]);
+    expect(facts.effects?.modifiers.some((delta) => delta.target.label === 'Pistol' && delta.label === 'Damage')).toBe(true);
+    expect(facts.effects?.projectileEffects).toHaveLength(1);
     expect(facts.lines.join(' ')).not.toContain('→');
     expect(facts.before.families.find((family) => family.familyId === 'pistol')!.traits).toHaveLength(0);
     expect(facts.after.families.find((family) => family.familyId === 'pistol')!.traits.map((trait) => trait.trait)).toEqual(['FIRE']);
     expect(context.saveData).toBe(before);
+  });
+
+  it('keeps an Equipment Set FIRE source in Gunsmith row comparisons when the build FIRE part is removed', () => {
+    const { context, controller } = setup();
+    context.updateEquipment(() => ({ equipment: {
+      helmet: { equipmentId: 'equipment:pyro-helmet', tier: 1 },
+      armour: { equipmentId: 'equipment:pyro-armour', tier: 1 },
+    }, loadout: { helmet: 'helmet', armour: 'armour' } }));
+    context.updateGunsmith((state) => ({ ...state,
+      parts: { fire: { partId: 'part:trait-fire', tier: 1, infusedTraits: [] } },
+      builds: [{ id: 'build:pistol', name: 'Fire Pistol', baseWeaponFamily: 'pistol', fitted: {}, traitParts: ['fire'] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    controller.selectTraitSocket('fire');
+
+    const row = controller.snapshot().parts.find((part) => part.instanceId === 'fire')!;
+    const fire = row.comparison?.effects.traits.find((trait) => trait.familyId === 'pistol' && trait.trait === 'FIRE');
+    expect(fire).toMatchObject({ before: true, after: true });
+    expect(row.comparison?.before.families.find((family) => family.familyId === 'pistol')?.traits.map((trait) => trait.trait)).toEqual(['FIRE']);
+    expect(row.comparison?.after.families.find((family) => family.familyId === 'pistol')?.traits.map((trait) => trait.trait)).toEqual(['FIRE']);
+    expect(controller.snapshot().catalog.find((part) => part.partId === 'part:trait-fire')?.comparison?.effects.traits)
+      .toEqual(expect.arrayContaining([expect.objectContaining({ familyId: 'pistol', trait: 'FIRE', before: true, after: true })]));
   });
 
   it('fabricates one paid physical instance with a monotonic serial and publishes nothing on save failure', () => {
@@ -619,6 +646,29 @@ describe('GunsmithController durable commands', () => {
       state: 'fitted', stateLabel: 'EQUIPPED • T5', ownedCount: 2,
       effectLines: ['+50 Range'], comparisonSummary: 'Move from Scattergun. Current build: Range 200 to 250',
     });
+  });
+
+  it('uses the fitted representative tier and preserves its infused traits in catalog comparisons', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: {
+        fitted: { partId: 'part:trait-fire', tier: 1, infusedTraits: ['PIERCING'] },
+        stored: { partId: 'part:trait-fire', tier: 3, infusedTraits: [] },
+      },
+      builds: [
+        { id: 'build:pistol', name: 'Main', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] },
+        { id: 'build:smg', name: 'Fitted Elsewhere', baseWeaponFamily: 'smg', fitted: {}, traitParts: ['fitted'] },
+      ],
+      selectedBuildId: 'build:pistol',
+    }));
+
+    const catalog = controller.snapshot().catalog.find((part) => part.partId === 'part:trait-fire')!;
+    expect(catalog.stateLabel).toBe('EQUIPPED • T1');
+    expect(catalog.comparison?.after.modifiers.find((modifier) => modifier.sourceId === 'fitted'))
+      .toMatchObject({ stat: 'damage', value: 1.02 });
+    const piercing = catalog.comparison?.after.families.find((family) => family.familyId === 'pistol')
+      ?.traits.find((trait) => trait.trait === 'PIERCING');
+    expect(piercing).toMatchObject({ deduplicated: false, sourceIds: ['build:pistol'] });
   });
 
   it('keeps repeatable fabrication actionable when a fabricable Part is already fitted', () => {

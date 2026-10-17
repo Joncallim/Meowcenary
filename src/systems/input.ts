@@ -188,7 +188,11 @@ class KeyboardAdapter implements InputAdapter {
     // Real scenes read physical manager state; isolated adapters without a
     // manager retain the scene-key polling compatibility path.
     for (let i = 0; i < ACTION_KEY_ENTRIES.length; i += 1) {
-      const [action, names] = ACTION_KEY_ENTRIES[i];
+      // Index the precomputed tuple directly: array destructuring creates an
+      // iterator result in the supported V8 runtime, which violates the
+      // steady-state zero-allocation poll contract.
+      const action = ACTION_KEY_ENTRIES[i][0];
+      const names = ACTION_KEY_ENTRIES[i][1];
       let held = false;
       for (let j = 0; j < names.length; j += 1) {
         if (this.pressed(this.keys[names[j]])) {
@@ -519,7 +523,8 @@ class GamepadAdapter implements InputAdapter {
         }
 
         for (let e = 0; e < GAMEPAD_BUTTON_ENTRIES.length; e += 1) {
-          const [action, index] = GAMEPAD_BUTTON_ENTRIES[e];
+          const action = GAMEPAD_BUTTON_ENTRIES[e][0];
+          const index = GAMEPAD_BUTTON_ENTRIES[e][1];
           if (isButtonDown(pad, index)) {
             current[ACTION_INDEX.get(action as GameAction)!] = true;
           }

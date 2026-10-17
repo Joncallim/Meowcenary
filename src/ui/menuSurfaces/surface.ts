@@ -23,6 +23,13 @@ export interface MenuSurfaceLayout {
   readonly viewport: UiViewport;
   readonly scrollBottom: number;
 }
+export interface MenuScrollBookmark {
+  readonly anchorKey: string;
+  readonly intraRowOffset: number;
+  /** The old rendered order lets MenuScene repair a removed anchor by
+   * successor, then predecessor, before falling back to the new first row. */
+  readonly orderedKeys?: readonly string[];
+}
 
 /** Existing shared Menu focus/scroll/chrome primitives. A surface cannot
  * mutate the navigator, resource queue, run-launch state or durable context. */
@@ -41,10 +48,20 @@ export interface MenuSurfaceControls {
   addPanelArt(root: Phaser.GameObjects.Container, x: number, y: number, id: string, size: number,
     subdued?: boolean, animate?: boolean, ownerIndex?: number): void;
   beginScrollableRegion(rectangleOrTop: Readonly<MenuScrollRectangle> | number, bottom?: number): void;
+  resizeScrollableRegion(rectangle: Readonly<MenuScrollRectangle>): void;
   endScrollableRegion(): void;
+  /** Temporarily suppress an explicitly owned retained prefix during a
+   * same-mount detail mutation. The Scene keeps the shared mask alive but
+   * must not re-show these objects during its normal scroll pass. */
+  suppressScrollObjects?(objects: readonly Phaser.GameObjects.GameObject[]): void;
   registerScrollObject(object: Phaser.GameObjects.GameObject, ownerIndex?: number): void;
   buttonIndex(button: Phaser.GameObjects.Text): number;
   rememberFocus(button: Phaser.GameObjects.Text, key: string): Phaser.GameObjects.Text;
+  currentFocusKey(): string | undefined;
+  currentScrollOffset(): number;
+  currentScrollBookmark(): MenuScrollBookmark | undefined;
+  restoreScrollOffset(offset: number): void;
+  restoreScrollBookmark(bookmark: MenuScrollBookmark): void;
   focusNext(key: string, alignTop?: boolean): void;
   focusAfterRender(button: Phaser.GameObjects.Text): void;
   equipmentSlotColumns(columns: number): void;

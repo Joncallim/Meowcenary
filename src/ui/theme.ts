@@ -8,6 +8,7 @@ export const ThemeColor = {
   surfaceTranslucent: 0x081118,
   card: 0x17303b,
   cardHover: 0x214756,
+  disabled: 0x526273,
   primary: THEME_PRIMARY,
   primaryDim: 0x67e8f9,
   cream: 0xf7f1d5,

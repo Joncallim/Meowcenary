@@ -620,7 +620,10 @@ for (const holdPad of [false, true]) test(`CDP separate owner remains a physical
     expect(touchHeld.saved).toBe(beforeSave);
     expect(touchHeld.contacts.filter(event => event.type === 'touchcancel')).toEqual([]);
     await owner.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
-    expect((await contactEvents(page)).some(event => event.type === 'touchcancel' && event.trusted)).toBe(true);
+    // CDP resolves when the protocol dispatch is accepted; Chromium can append
+    // the trusted DOM cancellation on the following event turn while another
+    // physical owner is held. Keep observing until that real event is delivered.
+    await expect.poll(async () => (await contactEvents(page)).some(event => event.type === 'touchcancel' && event.trusted)).toBe(true);
     if (holdPad) {
       // The pad still owns a physical hold here, so these pre-release frozen
       // assertions cannot race with a correctly admitted command.

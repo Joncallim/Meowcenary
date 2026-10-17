@@ -1,0 +1,86 @@
+{
+  "run": "Astra R1 final revalidation",
+  "issueScope": ["#193", "#197"],
+  "validatedAtUtc": "2026-10-15T18:34:32Z",
+  "commit": "023766b1c2637af9019c860adfc03fa80c7c83ae",
+  "tree": "6a83ea63cf0874d789b89b2a44e9328ac261f5fa",
+  "worktreeAfterValidation": "clean",
+  "fix": {
+    "severity": "P2",
+    "finding": "Compact/local Equipment detail placed Equip and Upgrade inside the body scroll mask, although the interaction contract requires fixed eligible actions.",
+    "resolution": "Queue Equip/Upgrade while measuring the detail body, end the single scroll region, then mount the eligible actions in fixed chrome above the fixed Fabricate/footer action. Reserve that action stack before measuring the body viewport.",
+    "source": "src/ui/menuSurfaces/equipmentSurface.ts",
+    "regression": "tests/menuScene.test.ts",
+    "browserContract": "browser-tests/equipment-loadout.pw.ts"
+  },
+  "review": {
+    "independentAstra": "No substantiated P0-P2 findings besides the separately confirmed narrow-detail fixed-action gap; remaining observations are P3 coverage gaps.",
+    "p3Gaps": [
+      "No end-to-end Equip -> reload -> GameScene projectile/effect assertion.",
+      "Four-piece persistent/Gunsmith comparison coverage is not present as a dedicated test.",
+      "Equipment safe-area geometry has only a zero-inset harness; Home has nonzero-inset coverage.",
+      "Legacy equipment ID helper divergence exists outside the production path."
+    ]
+  },
+  "fullSuite": {
+    "log": "/tmp/astra-r1-final-revalidation-20261015/full-suite-exact-head.log",
+    "bytes": 20953,
+    "sha256": "b2e1bbf32f1c9debbda56e84d98d679ed86dd1e85505c747ab1a7372ac9d4910",
+    "command": "PATH=/tmp/meowcenary-pillow1211-venv/bin:/tmp/meowcenary-node22-bin:$PATH npm test -- --reporter=dot",
+    "headBeforeAndAfter": "023766b1c2637af9019c860adfc03fa80c7c83ae",
+    "treeBeforeAndAfter": "6a83ea63cf0874d789b89b2a44e9328ac261f5fa",
+    "toolchain": {
+      "node": "v22.23.3",
+      "npm": "11.9.0",
+      "python": "Python 3.12.14",
+      "pillow": "12.1.1",
+      "cairosvg": "2.9.1",
+      "chromium": "Chromium 154.0.8037.57 built on Debian GNU/Linux 13 (trixie)"
+    },
+    "result": {
+      "testFiles": 235,
+      "tests": 4124,
+      "failed": 0,
+      "allocationGate": "9/9 passed",
+      "runnerSubprocessGates": "passed",
+      "exitCode": 0
+    }
+  },
+  "browserMatrix": {
+    "preManifest": "/tmp/astra-r1-final-revalidation-20261015/browser-pre.json",
+    "preManifestSha256": "0f5ed70c3f7b6eae140c34e2e477fbde620b2d7e8e23ba93dc550a5028012fba",
+    "log": "/tmp/astra-r1-final-revalidation-20261015/browser-exact-head-final.log",
+    "logBytes": 74657,
+    "logSha256": "40e9b5f65877db4957f60e057f3fcd0ea271ff5f43e2f4e6478c808cb58b3a5b",
+    "resultsArchive": "/tmp/astra-r1-final-revalidation-20261015/browser-results-exact-head-final-20261015.tar.gz",
+    "resultsArchiveBytes": 13096169,
+    "resultsArchiveSha256": "ff77ca9a71d3ee40b86f584de0d7c695335ade93ddafa38819ff63f286371e36",
+    "scope": "90 tests across phone-360x640, phone-390x844, tablet-768x1024, foldable-1114x720, desktop-1280x720, desktop-1920x1080",
+    "result": { "passed": 85, "skipped": 5, "failed": 0, "exitCode": 0 },
+    "executionTree": "HEAD 7ff79d61b8d89ff29547617446281d3abed02477 with intentional modified source/test bytes",
+    "exactContentLinkage": "The pre/post hashes in the browser log match the committed 023766b source/test blobs; the clean exact-commit full-suite run follows and verifies the same bytes.",
+    "historicalNarrowActionDisposition": "The old 390x844 and desktop observations were current behavior, not stale artifacts; they exposed the fixed-action contract gap now resolved by 023766b."
+  },
+  "historicalArtifactReconciliation": {
+    "rawResultsLibraryFileId": "libfile_474d2b72c70c819183dfd9b8e033f456",
+    "rawResults": "4121 passed / 3 failed: one browserFrameTransport fixture mismatch and two Pillow checks; do not characterize all three as Pillow-only.",
+    "browserLibraryFileId": "libfile_dde0e54e9414819186c735193ca10222",
+    "browserResults": "85 passed / 5 skipped, but the old artifact lacked execution-time SHA/test-hash binding; this final record supplies the pre/post linkage."
+  },
+  "sourceExport": {
+    "status": "blocked",
+    "reason": "Rejected because exporting private repository source, assets, documentation, and test results to external blob-storage URLs lacked trusted authorization for that payload and destination.",
+    "boundary": "No retry, alternate channel, workaround, push, merge, deploy, golden replacement, or issue closure was attempted."
+  },
+  "nextRoadmap": {
+    "issue": "#241 / R2",
+    "plan": [
+      "Reconcile Save preference foundation and add accessible Settings Controls-side toggle with narrow/short semantics.",
+      "Capture handedness on next-run/Retry while preserving two-finger ownership and safe-area behavior.",
+      "Close selected-ability resource registration and generic tokened cosmetic lifecycle tied to authoritative activation/result/end without delaying mechanics.",
+      "Run layered unit, build, browser, performance, real-gameplay, and physical-device gates before any release decision."
+    ],
+    "notStarted": true
+  },
+  "boundaries": ["no merge", "no deploy", "no source export", "no golden replacement", "no issue closure"]
+}

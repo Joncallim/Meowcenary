@@ -2,10 +2,10 @@ import type Phaser from 'phaser';
 import { edgeMargin } from '../layout';
 import { loadoutFooterPadding } from './layout';
 import { createUiText } from '../text';
-import { ThemeFont } from '../theme';
+import { ThemeColor, ThemeFont } from '../theme';
 import type { MainMenuSnapshot } from '../menus';
-import { presentLoadoutModifier, type LoadoutEffectPresentation } from '../loadoutPresentation';
-import type { EquipmentComparison, EquipmentLoadoutPresentation, EquipmentSetProgressPresentation } from '../equipmentPresentation';
+import { presentLoadoutRunTruthComparison, type LoadoutEffectPresentation } from '../loadoutPresentation';
+import type { EquipmentComparison, EquipmentSetProgressPresentation } from '../equipmentPresentation';
 import { MenuPanelSurface, type MenuSurfaceEnvironment, type LoadoutSurfaceCommands } from './surface';
 
 /** Shared presentation language for Loadout and Equipment, consuming domain
@@ -28,12 +28,13 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     return y;
   }
 
-  protected loadoutCopy(root: Phaser.GameObjects.Container, x: number, y: number, text: string, width: number, color = '#d6f7ff'): Phaser.GameObjects.Text {
+  protected loadoutCopy(root: Phaser.GameObjects.Container, x: number, y: number, text: string, width: number,
+    color = '#d6f7ff', registerScroll = true): Phaser.GameObjects.Text {
     const copy = this.own(root, createUiText(this.environment.scene, x, y, text, {
       color, fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, lineSpacing: 4,
       wordWrap: { width },
     }));
-    this.environment.controls.registerScrollObject(copy);
+    if (registerScroll) this.environment.controls.registerScrollObject(copy);
     return copy;
   }
 
@@ -85,18 +86,23 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
 
   protected loadoutFooterPadding(): number { return loadoutFooterPadding(this.layout.height); }
 
-  protected loadoutFooter(root: Phaser.GameObjects.Container, left: number, width: number, hitTarget: number, label: string, action: () => void): Phaser.GameObjects.Text {
+  protected loadoutFooter(root: Phaser.GameObjects.Container, left: number, width: number, hitTarget: number,
+    label: string, action: () => void, disabled = false): Phaser.GameObjects.Text {
     const y = this.layout.height - edgeMargin(this.layout.viewport, 'bottom', 16) - hitTarget - this.loadoutFooterPadding();
+    const accent = disabled ? ThemeColor.disabled : 0x2ec4b6;
+    const accentAlpha = disabled ? 0.72 : 1;
     this.own(root, this.environment.scene.add.rectangle(left + width / 2, y + hitTarget / 2, width, hitTarget + 16, 0x101b22)).setScrollFactor(0);
     const button = this.button(root, left, y, label, hitTarget, action, 'ui:confirm', width, undefined, 52, 12, false, 'left');
     button.setStyle({ fontSize: `${ThemeFont.bodyMin}px` });
     const bounds = button.getBounds();
     const chrome = this.environment.visuals?.addPanel(this.environment.scene, bounds.centerX, bounds.centerY, bounds.width, bounds.height, 'figma-card');
-    this.own(root, this.environment.scene.add.rectangle(bounds.centerX, bounds.centerY, bounds.width, bounds.height, 0x2ec4b6, 0)).setStrokeStyle(1, 0x2ec4b6);
-    this.own(root, this.environment.scene.add.rectangle(left + 4, y + hitTarget / 2, 4, 24, 0x2ec4b6));
-    this.own(root, this.environment.scene.add.rectangle(left + width - 22, y + hitTarget / 2, 40, hitTarget - 4, 0x2ec4b6));
+    const border = this.own(root, this.environment.scene.add.rectangle(bounds.centerX, bounds.centerY, bounds.width, bounds.height, accent, 0));
+    border.setStrokeStyle(1, accent, accentAlpha);
+    this.own(root, this.environment.scene.add.rectangle(left + 4, y + hitTarget / 2, 4, 24, accent, accentAlpha));
+    this.own(root, this.environment.scene.add.rectangle(left + width - 22, y + hitTarget / 2, 40, hitTarget - 4, accent, accentAlpha));
     this.environment.controls.addCatalogIcon(root, left + width - 22, y + hitTarget / 2, 'ui-chrome:figma-arrow', 18);
     if (chrome) { this.own(root, chrome); root.moveTo(chrome, Math.max(0, root.list.indexOf(button))); }
+    if (disabled) this.environment.controls.disableButton(button);
     return button;
   }
 
@@ -105,35 +111,74 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
   }
 
   protected equipmentMediaExtent(): number {
+    if (this.layout.height <= 480) return 128;
     return this.layout.width < 375 ? 128 : this.layout.width < 600 ? 144 : 264;
   }
 
   protected equipmentInspectionExtent(contentWidth: number): number {
-    return Math.min(this.layout.width < 600 ? 264 : 400, contentWidth - 24);
+    const maxExtent = this.layout.height <= 480 ? 128 : this.layout.width < 600 ? 168 : 184;
+    return Math.min(maxExtent, contentWidth - 24);
   }
 
   /** The media inset is supplied before button chrome/focus/hit geometry is
    * built. All subsequent art belongs to that same shared scroll owner. */
   protected equipmentInspection(root: Phaser.GameObjects.Container, left: number, top: number,
-    width: number, label: string, artId: string): Phaser.GameObjects.Text {
-    const extent = this.equipmentInspectionExtent(width);
-    const button = this.button(root, left, top, label, extent + 110, () => undefined,
-      'ui:confirm', width, undefined, 0, 12, true, 'left', 'card', extent + 24);
-    this.environment.controls.disableButton(button);
+    width: number, label: string, artId: string, requestedExtent?: number): Phaser.GameObjects.Text {
+    const extent = Math.min(requestedExtent ?? this.equipmentInspectionExtent(width), width - 24);
+    // Detail opens with one genuine reading/focus target. It is deliberately
+    // not a command: no save callback, action sound, or pointer activation.
+    // Keyboard/controller focus can still page the masked body through the
+    // Scene-owned navigation boundary.
+    const button = this.button(root, left, top, label, extent + 110, undefined,
+      undefined, width, undefined, 0, 12, true, 'left', 'card', extent + 24);
     this.environment.controls.addLoadoutArt(root, left + width / 2, top + 12 + extent / 2,
       artId, extent, extent, this.environment.controls.buttonIndex(button));
     return button;
   }
 
-  protected renderEquipmentSlots(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, left: number, top: number, contentWidth: number, hitTarget: number, overview = false): number {
-    const columns = overview ? 4 : contentWidth >= 1080 ? 4 : 2;
+  protected renderEquipmentSlots(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, left: number, top: number, contentWidth: number, hitTarget: number, overview = false, compactTabs = false): number {
+    if (compactTabs) {
+      const columns = this.layout.width >= 1040
+        || (compactTabs && this.layout.height <= 480 && this.layout.width >= 600) ? 4 : 2;
+      const gap = 8;
+      const slotWidth = (contentWidth - gap * (columns - 1)) / columns;
+      // The 360px portrait treatment wraps the equipped-state copy to three
+      // lines once the leading art reserve is applied. Give that narrow
+      // header a little more vertical room so the last line does not crowd
+      // the card border; compact landscape still keeps its 48px touch row.
+      const rowHeight = Math.max(hitTarget, compactTabs && this.layout.width <= 375 ? 64 : 48);
+      this.environment.controls.equipmentSlotColumns(columns);
+      let y = top;
+      for (let row = 0; row < Math.ceil(4 / columns); row += 1) {
+        snapshot.equipment.presentation.slots.slice(row * columns, (row + 1) * columns).forEach((slot, column) => {
+          const item = slot.equipped;
+          const label = `${slot.label.toUpperCase()}\n${item ? `T${item.tier} • EQUIPPED` : 'Empty'}`;
+          const x = left + column * (slotWidth + gap);
+          const button = this.button(root, x, y, label, rowHeight, () => {
+            const next = this.commands.selectEquipmentSlot(slot.slot);
+            this.environment.controls.focusNext(`equipment-slot:${slot.slot}`);
+            this.environment.onSnapshot(next);
+          }, 'ui:confirm', slotWidth, undefined, 0, item ? 48 : 4, false, item ? 'left' : 'center', 'card');
+          this.rememberLoadoutFocus(button, `equipment-slot:${slot.slot}`);
+          if (item) {
+            const artExtent = Math.min(32, Math.max(24, rowHeight - 16));
+            const index = this.environment.controls.buttonIndex(button);
+            this.environment.controls.addLoadoutArt(root, x + 8 + artExtent / 2,
+              y + rowHeight / 2, item.iconArtId, artExtent, artExtent, index);
+          }
+        });
+        y += rowHeight + gap;
+      }
+      return y + 6;
+    }
+    const columns = overview || this.layout.width >= 1040 ? 4 : 2;
     this.environment.controls.equipmentSlotColumns(columns);
     const gap = overview || columns === 4 ? 8 : 12;
     const slotWidth = (contentWidth - gap * (columns - 1)) / columns;
     const media = Math.min(overview ? 48 : this.equipmentMediaExtent(), slotWidth - (overview ? 12 : 24));
     let y = top;
     for (let row = 0; row < 4 / columns; row += 1) {
-      let rowHeight = Math.max(hitTarget, overview ? 98 : media + 120);
+      let rowHeight = Math.max(hitTarget, overview ? 98 : media + 72);
       snapshot.equipment.presentation.slots.slice(row * columns, (row + 1) * columns).forEach((slot, column) => {
         const x = left + column * (slotWidth + gap);
         const item = slot.equipped;
@@ -165,14 +210,13 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
       for (const count of change.lost) put(`LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#fbbf24');
       for (const count of change.gained) put(`GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#86efac');
     }
-    const effectCopy = (model: EquipmentLoadoutPresentation) => this.loadoutEffectCopy(model.runTruth.modifiers.map((modifier) => presentLoadoutModifier(modifier))) || 'No persistent stat modifiers';
-    put(`CURRENT LOADOUT\n${effectCopy(comparison.before)}\nAFTER CHANGE\n${effectCopy(comparison.after)}`);
-    for (const after of comparison.after.runTruth.families) {
-      const before = comparison.before.runTruth.families.find((family) => family.familyId === after.familyId)!;
-      if (before.traits.length || after.traits.length) {
-        put(`${familyNames.get(after.familyId) ?? after.familyId} traits\n${before.traits.map((entry) => entry.trait).join(' • ') || 'None'} → ${after.traits.map((entry) => entry.trait).join(' • ') || 'None'}`);
-        for (const trait of after.traits) put(`${trait.trait} [${familyNames.get(after.familyId) ?? after.familyId}]${trait.deduplicated ? ' • Does not stack' : ''}\nSources: ${trait.sourceLabels.join(' • ')}`);
-      }
+    const effects = presentLoadoutRunTruthComparison(comparison.before.runTruth, comparison.after.runTruth);
+    const modifierCopy = effects.modifiers.map((delta) => `${delta.label} [${delta.target.label}] ${delta.beforeValue ?? '—'} → ${delta.afterValue ?? '—'}`).join(' • ') || 'No persistent stat modifiers';
+    put(`CURRENT / AFTER LOADOUT EFFECTS\n${modifierCopy}`);
+    for (const trait of effects.traits) {
+      const family = familyNames.get(trait.familyId) ?? trait.familyId;
+      put(`${family} • ${trait.trait} traits\n${trait.before ? 'ACTIVE' : 'None'} → ${trait.after ? trait.afterDeduplicated ? 'ACTIVE • Does not stack' : 'ACTIVE' : 'REMOVED'}
+Sources: ${(trait.afterSourceLabels.length ? trait.afterSourceLabels : trait.beforeSourceLabels).join(' • ') || 'None'}`);
     }
     return y;
   }

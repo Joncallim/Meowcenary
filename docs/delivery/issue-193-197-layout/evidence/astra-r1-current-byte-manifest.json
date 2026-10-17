@@ -1,0 +1,216 @@
+{
+  "schema": "astra-r1-current-byte-manifest/v1",
+  "capturedAt": "2026-10-15T17:21:00Z",
+  "repository": {
+    "directory": "/workspace/Meowcenary",
+    "branch": "r1-equipment-gunsmith-review",
+    "head": "3b854bac7437ad9aef60394d03c1caa597e5c7c8",
+    "manifestSelfExcluded": true
+  },
+  "worktree": {
+    "status": [
+      "M browser-tests/equipment-loadout.pw.ts",
+      " M browser-tests/equipment-updates.pw.ts",
+      " M browser-tests/loadout-layout-completion.pw.ts",
+      " M browser-tests/menu-gesture-ownership.pw.ts",
+      " M src/scenes/MenuScene.ts",
+      " M src/ui/gunsmithController.ts",
+      " M src/ui/menuSurfaces/equipmentSurface.ts",
+      " M src/ui/menuSurfaces/loadoutChrome.ts",
+      " M tests/equipmentArtLayout.test.ts",
+      " M tests/gunsmithController.test.ts",
+      " M tests/menuScene.test.ts",
+      "?? docs/delivery/issue-193-197-layout/evidence/astra-r1-exact-tree-review.json",
+      "?? docs/delivery/issue-193-197-layout/evidence/astra-r1-review-receipts.json"
+    ],
+    "trackedDiffSha256": "6100adf8094ad1592fd654b7c171fb9d54f552867277f2408e343243b3b78daa",
+    "initialPatchSnapshot": {
+      "path": "/tmp/meowcenary-r1-dirty-20261015.patch",
+      "sha256": "49e035c9fe1fe7329e216286d607c565269827c5f963fe976f8cf026b1c146fe",
+      "bytes": 119850
+    }
+  },
+  "testedSourceAndEvidenceBytes": [
+    {
+      "path": "browser-tests/equipment-loadout.pw.ts",
+      "bytes": 19546,
+      "sha256": "17d4d1bd5aecc103ca4ceb78308a3359ba267edc958173a6844405fdaf43e826"
+    },
+    {
+      "path": "browser-tests/equipment-updates.pw.ts",
+      "bytes": 13578,
+      "sha256": "607ea004f5e7a46c0c7d694760616987dd231596601139970c8aec5a1aa8ac20"
+    },
+    {
+      "path": "browser-tests/loadout-layout-completion.pw.ts",
+      "bytes": 37160,
+      "sha256": "7c4c81a4984ee3da147cb9cda0012673695f58a10739b76f0f0c3c9e1f59a489"
+    },
+    {
+      "path": "browser-tests/menu-gesture-ownership.pw.ts",
+      "bytes": 17630,
+      "sha256": "7ceba98b6c6901da7c6efa13e7ac74d244b2e1ca93621823fec9674aeb146100"
+    },
+    {
+      "path": "docs/delivery/issue-193-197-layout/evidence/astra-r1-exact-tree-review.json",
+      "bytes": 6064,
+      "sha256": "49a3a8c85882417c75ec9cae42010c68a000b1ac7a418d0eeeb61cd2c95ff1d8"
+    },
+    {
+      "path": "docs/delivery/issue-193-197-layout/evidence/astra-r1-review-receipts.json",
+      "bytes": 8861,
+      "sha256": "2bfd8421f879501b204577d21a4c3ff47d047e622b16d013ae07e418a967f4c9"
+    },
+    {
+      "path": "src/scenes/MenuScene.ts",
+      "bytes": 172154,
+      "sha256": "860a7944294665b382d5e14e9f6710a44ec1ca272574a7e8175880db55612fdf"
+    },
+    {
+      "path": "src/ui/gunsmithController.ts",
+      "bytes": 74533,
+      "sha256": "c35b1a725f3fb8671e93db7673aee8b3f59cd1682e0210679440b0d28821aab2"
+    },
+    {
+      "path": "src/ui/menuSurfaces/equipmentSurface.ts",
+      "bytes": 54993,
+      "sha256": "7e56425553c73e159084656dde6f69036f6260de5a40c81810d3fbd5f0401d94"
+    },
+    {
+      "path": "src/ui/menuSurfaces/loadoutChrome.ts",
+      "bytes": 14960,
+      "sha256": "d858aebb88a4c88224fb095ff1f654fb4527960e978e8c704a9590de7f4cefe1"
+    },
+    {
+      "path": "tests/equipmentArtLayout.test.ts",
+      "bytes": 20379,
+      "sha256": "9dc1b54a4ab17861b1acf76655c47408ae5073fc8d5edbe020528995e73e1969"
+    },
+    {
+      "path": "tests/gunsmithController.test.ts",
+      "bytes": 47527,
+      "sha256": "a353c748f785262901217ef9169fa8233692587fa3e9267cbb35ad8788e965e0"
+    },
+    {
+      "path": "tests/menuScene.test.ts",
+      "bytes": 355966,
+      "sha256": "4edca93aeea4d32471e12399f50ef3021a6e682ab09f27445ba8edc72f764160"
+    }
+  ],
+  "rawResults": [
+    {
+      "path": "raw/tsc.log",
+      "bytes": 208,
+      "sha256": "76162e465989f3f070a9de8db711fbf358e53b74d09ce1bbdb57c727e4c4a16d"
+    },
+    {
+      "path": "raw/relevant-unit.log",
+      "bytes": 1088,
+      "sha256": "6a2238b39b96e96cd12a6e3247a5c3db1c7fe7611805757bca5e8bb07c9c6aa4"
+    },
+    {
+      "path": "raw/build.log",
+      "bytes": 757,
+      "sha256": "118c14fcd351b6cdbaeea07f3baf1077ad87a777effa64c52fd53b28e05ed6ba"
+    },
+    {
+      "path": "raw/npm-test.log",
+      "bytes": 17130,
+      "sha256": "6d74b4e47bfbffb20b902d00cc5bd58b48df492adbe6b0275079bea1af800e7e"
+    },
+    {
+      "path": "raw/browser-gate-blocked.txt",
+      "bytes": 560,
+      "sha256": "fa5bad93c880240d2dde5c8796a6e3d94041b9cd32717fc2eb71edd8429bd0fb"
+    }
+  ],
+  "tests": [
+    {
+      "name": "TypeScript",
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH npx tsc --noEmit",
+      "result": "passed",
+      "raw": "raw/tsc.log"
+    },
+    {
+      "name": "R1 focused unit gate",
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH npx vitest run tests/equipmentPresentation.test.ts tests/loadoutPresentation.test.ts tests/persistentRunLoadout.test.ts tests/equipmentArtLayout.test.ts tests/gunsmithController.test.ts tests/menuScene.test.ts --reporter=dot",
+      "result": "passed",
+      "testFiles": 6,
+      "tests": 326,
+      "raw": "raw/relevant-unit.log"
+    },
+    {
+      "name": "Production build",
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH npm run build",
+      "result": "passed",
+      "raw": "raw/build.log"
+    },
+    {
+      "name": "Full project npm test",
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH npm test -- --reporter=dot",
+      "result": "environment-blocked",
+      "testFiles": {
+        "passed": 232,
+        "failed": 3,
+        "total": 235
+      },
+      "tests": {
+        "passed": 4121,
+        "failed": 3,
+        "total": 4124
+      },
+      "blocker": "art checks require Pillow 12.1.1; environment provides 12.0.0",
+      "raw": "raw/npm-test.log"
+    },
+    {
+      "name": "Browser R1 gate",
+      "command": "PATH=/tmp/meowcenary-node22-bin:$PATH npx playwright test browser-tests/equipment-loadout.pw.ts browser-tests/equipment-updates.pw.ts browser-tests/loadout-layout-completion.pw.ts browser-tests/menu-gesture-ownership.pw.ts --reporter=line",
+      "result": "environment-blocked",
+      "executedTests": 0,
+      "blocker": "Playwright Chromium executable absent; no installation attempted",
+      "raw": "raw/browser-gate-blocked.txt"
+    }
+  ],
+  "reviewDisposition": {
+    "directEquipTraitDeduplication": "implemented-and-covered-by-equipmentPresentation-test",
+    "gunsmithRunEffectsEquipmentSets": "fixed-row-and-catalog-comparisons-now-use-persistent-run-truth; regression-added",
+    "shortHeightGeometry": "implemented-and-covered-by-unit-geometry-matrix; browser-rerun-blocked-by-missing-chromium",
+    "pointerSelectionAnchor": "fixed-mutation-rerender-preserves-pointer-anchor; regression-added",
+    "rowEdgeInspectorOrder": "fixed-fixed-action-order-navigation; regression-added",
+    "detailBackLocalContext": "implemented-and-covered-by-existing-menu-and-surface-tests",
+    "detailActionScrollOwnership": "implemented-and-covered-by-existing-menu-tests"
+  },
+  "libraryUploads": {
+    "succeeded": [
+      {
+        "name": "astra-r1-current-raw-results-20261015.tar.gz",
+        "libraryFileId": "libfile_474d2b72c70c819183dfd9b8e033f456",
+        "fileId": "file_0000000030c0822fb8b7141ca40c1bfe",
+        "bytes": 3395,
+        "sha256": "80feea9ac53e00282dc169f83dd4c4d95d513aa04535d6f08c33348948a4a49f"
+      }
+    ],
+    "pending": [
+      "astra-r1-current-runtime-20261015.tar.gz",
+      "astra-r1-current-art-20261015.tar.gz",
+      "astra-r1-current-docs-20261015.tar.gz"
+    ],
+    "blocker": "The required Library prepared-byte transfer was rejected by the cloud permission layer; no direct signed-URL workaround was attempted."
+  },
+  "preservedReceipts": [
+    {
+      "path": "docs/delivery/issue-193-197-layout/evidence/astra-r1-review-receipts.json",
+      "sha256": "2bfd8421f879501b204577d21a4c3ff47d047e622b16d013ae07e418a967f4c9"
+    },
+    {
+      "path": "docs/delivery/issue-193-197-layout/evidence/astra-r1-exact-tree-review.json",
+      "sha256": "49a3a8c85882417c75ec9cae42010c68a000b1ac7a418d0eeeb61cd2c95ff1d8"
+    },
+    {
+      "libraryFileId": "libfile_5fff37ed7b048191852c98d4f15b76f3",
+      "fileId": "file_000000000b3881f5b944f95549810a2f",
+      "sha256": "5aa5fd182ee5041878a5380a89be1ffd8dc0ff38e4f373c5b79eb0b0574afe28",
+      "name": "astra-r1-browser-evidence-20261015.tar.gz"
+    }
+  ]
+}

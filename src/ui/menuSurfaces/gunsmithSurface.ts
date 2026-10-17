@@ -7,7 +7,7 @@ import { createUiText } from '../text';
 import { ThemeFont } from '../theme';
 import { MenuPanelSurface, type MenuSurfaceLayout, type GunsmithSurfaceCommands, type MenuSurfaceEnvironment, type MenuSurfaceControls } from './surface';
 import { assemblyArtIds, assemblyMediaHeight, collectGunsmithArtIds, renderAssembledWeapon } from './weaponPresentation';
-import { presentLoadoutModifier } from '../loadoutPresentation';
+import { presentLoadoutRunTruthComparison, type LoadoutRunTruthComparison } from '../loadoutPresentation';
 import type { EquipmentLoadoutPresentation } from '../equipmentPresentation';
 
 type RunTruth = EquipmentLoadoutPresentation['runTruth'];
@@ -226,7 +226,7 @@ ${candidate.effectScope}
 ${candidate.effectLines.join(' • ')}
 ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       }
-      if (state.candidateComparison) y = this.comparison(root, snapshot, y, state.candidateComparison.before, state.candidateComparison.after, state.candidateComparison.stats);
+      if (state.candidateComparison) y = this.comparison(root, snapshot, y, state.candidateComparison.before, state.candidateComparison.after, state.candidateComparison.stats, state.candidateComparison.effects);
       if (candidate) {
         if (candidate.displacementSummary) y += this.copy(root, this.layout.margin, y, candidate.displacementSummary, this.laneWidth, '#f7d774').height + 8;
         if (candidate.assignedBuildName && candidate.state === 'fitted-elsewhere') y += this.copy(root, this.layout.margin, y, `Moves from ${candidate.assignedBuildName}. Its source slot becomes empty.`, this.laneWidth, '#f7d774').height + 8;
@@ -311,58 +311,35 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
     });
   }
   private comparison(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, start: number, before: RunTruth, after: RunTruth,
-    stats: readonly import('../loadoutPresentation').LoadoutWeaponStatDelta[] = []): number {
+    stats: readonly import('../loadoutPresentation').LoadoutWeaponStatDelta[] = [], effects?: LoadoutRunTruthComparison): number {
     let y = start;
     y += this.copy(root, this.layout.margin, y, 'CURRENT / PREVIEW • RUN EFFECTS', this.laneWidth, '#24cec7').height + 8;
     for (const stat of stats) {
       const color = stat.direction === 'better' ? '#86efac' : stat.direction === 'worse' ? '#fca5a5' : '#adc1c7';
       y += this.copy(root, this.layout.margin, y, `${stat.label} • ${stat.displayBefore} to ${stat.displayAfter}`, this.laneWidth, color).height + 6;
     }
-    const group = (truth: RunTruth) => {
-      const duplicates = new Map<string, number>();
-      return new Map(truth.modifiers.map(modifier => {
-        const base = JSON.stringify([modifier.sourceId, modifier.stat, modifier.op, modifier.scope]);
-        const index = duplicates.get(base) ?? 0; duplicates.set(base, index + 1);
-        return [`${base}:${index}`, modifier] as const;
-      }));
-    };
-    const beforeMods = group(before); const afterMods = group(after);
-    let changes = 0;
-    for (const key of new Set([...beforeMods.keys(), ...afterMods.keys()])) {
-      const a = beforeMods.get(key); const b = afterMods.get(key);
-      if (a?.value === b?.value) continue;
-      changes += 1;
-      const sample = b ?? a!;
-      const presentation = presentLoadoutModifier(sample);
-      const display = (modifier: typeof sample | undefined) => modifier ? presentLoadoutModifier(modifier).value : '—';
-      y += this.copy(root, this.layout.margin, y, `${presentation.target.label} • ${presentation.label}\n${display(a)} to ${display(b)}`, this.laneWidth, '#f7f1d5').height + 8;
+    const resolvedEffects = effects ?? presentLoadoutRunTruthComparison(before, after);
+    for (const delta of resolvedEffects.modifiers) {
+      y += this.copy(root, this.layout.margin, y, `${delta.target.label} • ${delta.label}\n${delta.beforeValue ?? '—'} to ${delta.afterValue ?? '—'}`, this.laneWidth, '#f7f1d5').height + 8;
     }
-    for (const family of after.families) {
-      const previous = before.families.find(row => row.familyId === family.familyId);
-      const name = snapshot.gunsmith.families.find(row => row.id === family.familyId)?.name ?? family.familyId;
-      for (const trait of new Set([...(previous?.traits.map(row => row.trait) ?? []), ...family.traits.map(row => row.trait)])) {
-        const a = previous?.traits.find(row => row.trait === trait); const b = family.traits.find(row => row.trait === trait);
-        if (a && b && JSON.stringify(a) === JSON.stringify(b)) continue;
-        changes += 1;
-        const icon = snapshot.gunsmith.parts.flatMap(row => row.traitIcons).find(row => row.trait === trait)
-          ?? snapshot.gunsmith.catalog.flatMap(row => row.traitIcons).find(row => row.trait === trait);
+    for (const delta of resolvedEffects.traits) {
+        const name = snapshot.gunsmith.families.find(row => row.id === delta.familyId)?.name ?? delta.familyId;
+        const icon = snapshot.gunsmith.parts.flatMap(row => row.traitIcons).find(row => row.trait === delta.trait)
+          ?? snapshot.gunsmith.catalog.flatMap(row => row.traitIcons).find(row => row.trait === delta.trait);
         if (icon) this.environment.controls.addCatalogIcon(root, this.layout.margin + 18, y + 18, icon.iconArtId, 32);
-        y += this.copy(root, this.layout.margin + 42, y, `${name} • ${trait}\n${a ? 'ACTIVE' : '—'} to ${b ? b.deduplicated ? 'ACTIVE • SHARED, APPLIED ONCE' : 'ACTIVE' : 'REMOVED'}`, this.laneWidth - 42, '#24cec7').height + 8;
-      }
-      if (JSON.stringify(previous?.projectileEffects ?? []) !== JSON.stringify(family.projectileEffects)) {
-        changes += 1;
-        const effects = (truth: readonly RunTruth['families'][number]['projectileEffects'][number][]) => truth.map(effect => effect.kind === 'burn'
+        y += this.copy(root, this.layout.margin + 42, y, `${name} • ${delta.trait}\n${delta.before ? 'ACTIVE' : '—'} to ${delta.after ? delta.afterDeduplicated ? 'ACTIVE • SHARED, APPLIED ONCE' : 'ACTIVE' : 'REMOVED'}`, this.laneWidth - 42, '#24cec7').height + 8;
+    }
+    for (const delta of resolvedEffects.projectileEffects) {
+        const formatEffects = (truth: readonly RunTruth['families'][number]['projectileEffects'][number][]) => truth.map(effect => effect.kind === 'burn'
           ? `Burn ${effect.damageMultiplier * 100}% • ${effect.durationMs}ms • every ${effect.tickIntervalMs}ms`
           : `Explosion ${effect.radius} radius • ${effect.damageMultiplier * 100}% splash`).join(' • ') || '—';
-        y += this.copy(root, this.layout.margin, y, `${name} • projectile effects\n${effects(previous?.projectileEffects ?? [])} to ${effects(family.projectileEffects)}`, this.laneWidth, '#f7f1d5').height + 8;
-      }
+        const name = snapshot.gunsmith.families.find(row => row.id === delta.familyId)?.name ?? delta.familyId;
+        y += this.copy(root, this.layout.margin, y, `${name} • projectile effects\n${formatEffects(delta.before)} to ${formatEffects(delta.after)}`, this.laneWidth, '#f7f1d5').height + 8;
     }
-    const mechanicsChanged = stats.some(stat => stat.before !== stat.after) || after.families.some(family => {
-      const previous = before.families.find(row => row.familyId === family.familyId);
-      return JSON.stringify(previous?.projectileEffects ?? []) !== JSON.stringify(family.projectileEffects)
-        || JSON.stringify(previous?.traits.map(row => row.trait).sort() ?? []) !== JSON.stringify(family.traits.map(row => row.trait).sort());
-    });
-    if ((stats.length > 0 && !mechanicsChanged) || (!stats.length && !changes)) {
+    const effectiveMechanicsChanged = stats.some(stat => stat.before !== stat.after)
+      || resolvedEffects.projectileEffects.length > 0
+      || resolvedEffects.traits.some((trait) => trait.before !== trait.after);
+    if (!effectiveMechanicsChanged) {
       y += this.copy(root, this.layout.margin, y, 'No mechanical change • effects already shared or clamped.').height + 8;
     }
     return y;
@@ -417,7 +394,7 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
         ...confirmation.preservedInstanceIds.map(id => `PRESERVES ${confirmation.inputs.find(part => part.instanceId === id)?.name ?? id}.`)];
       y += this.copy(root, this.layout.margin, y, consequences.join('\n'), this.laneWidth, '#f7d774').height + 12;
       y += this.copy(root, this.layout.margin, y, confirmation.mechanicalDelta.join('\n'), this.laneWidth, '#f7f1d5').height + 8;
-      y = this.comparison(root, snapshot, y, confirmation.comparison.before, confirmation.comparison.after, confirmation.comparison.stats);
+      y = this.comparison(root, snapshot, y, confirmation.comparison.before, confirmation.comparison.after, confirmation.comparison.stats, confirmation.comparison.effects);
       const confirm = this.action(root, this.layout.margin, y, confirmation.confirmLabel, 'gunsmith-confirm', () => this.redraw(this.commands.confirmGunWorkshop()));
       y += confirm.height + 8;
       this.action(root, this.layout.margin, y, 'Cancel', 'gunsmith-cancel', () => this.redraw(this.commands.cancelGunWorkshop()));
@@ -463,6 +440,9 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       y += size + 12;
       y += this.copy(root, this.layout.margin, y, `${selected.name.toUpperCase()}\n${selected.stateLabel} • ${selected.slot} • ${selected.effectScope}`, this.laneWidth, '#24cec7', 20).height + 12;
       y += this.copy(root, this.layout.margin, y, [...selected.effectLines, selected.comparisonSummary, selected.sourceLabel, selected.lockReason, selected.affordable === false ? 'Insufficient Scrap for fabrication.' : undefined].filter(Boolean).join('\n'), this.laneWidth, '#f7f1d5').height + 12;
+      if (selected.comparison) {
+        y = this.comparison(root, snapshot, y, selected.comparison.before, selected.comparison.after, selected.comparison.stats, selected.comparison.effects);
+      }
       for (const trait of selected.traitIcons) {
         this.environment.controls.addCatalogIcon(root, this.layout.margin + 18, y + 16, trait.iconArtId, 32);
         y += this.copy(root, this.layout.margin + 42, y, trait.trait, this.laneWidth - 42, '#24cec7').height + 12;

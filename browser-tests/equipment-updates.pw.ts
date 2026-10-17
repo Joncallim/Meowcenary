@@ -146,37 +146,57 @@ test('Equipment candidate updates preserve committed menu state and selection th
   if (testInfo.project.use.hasTouch) await page.touchscreen.tap(x + width / 2, y + height / 2);
   else await page.mouse.click(x + width / 2, y + height / 2);
 
+  const wideInspector = page.viewportSize()!.width >= 1040;
   await expect.poll(async () => {
     const state = await measurement(page);
     const update = state.events.find(event => event.owner === 'menu.update' && event.facts.committed === true);
-    return { committed: Boolean(update), presented: Boolean(update && state.presentedMenu?.revision === update.facts.revision) };
+    const render = state.events.find(event => event.owner === 'menu.render' && event.facts.reason === 'same-panel-state-mutation');
+    const revision = update?.facts.revision ?? render?.facts.revision;
+    return { committed: Boolean(update || render), presented: Boolean(revision !== undefined && state.presentedMenu?.revision === revision) };
   }).toEqual({ committed: true, presented: true });
   phase(page, 'selection committed');
   const selected = await checkpoint(page);
   const afterSelection = selected.diagnostic;
   expect(afterSelection.equipment).toMatchObject({ selectedSlot: 'helmet', selectedInstanceId: candidate,
     equipped: { helmet: id('equipment:commando-helmet') } });
-  expect(afterSelection.focusedKey).toBe(`equipment-detail:${candidate}`);
+  expect(afterSelection.focusedKey).toBe(`equipment-candidate:${candidate}`);
   expect(selected.saved).toBe(originalSave);
-  const comparison = afterSelection.copy.join('\n');
+  const details = afterSelection.buttons.find(button => button.text === 'View details')!;
+  expect(details).toBeDefined();
+  if (testInfo.project.use.hasTouch) await page.touchscreen.tap(details.bounds.x + details.bounds.width / 2, details.bounds.y + details.bounds.height / 2);
+  else await page.mouse.click(details.bounds.x + details.bounds.width / 2, details.bounds.y + details.bounds.height / 2);
+  await settle(page);
+  const inspected = await checkpoint(page);
+  expect(inspected.diagnostic.focusedKey).toBe(`equipment-detail:${candidate}`);
+  const comparison = inspected.diagnostic.copy.join('\n');
   expect(comparison).toContain('Replaces Commando Helmet');
   expect(comparison).toContain('LOSE 2-piece');
   expect(comparison).toContain('GAIN 2-piece');
   expect(comparison).toContain('[All Weapons]');
   const updateEvents = selected.measurement.events;
-  expect(updateEvents.filter(event => event.owner === 'menu.render')).toHaveLength(0);
-  expect(updateEvents.filter(event => event.owner === 'menu.update')).toHaveLength(1);
-  expect(updateEvents.find(event => event.owner === 'menu.update')?.facts).toMatchObject({
-    reason: 'same-panel-state-mutation', section: 'equipment-selection', rebuildCount, committed: true,
-  });
-  const selectionRevision = updateEvents.find(event => event.owner === 'menu.update')!.facts.revision;
-  expect(typeof selectionRevision).toBe('number');
-  expect(selected.measurement.presentedMenu?.revision).toBe(selectionRevision);
+  if (wideInspector) {
+    const selectionRender = updateEvents.find(event => event.owner === 'menu.render');
+    expect(selectionRender).toBeDefined();
+    expect(updateEvents.filter(event => event.owner === 'menu.update')).toHaveLength(0);
+    expect(selectionRender?.facts).toMatchObject({ reason: 'same-panel-state-mutation', rebuildCount: rebuildCount as number + 1 });
+    expect(selected.measurement.presentedMenu?.revision).toBe(selectionRender?.facts.revision);
+  } else {
+    expect(updateEvents.filter(event => event.owner === 'menu.render')).toHaveLength(0);
+    expect(updateEvents.filter(event => event.owner === 'menu.update')).toHaveLength(1);
+    expect(updateEvents.find(event => event.owner === 'menu.update')?.facts).toMatchObject({
+      reason: 'same-panel-state-mutation', section: 'equipment-selection', rebuildCount, committed: true,
+    });
+    const selectionRevision = updateEvents.find(event => event.owner === 'menu.update')!.facts.revision;
+    expect(typeof selectionRevision).toBe('number');
+    expect(selected.measurement.presentedMenu?.revision).toBe(selectionRevision);
+  }
   await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.freeze());
   try { await page.screenshot({ path: testInfo.outputPath('equipment-candidate-selected.png') }); }
   finally { await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.resume()); }
 
   const originalViewport = page.viewportSize()!;
+  const detailRender = inspected.measurement.events.filter(event => event.owner === 'menu.render').at(-1);
+  const resizeBaseline = detailRender?.facts.rebuildCount ?? rebuildCount;
   await page.setViewportSize({ width: originalViewport.width + 20, height: originalViewport.height });
   await expect.poll(() => page.evaluate(() => ({
     resized: (globalThis as Seams).__MEOWCENARY_PERFORMANCE__!.snapshot().events.some(event =>
@@ -187,7 +207,7 @@ test('Equipment candidate updates preserve committed menu state and selection th
   expect(resized.diagnostic.equipment?.selectedInstanceId).toBe(candidate);
   expect(resized.diagnostic.focusedKey).toBe(`equipment-detail:${candidate}`);
   const resize = resized.measurement.events.find(event => event.owner === 'menu.render' && event.facts.reason === 'viewport-resize');
-  expect(resize?.facts.rebuildCount).toBe((rebuildCount as number) + 1);
+  expect(resize?.facts.rebuildCount).toBe((resizeBaseline as number) + 1);
 
   phase(page, 'resize committed');
 
