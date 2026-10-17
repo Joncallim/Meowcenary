@@ -1243,14 +1243,12 @@ export class MenuScene extends Phaser.Scene {
           this.measureMenuTextHeight(rightDetails, Math.max(1, detailWidth), ThemeFont.bodyMin, 2),
         );
       // Keep the full card-local reading block above the ability/passive icon
-      // band. On compact phones the authored copy can wrap far beyond the old
-      // fixed 236px card; the card grows with its actual measured text instead
-      // of clipping the cooldown or handing it to the next card.
-      // Leave a deliberate inner safety inset between the measured reading
-      // block and the selected-card/focus chrome. Phaser's text bounds and
-      // the authored cyan frame can differ by a few pixels after a card is
-      // selected; the last cooldown line must never sit on that border.
-      const cardHeight = Math.max(compact ? 236 : 204, 38 + detailHeight + 80);
+      // band. Phone copy may still need a taller card, while desktop cards
+      // use the actual portrait/text extent instead of a fixed 204px floor.
+      // The extra 8px is the selected/focus safety inset; it is not a text
+      // shrink and keeps the last line clear of the authored card frame.
+      const portraitExtent = compact ? 204 : 148;
+      const cardHeight = Math.max(compact ? 236 : 176, 100 + detailHeight, portraitExtent + 28);
       const button = this.addButton(root, margin, y, label, cardHeight, () => {
         const next = this.requireController().selectCharacter(character.id, snapshot.character.revision);
         this.render(next);
@@ -1259,7 +1257,7 @@ export class MenuScene extends Phaser.Scene {
       // Locked roster members remain full-colour previews; the lock marker and
       // disabled command communicate availability without making approved
       // character art look muddy or unfinished.
-      this.addPanelArt(root, margin + portraitColumn / 2, y + cardHeight / 2, character.portraitArtId, compact ? 204 : 184, false, false, rowOwnerIndex);
+      this.addPanelArt(root, margin + portraitColumn / 2, y + cardHeight / 2, character.portraitArtId, portraitExtent, false, false, rowOwnerIndex);
       this.addCatalogIcon(root, width - this.safeRightMargin - 22, y + 24, character.startingWeaponIconArtId, 38, rowOwnerIndex);
       if (character.locked) {
         this.addCatalogIcon(root, width - this.safeRightMargin - 52, y + 22, 'ui-chrome:locked', 22, rowOwnerIndex);

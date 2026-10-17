@@ -3,6 +3,7 @@ import type { MainMenuSnapshot } from '../menus';
 import { LoadoutPanelSurface } from './loadoutChrome';
 import { type MenuScrollBookmark, type MenuScrollRectangle, type MenuSurfaceLayout, type EquipmentSurfaceCommands, type MenuSurfaceControls } from './surface';
 import { edgeMargin } from '../layout';
+import type { EquipmentComparison } from '../equipmentPresentation';
 
 export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceCommands> {
   readonly panel = 'equipment' as const;
@@ -629,6 +630,38 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       : `FABRICATE • Creates a stored T1 item for ${blueprint.fabricationCost} Scrap.`;
   }
 
+  private equipmentSetChangeCopy(comparison: EquipmentComparison | undefined): string[] {
+    return comparison?.setChanges.flatMap((change) => {
+      const set = comparison.after.sets.find((row) => row.setId === change.setId);
+      if (!set) return [];
+      const lines = [`${set.name} ${change.before}/4 → ${change.after}/4`];
+      for (const count of change.lost) lines.push(`LOSE ${count}-piece: ${this.loadoutEffectCopy(
+        comparison.before.sets.find((row) => row.setId === change.setId)?.thresholds.find((threshold) => threshold.count === count)?.effects ?? [],
+      ) || 'None'}`);
+      for (const count of change.gained) lines.push(`GAIN ${count}-piece: ${this.loadoutEffectCopy(
+        set.thresholds.find((threshold) => threshold.count === count)?.effects ?? [],
+      ) || 'None'}`);
+      return lines;
+    }) ?? [];
+  }
+
+  private equipmentDecisionCopy(
+    selected: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
+    selectedSlot: MainMenuSnapshot['equipment']['presentation']['slots'][number],
+    comparison: EquipmentComparison | undefined,
+  ): string[] {
+    const equipped = selected.state === 'EQUIPPED';
+    const setChangeCopy = this.equipmentSetChangeCopy(comparison);
+    return [
+      `ACTION: ${equipped ? 'UNEQUIP' : 'EQUIP'} ${selected.name}`,
+      `${equipped ? 'EFFECT WHILE EQUIPPED' : 'EFFECT AFTER EQUIP'}: ${this.loadoutEffectCopy(selected.effects) || 'None'}`,
+      equipped
+        ? `AFTER UNEQUIP: Empty ${selectedSlot.label} slot`
+        : comparison?.displaced ? `REPLACES: ${comparison.displaced.name}` : `SLOT: ${selectedSlot.label}`,
+      `SET BONUS CHANGES: ${setChangeCopy.length ? setChangeCopy.join(' • ') : 'None'}`,
+    ];
+  }
+
   /** Fixed wide-layout inspector. The candidate collection is closed before
    * this is drawn, so inspector art/actions never inherit collection scroll. */
   private drawWideInspector(root: Phaser.GameObjects.Container, fixedRoot: Phaser.GameObjects.Container,
@@ -659,32 +692,19 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         : equipment.comparison
       : undefined;
     const selectedEffects = selected ? this.loadoutEffectCopy(selected.effects) || 'None' : undefined;
-    const removedEffects = selected
-      ? this.loadoutEffectCopy(comparison?.displaced?.effects
-        ?? (selected.state === 'EQUIPPED' ? selected.effects : [])) || 'None'
-      : undefined;
-    const setChangeCopy = comparison?.setChanges.flatMap((change) => {
-      const set = comparison.after.sets.find((row) => row.setId === change.setId);
-      if (!set) return [];
-      const lines = [`${set.name} ${change.before}/4 → ${change.after}/4`];
-      for (const count of change.lost) lines.push(`LOSE ${count}-piece: ${this.loadoutEffectCopy(
-        comparison.before.sets.find((row) => row.setId === change.setId)?.thresholds.find((threshold) => threshold.count === count)?.effects ?? [],
-      ) || 'None'}`);
-      for (const count of change.gained) lines.push(`GAIN ${count}-piece: ${this.loadoutEffectCopy(
-        set.thresholds.find((threshold) => threshold.count === count)?.effects ?? [],
-      ) || 'None'}`);
-      return lines;
-    }) ?? [];
     const upgradeAfter = selected && upgrade?.upgradePreview
       ? upgrade.upgradePreview.after.slots.find((slot) => slot.slot === selected.slot)
         ?.candidates.find((item) => item.instanceId === selected.instanceId)
       : undefined;
+    const upgradeBenefit = upgradeAfter
+      ? `UPGRADE BENEFIT: ${selectedEffects} → ${this.loadoutEffectCopy(upgradeAfter.effects) || 'None'}`
+      : undefined;
     const summaryText = selected
       ? [
-        `${selected.state} • ${selected.state === 'EQUIPPED' ? 'Unequips current item' : comparison?.displaced ? `Replaces ${comparison.displaced.name}` : 'Fills empty slot'}`,
-        `EFFECTS: ${selectedEffects}`,
-        ...(comparison?.displaced && selected.state !== 'EQUIPPED' ? [`REMOVES: ${removedEffects}`] : []),
-        `SET CHANGES: ${setChangeCopy.length ? setChangeCopy.join(' • ') : 'None'}`,
+        ...this.equipmentDecisionCopy(selected, selectedSlot, comparison),
+        ...(comparison?.displaced && selected.state !== 'EQUIPPED'
+          ? [`REMOVES: ${this.loadoutEffectCopy(comparison.displaced.effects) || 'None'}`] : []),
+        ...(upgradeBenefit ? [upgradeBenefit] : []),
         upgradeAfter
           ? `UPGRADE T${selected.tier} → T${upgradeAfter.tier} • ITEM NOW: ${selectedEffects} • ITEM AFTER UPGRADE: ${this.loadoutEffectCopy(upgradeAfter.effects) || 'None'}`
           : 'UPGRADE: No preview',
@@ -731,22 +751,18 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     } else {
       summary.setPosition(left, artTop);
     }
-    let y = summary.y + summary.height + 8;
-    if (selected && showCommitActions && upgrade?.upgradePreview) {
-      const after = upgrade.upgradePreview.after.slots.find(slot => slot.slot === selected.slot)
-        ?.candidates.find(item => item.instanceId === selected.instanceId);
-      const pairWidth = (width - 16) / 2;
-      const pairExtent = Math.min(56, pairWidth - 24);
-      if (after && y + pairExtent + 56 <= actionTop) {
-        const framing = [selected.iconArtId, after.iconArtId];
-        this.loadoutMaterial(root, left, y, pairWidth, pairExtent + 56);
-        this.loadoutMaterial(root, left + pairWidth + 16, y, pairWidth, pairExtent + 56);
-        this.environment.controls.addLoadoutArt(root, left + pairWidth / 2, y + 12 + pairExtent / 2,
-          selected.iconArtId, pairExtent, pairExtent, undefined, framing);
-        this.environment.controls.addLoadoutArt(root, left + pairWidth + 16 + pairWidth / 2, y + 12 + pairExtent / 2,
-          after.iconArtId, pairExtent, pairExtent, undefined, framing);
-        y += pairExtent + 56;
-      }
+    // The wide inspector keeps the tier pair in the same bounded preview
+    // panel as the selected art. This makes the priced upgrade benefit
+    // visible without pushing the commit actions below the viewport.
+    if (selected && showCommitActions && upgradeAfter) {
+      const pairExtent = Math.min(48, Math.max(36, Math.floor((width - 132) / 2)));
+      const framing = [selected.iconArtId, upgradeAfter.iconArtId];
+      const pairY = artTop + 12 + pairExtent / 2;
+      const firstX = left + width - pairExtent * 2 - 20;
+      this.environment.controls.addLoadoutArt(root, firstX, pairY,
+        selected.iconArtId, pairExtent, pairExtent, undefined, framing);
+      this.environment.controls.addLoadoutArt(root, firstX + pairExtent + 20, pairY,
+        upgradeAfter.iconArtId, pairExtent, pairExtent, undefined, framing);
     }
     let nextActionY = actionTop;
     const details = this.button(fixedRoot, left, nextActionY, 'View details', actionHeight, () => {
@@ -815,35 +831,35 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       const set = equipment.presentation.sets.find((row) => row.setId === selected.setId)!;
       const equipped = selected.state === 'EQUIPPED';
       const comparison = equipped ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot }) : equipment.comparison;
-      const selectedEffects = this.loadoutEffectCopy(selected.effects) || 'None';
       const desktopDecisionCopy = this.layout.width >= 600
-        ? [
-          `EFFECT: ${selectedEffects}`,
-          comparison?.displaced ? `REPLACES: ${comparison.displaced.name}` : `SLOT: ${selectedSlot.label}`,
-          comparison?.setChanges.length ? `SET TRADE-OFFS: ${comparison.setChanges.length} threshold change${comparison.setChanges.length === 1 ? '' : 's'}` : 'SET TRADE-OFFS: None',
-        ] : [];
+        ? this.equipmentDecisionCopy(selected, selectedSlot, comparison) : [];
       const detail = this.equipmentInspection(root, left, y, contentWidth,
         [`${selected.name} • T${selected.tier}`, `${selectedSlot.label} • ${set.name} Set • ${selected.state}`, source, ...desktopDecisionCopy]
           .filter(Boolean).join('\n'), selected.iconArtId);
       this.rememberLoadoutFocus(detail, `equipment-detail:${selected.instanceId}`);
       y += detail.height + 16;
-      y = this.renderScopedLoadoutEffects(root, selected.effects, left, y, contentWidth, 22);
-      put(equipped ? 'IF UNEQUIPPED' : comparison?.displaced ? `Replaces ${comparison.displaced.name}` : `Fills empty ${selectedSlot.label.toLowerCase()} slot`);
-      if (!equipped && comparison?.displaced) {
-        put(`REMOVES: ${this.loadoutEffectCopy(comparison.displaced.effects) || 'None'}`, '#fbbf24');
+      // Desktop keeps the action, selected effect and named Set changes in
+      // one decision card. Narrow detail keeps the longer comparison reader.
+      if (this.layout.width < 600) {
+        y = this.renderScopedLoadoutEffects(root, selected.effects, left, y, contentWidth, 22);
+        put(equipped ? `AFTER UNEQUIP: Empty ${selectedSlot.label} slot`
+          : comparison?.displaced ? `REPLACES: ${comparison.displaced.name}` : `SLOT: ${selectedSlot.label}`);
+        if (!equipped && comparison?.displaced) {
+          put(`REMOVES: ${this.loadoutEffectCopy(comparison.displaced.effects) || 'None'}`, '#fbbf24');
+        }
+        if (comparison) y = this.renderEquipmentComparison(root, comparison, left, y, contentWidth, new Map(snapshot.gunsmith.families.map((family) => [family.id, family.name])));
       }
-      if (comparison) y = this.renderEquipmentComparison(root, comparison, left, y, contentWidth, new Map(snapshot.gunsmith.families.map((family) => [family.id, family.name])));
       queueFixedDetailAction(equipped ? `Unequip ${selected.name}` : `Equip ${selected.name}`, () => this.environment.onSnapshot(equipped
         ? this.commands.unequipEquipment(selectedSlot.slot)
         : this.commands.equipEquipment(selected.instanceId)), `equipment-equip:${selected.instanceId}`);
       const upgrade = equipment.owned.find((item) => item.instanceId === selected.instanceId)!;
       if (upgrade.upgradePreview) {
         const cost = upgrade.upgradePreview.cost;
-        put(`UPGRADE • T${selected.tier} → T${selected.tier + 1} • ${cost} Scrap\n${equipped ? 'EQUIPPED: improved values apply immediately after upgrade.' : 'STORED: no active Loadout value changes until equipped.'}`);
+        const afterItem = upgrade.upgradePreview.after.slots.find((slot) => slot.slot === selected.slot)!.candidates.find((item) => item.instanceId === selected.instanceId)!;
+        put(`UPGRADE • T${selected.tier} → T${selected.tier + 1} • ${cost} Scrap\nBENEFIT: ${this.loadoutEffectCopy(selected.effects)} → ${this.loadoutEffectCopy(afterItem.effects)}\n${equipped ? 'EQUIPPED: improved values apply immediately after upgrade.' : 'STORED: no active Loadout value changes until equipped.'}`);
         if (cost !== undefined) put(upgrade.upgradeLockReason ? `No Scrap spent • balance remains ${scrap}`
           : scrap < cost ? `Need ${cost - scrap} more Scrap • balance remains ${scrap}`
             : `Balance after: ${scrap - cost} Scrap`);
-        const afterItem = upgrade.upgradePreview.after.slots.find((slot) => slot.slot === selected.slot)!.candidates.find((item) => item.instanceId === selected.instanceId)!;
         const pairWidth = (contentWidth - 16) / 2;
         const extent = Math.min(this.equipmentInspectionExtent(pairWidth), pairWidth - 24);
         const framing = [selected.iconArtId, afterItem.iconArtId];

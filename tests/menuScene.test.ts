@@ -867,7 +867,7 @@ describe('MenuScene', () => {
       .get((harness.menuScene as unknown as { focusables: FakeObject[]; navigator: { index: number } }).focusables[(harness.menuScene as unknown as { navigator: { index: number } }).navigator.index]!))
       .toBe('equipment-candidate:recon');
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
-    expect(harness.textContents().join('\n')).toContain('Replaces Commando Helmet');
+    expect(harness.textContents().join('\n')).toContain('REPLACES: Commando Helmet');
     expect(harness.textContents().join('\n')).toContain('REMOVES: +5% Fire Rate [All Weapons]');
     expect(harness.textContents().join('\n')).toContain('LOSE 2-piece');
     expect(harness.textContents().join('\n')).toContain('[All Weapons]');
@@ -907,7 +907,7 @@ describe('MenuScene', () => {
     expect(harness.context.saveData).toBe(before);
     expect(harness.textContents()).toContain('View details');
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
-    expect(harness.textContents().join('\n')).toContain('Replaces Commando Helmet');
+    expect(harness.textContents().join('\n')).toContain('REPLACES: Commando Helmet');
     harness.buttonByLabel('Equip Recon Helmet')!.state.handlers.pointerup!();
     expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('recon');
     expect(harness.textContents()).not.toContain('EQUIPMENT');
@@ -944,7 +944,7 @@ describe('MenuScene', () => {
     expect(candidate.state.destroyed).toBe(true);
     expect(harness.textContents()).not.toContain('Recon Helmet\nT1 • STORED');
     expect(browsePrefix.every(button => button.state.destroyed || (!button.state.visible && !button.state.interactive))).toBe(true);
-    expect(harness.textContents().join('\n')).toContain('Replaces Commando Helmet');
+    expect(harness.textContents().join('\n')).toContain('REPLACES: Commando Helmet');
     const action = harness.buttonByLabel('Equip Recon Helmet')!;
     scene.navigator.setIndex(scene.focusables.indexOf(action));
     scene.handleNavMove('up');
@@ -971,7 +971,7 @@ describe('MenuScene', () => {
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-detail:recon');
     expect(scene.scrollRectangle.width).toBeGreaterThan(1100);
     expect([...scene.scrollItemIndexes].every(index => scene.focusables[index]?.state.visible)).toBe(true);
-    expect(harness.textContents().join('\n')).toContain('Replaces Commando Helmet');
+    expect(harness.textContents().join('\n')).toContain('REPLACES: Commando Helmet');
   });
 
   it('shows exact Equipment effects, Set threshold deltas, and upgrade before/after in the immediate wide inspector', () => {
@@ -987,11 +987,30 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
     const copy = harness.textContents().join('\n');
-    expect(copy).toContain('EFFECTS');
+    expect(copy).toContain('EFFECT AFTER EQUIP');
     expect(copy).toContain('LOSE 2-piece');
     expect(copy).toContain('UPGRADE T1 → T2');
     expect(copy).toContain('ITEM NOW');
     expect(copy).toContain('ITEM AFTER UPGRADE');
+    expect(copy).toContain('UPGRADE BENEFIT');
+  });
+
+  it('keeps Unequip consequences separate from Equip replacement copy', () => {
+    const harness = createHarness({ create: false });
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando' } }));
+    Object.assign(harness.menuScene.scale, { width: 1280, height: 720, displaySize: { width: 1280, height: 720 } });
+    harness.menuScene.create();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nT1 • EQUIPPED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+    const copy = harness.textContents().join('\n');
+    expect(copy).toContain('ACTION: UNEQUIP Commando Helmet');
+    expect(copy).toContain('AFTER UNEQUIP: Empty Helmet slot');
+    expect(copy).toContain('SET BONUS CHANGES');
+    expect(copy).not.toContain('REPLACES: Commando Helmet');
   });
 
   it.each([[360, 640], [844, 390]])('keeps compact pointer detail navigation on a visible target at %i×%i', (width, height) => {

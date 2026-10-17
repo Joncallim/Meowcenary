@@ -751,8 +751,8 @@ describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
 
       const text = (value: string) => live.find((object) => object.state.text === value)!.state;
       const time = text('0:01 / 1:00');
-      const kills = text('K 3');
-      const scrap = text('S 12');
+      const kills = text('Kills 3');
+      const scrap = text('Scrap 12');
       expect(time.y).toBeLessThan(kills.y);
       expect(kills.y).toBeLessThan(scrap.y);
       // The compact panel aligns K with the HP label and S with the XP label;

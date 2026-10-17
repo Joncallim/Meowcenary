@@ -695,6 +695,12 @@ describe('ControlsView ability button', () => {
     view.destroy();
   });
 
+  it('keeps the authoritative recharge visible in the READY state when supplied', () => {
+    const { scene, view } = createHarness({ ability: { ...scrapBurst, cooldownLabel: 'Cooldown 9s.' } });
+    expect(scene.objects.some((object) => object.state.text === 'READY • 9s recharge')).toBe(true);
+    view.destroy();
+  });
+
   it.each([
     'Scrap Burst', 'Overclock', 'Shield Flicker', 'Giga Chomp',
     'Adrenaline', 'Heat Vent', 'Scavenge Pulse', 'Precision Mark',
