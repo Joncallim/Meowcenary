@@ -63,9 +63,10 @@ This is still an automated bounded checkpoint. Production FX approval/resource c
 - On the unchanged baseline `6e4cdf8`, both weapon and Gunsmith art checks fail
   under the container's default Pillow `12.3.0` and pass under the pinned
   Pillow `12.1.1`; the relevant art inputs are unchanged from that baseline.
-  The broader `art:gun-build:check` still cannot complete in this cloud image
-  because the required `lua` executable is absent. This is a setup blocker,
-  separate from the corrected Pillow mismatch; no test was weakened.
+  The complete `npm run art:validate` chain now passes under the same pinned
+  setup when the official Debian `lua5.4_5.4.7-1+b2` package is extracted
+  under `/tmp` and exposed as `lua`; no system package or repository file was
+  changed. The terminal log is `/tmp/r2-art-validate-lua547-pillow1211-20261017.log`.
 - R2 visual build at `1dd46ae`: `browser-tests/ability-comprehension.pw.ts` passed `222/222` serially across the six configured projects on system Chromium `154.0.8037.57`/SwiftShader. This is emulated browser evidence, not physical Android/iOS acceptance.
 
 ## Holds and next work
