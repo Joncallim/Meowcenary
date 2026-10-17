@@ -259,12 +259,13 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       this.drawSelection(root, root, snapshot, scrap);
       return;
     }
-    this.loadoutSection(root, left, y, 'EQUIPPED SLOTS');
-    y += 20;
-    // The slot grid is part of the same clipped browse body as the candidate
-    // cards. Starting the region before it keeps native slot art visible at
-    // offset zero while leaving a valid viewport on short phones.
-    const collectionViewportTop = y;
+    // Desktop keeps the complete collection header in the same scroll-owned
+    // lane as its slots, set control, and candidate cards. Otherwise the
+    // section label and Browse Sets control stay screen-anchored while the
+    // candidate grid moves underneath them.
+    const desktopCollectionScroll = this.layout.width >= 1040;
+    const sectionTop = y;
+    const collectionViewportTop = sectionTop + 20;
     const listWidth = wideInspector ? contentWidth - this.wideInspectorWidth(contentWidth) - 16 : contentWidth;
     // Reserve the wide inspector only after a legal item/blueprint has been
     // selected. The initial browse state owns the full four-slot width; using
@@ -277,12 +278,16 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // be reached.
     const compactTabs = this.useCompactEquipmentTabs(collectionViewportTop, collectionWidth);
     const fixedSlotGrid = compactTabs || this.layout.height <= 480;
-    this.collectionTop = collectionViewportTop;
+    this.collectionTop = desktopCollectionScroll ? sectionTop : collectionViewportTop;
     // Open the single collection region before slot rendering so authored
     // slot cards, candidate cards, copy, and art all enter the same Scene
     // owned mask. The fixed summary's measured bottom is applied below once
     // its wrapped text exists.
-    if (!fixedSlotGrid) this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.collectionTop, collectionWidth));
+    if (!fixedSlotGrid || desktopCollectionScroll) {
+      this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.collectionTop, collectionWidth));
+    }
+    this.loadoutSection(root, left, sectionTop, 'EQUIPPED SLOTS');
+    y = collectionViewportTop;
     // Equipment keeps the four slot tabs as a compact, always-reachable
     // header. The large art-led cards belong to the Loadout overview; they
     // would consume the candidate grid's viewport on phones and wide grids.
@@ -294,17 +299,15 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // right-hand cards cannot sit outside their owner and disappear at the
     // mask edge.
     y = this.renderEquipmentSlots(root, snapshot, left, y, collectionWidth, hitTarget, false, compactTabs);
-    if (fixedSlotGrid) {
+    if (fixedSlotGrid && !desktopCollectionScroll) {
       // Compact tabs and compact-landscape slot cards are fixed, reachable
       // headers. Only the body below them enters the shared scroll region.
       this.collectionTop = y;
       this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.collectionTop, collectionWidth));
     }
-    // Browse Sets is a fixed semantic section control. End the collection
-    // pass around its construction so it never becomes an orphaned scroll
-    // item below the fixed action band; reopen the same region for set/copy/
-    // candidate content immediately after it.
-    this.environment.controls.endScrollableRegion();
+    // On desktop this control belongs to the same collection lane as the
+    // candidate grid. Narrow layouts keep it fixed above their shorter body.
+    if (!desktopCollectionScroll) this.environment.controls.endScrollableRegion();
     const browse = this.button(root, left, y, this.equipmentSetBrowserOpen ? 'CLOSE SETS' : 'BROWSE SETS', hitTarget, () => {
       this.equipmentSetBrowserOpen = !this.equipmentSetBrowserOpen;
       this.environment.controls.focusNext('equipment:browse-sets');
@@ -325,8 +328,10 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // scroll offset can move the first helmet card underneath Browse Sets.
     // Compact landscape has a smaller vertical budget and retains its shared
     // region so the candidate viewport stays positive.
-    if (fixedSlotGrid) this.collectionTop = y;
-    this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.collectionTop, collectionWidth));
+    if (fixedSlotGrid && !desktopCollectionScroll) this.collectionTop = y;
+    if (!desktopCollectionScroll) {
+      this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.collectionTop, collectionWidth));
+    }
     // The structured catalog supplies a named, masked Set chooser. The old
     // closed state painted only four small emblems, which made the chooser
     // look like decoration and pushed the remaining names below the viewport.
@@ -790,19 +795,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     } else {
       summary.setPosition(left, artTop);
     }
-    // The wide inspector keeps the tier pair in the same bounded preview
-    // panel as the selected art. This makes the priced upgrade benefit
-    // visible without pushing the commit actions below the viewport.
-    if (selected && showCommitActions && upgradeAfter) {
-      const pairExtent = Math.min(48, Math.max(36, Math.floor((width - 132) / 2)));
-      const framing = [selected.iconArtId, upgradeAfter.iconArtId];
-      const pairY = artTop + 12 + pairExtent / 2;
-      const firstX = left + width - pairExtent * 2 - 20;
-      this.environment.controls.addLoadoutArt(root, firstX, pairY,
-        selected.iconArtId, pairExtent, pairExtent, undefined, framing);
-      this.environment.controls.addLoadoutArt(root, firstX + pairExtent + 20, pairY,
-        upgradeAfter.iconArtId, pairExtent, pairExtent, undefined, framing);
-    }
+    // The selected candidate already owns its artwork in the collection card.
+    // Do not add a second tier pair inside the inspector's text lane: at
+    // desktop widths those thumbnails overlap the Effect after equip copy.
     let nextActionY = actionTop;
     const details = this.button(fixedRoot, left, nextActionY, 'View details', actionHeight, () => {
       this.detailViewOpen = true;

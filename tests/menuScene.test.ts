@@ -997,6 +997,52 @@ describe('MenuScene', () => {
     expect(copy).toContain('UPGRADE BENEFIT');
   });
 
+  it('keeps the desktop Equipment collection chrome in one scroll lane without inspector art overlap', () => {
+    const harness = createHarness({ create: false });
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando' } }));
+    Object.assign(harness.menuScene.scale, { width: 1280, height: 720, displaySize: { width: 1280, height: 720 } });
+    harness.menuScene.create();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      focusables: FakeObject[]; scrollObjects: Array<{ object: FakeObject }>;
+      scrollRegion: { scrollOffset: number; setScrollOffset(offset: number): void };
+      scrollViewportTop: number; applyScrollViewport(): void;
+    };
+    const addLoadoutArt = vi.fn();
+    (harness.menuScene as unknown as { addLoadoutArt: typeof addLoadoutArt }).addLoadoutArt = addLoadoutArt;
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    addLoadoutArt.mockClear();
+
+    const section = harness.objects.find((object) => !object.state.destroyed && object.state.text === 'EQUIPPED SLOTS')!;
+    const browse = harness.buttonByLabel('BROWSE SETS')!;
+    expect(scene.scrollObjects.some(({ object }) => object === section)).toBe(true);
+    expect(scene.scrollObjects.some(({ object }) => object === browse)).toBe(true);
+
+    browse.state.handlers.pointerup!();
+    const setReading = harness.objects.find((object) => !object.state.destroyed && object.state.text.includes('2-piece INACTIVE'))!;
+    expect(scene.scrollObjects.some(({ object }) => object === setReading)).toBe(true);
+    expect(setReading.state.y).toBeGreaterThan(browse.state.y);
+    harness.buttonByLabel('CLOSE SETS')!.state.handlers.pointerup!();
+
+    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    const rectangle = (scene as unknown as { scrollRectangle: { x: number; width: number } }).scrollRectangle;
+    const selected = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
+    const selectedSection = harness.objects.find((object) => !object.state.destroyed && object.state.text === 'EQUIPPED SLOTS')!;
+    const selectedInspector = harness.objects.find((object) => !object.state.destroyed && object.state.text.startsWith('INSPECTOR'))!;
+    const selectedBrowse = harness.buttonByLabel('BROWSE SETS')!;
+    scene.scrollRegion.setScrollOffset(500);
+    scene.applyScrollViewport();
+    const browseBeforeCandidate = selectedBrowse.state.y + selectedBrowse.state.height <= selected.state.y;
+    const candidateBeforeBrowse = selected.state.y + selected.state.height <= selectedBrowse.state.y;
+    expect(browseBeforeCandidate || candidateBeforeBrowse).toBe(true);
+    expect(selectedSection.state.y).toBeLessThan(scene.scrollViewportTop);
+    expect(selectedInspector.state.x).toBeGreaterThanOrEqual(rectangle.x + rectangle.width);
+    expect(addLoadoutArt.mock.calls.some((call) => Number(call[4]) === 48)).toBe(false);
+  });
+
   it('keeps Unequip consequences separate from Equip replacement copy', () => {
     const harness = createHarness({ create: false });
     harness.context.updateEquipment(() => ({ equipment: {
