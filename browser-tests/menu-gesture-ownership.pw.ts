@@ -180,8 +180,13 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
         // slot header. Use its two-edge wide route on touch profiles; this
         // avoids synthesizing a mouse click after a native touch session.
         expect(fresh.diagnostic.focusedKey).toBe('equipment-slot:helmet');
+        // Keep the physical key held through a real input sample. Chromium's
+        // headless Ozone backend can otherwise deliver page.keyboard.press()
+        // down/up before Phaser observes either edge.
         for (const key of ['ArrowDown', 'ArrowDown', 'Enter']) {
-          await page.keyboard.press(key);
+          await page.keyboard.down(key);
+          expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
+          await page.keyboard.up(key);
           expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
         }
       } else {
