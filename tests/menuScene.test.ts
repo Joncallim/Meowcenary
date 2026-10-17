@@ -868,6 +868,8 @@ describe('MenuScene', () => {
       .toBe('equipment-candidate:recon');
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('REPLACES: Commando Helmet');
+    expect(harness.textContents().join('\n')).toContain('DECISION PREVIEW');
+    expect(harness.textContents().join('\n')).toContain('LOSE 2-piece');
     expect(harness.textContents().join('\n')).toContain('REMOVES: +5% Fire Rate [All Weapons]');
     expect(harness.textContents().join('\n')).toContain('LOSE 2-piece');
     expect(harness.textContents().join('\n')).toContain('[All Weapons]');
@@ -3072,6 +3074,16 @@ describe('MenuScene', () => {
     expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'weapon-icon:pistol:t1', 38, expect.any(Number));
     expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'ability-icon:scrap-burst', 46, expect.any(Number));
     expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'passive-icon:scrap-hoarder', 42, expect.any(Number));
+  });
+
+  it('publishes stable semantic focus IDs for Mercenary cards', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Mercenary')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>;
+    };
+    const bolt = scene.focusables.find(button => button.state.text.startsWith('Bolt Hound'))!;
+    expect(scene.focusKeyByButton.get(bolt)).toBe('character:bolt-hound');
   });
 
   it('rerenders a still-current Mercenary panel after a partial lazy resource success', async () => {

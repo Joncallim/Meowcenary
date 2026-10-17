@@ -257,6 +257,7 @@ export class MenuScene extends Phaser.Scene {
     };
     return {
       panel: this.committedPanel,
+      inputMode: this.inputController?.getInputMode(),
       focusedKey: this.focusKeyByButton.get(this.focusables[this.navigator.index]!),
       copy: (this.root?.list ?? []).flatMap(collectCopy),
       copyBounds: (this.root?.list ?? []).flatMap(collectCopyBounds),
@@ -1253,6 +1254,10 @@ export class MenuScene extends Phaser.Scene {
         const next = this.requireController().selectCharacter(character.id, snapshot.character.revision);
         this.render(next);
       }, 'ui:confirm', cardWidth, undefined, 62, portraitColumn, true);
+      // Keep the roster's semantic identity in the shared focus map so
+      // keyboard/controller captures can identify the exact character card,
+      // not only its rendered label.
+      this.focusKeyByButton.set(button, `character:${character.id}`);
       const rowOwnerIndex = this.focusables.length - 1;
       // Locked roster members remain full-colour previews; the lock marker and
       // disabled command communicate availability without making approved

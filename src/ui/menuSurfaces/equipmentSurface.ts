@@ -603,11 +603,43 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     if (count === 0) return this.layout.scrollBottom;
     const actionGap = 8;
     const fixedActionsTop = this.footerTop() - count * (this.layout.hitTarget + actionGap);
-    return Math.min(this.layout.scrollBottom, fixedActionsTop - actionGap);
+    const previewHeight = this.detailDecisionPreviewHeight(snapshot);
+    return Math.min(this.layout.scrollBottom, fixedActionsTop - actionGap
+      - (previewHeight > 0 ? previewHeight + actionGap : 0));
   }
 
   private detailFixedActionTop(snapshot: MainMenuSnapshot): number {
     return this.footerTop() - this.detailActionCount(snapshot) * (this.layout.hitTarget + 8);
+  }
+
+  /** Narrow detail keeps the commit actions fixed, but gives the player a
+   * short consequence preview immediately above them. The full comparison
+   * reader remains scrollable below the selected item; this is only the
+   * minimum context needed to avoid a blind Equip/Upgrade choice. */
+  private detailDecisionPreviewHeight(snapshot: MainMenuSnapshot): number {
+    if (this.layout.width >= 600) return 0;
+    const selectedSlot = snapshot.equipment.presentation.slots.find(slot => slot.slot === snapshot.equipment.selectedSlot);
+    return selectedSlot?.candidates.some(item => item.instanceId === snapshot.equipment.selectedInstanceId) ? 72 : 0;
+  }
+
+  private detailDecisionPreviewCopy(
+    selected: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
+    selectedSlot: MainMenuSnapshot['equipment']['presentation']['slots'][number],
+    comparison: EquipmentComparison | undefined,
+    upgradeAfter: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number] | undefined,
+    upgradeCost: number | undefined,
+  ): string {
+    const setChanges = this.equipmentSetChangeCopy(comparison);
+    const consequence = selected.state === 'EQUIPPED'
+      ? `UNEQUIP → Empty ${selectedSlot.label}`
+      : `EQUIP → ${comparison?.displaced ? `Replaces ${comparison.displaced.name}` : `Fills ${selectedSlot.label} slot`}`;
+    const setLoss = setChanges.find(line => line.startsWith('LOSE '))
+      ?? setChanges.find(line => line.startsWith('GAIN '))
+      ?? 'SET BONUS: No threshold change';
+    const upgrade = upgradeAfter
+      ? `UPGRADE → ${this.loadoutEffectCopy(selected.effects)} → ${this.loadoutEffectCopy(upgradeAfter.effects)}${upgradeCost === undefined ? '' : ` • ${upgradeCost} Scrap`}`
+      : 'UPGRADE: No preview';
+    return `DECISION PREVIEW\n${consequence}\n${setLoss}\n${upgrade}`;
   }
 
   private fabricationActionLabel(
@@ -902,6 +934,19 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     if (equipment.unavailable.length) put('A legacy Equipment item is unavailable in this version.', '#fbbf24');
     this.environment.controls.endScrollableRegion();
     let fixedActionY = this.detailFixedActionTop(snapshot);
+    if (selected && this.detailDecisionPreviewHeight(snapshot) > 0) {
+      const selectedUpgrade = equipment.owned.find((item) => item.instanceId === selected.instanceId)?.upgradePreview;
+      const previewAfter = selectedUpgrade
+        ? selectedUpgrade.after.slots.find((slot) => slot.slot === selected.slot)
+          ?.candidates.find((item) => item.instanceId === selected.instanceId)
+        : undefined;
+      const preview = this.loadoutCopy(fixedRoot, left,
+        fixedActionY - this.detailDecisionPreviewHeight(snapshot) - 8,
+        this.detailDecisionPreviewCopy(selected, selectedSlot,
+          selected.state === 'EQUIPPED' ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot }) : equipment.comparison,
+          previewAfter, selectedUpgrade?.cost), contentWidth, '#fbbf24', false);
+      preview.setStyle({ fontSize: '11px', lineSpacing: 1 });
+    }
     for (const detailAction of fixedDetailActions) {
       const action = this.button(fixedRoot, left, fixedActionY, detailAction.label, hitTarget, detailAction.action,
         'ui:confirm', contentWidth);
