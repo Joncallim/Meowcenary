@@ -1,6 +1,7 @@
 export declare const ALLOC_FILE: string;
 export declare const RUNNER_TESTS: string;
 export declare const RUNNER_EXPLICIT_TESTS: string;
+export declare const RUNNER_EXECUTABLE_TESTS: string;
 export declare const ART_VALIDATOR_NODE_TESTS: string;
 export declare const ALLOC_ISOLATION: readonly string[];
 

@@ -3,6 +3,7 @@ import {
   ALLOC_FILE,
   ALLOC_ISOLATION,
   ART_VALIDATOR_NODE_TESTS,
+  RUNNER_EXECUTABLE_TESTS,
   RUNNER_EXPLICIT_TESTS,
   RUNNER_TESTS,
   buildStagePlan,
@@ -33,6 +34,7 @@ describe('scripts/test.mjs stateful allocation selection (F1)', () => {
       expect(plan.stages[0]!.args).toContain(ALLOC_FILE);
       expect(plan.stages[0]!.args).toContain(RUNNER_TESTS);
       expect(plan.stages[0]!.args).toContain(RUNNER_EXPLICIT_TESTS);
+      expect(plan.stages[0]!.args).toContain(RUNNER_EXECUTABLE_TESTS);
       expect(plan.stages[0]!.args).toContain(ART_VALIDATOR_NODE_TESTS);
       expect(plan.stages[1]).toEqual({ kind: 'allocation-gate', args: allocationStage });
       expect(plan.stages[1]!.args).not.toContain('-t');

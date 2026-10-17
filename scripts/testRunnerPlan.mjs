@@ -6,6 +6,7 @@ const SCRIPT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export const ALLOC_FILE = 'tests/zeroAllocation.test.ts';
 export const RUNNER_TESTS = 'tests/testRunner.test.ts';
 export const RUNNER_EXPLICIT_TESTS = 'tests/testRunnerExplicit.test.ts';
+export const RUNNER_EXECUTABLE_TESTS = 'tests/testRunnerExecutable.test.ts';
 // Validator tooling uses Node's native test runner. Keep its fixture suite
 // out of Vitest discovery; `npm run art:validate` executes it explicitly.
 export const ART_VALIDATOR_NODE_TESTS = 'docs/art/scripts/**/*.test.mjs';
@@ -97,7 +98,8 @@ export function buildStagePlan(rawArgs, root = SCRIPT_ROOT) {
       kind: 'ordinary-selection',
       args: [
         'run', '--exclude', ALLOC_FILE, '--exclude', RUNNER_TESTS,
-        '--exclude', RUNNER_EXPLICIT_TESTS, '--exclude', ART_VALIDATOR_NODE_TESTS,
+        '--exclude', RUNNER_EXPLICIT_TESTS, '--exclude', RUNNER_EXECUTABLE_TESTS,
+        '--exclude', ART_VALIDATOR_NODE_TESTS,
         ...forwarded,
       ],
     };
