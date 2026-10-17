@@ -15,7 +15,7 @@ The R1 branch contains the saved layout work plus the gamepad/keyboard tuple-all
 ## R1 allocation and gamepad evidence
 
 - Pinned CI runtime: Node `22.23.3`; `tests/zeroAllocation.test.ts` passed `9/9` on both unchanged base `6e4cdf8` and R1 `c6b4939`.
-- Repeated cloud runtime diagnostic: Node `24.19.0` exposed the old tuple-destructuring path as GC pressure (unchanged base failed all five repeated probes, including idle/gamepad; `c6b4939` reduced this to two passing and three residual one-Scavenge gamepad probes). This is a V8-24 probe-floor difference; the supported Node-22 gate is clean after the fix.
+- Repeated cloud runtime diagnostic: Node `24.19.0` exposed a runtime-dependent discrepancy (unchanged base failed all five repeated probes, including idle/gamepad; `c6b4939` reduced this to two passing and three residual one-Scavenge gamepad probes). The base comparison is useful evidence but does not distinguish source allocation from runtime probe-floor behavior; direct profiling or repeatable reproduction on the relevant runtime is still required before calling this resolved. The supported Node-22 gate is clean after the tuple-allocation fix.
 - `tests/epic19GamepadLifecycleSoak.test.ts`: unchanged base and `c6b4939` both passed `2/2` on Node 22.23.3, including 128 menu and 128 mid-run disconnect/reconnect cycles.
 - Logs: `/tmp/r1-base-zeroAllocation-node22-20261017.log`, `/tmp/r1-c6-zeroAllocation-node22-20261017.log`, `/tmp/r1-base-gamepad-soak-node22-20261017.log`, `/tmp/r1-c6-gamepad-soak-node22-20261017.log`.
 
@@ -42,6 +42,11 @@ node node_modules/vitest/vitest.mjs run tests/abilityPresentation.test.ts tests/
 Result: `3` files, `282` tests passed. The new `GameScene` composition test starts the real sustained `shield-flicker` presentation, emits terminal ownership, delivers late `ability:resolved`/`ability:ended` receipts, refreshes the real presentation system, and proves no FX or banner resurrection. Existing composed `run:won`/`run:lost` interruption tests remain green.
 
 This is still an automated bounded checkpoint. Production FX approval/resource closure, real eight-ability combat, physical phone input, reduced-motion/device acceptance, visual owner review, hosted CI, merge, deployment, and issue closure remain unverified/on hold.
+
+## Exact-head validation
+
+- R2 `35b74b4`: lint and production build passed on Node `22.23.3`; full suite reached `4,138` passing tests and `2` failures, both art-importer checks blocked by the cloud environment's unpinned Pillow version instead of the repository-required `12.1.1`.
+- R1 `c6b4939`: lint and production build passed on Node `22.23.3`; full suite reached `4,122` passing tests and the same `2` Pillow-gated art failures.
 
 ## Holds and next work
 
