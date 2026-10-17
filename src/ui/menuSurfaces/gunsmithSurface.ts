@@ -184,25 +184,57 @@ export class GunsmithSurface extends MenuPanelSurface {
     }
   }
   private assembly(root: Phaser.GameObjects.Container, y: number, title: string, preview: GunsmithAssembledPreview,
-    framing: readonly string[], caption: string): number {
-    const width = Math.min(700, this.laneWidth - 32);
-    const artHeight = assemblyMediaHeight(framing, width);
-    const header = this.copy(root, this.layout.margin + 16, y + 16, title, this.laneWidth - 32);
-    const captionY = y + 16 + header.height + 12 + artHeight + 12;
-    const summary = this.copy(root, this.layout.margin + 16, captionY, caption, this.laneWidth - 32, '#f7f1d5', 13);
-    const height = captionY - y + summary.height + 16;
-    this.backdrop(root, this.layout.margin, y, this.laneWidth, height);
-    renderAssembledWeapon(this.environment.controls, root, preview, this.layout.centerX,
-      y + 16 + header.height + 12 + artHeight / 2, width, artHeight, framing);
-    let traitsY = y + height;
+    framing: readonly string[], caption: string, decisionDetails = ''): number {
+    const wideComposition = this.wide;
+    const mediaWidth = wideComposition
+      ? Math.min(480, Math.max(360, Math.floor(this.laneWidth * 0.44)))
+      : Math.min(700, this.laneWidth - 32);
+    const artHeight = assemblyMediaHeight(framing, mediaWidth);
     const traits = [...preview.traitCores.map(core => ({ iconArtId: core.iconArtId, trait: `Trait Core T${core.tier}` })), ...preview.traitEmblems];
+    if (!wideComposition) {
+      const header = this.copy(root, this.layout.margin + 16, y + 16, title, this.laneWidth - 32);
+      const captionY = y + 16 + header.height + 12 + artHeight + 12;
+      const summary = this.copy(root, this.layout.margin + 16, captionY, caption, this.laneWidth - 32, '#f7f1d5', 13);
+      const height = captionY - y + summary.height + 16;
+      this.backdrop(root, this.layout.margin, y, this.laneWidth, height);
+      renderAssembledWeapon(this.environment.controls, root, preview, this.layout.centerX,
+        y + 16 + header.height + 12 + artHeight / 2, mediaWidth, artHeight, framing);
+      let traitsY = y + height;
+      traits.forEach((trait, index) => {
+        const column = index % 2;
+        if (column === 0 && index > 0) traitsY += 40;
+        this.environment.controls.addCatalogIcon(root, this.layout.margin + 18 + column * (this.laneWidth / 2), traitsY + 18, trait.iconArtId, 32);
+        this.copy(root, this.layout.margin + 42 + column * (this.laneWidth / 2), traitsY + 8, trait.trait, this.laneWidth / 2 - 48, '#24cec7', 13);
+      });
+      return traitsY + (traits.length ? 40 : 0) + 12;
+    }
+
+    // On foldable/desktop widths, keep the weapon recognizable while placing
+    // its family summary and traits beside it. This brings the engineering
+    // decision back into the first view without increasing card height.
+    const textLeft = this.layout.margin + mediaWidth + 32;
+    const textWidth = this.laneWidth - mediaWidth - 48;
+    const header = this.copy(root, textLeft, y + 16, title, textWidth);
+    let textY = y + 16 + header.height + 12;
+    const wideCaption = decisionDetails ? `${caption}\n${decisionDetails}` : caption;
+    const summary = this.copy(root, textLeft, textY, wideCaption, textWidth, '#f7f1d5', 13);
+    textY += summary.height + 16;
+    const traitsPerRow = textWidth >= 300 ? 2 : 1;
+    const traitRowHeight = 42;
+    const traitRows = Math.ceil(traits.length / traitsPerRow);
+    const height = Math.max(artHeight + 32, textY - y + traitRows * traitRowHeight + 8);
+    this.backdrop(root, this.layout.margin, y, this.laneWidth, height);
+    renderAssembledWeapon(this.environment.controls, root, preview, this.layout.margin + 16 + mediaWidth / 2,
+      y + 16 + artHeight / 2, mediaWidth, artHeight, framing);
     traits.forEach((trait, index) => {
-      const column = index % 2;
-      if (column === 0 && index > 0) traitsY += 40;
-      this.environment.controls.addCatalogIcon(root, this.layout.margin + 18 + column * (this.laneWidth / 2), traitsY + 18, trait.iconArtId, 32);
-      this.copy(root, this.layout.margin + 42 + column * (this.laneWidth / 2), traitsY + 8, trait.trait, this.laneWidth / 2 - 48, '#24cec7', 13);
+      const column = index % traitsPerRow;
+      const row = Math.floor(index / traitsPerRow);
+      const x = textLeft + column * (textWidth / traitsPerRow);
+      const traitY = textY + row * traitRowHeight;
+      this.environment.controls.addCatalogIcon(root, x + 16, traitY + 18, trait.iconArtId, 32);
+      this.copy(root, x + 40, traitY + 8, trait.trait, textWidth / traitsPerRow - 48, '#24cec7', 13);
     });
-    return traitsY + (traits.length ? 40 : 0) + 12;
+    return y + height + 12;
   }
   private drawBuild(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, start: number): void {
     const state = snapshot.gunsmith;
@@ -213,7 +245,14 @@ export class GunsmithSurface extends MenuPanelSurface {
       ? `${selected.title.toUpperCase()} • ACTIVE\n${selected.activation} • changes ${state.families.find(family => family.id === selected.familyId)?.name ?? selected.familyId}`
       : `${state.unconfiguredBuild?.title ?? 'Stock weapon'} • NO ENGINEERED BUILD\nChoose a family to create its active build.`, this.laneWidth, '#24cec7').height + 12;
     const framing = [...new Set([...(current ? assemblyArtIds(current) : []), ...(state.candidatePreview ? assemblyArtIds(state.candidatePreview) : [])])];
-    if (current) y = this.assembly(root, y, 'Your assembled weapon', current, framing, selected?.summary ?? 'Stock weapon • no persistent engineering fitted');
+    const fittedDetails = selected
+      ? state.slots.flatMap(slot => slot.slot === 'trait'
+        ? (slot.traitFitted ?? []).map(part => `${part.name} T${part.tier} • ${part.effectLines.slice(0, 2).join(' • ')}`)
+        : slot.fitted ? [`${slot.fitted.name} T${slot.fitted.tier} • ${slot.fitted.effectLines.slice(0, 2).join(' • ')}`] : [])
+        .join('\n')
+      : '';
+    if (current) y = this.assembly(root, y, 'Your assembled weapon', current, framing,
+      selected?.summary ?? 'Stock weapon • no persistent engineering fitted', fittedDetails ? `FITTED PARTS\n${fittedDetails}` : '');
     if (!selected) return;
     const inspected = state.parts.find(part => part.instanceId === this.inspectedInstanceId);
     if (inspected) { this.drawInspection(root, snapshot, inspected, y); return; }
@@ -237,7 +276,10 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       }
     }
     y += this.copy(root, this.layout.margin, y, 'ENGINEERING SLOTS', this.laneWidth, '#24cec7').height + 8;
-    const columns = this.wide ? 4 : 2;
+    // Keep the catalog filter row compact without shrinking touch targets. A
+    // six-column desktop band turns the old three-row filter block into at
+    // most two rows while still leaving each filter comfortably tappable.
+    const columns = this.wide ? Math.min(6, state.slots.length) : 2;
     const slotWidth = (this.laneWidth - (columns - 1) * 8) / columns;
     let rowHeight = 0;
     state.slots.forEach((slot, index) => {
@@ -473,7 +515,7 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
     }
     y += this.copy(root, this.layout.margin, y, 'PARTS • OWNERSHIP / SOURCE / FABRICATION', this.laneWidth, '#24cec7').height + 12;
     const filters = ['All', ...new Set(catalog.map(part => part.slot))];
-    const columns = this.wide ? 4 : 2;
+    const columns = this.wide ? Math.min(6, filters.length) : 2;
     const filterWidth = (this.laneWidth - (columns - 1) * 8) / columns;
     let rowHeight = 0;
     filters.forEach((slot, index) => {
@@ -486,21 +528,55 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       rowHeight = Math.max(rowHeight, filter.height);
     });
     y += rowHeight + 12;
-    for (const part of catalog.filter(part => !this.catalogSlot || part.slot === this.catalogSlot)) {
-      const size = this.mediaSize;
-      const stacked = !this.wide;
-      const label = `${part.name}\n${part.slot.toUpperCase()} • ${part.stateLabel} • ${part.effectScope}\n${part.statChips.slice(0, 2).join(' • ') || 'Trait engineering'}${part.fabricationCost === undefined ? '' : `\n${part.fabricationCost} Scrap`}`;
-      const row = this.button(root, this.layout.margin, y, label, stacked ? size + 144 : size + 32, () => {
-        this.selectedCatalogPartId = part.partId; this.fabricationConfirmation = undefined;
-        this.redraw(snapshot, `gunsmith-catalog-close:${part.partId}`);
-      }, 'ui:confirm', this.laneWidth, undefined, part.traitIcons.length * 38, stacked ? 12 : size + 32, true, 'left', 'card', stacked ? size + 24 : 12);
-      this.environment.controls.rememberFocus(row, `gunsmith-catalog:${part.partId}`);
-      const owner = this.environment.controls.buttonIndex(row);
-      this.environment.controls.addLoadoutArt(root, stacked ? this.layout.centerX : this.layout.margin + size / 2 + 16,
-        y + size / 2 + 16, part.iconArtId, size, size, owner);
-      part.traitIcons.forEach((trait, index) => this.environment.controls.addCatalogIcon(root,
-        this.layout.margin + this.laneWidth - 24 - index * 38, y + size + 16, trait.iconArtId, 32, owner));
-      y += row.height + 12;
+    const filteredCatalog = catalog.filter(part => !this.catalogSlot || part.slot === this.catalogSlot);
+    if (!this.wide) {
+      for (const part of filteredCatalog) {
+        const size = this.mediaSize;
+        const label = `${part.name}\n${part.slot.toUpperCase()} • ${part.stateLabel} • ${part.effectScope}\n${part.statChips.slice(0, 2).join(' • ') || 'Trait engineering'}${part.fabricationCost === undefined ? '' : `\n${part.fabricationCost} Scrap`}`;
+        const row = this.button(root, this.layout.margin, y, label, size + 144, () => {
+          this.selectedCatalogPartId = part.partId; this.fabricationConfirmation = undefined;
+          this.redraw(snapshot, `gunsmith-catalog-close:${part.partId}`);
+        }, 'ui:confirm', this.laneWidth, undefined, part.traitIcons.length * 38, 12, true, 'left', 'card', size + 24);
+        this.environment.controls.rememberFocus(row, `gunsmith-catalog:${part.partId}`);
+        const owner = this.environment.controls.buttonIndex(row);
+        this.environment.controls.addLoadoutArt(root, this.layout.centerX, y + size / 2 + 16, part.iconArtId, size, size, owner);
+        part.traitIcons.forEach((trait, index) => this.environment.controls.addCatalogIcon(root,
+          this.layout.margin + this.laneWidth - 24 - index * 38, y + size + 16, trait.iconArtId, 32, owner));
+        y += row.height + 12;
+      }
+      return;
+    }
+
+    // Desktop/foldable catalog cards become a comparison grid: multiple
+    // parts remain visible with their name, state, scope and stat chips beside
+    // a bounded icon. Selection still opens the existing detailed inspector.
+    const cardColumns = this.layout.width >= 1280 ? 3 : 2;
+    const cardGap = 12;
+    const cardWidth = (this.laneWidth - cardGap * (cardColumns - 1)) / cardColumns;
+    const size = Math.min(152, cardWidth - 24);
+    for (let index = 0; index < filteredCatalog.length; index += cardColumns) {
+      const rowParts = filteredCatalog.slice(index, index + cardColumns);
+      let rowHeight = Math.max(this.layout.hitTarget, size + 32);
+      const rows = rowParts.map((part, column) => {
+        const x = this.layout.margin + column * (cardWidth + cardGap);
+        const label = `${part.name}\n${part.slot.toUpperCase()} • ${part.stateLabel}\n${part.effectScope}\n${part.statChips.slice(0, 2).join(' • ') || 'Trait engineering'}${part.fabricationCost === undefined ? '' : ` • ${part.fabricationCost} Scrap`}`;
+        const row = this.button(root, x, y, label, rowHeight, () => {
+          this.selectedCatalogPartId = part.partId; this.fabricationConfirmation = undefined;
+          this.redraw(snapshot, `gunsmith-catalog-close:${part.partId}`);
+        }, 'ui:confirm', cardWidth, undefined, part.traitIcons.length * 30, size + 30, true, 'left', 'card', size + 24);
+        this.environment.controls.rememberFocus(row, `gunsmith-catalog:${part.partId}`);
+        rowHeight = Math.max(rowHeight, row.height);
+        return { part, row, x };
+      });
+      for (const { part, row, x } of rows) {
+        row.setFixedSize(cardWidth, rowHeight);
+        const owner = this.environment.controls.buttonIndex(row);
+        this.environment.controls.addLoadoutArt(root, x + 16 + size / 2, y + 12 + size / 2,
+          part.iconArtId, size, size, owner);
+        part.traitIcons.forEach((trait, traitIndex) => this.environment.controls.addCatalogIcon(root,
+          x + cardWidth - 20 - traitIndex * 30, y + rowHeight - 22, trait.iconArtId, 26, owner));
+      }
+      y += rowHeight + cardGap;
     }
   }
 }

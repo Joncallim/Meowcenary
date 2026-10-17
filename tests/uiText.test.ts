@@ -201,7 +201,9 @@ describe('createUiText', () => {
     // Every actual site remains covered by the symbol-resolved bypass audit.
     // One intro view adds four sites: body copy, name, footer command and hint.
     // The retired brief used modal helpers, so no direct factory site is removed.
-    expect(migratedSites).toHaveLength(52);
+    // Responsive Mercenary cards add two centralized text sites for the
+    // compact/wide render block and its content-aware measurement probe.
+    expect(migratedSites).toHaveLength(54);
     const introSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/ui/runStartIntroView.ts'));
     expect(introSites).toHaveLength(4);
 

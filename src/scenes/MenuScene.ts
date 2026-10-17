@@ -1225,7 +1225,32 @@ export class MenuScene extends Phaser.Scene {
       const cardWidth = width - margin - this.safeRightMargin;
       const compact = cardWidth < 520;
       const portraitColumn = compact ? 132 : 160;
-      const cardHeight = compact ? 236 : 204;
+      const detailWidth = compact ? cardWidth - portraitColumn - 24 : (cardWidth - portraitColumn - 32) / 2;
+      const leftDetails = [
+        character.description,
+        `${character.baseStatsSummary}  •  Starts: ${character.startingWeaponSummary}`,
+      ].filter(Boolean).join('\n');
+      const rightDetails = [
+        character.passives.length > 0 ? `PASSIVE  ${character.passives.map((passive) => `${passive.name} — ${passive.description}`).join(' • ')}` : undefined,
+        character.abilityName ? `ABILITY  ${character.abilityName} — ${character.abilityDescription}` : undefined,
+        character.locked ? `UNLOCK  ${character.unlockRequirement}` : undefined,
+      ].filter(Boolean).join('\n');
+      const details = [leftDetails, rightDetails].filter(Boolean).join('\n');
+      const detailHeight = compact
+        ? this.measureMenuTextHeight(details, Math.max(1, detailWidth), ThemeFont.bodyMin, 2)
+        : Math.max(
+          this.measureMenuTextHeight(leftDetails, Math.max(1, detailWidth), ThemeFont.bodyMin, 2),
+          this.measureMenuTextHeight(rightDetails, Math.max(1, detailWidth), ThemeFont.bodyMin, 2),
+        );
+      // Keep the full card-local reading block above the ability/passive icon
+      // band. On compact phones the authored copy can wrap far beyond the old
+      // fixed 236px card; the card grows with its actual measured text instead
+      // of clipping the cooldown or handing it to the next card.
+      // Leave a deliberate inner safety inset between the measured reading
+      // block and the selected-card/focus chrome. Phaser's text bounds and
+      // the authored cyan frame can differ by a few pixels after a card is
+      // selected; the last cooldown line must never sit on that border.
+      const cardHeight = Math.max(compact ? 236 : 204, 38 + detailHeight + 80);
       const button = this.addButton(root, margin, y, label, cardHeight, () => {
         const next = this.requireController().selectCharacter(character.id, snapshot.character.revision);
         this.render(next);
@@ -1239,25 +1264,23 @@ export class MenuScene extends Phaser.Scene {
       if (character.locked) {
         this.addCatalogIcon(root, width - this.safeRightMargin - 52, y + 22, 'ui-chrome:locked', 22, rowOwnerIndex);
       }
-      if (character.description || character.abilityName) {
+      if (details) {
         const detailX = margin + portraitColumn;
-        const details = [
-          character.description,
-          `${character.baseStatsSummary}  •  Starts: ${character.startingWeaponSummary}`,
-          character.passives.length > 0 ? `PASSIVE  ${character.passives.map((passive) => `${passive.name} — ${passive.description}`).join(' • ')}` : undefined,
-          character.abilityName ? `ABILITY  ${character.abilityName} — ${character.abilityDescription}` : undefined,
-          character.locked ? `UNLOCK  ${character.unlockRequirement}` : undefined,
-        ]
-          .filter(Boolean).join('\n');
-        const desc = this.own(root, createUiText(this, detailX, y + 38, details, {
+        const textStyle = {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
           lineSpacing: 2,
-          wordWrap: { width: cardWidth - portraitColumn - 12 },
-        }));
+          wordWrap: { width: Math.max(1, detailWidth) },
+        } as const;
+        const desc = this.own(root, createUiText(this, detailX, y + 38, compact ? details : leftDetails, textStyle));
         desc.setScrollFactor(0);
         this.registerScrollObject(desc, rowOwnerIndex);
+        if (!compact && rightDetails) {
+          const side = this.own(root, createUiText(this, detailX + detailWidth + 16, y + 38, rightDetails, textStyle));
+          side.setScrollFactor(0);
+          this.registerScrollObject(side, rowOwnerIndex);
+        }
         if (character.abilityIconArtId) {
           this.addCatalogIcon(root, margin + 43, y + cardHeight - 31, character.abilityIconArtId, 46, rowOwnerIndex);
         }
@@ -1276,6 +1299,17 @@ export class MenuScene extends Phaser.Scene {
       ...character.passives.map((passive) => passive.iconArtId),
     ]));
     this.addBackButton(root, width, margin, hitTarget);
+  }
+
+  private measureMenuTextHeight(text: string, width: number, fontSize: number, lineSpacing: number): number {
+    if (!text) return 0;
+    const probe = createUiText(this, 0, 0, text, {
+      color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${fontSize}px`, lineSpacing,
+      wordWrap: { width },
+    });
+    const height = probe.getBounds().height;
+    probe.destroy();
+    return height;
   }
 
   private renderArena(

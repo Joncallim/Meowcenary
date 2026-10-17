@@ -1254,7 +1254,7 @@ describe('MenuScene', () => {
     expect(harness.textContents()).toContain('View details');
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('Creates a stored T1 item');
-    expect(harness.buttonByLabel('Fabricate for 100 Scrap')!.state.interactive).toBe(false);
+    expect(harness.buttonByLabel('Fabricate locked • Need 100 Scrap')!.state.interactive).toBe(false);
     expect(harness.context.saveData).toBe(before);
   });
 
@@ -1309,7 +1309,7 @@ describe('MenuScene', () => {
       blueprint.state.handlers.pointerup!();
       const blueprintDetails = harness.buttonByLabel('View details')!;
       blueprintDetails.state.handlers.pointerup!();
-      expect(harness.buttonByLabel('Fabricate for 100 Scrap')!.state.interactive).toBe(false);
+      expect(harness.buttonByLabel('Fabricate locked • Need 100 Scrap')!.state.interactive).toBe(false);
       const stale = blueprintDetails;
       harness.buttonByLabel('Back to candidates')!.state.handlers.pointerup!();
       expect(() => stale.state.handlers.pointerup!()).not.toThrow();
@@ -1493,7 +1493,7 @@ describe('MenuScene', () => {
     frames.length = 0;
     harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
-    const fabricate = harness.buttonByLabel('Fabricate for 100 Scrap')!;
+    const fabricate = harness.buttonByLabel('Fabricate locked • Need 100 Scrap')!;
     const back = harness.buttonByLabel('Back')!;
     const cardFor = (button: FakeObject) => frames.find(({ name, frame }) => name === 'figma-card'
       && frame.state.x === button.state.x && frame.state.y === button.state.y
@@ -1553,7 +1553,7 @@ describe('MenuScene', () => {
     const icons = vi.spyOn(scene, 'addCatalogIcon');
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     const slots = scene.focusables.slice(0, 4);
-    const footer = harness.buttonByLabel('Fabricate Selected')!;
+    const footer = harness.buttonByLabel('Fabricate unavailable')!;
     const back = harness.buttonByLabel('Back')!;
     const browse = harness.buttonByLabel('BROWSE SETS')!;
     expect(footer.state.x).toBe(slots[0]!.state.x);
@@ -1602,7 +1602,7 @@ describe('MenuScene', () => {
       };
       const rectangle = scene.scrollRectangle;
       const details = harness.buttonByLabel('View details')!;
-      const footer = harness.buttonByLabel(width >= 1040 && selection === 'blueprint' ? 'Fabricate for 100 Scrap' : 'Fabricate Selected')!;
+      const footer = harness.buttonByLabel(selection === 'blueprint' ? 'Fabricate locked • Need 100 Scrap' : 'Fabricate unavailable')!;
       const back = harness.buttonByLabel('Back')!;
       const candidate = scene.focusables.find(button => button.state.text === candidateLabel)!;
       const setReading = harness.objects.find(object => object.state.text.includes('2-piece INACTIVE') && !object.state.destroyed)!;
@@ -1766,7 +1766,7 @@ describe('MenuScene', () => {
     expect(slots.every((slot) => slot.state.height >= minimumHitTarget(scene.currentViewport))).toBe(true);
     expect(slots[3]!.state.x + slots[3]!.state.width).toBeLessThanOrEqual(360 - 16);
     expect(scene.scrollObjects.some(({ object }) => slots.includes(object))).toBe(false);
-    const emptyFooter = harness.buttonByLabel('Fabricate Selected')!;
+    const emptyFooter = harness.buttonByLabel('Fabricate unavailable')!;
     expect(emptyFooter.state.interactive).toBe(false);
     const before = harness.context.saveData;
     harness.buttonByLabel('BROWSE SETS')!.state.handlers.pointerup!();
@@ -3817,7 +3817,7 @@ describe('MenuScene', () => {
       'Scrap Tabby  •  0 Scrap',
       'NEXT CONTRACT  •  Junkyard 1',
       'First Scavenge',
-      'Junkyard Lot  •  Eliminate 25 threats',
+      'Junkyard Lot  •  Eliminate 25 enemies',
       'FIRST CLEAR  35 Scrap + Standard Barrel T1',
     ]));
     expect(textContents().some((text) => text.includes('THREATS'))).toBe(false);
@@ -4081,7 +4081,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('+5% Fire Rate [All Weapons]');
-    expect(harness.textContents()).toContain('Fabricate for 100 Scrap');
+    expect(harness.textContents()).toContain('Fabricate locked • Need 100 Scrap');
     expect(addLoadoutArt).toHaveBeenCalledWith(
       expect.anything(), expect.any(Number), expect.any(Number), 'equipment-icon:commando-helmet', 72, 72, expect.any(Number),
     );
@@ -5482,7 +5482,7 @@ describe('MenuScene', () => {
     expect(harness.textContents()).toContain('Retry Loading Contract');
     expect(harness.textContents()).toContain(replayStage.name);
     expect(harness.textContents()).not.toContain(frontierStage.name);
-    expect(harness.textContents()).toContain('Junkyard Lot  •  Eliminate 25 threats');
+    expect(harness.textContents()).toContain('Junkyard Lot  •  Eliminate 25 enemies');
     expect(harness.textContents()).toContain('BEST  1:00');
     expect(harness.textContents().some(copy => copy.startsWith('FIRST CLEAR'))).toBe(false);
     harness.buttonByLabel('Retry Loading Contract')!.state.handlers.pointerup!();

@@ -147,7 +147,7 @@ describe('art-led Equipment layout', () => {
     const view = harness(width, height);
     const slots = view.buttons.slice(0, 4);
     const browse = view.buttons.find(button => button.text === 'BROWSE SETS')!;
-    const footer = view.buttons.find(button => button.text === 'Fabricate Selected')!;
+    const footer = view.buttons.find(button => button.text === 'Fabricate unavailable')!;
     expect(slots.every(slot => slot.height === 48)).toBe(true);
     expect(browse.y + browse.height).toBeLessThanOrEqual(footer.y);
     expect(browse.y).toBeGreaterThanOrEqual(slots[3]!.y + slots[3]!.height);
@@ -169,13 +169,13 @@ describe('art-led Equipment layout', () => {
   it.each([[376, 640], [390, 640]])('keeps empty Equipment Browse Sets above fixed actions at %i×%i', (width, height) => {
     const view = harness(width, height, 'equipment', true);
     const browse = view.buttons.find(button => button.text === 'BROWSE SETS')!;
-    const footer = view.buttons.find(button => button.text === 'Fabricate Selected')!;
+    const footer = view.buttons.find(button => button.text === 'Fabricate unavailable')!;
     expect(browse).toBeDefined();
     expect(footer).toBeDefined();
     expect(browse.y + browse.height).toBeLessThanOrEqual(footer.y);
   });
 
-  it.each([[390, 844, 168], [1280, 720, 80]])('gives inspection its own bounded frame and compares both tiers in one optical frame at %i×%i', (width, height, detailExtent) => {
+  it.each([[390, 844, 136], [1280, 720, 80]])('gives inspection its own bounded frame and compares both tiers in one optical frame at %i×%i', (width, height, detailExtent) => {
     const view = harness(width, height);
     const details = view.buttons.find(button => button.text === 'View details');
     if (details && width < 600) {

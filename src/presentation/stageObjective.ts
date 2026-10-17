@@ -11,10 +11,15 @@ export function resolveObjectivePresentation(objective: ObjectiveType, names: {
 }): Readonly<ObjectivePresentation> {
   let copy: string;
   switch (objective.type) {
-    case 'kill': copy = `Eliminate ${objective.count}${objective.enemyTag ? ` ${objective.enemyTag}` : ''} threats`; break;
+    case 'kill': copy = `Eliminate ${objective.count}${objective.enemyTag ? ` ${humanizeObjectiveTarget(objective.enemyTag)}` : ''} enemies`; break;
     case 'collect': copy = `Collect ${objective.count} ${names.collectibleName(objective.itemId)}`; break;
     case 'survive': copy = `Survive ${formatObjectiveDuration(objective.seconds)}`; break;
     case 'defeat': copy = `Defeat ${names.enemyName(objective.enemyId) ?? 'the boss'}`; break;
   }
   return Object.freeze({ kind: objective.type, copy, artId: `objective-icon:${objective.type}` });
+}
+
+function humanizeObjectiveTarget(id: string): string {
+  return id.split('-').filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }

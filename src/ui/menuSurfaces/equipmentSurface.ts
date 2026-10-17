@@ -123,7 +123,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       const summary = this.prepareBrowseSummary(this.root!, snapshot);
       this.environment.controls.resizeScrollableRegion(this.collectionRectangle(left, this.collectionTop,
         listWidth, this.browseSummaryTop(summary.summary.height) - 8));
-      this.drawBrowseSummary(scrollRoot, this.root!, summary);
+      this.drawBrowseSummary(scrollRoot, this.root!, summary, scrap);
     }
     this.requestSelectionResources(snapshot);
   }
@@ -459,7 +459,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       this.drawWideInspector(root, root, snapshot, scrap, selectedForInspector, blueprintForInspector,
         left + listWidth + 16, contentWidth - listWidth - 16);
     } else {
-      this.drawBrowseSummary(root, root, browseSummary!);
+      this.drawBrowseSummary(root, root, browseSummary!, scrap);
     }
     // Candidate cards, collection copy, and fixed browse controls form one
     // replaceable body. Browse/detail transitions rebuild the surface mount;
@@ -469,7 +469,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   /** Compact browse state keeps the selected identity visible without
    * appending a long inspector. Details are an explicit local view. */
   private drawBrowseSummary(root: Phaser.GameObjects.Container, fixedRoot: Phaser.GameObjects.Container,
-    prepared: ReturnType<EquipmentSurface['prepareBrowseSummary']>): void {
+    prepared: ReturnType<EquipmentSurface['prepareBrowseSummary']>, scrap: number): void {
     const { summary, selected, blueprint, selectedKey, contentWidth, left, horizontalBand, summaryWidth } = prepared;
     const before = new Set([...root.list, ...fixedRoot.list].filter(object => object !== summary));
     // Summary and action controls are fixed beneath the collection. End the
@@ -493,7 +493,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       }, 'ui:confirm', horizontalBand ? contentWidth - summaryWidth - 12 : contentWidth);
     this.rememberLoadoutFocus(details, `equipment-summary:${selectedKey}`);
     y += details.height + 8;
-    this.loadoutFooter(fixedRoot, left, contentWidth, this.layout.hitTarget, 'Fabricate Selected', () => undefined, true);
+    this.loadoutFooter(fixedRoot, left, contentWidth, this.layout.hitTarget,
+      this.fabricationActionLabel(blueprint, scrap), () => undefined, true);
     this.addOuterBack(fixedRoot, left, contentWidth);
     this.captureTailObjects(root, fixedRoot, before);
   }
@@ -608,6 +609,26 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     return this.footerTop() - this.detailActionCount(snapshot) * (this.layout.hitTarget + 8);
   }
 
+  private fabricationActionLabel(
+    blueprint: MainMenuSnapshot['equipment']['blueprints'][number] | undefined,
+    scrap: number,
+  ): string {
+    if (!blueprint) return 'Fabricate unavailable';
+    const missing = blueprint.fabricationCost - scrap;
+    return missing > 0 ? `Fabricate locked • Need ${missing} Scrap` : `Fabricate for ${blueprint.fabricationCost} Scrap`;
+  }
+
+  private fabricationReason(
+    blueprint: MainMenuSnapshot['equipment']['blueprints'][number] | undefined,
+    scrap: number,
+  ): string {
+    if (!blueprint) return 'FABRICATE UNAVAILABLE • Select a blueprint from candidates to fabricate equipment.';
+    const missing = blueprint.fabricationCost - scrap;
+    return missing > 0
+      ? `FABRICATE LOCKED • Need ${missing} more Scrap (balance ${scrap}).`
+      : `FABRICATE • Creates a stored T1 item for ${blueprint.fabricationCost} Scrap.`;
+  }
+
   /** Fixed wide-layout inspector. The candidate collection is closed before
    * this is drawn, so inspector art/actions never inherit collection scroll. */
   private drawWideInspector(root: Phaser.GameObjects.Container, fixedRoot: Phaser.GameObjects.Container,
@@ -672,6 +693,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         `${blueprint!.effects.length} blueprint effect${blueprint!.effects.length === 1 ? '' : 's'}`,
         'EFFECTS', this.loadoutEffectCopy(blueprint!.effects) || 'None',
         'Creates a stored T1 item; equip it separately.',
+        this.fabricationReason(blueprint, scrap),
       ].join('\n');
     const fallbackSummaryText = 'View details for full consequences';
     const summary = this.loadoutCopy(root, left, contentTop + heading.height + 12, summaryText, width);
@@ -759,7 +781,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       }
     }
     this.loadoutFooter(fixedRoot, left, width, this.layout.hitTarget,
-      blueprint ? `Fabricate for ${blueprint.fabricationCost} Scrap` : 'Fabricate Selected', () => {
+      this.fabricationActionLabel(blueprint, scrap), () => {
         if (blueprint) this.environment.onSnapshot(this.commands.fabricateEquipment(blueprint.equipmentId));
       }, !blueprint || scrap < blueprint.fabricationCost);
     this.addOuterBack(fixedRoot, left + width - 72, 72);
@@ -791,13 +813,21 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     if (selected) {
       const source = equipment.acquisition.find((row) => row.equipmentId === selected.equipmentId)?.summary ?? '';
       const set = equipment.presentation.sets.find((row) => row.setId === selected.setId)!;
+      const equipped = selected.state === 'EQUIPPED';
+      const comparison = equipped ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot }) : equipment.comparison;
+      const selectedEffects = this.loadoutEffectCopy(selected.effects) || 'None';
+      const desktopDecisionCopy = this.layout.width >= 600
+        ? [
+          `EFFECT: ${selectedEffects}`,
+          comparison?.displaced ? `REPLACES: ${comparison.displaced.name}` : `SLOT: ${selectedSlot.label}`,
+          comparison?.setChanges.length ? `SET TRADE-OFFS: ${comparison.setChanges.length} threshold change${comparison.setChanges.length === 1 ? '' : 's'}` : 'SET TRADE-OFFS: None',
+        ] : [];
       const detail = this.equipmentInspection(root, left, y, contentWidth,
-        `${selected.name} • T${selected.tier}\n${selectedSlot.label} • ${set.name} Set • ${selected.state}\n${source}`, selected.iconArtId);
+        [`${selected.name} • T${selected.tier}`, `${selectedSlot.label} • ${set.name} Set • ${selected.state}`, source, ...desktopDecisionCopy]
+          .filter(Boolean).join('\n'), selected.iconArtId);
       this.rememberLoadoutFocus(detail, `equipment-detail:${selected.instanceId}`);
       y += detail.height + 16;
       y = this.renderScopedLoadoutEffects(root, selected.effects, left, y, contentWidth, 22);
-      const equipped = selected.state === 'EQUIPPED';
-      const comparison = equipped ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot }) : equipment.comparison;
       put(equipped ? 'IF UNEQUIPPED' : comparison?.displaced ? `Replaces ${comparison.displaced.name}` : `Fills empty ${selectedSlot.label.toLowerCase()} slot`);
       if (!equipped && comparison?.displaced) {
         put(`REMOVES: ${this.loadoutEffectCopy(comparison.displaced.effects) || 'None'}`, '#fbbf24');
@@ -844,6 +874,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       y = this.renderScopedLoadoutEffects(root, selectedBlueprint.effects, left, y, contentWidth, 22);
       put('Creates a stored T1 item. Equip it separately to change your Loadout.');
     }
+    put(this.fabricationReason(selectedBlueprint, scrap), selectedBlueprint && scrap >= selectedBlueprint.fabricationCost ? '#d6f7ff' : '#fbbf24');
     put('ACTIVE SETS');
     const activeSets = equipment.presentation.sets.filter((set) => set.equippedCount > 0);
     if (!activeSets.length) put('No Set pieces equipped');
@@ -863,7 +894,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       fixedActionY += hitTarget + 8;
     }
     const fabricate = this.loadoutFooter(fixedRoot, left, contentWidth, hitTarget,
-      selectedBlueprint ? `Fabricate for ${selectedBlueprint.fabricationCost} Scrap` : 'Fabricate Selected', () => {
+      this.fabricationActionLabel(selectedBlueprint, scrap), () => {
         if (!selectedBlueprint) return;
         const next = this.commands.fabricateEquipment(selectedBlueprint.equipmentId);
         if (next.equipment.selectedInstanceId) {

@@ -116,7 +116,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
   }
 
   protected equipmentInspectionExtent(contentWidth: number): number {
-    const maxExtent = this.layout.height <= 480 ? 128 : this.layout.width < 600 ? 168 : 184;
+    const maxExtent = this.layout.height <= 480 ? 128 : this.layout.width <= 375 ? 128 : this.layout.width < 600 ? 136 : 184;
     return Math.min(maxExtent, contentWidth - 24);
   }
 
@@ -125,6 +125,22 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
   protected equipmentInspection(root: Phaser.GameObjects.Container, left: number, top: number,
     width: number, label: string, artId: string, requestedExtent?: number): Phaser.GameObjects.Text {
     const extent = Math.min(requestedExtent ?? this.equipmentInspectionExtent(width), width - 24);
+    const wideDecisionLayout = this.layout.width >= 1040 && width >= 560;
+    if (wideDecisionLayout) {
+      // Desktop has room for the preview and the decision copy to be assessed
+      // together. Keep the art recognizable, but stop it from owning the full
+      // first 290px of the inspector before effects and trade-offs appear.
+      const artColumn = Math.min(250, Math.max(210, Math.floor(width * 0.28)));
+      const artExtent = Math.min(220, Math.max(176, artColumn - 24));
+      const textWidth = width - artColumn - 16;
+      const bodyHeight = artExtent + 24;
+      this.loadoutMaterial(root, left, top, artColumn, bodyHeight);
+      this.environment.controls.addLoadoutArt(root, left + artColumn / 2,
+        top + 12 + artExtent / 2, artId, artExtent, artExtent,
+        undefined, [artId]);
+      return this.button(root, left + artColumn + 16, top, label, bodyHeight, undefined,
+        undefined, textWidth, undefined, 0, 12, true, 'left', 'card', 12);
+    }
     // Detail opens with one genuine reading/focus target. It is deliberately
     // not a command: no save callback, action sound, or pointer activation.
     // Keyboard/controller focus can still page the masked body through the

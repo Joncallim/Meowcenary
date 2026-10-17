@@ -33,6 +33,13 @@ describe('stage runtime', () => {
     expect(runtime.state.status).toBe('won');
   });
 
+  it('names the authored target in live kill and collect progress copy', () => {
+    const tagged = createStageRuntime(plan({ type: 'kill', count: 8, enemyTag: 'tank' }));
+    expect(tagged.describeObjective()).toBe('Eliminate Tank enemies 0 / 8');
+    const collect = createStageRuntime(plan({ type: 'collect', itemId: 'drop:scrap', count: 14 }));
+    expect(collect.describeObjective()).toBe('Collect Scrap 0 / 14');
+  });
+
   it('caps first-clear time bonuses so stalling an objective cannot mint scrap', () => {
     const clearAt = (timeMs: number) => {
       const runtime = createStageRuntime(plan({ type: 'kill', count: 1 }));

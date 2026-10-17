@@ -105,10 +105,16 @@ class ResolvedStageRuntime implements StageRuntime {
     switch (this.plan.objective.definition.type) {
       case 'survive':
         return `Survive ${formatObjectiveTime(current)} / ${formatObjectiveTime(progress.target)}`;
-      case 'kill':
-        return `Eliminate ${Math.floor(current)} / ${Math.floor(progress.target)}`;
-      case 'collect':
-        return `Collect ${Math.floor(current)} / ${Math.floor(progress.target)}`;
+      case 'kill': {
+        const target = this.plan.objective.definition.enemyTag
+          ? `${humanizeObjectiveTarget(this.plan.objective.definition.enemyTag)} enemies`
+          : 'enemies';
+        return `Eliminate ${target} ${Math.floor(current)} / ${Math.floor(progress.target)}`;
+      }
+      case 'collect': {
+        const item = humanizeObjectiveTarget(this.plan.objective.definition.itemId);
+        return `Collect ${item} ${Math.floor(current)} / ${Math.floor(progress.target)}`;
+      }
       case 'defeat': {
         const enemyId = this.plan.objective.definition.enemyId;
         return `Defeat ${options?.enemyName?.(enemyId) ?? 'the boss'}`;
@@ -141,6 +147,12 @@ class ResolvedStageRuntime implements StageRuntime {
 function formatObjectiveTime(seconds: number): string {
   const safe = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
   return `${Math.floor(safe / 60)}:${(safe % 60).toString().padStart(2, '0')}`;
+}
+
+function humanizeObjectiveTarget(id: string): string {
+  const slug = id.split(':').at(-1) ?? id;
+  return slug.split('-').filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }
 
 export function createStageRuntime(plan: ResolvedRunPlan): StageRuntime {
