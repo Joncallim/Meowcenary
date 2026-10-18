@@ -1,9 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 import { pressMenuKey } from './menuInputReceipt';
+import equipmentCatalog from '../src/data/equipment.json' with { type: 'json' };
 
 type Button = { key?: string; text: string; focused: boolean; visible: boolean; interactive: boolean;
   bounds: { x: number; y: number; width: number; height: number } };
 type Diagnostic = { panel: string; focusedKey?: string; buttons: Button[]; copy: string[];
+  scroll?: { top: number; bottom: number; offset: number; contentHeight: number };
   equipment?: { selectedSlot: string; selectedInstanceId?: string; equipped: Record<string, string> } };
 type Seam = { showMenu(panel: string): boolean; waitForMenuPresentation(): Promise<boolean>;
   menuLoadoutDiagnostics(): Diagnostic; freeze(): Promise<void>; resume(): void };
@@ -77,7 +79,7 @@ async function clickButton(page: Page, matcher: string): Promise<void> {
     const inViewport = button.bounds.y >= 0 && button.bounds.y + button.bounds.height <= viewport.height;
     if (!inViewport) {
       await page.mouse.move(Math.min(viewport.width / 2, 120), Math.max(120, viewport.height - 80));
-      await page.mouse.wheel(0, button.bounds.y < 0 ? 700 : -700);
+      await page.mouse.wheel(0, button.bounds.y < 0 ? -700 : 700);
       await settle(page);
       continue;
     }
@@ -95,6 +97,14 @@ async function capture(page: Page, path: string): Promise<void> {
   await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.freeze());
   try { await page.screenshot({ path }); }
   finally { await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.resume()); }
+}
+
+async function installLongNameFixture(page: Page, longName: string): Promise<void> {
+  await page.route('**/*.js', async (route) => {
+    const response = await page.request.fetch(route.request());
+    const source = (await response.body()).toString();
+    await route.fulfill({ response, body: source.replaceAll('Commando Helmet', longName) });
+  });
 }
 
 function seed() {
@@ -126,6 +136,18 @@ function storedUpgradeSeed() {
   } };
 }
 
+function filteredBrowseSeed() {
+  const save = seed();
+  return { ...save,
+    equipment: Object.fromEntries(equipmentCatalog.map((piece) => [`owned:${piece.id}`, { equipmentId: piece.id, tier: 1 }])),
+    equipmentLoadout: {
+      helmet: 'owned:equipment:commando-helmet',
+      armour: 'owned:equipment:commando-armour',
+      gloves: 'owned:equipment:recon-gloves',
+    },
+  };
+}
+
 test('Equipment review keeps equip non-mutating and surfaces committed feedback', async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), seed());
@@ -145,6 +167,8 @@ test('Equipment review keeps equip non-mutating and surfaces committed feedback'
   await capture(page, testInfo.outputPath('equipment-set-loss-replacement.png'));
 
   const reviewPage = await page.context().newPage();
+  const longName = 'Commando Helmet With A Deliberately Long Engineering Upgrade Review Name';
+  await installLongNameFixture(reviewPage, longName);
   await reviewPage.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), storedUpgradeSeed());
   await reviewPage.goto('/?visual-test=1');
   await expect.poll(() => reviewPage.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
@@ -157,17 +181,18 @@ test('Equipment review keeps equip non-mutating and surfaces committed feedback'
   await clickButton(reviewPage, 'Review upgrade');
   state = await diagnostic(reviewPage);
   const reviewCopy = state.copy.join('\n');
+  expect(reviewCopy).toContain(`UPGRADE REVIEW • ${longName}`);
   expect(reviewCopy).toContain('COST: 100 Scrap');
   expect(reviewCopy).toContain('BALANCE AFTER: 0 Scrap');
   expect(reviewCopy).toContain('ACTIVATION: STORED output becomes');
   expect(state.buttons.some((button) => button.text === 'Cancel review to equip')).toBe(true);
   expect(state.buttons.some((button) => button.text === 'Confirm Upgrade • 100 Scrap')).toBe(true);
   expect(await reviewPage.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(beforeReview);
-  await capture(reviewPage, testInfo.outputPath('equipment-upgrade-review.png'));
+  await capture(reviewPage, testInfo.outputPath('equipment-upgrade-review-long-name.png'));
 
   await clickButton(reviewPage, 'Cancel review to equip');
   expect(await reviewPage.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(beforeReview);
-  expect((await diagnostic(reviewPage)).buttons.some((button) => button.text === 'Equip Commando Helmet')).toBe(true);
+  expect((await diagnostic(reviewPage)).buttons.some((button) => button.text === `Equip ${longName}`)).toBe(true);
 
   await clickButton(reviewPage, 'Review upgrade');
   await clickButton(reviewPage, 'Confirm Upgrade • 100 Scrap');
@@ -183,4 +208,49 @@ test('Equipment review keeps equip non-mutating and surfaces committed feedback'
   // remain available while the authoritative after-state is shown.
   expect((await diagnostic(reviewPage)).buttons.some((button) => button.text === 'Confirm Upgrade • 100 Scrap')).toBe(false);
   expect((await reviewPage.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')!))).progression.scrap).toBe(0);
+});
+
+test('filtered Equipment browse returns from detail with query, filter, and scroll intact', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), filteredBrowseSeed());
+  await page.goto('/?visual-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  await settle(page);
+  await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
+  await settle(page);
+
+  await clickButton(page, 'equipment-filters');
+  await clickButton(page, 'equipment-filter:slot:helmet');
+  await focusButton(page, 'equipment-search');
+  await pressMenuKey(page, 'Enter');
+  await settle(page);
+  const search = page.locator('input[aria-label="Search equipment names, sets, or effects"]');
+  await expect(search).toBeVisible();
+  await search.fill('helmet');
+  await search.press('Enter');
+  await settle(page);
+
+  const candidate = 'equipment-candidate:owned:equipment:recon-helmet';
+  await clickButton(page, candidate);
+  const beforeDetail = await diagnostic(page);
+  expect(beforeDetail.copy.join('\n')).toContain('SEARCH • helmet');
+  expect(beforeDetail.copy.join('\n')).toContain('FILTERS • 2 ACTIVE');
+  expect(beforeDetail.copy.join('\n')).toContain('× Search “helmet”');
+  expect(beforeDetail.copy.join('\n')).toContain('× Slot: helmet');
+  expect(beforeDetail.equipment?.selectedInstanceId).toBe('owned:equipment:recon-helmet');
+  expect(beforeDetail.scroll?.offset).toBeGreaterThan(0);
+  const browseOffset = beforeDetail.scroll!.offset;
+
+  await clickButton(page, 'View details');
+  expect((await diagnostic(page)).focusedKey).toBe('equipment-detail:owned:equipment:recon-helmet');
+  await capture(page, testInfo.outputPath('equipment-filtered-detail.png'));
+  await clickButton(page, 'Back to candidates');
+  const returned = await diagnostic(page);
+  expect(returned.copy.join('\n')).toContain('SEARCH • helmet');
+  expect(returned.copy.join('\n')).toContain('FILTERS • 2 ACTIVE');
+  expect(returned.copy.join('\n')).toContain('× Search “helmet”');
+  expect(returned.copy.join('\n')).toContain('× Slot: helmet');
+  expect(returned.equipment?.selectedInstanceId).toBe('owned:equipment:recon-helmet');
+  expect(returned.scroll?.offset).toBe(browseOffset);
+  await capture(page, testInfo.outputPath('equipment-filtered-return.png'));
 });

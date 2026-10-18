@@ -883,6 +883,28 @@ describe('MenuScene', () => {
     expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('recon');
   });
 
+  it('names item and activated Set sources in the full Equipment comparison', () => {
+    const harness = createHarness({ create: false });
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      armour: { equipmentId: 'equipment:commando-armour', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+      gloves: { equipmentId: 'equipment:recon-gloves', tier: 1 },
+    }, loadout: { helmet: 'commando', armour: 'armour', gloves: 'gloves' } }));
+    Object.assign(harness.menuScene.scale, { width: 1280, height: 720, displaySize: { width: 1280, height: 720 } });
+    harness.menuScene.create();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+    const copy = harness.textContents().join('\n');
+    expect(copy).toContain('ITEM GAIN');
+    expect(copy).toContain('SET BONUS GAIN');
+    expect(copy).toContain('Source: Recon Helmet');
+    expect(copy).toContain('Source: Recon 2-piece bonus');
+    expect(copy).toContain('Source: Commando 2-piece bonus');
+  });
+
   it('retains the Equipment shell, prefix and mask during candidate selection while revoking replaced detail commands', () => {
     const harness = createHarness({ audio: true });
     harness.context.updateEquipment(() => ({ equipment: {

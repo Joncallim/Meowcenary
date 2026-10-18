@@ -26,7 +26,9 @@ export interface LoadoutModifierPresentation {
   readonly value: string;
   readonly text: string;
   readonly target: LoadoutEffectTarget;
-  readonly modifier: ModifierSpec;
+  /** Runtime comparisons retain the authoritative source ID even though
+   * static presentation effects remain source-free. */
+  readonly modifier: ModifierSpec & { readonly sourceId?: string };
 }
 export interface LoadoutTraitPresentation {
   readonly kind: 'trait';
@@ -178,7 +180,7 @@ function signed(value: number): string {
 
 /** Lower spread is better; multiplicative spread is a percentage rather
  * than degrees. The same vocabulary is consumed by Equipment and Gunsmith. */
-export function presentLoadoutModifier(effect: ModifierSpec, tier = 1): LoadoutModifierPresentation {
+export function presentLoadoutModifier(effect: ModifierSpec & { readonly sourceId?: string }, tier = 1): LoadoutModifierPresentation {
   const scaled = scaleModifierByTier(effect, tier);
   const lowerIsBetter = effect.stat === 'spreadDeg';
   const percent = effect.op === 'mult' || effect.stat === 'attackSpeed' || effect.stat === 'critChance';
