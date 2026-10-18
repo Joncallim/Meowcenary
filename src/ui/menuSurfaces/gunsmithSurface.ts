@@ -92,11 +92,12 @@ export class GunsmithSurface extends MenuPanelSurface {
   private get compactPhone(): boolean { return this.layout.width < 380; }
   private get mediaSize(): number { return this.wide ? 240 : this.compactPhone ? 104 : 144; }
   private copy(root: Phaser.GameObjects.Container, x: number, y: number, value: string,
-    width = this.laneWidth, color = '#adc1c7', size: number = ThemeFont.bodyMin): Phaser.GameObjects.Text {
+    width = this.laneWidth, color = '#adc1c7', size: number = ThemeFont.bodyMin,
+    registerScroll = true): Phaser.GameObjects.Text {
     const text = this.own(root, createUiText(this.environment.scene, x, y, value, {
       color, fontFamily: ThemeFont.family, fontSize: `${size}px`, wordWrap: { width },
     })).setScrollFactor(0);
-    this.environment.controls.registerScrollObject(text);
+    if (registerScroll) this.environment.controls.registerScrollObject(text);
     return text;
   }
   private backdrop(root: Phaser.GameObjects.Container, x: number, y: number, width: number, height: number): void {
@@ -307,16 +308,32 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       }
       if (state.candidateComparison) y = this.comparison(root, snapshot, y, state.candidateComparison.before, state.candidateComparison.after, state.candidateComparison.stats, state.candidateComparison.effects, undefined, snapshot.gunsmith.selectedBuild?.familyId);
       if (candidate) {
+        const reviewCopies: Phaser.GameObjects.Text[] = [];
+        const addReviewCopy = (value: string): void => {
+          const text = this.copy(root, this.layout.margin, y, value, this.laneWidth, '#f7d774', ThemeFont.bodyMin, false);
+          reviewCopies.push(text);
+          y += text.height + 8;
+        };
         if (state.candidateComparison?.decisionSummary) {
-          y += this.copy(root, this.layout.margin, y, state.candidateComparison.decisionSummary.join('\n'), this.laneWidth, '#f7d774').height + 8;
+          addReviewCopy(state.candidateComparison.decisionSummary.join('\n'));
         } else {
-          if (candidate.displacementSummary) y += this.copy(root, this.layout.margin, y, candidate.displacementSummary, this.laneWidth, '#f7d774').height + 8;
-          if (candidate.assignedBuildName && candidate.state === 'fitted-elsewhere') y += this.copy(root, this.layout.margin, y, `Moves from ${candidate.assignedBuildName}. Its source slot becomes empty.`, this.laneWidth, '#f7d774').height + 8;
+          if (candidate.displacementSummary) addReviewCopy(candidate.displacementSummary);
+          if (candidate.assignedBuildName && candidate.state === 'fitted-elsewhere') addReviewCopy(`Moves from ${candidate.assignedBuildName}. Its source slot becomes empty.`);
         }
         const commit = this.action(root, this.layout.margin, y, candidate.actionLabel, 'gunsmith-commit', () => this.redraw(this.commands.commitGunPartPreview(), `gunsmith-inspect:${candidate.instanceId}`));
         y += commit.height + 8;
         const cancel = this.action(root, this.layout.margin, y, 'Cancel preview', 'gunsmith-preview-cancel', () => this.redraw(this.commands.cancelGunPartPreview(), `gunsmith-part:${candidate.instanceId}`));
         y += cancel.height + 12;
+        const commitIndex = this.environment.controls.buttonIndex(commit);
+        const cancelIndex = this.environment.controls.buttonIndex(cancel);
+        const reviewBounds = [
+          ...reviewCopies.map(copy => copy.getBounds()),
+          commit.getBounds(), cancel.getBounds(),
+        ].reduce((bounds, next) => ({ top: Math.min(bounds.top, next.top), bottom: Math.max(bounds.bottom, next.bottom) }),
+          { top: Number.POSITIVE_INFINITY, bottom: Number.NEGATIVE_INFINITY });
+        reviewCopies.forEach(copy => this.environment.controls.registerScrollObject(copy, commitIndex));
+        this.environment.controls.includeScrollBounds?.(commitIndex, reviewBounds);
+        this.environment.controls.includeScrollBounds?.(cancelIndex, reviewBounds);
       }
     }
     if ((!this.compactPhone && !this.wide) || state.candidatePreview) y = this.drawMobileSlotGrid(root, state, y);

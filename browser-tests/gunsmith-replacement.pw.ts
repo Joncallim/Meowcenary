@@ -5,6 +5,7 @@ import { pressMenuKey } from './menuInputReceipt';
 type Diagnostic = {
   panel: string;
   copy: string[];
+  copyBounds: Array<{ text: string; visible: boolean; bounds: { x: number; y: number; width: number; height: number } }>;
   buttons: Array<{ key?: string; text: string; focused: boolean; visible: boolean; interactive: boolean;
     textInsets: { top: number; bottom: number };
     bounds: { x: number; y: number; width: number; height: number } }>;
@@ -18,6 +19,20 @@ const diagnostic = (page: Page) => page.evaluate(() =>
     .__MEOWCENARY_VISUAL_TEST__.menuLoadoutDiagnostics());
 const candidate = (state: Diagnostic) => state.buttons.find((button) => button.key === 'gunsmith-part:compact')!;
 const replacement = (state: Diagnostic) => state.buttons.find((button) => button.key === 'gunsmith-commit')!;
+const cancel = (state: Diagnostic) => state.buttons.find((button) => button.key === 'gunsmith-preview-cancel')!;
+
+function assertDecisionBlockVisible(state: Diagnostic): void {
+  const summary = state.copyBounds.find((row) => row.text.startsWith('DECISION SUMMARY'))!;
+  const commit = replacement(state);
+  const cancelRow = cancel(state);
+  expect(summary, 'decision summary diagnostic').toBeDefined();
+  expect(commit, 'commit diagnostic').toBeDefined();
+  expect(cancelRow, 'cancel diagnostic').toBeDefined();
+  for (const [label, bounds] of [['summary', summary.bounds], ['commit', commit.bounds], ['cancel', cancelRow.bounds]] as const) {
+    expect(bounds.y, `${label} top`).toBeGreaterThanOrEqual(state.scroll.top);
+    expect(bounds.y + bounds.height, `${label} bottom`).toBeLessThanOrEqual(state.scroll.bottom);
+  }
+}
 
 async function press(page: Page, key: string) {
   await pressMenuKey(page, key);
@@ -88,6 +103,7 @@ test('focused Gunsmith replacement keeps the entire action clear of its card bor
     expect(state.copy.join('\n')).toContain('Incoming: Compact Receiver Common • Upgrade Rank 1');
     expect(state.copy.join('\n')).toContain('Destination: Pistol Build • Receiver');
     expect(state.copy.join('\n')).toContain('Outgoing: Heavy Receiver Uncommon • Upgrade Rank 2 to STORED');
+    assertDecisionBlockVisible(state);
     expect(row.interactive && row.visible).toBe(true);
     expect(row.bounds.y).toBeGreaterThanOrEqual(state.scroll.top);
     expect(row.bounds.y + row.bounds.height).toBeLessThanOrEqual(state.scroll.bottom);
@@ -144,6 +160,7 @@ test('cross-build Gunsmith move discloses the donor slot before commit and cance
   expect(copy).toContain('Destination: Pistol Build • Receiver');
   expect(copy).toContain('Outgoing: Heavy Receiver Uncommon • Upgrade Rank 2 to STORED');
   expect(copy).toContain('Donor: SMG Build • Receiver to EMPTY');
+  assertDecisionBlockVisible(state);
   expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
   const capturePath = testInfo.outputPath('cross-build-move-preview.png');
   await page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam })

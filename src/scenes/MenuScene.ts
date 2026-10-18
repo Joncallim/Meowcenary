@@ -1025,6 +1025,7 @@ export class MenuScene extends Phaser.Scene {
           endScrollableRegion: () => this.endScrollableRegion(),
           suppressScrollObjects: objects => this.suppressScrollObjects(objects),
           registerScrollObject: (object, owner) => this.registerScrollObject(object, owner),
+          includeScrollBounds: (owner, bounds) => this.includeScrollBounds(owner, bounds),
           resizeScrollableRegion: rectangle => this.resizeScrollableRegion(rectangle),
           buttonIndex: button => this.focusables.indexOf(button),
           rememberFocus: (button, key) => { this.focusKeyByButton.set(button, key); return button; },
@@ -2514,14 +2515,24 @@ export class MenuScene extends Phaser.Scene {
     const bounds = visibleBounds ?? positioned.getBounds?.();
     const bottom = bounds?.bottom;
     if (validOwnerIndex !== undefined && bounds) {
-      const prior = this.scrollItemBounds.get(validOwnerIndex);
-      this.scrollItemBounds.set(validOwnerIndex, {
-        top: Math.min(prior?.top ?? bounds.top, bounds.top),
-        bottom: Math.max(prior?.bottom ?? bounds.bottom, bounds.bottom),
-      });
-      this.rebuildScrollItems();
+      this.includeScrollBounds(validOwnerIndex, bounds);
     }
     if (bottom !== undefined) this.scrollRegion.includeContentBottom(bottom);
+  }
+
+  /** A compound review block can own several focusables while each display
+   * object still moves exactly once with its own registration. Expanding the
+   * focus row's reveal bounds keeps the complete block visible on activation. */
+  private includeScrollBounds(ownerIndex: number, bounds: Readonly<{ top: number; bottom: number }>): void {
+    if (!this.scrollRegion || !this.scrollItemIndexes.has(ownerIndex)
+      || !Number.isFinite(bounds.top) || !Number.isFinite(bounds.bottom)) return;
+    const prior = this.scrollItemBounds.get(ownerIndex);
+    this.scrollItemBounds.set(ownerIndex, {
+      top: Math.min(prior?.top ?? bounds.top, bounds.top),
+      bottom: Math.max(prior?.bottom ?? bounds.bottom, bounds.bottom),
+    });
+    this.rebuildScrollItems();
+    this.scrollRegion.includeContentBottom(bounds.bottom);
   }
 
   private rebuildScrollItems(): void {

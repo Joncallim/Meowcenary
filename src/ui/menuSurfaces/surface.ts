@@ -55,6 +55,9 @@ export interface MenuSurfaceControls {
    * must not re-show these objects during its normal scroll pass. */
   suppressScrollObjects?(objects: readonly Phaser.GameObjects.GameObject[]): void;
   registerScrollObject(object: Phaser.GameObjects.GameObject, ownerIndex?: number): void;
+  /** Extend a focus row's reveal bounds without registering another moving
+   * display object. Useful when one decision block owns multiple controls. */
+  includeScrollBounds?(ownerIndex: number, bounds: Readonly<{ top: number; bottom: number }>): void;
   buttonIndex(button: Phaser.GameObjects.Text): number;
   rememberFocus(button: Phaser.GameObjects.Text, key: string): Phaser.GameObjects.Text;
   currentFocusKey(): string | undefined;
