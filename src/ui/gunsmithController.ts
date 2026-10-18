@@ -252,6 +252,7 @@ export interface GunsmithSnapshot {
     readonly stats: readonly LoadoutWeaponStatDelta[];
     readonly displacedInstanceId?: string;
     readonly movedFromBuildId?: string;
+    readonly decisionSummary?: readonly string[];
     readonly before: EquipmentLoadoutPresentation['runTruth'];
     readonly after: EquipmentLoadoutPresentation['runTruth'];
     readonly effects?: LoadoutRunTruthComparison;
@@ -373,8 +374,6 @@ export class GunsmithController {
       const displacedDefinition = displaced === undefined ? undefined : this.registry.partById(displaced.partId);
       const replaceLabel = displacedInstanceId === undefined ? undefined
         : `REPLACE ${(displacedDefinition?.name ?? this.partLabel(displacedInstanceId, state)).toUpperCase()} ${gunsmithTierLabel(displacedDefinition?.rarity, displaced?.tier ?? 1)}`;
-      const moveLabel = replacement?.ok && replacement.movedFromBuildId !== undefined
-        ? `MOVE FROM ${(state.builds.find((build) => build.id === replacement.movedFromBuildId)?.name ?? replacement.movedFromBuildId).toUpperCase()}` : undefined;
       const traits = Object.freeze([...definition.traits, ...stored.infusedTraits]);
       const statChips = Object.freeze(formatPartEffects(definition, stored.tier));
       const comparison = selected !== undefined && (fittedHere || (compatible && capacity))
@@ -400,7 +399,7 @@ export class GunsmithController {
         ...(assigned === undefined ? {} : { assignedBuildId: assigned.id, assignedBuildName: assigned.name }),
         actionLabel: fittedHere ? 'UNEQUIP' : selected === undefined ? 'CHOOSE A BUILD'
           : !compatible ? `CANNOT FIT ${familyName(selected.baseWeaponFamily).toUpperCase()}`
-            : !capacity ? 'TRAIT CAPACITY FULL' : [moveLabel, replaceLabel].filter(Boolean).join(' • ') || 'FIT',
+            : !capacity ? 'TRAIT CAPACITY FULL' : replaceLabel || 'FIT',
         ...(displacedInstanceId === undefined ? {} : {
           displacedInstanceId, displacementSummary: `${this.partLabel(displacedInstanceId, state)} returns to STORED.`,
         }),
@@ -929,7 +928,22 @@ export class GunsmithController {
     if (result.movedFromBuildId && result.movedFromBuildId !== build.id) lines.unshift(`Move from ${save.gunsmith.builds.find((row) => row.id === result.movedFromBuildId)?.name ?? result.movedFromBuildId}`);
     this.pendingPart = deepFreeze({ buildId: build.id, slot, instanceId,
       signature: loadoutSignature(save), preview: resolveGunsmithVisualAssembly(candidateBuild, result.state, this.registry.asMap()),
-      comparison: { lines, before, after, stats: structured.stats, effects: structured.effects, displacedInstanceId: result.displacedInstanceId, movedFromBuildId: result.movedFromBuildId } });
+      comparison: { lines, before, after, stats: structured.stats, effects: structured.effects,
+        displacedInstanceId: result.displacedInstanceId, movedFromBuildId: result.movedFromBuildId,
+        decisionSummary: [
+        'DECISION SUMMARY',
+        `Incoming: ${this.partLabel(instanceId, save.gunsmith)}`,
+        `Destination: ${build.name} • ${gunsmithSlotLabel(slot)}`,
+        result.displacedInstanceId === undefined
+          ? 'Outgoing: None • destination slot was EMPTY'
+          : `Outgoing: ${this.partLabel(result.displacedInstanceId, save.gunsmith)} to STORED`,
+        ...(result.movedFromBuildId !== undefined && result.movedFromBuildId !== build.id
+          ? (() => {
+            const donor = fittingFacts(save.gunsmith).find((fact) => fact.buildId === result.movedFromBuildId && fact.instanceId === instanceId);
+            return [`Donor: ${donor?.buildName ?? result.movedFromBuildId} • ${gunsmithSlotLabel(donor?.slot ?? slot)} to EMPTY`];
+          })()
+          : []),
+        ] } });
     this.presentationRevision += 1;
     return { ok: true, persisted: false };
   }

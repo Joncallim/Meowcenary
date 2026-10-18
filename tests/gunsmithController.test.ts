@@ -179,7 +179,7 @@ describe('GunsmithController durable commands', () => {
       const before = context.saveData;
       const writes = vi.spyOn(storage, 'setItem');
       const candidate = controller.snapshot().parts.find((part) => part.instanceId === 'long')!;
-      expect(candidate.actionLabel).toBe(moved ? 'MOVE FROM SMG BUILD • REPLACE STANDARD BARREL Common • Upgrade Rank 2' : 'REPLACE STANDARD BARREL Common • Upgrade Rank 2');
+      expect(candidate.actionLabel).toBe('REPLACE STANDARD BARREL Common • Upgrade Rank 2');
       expect(candidate.displacedInstanceId).toBe('standard');
       expect(candidate.displacementSummary).toBe('Standard Barrel Common • Upgrade Rank 2 returns to STORED.');
       expect(candidate.comparisonSummary).toContain('Current build:');
@@ -188,6 +188,11 @@ describe('GunsmithController durable commands', () => {
       expect(Object.isFrozen(candidate)).toBe(true);
       expect(controller.previewPart('long')).toMatchObject({ ok: true, persisted: false });
       expect(controller.snapshot().candidateComparison?.displacedInstanceId).toBe(candidate.displacedInstanceId);
+      expect(controller.snapshot().candidateComparison?.decisionSummary).toEqual(moved
+        ? ['DECISION SUMMARY', 'Incoming: Long Barrel Uncommon • Upgrade Rank 3', 'Destination: Pistol Build • Barrel',
+          'Outgoing: Standard Barrel Common • Upgrade Rank 2 to STORED', 'Donor: SMG Build • Barrel to EMPTY']
+        : ['DECISION SUMMARY', 'Incoming: Long Barrel Uncommon • Upgrade Rank 3', 'Destination: Pistol Build • Barrel',
+          'Outgoing: Standard Barrel Common • Upgrade Rank 2 to STORED']);
       expect(context.saveData).toBe(before);
       expect(writes).not.toHaveBeenCalled();
       controller.cancelPreview();

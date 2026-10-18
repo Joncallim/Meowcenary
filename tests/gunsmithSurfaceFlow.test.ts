@@ -136,10 +136,11 @@ describe('Gunsmith native flow surface', () => {
   it('renders controller-owned clamped stat rows and commits only through the preview action', () => {
     const h = harness();
     h.present(snapshot({ selectedCandidateInstanceId: 'receiver', candidatePreview: { baseArtId: 'base:pistol', layers: [], traitCores: [], traitEmblems: [] },
-      candidateComparison: { lines: ['PROSE MUST NOT DRIVE STATS'], before: { modifiers: [], families: [] }, after: { modifiers: [], families: [] },
+      candidateComparison: { lines: ['PROSE MUST NOT DRIVE STATS'], decisionSummary: ['DECISION SUMMARY', 'Incoming: Receiver Part', 'Destination: Pistol Build • Receiver', 'Outgoing: Heavy Receiver Common • Upgrade Rank 1 to STORED'], before: { modifiers: [], families: [] }, after: { modifiers: [], families: [] },
         stats: [{ key: 'spreadDeg', label: 'Accuracy', before: 10, after: 0, displayBefore: '10° spread', displayAfter: '0° spread', direction: 'better' }] } }));
     expect(h.visibleCopy()).toContain('Accuracy • 10° spread to 0° spread');
     expect(h.visibleCopy()).not.toContain('PROSE MUST NOT DRIVE STATS');
+    expect(h.visibleCopy().indexOf('DECISION SUMMARY')).toBeGreaterThan(h.visibleCopy().indexOf('Accuracy'));
     const statCopy = h.visibleCopy().split('\n').find(line => line.startsWith('Accuracy •'))!;
     expect(statCopy).not.toContain('→');
     h.press('gunsmith-commit');

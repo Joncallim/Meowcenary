@@ -105,7 +105,10 @@ export class GunsmithSurface extends MenuPanelSurface {
   }
   private action(root: Phaser.GameObjects.Container, x: number, y: number, label: string, key: string,
     callback: () => void, width = this.laneWidth, enabled = true): Phaser.GameObjects.Text {
-    const button = this.button(root, x, y, label, this.layout.hitTarget, callback, 'ui:confirm', width);
+    // Keep a small clearance band around every Gunsmith action's native Text
+    // bounds. Short replacement labels otherwise round to a 3px inset at the
+    // phone hit target, which lets the focus stroke sit against the card edge.
+    const button = this.button(root, x, y, label, this.layout.hitTarget + 4, callback, 'ui:confirm', width);
     this.environment.controls.rememberFocus(button, key);
     if (!enabled) this.environment.controls.disableButton(button);
     return button;
@@ -304,8 +307,12 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       }
       if (state.candidateComparison) y = this.comparison(root, snapshot, y, state.candidateComparison.before, state.candidateComparison.after, state.candidateComparison.stats, state.candidateComparison.effects, undefined, snapshot.gunsmith.selectedBuild?.familyId);
       if (candidate) {
-        if (candidate.displacementSummary) y += this.copy(root, this.layout.margin, y, candidate.displacementSummary, this.laneWidth, '#f7d774').height + 8;
-        if (candidate.assignedBuildName && candidate.state === 'fitted-elsewhere') y += this.copy(root, this.layout.margin, y, `Moves from ${candidate.assignedBuildName}. Its source slot becomes empty.`, this.laneWidth, '#f7d774').height + 8;
+        if (state.candidateComparison?.decisionSummary) {
+          y += this.copy(root, this.layout.margin, y, state.candidateComparison.decisionSummary.join('\n'), this.laneWidth, '#f7d774').height + 8;
+        } else {
+          if (candidate.displacementSummary) y += this.copy(root, this.layout.margin, y, candidate.displacementSummary, this.laneWidth, '#f7d774').height + 8;
+          if (candidate.assignedBuildName && candidate.state === 'fitted-elsewhere') y += this.copy(root, this.layout.margin, y, `Moves from ${candidate.assignedBuildName}. Its source slot becomes empty.`, this.laneWidth, '#f7d774').height + 8;
+        }
         const commit = this.action(root, this.layout.margin, y, candidate.actionLabel, 'gunsmith-commit', () => this.redraw(this.commands.commitGunPartPreview(), `gunsmith-inspect:${candidate.instanceId}`));
         y += commit.height + 8;
         const cancel = this.action(root, this.layout.margin, y, 'Cancel preview', 'gunsmith-preview-cancel', () => this.redraw(this.commands.cancelGunPartPreview(), `gunsmith-part:${candidate.instanceId}`));

@@ -225,10 +225,10 @@ describe('art-led Equipment layout', () => {
       width: 390, height: 844, top: 72, margin: 16, rightMargin: 16, centerX: 195, hitTarget: 48,
       viewport: responsiveUiViewport(390, 844, { top: 0, right: 0, bottom: 0, left: 0 }), scrollBottom: 724,
     }, 320);
-    const upgrade = view.buttons.find(button => button.text.startsWith('LOCKED •'));
+    const upgrade = view.buttons.find(button => button.text === 'Upgrade locked');
     expect(upgrade).toBeDefined();
     expect(view.disable).toHaveBeenCalledWith(upgrade);
-    expect(upgrade!.text).toContain(view.snapshot.equipment.owned.find(item => item.instanceId === 'helmet')!.upgradeLockReason);
+    expect(view.texts.some(text => text.text.includes(view.snapshot.equipment.owned.find(item => item.instanceId === 'helmet')!.upgradeLockReason!))).toBe(true);
     expect(view.art.mock.calls.filter(call => Array.isArray(call[7]))).toHaveLength(2);
     expect(view.context.saveData.equipment.helmet!.tier).toBe(1);
   });
@@ -411,6 +411,21 @@ describe('art-led Equipment layout', () => {
       viewport: responsiveUiViewport(390, 844, { top: 0, right: 0, bottom: 0, left: 0 }), scrollBottom: 724,
     }, 320);
     expect(view.texts.some(text => text.text === 'No equipment matches the current search and filters.')).toBe(true);
+    expect(view.texts.some(text => text.text.includes('No stored helmet pieces'))).toBe(false);
+  });
+
+  it('does not call owned pieces absent when blueprint-only filters hide an owned piece', () => {
+    const view = harness(390, 844);
+    const filtered = view.commands.toggleEquipmentFilter('ownership', 'blueprint');
+    view.buttons.length = 0;
+    view.handlers.clear();
+    view.texts.length = 0;
+    view.surface.unmount();
+    view.surface.present(object() as unknown as Phaser.GameObjects.Container, filtered, {
+      width: 390, height: 844, top: 72, margin: 16, rightMargin: 16, centerX: 195, hitTarget: 48,
+      viewport: responsiveUiViewport(390, 844, { top: 0, right: 0, bottom: 0, left: 0 }), scrollBottom: 724,
+    }, 320);
+    expect(view.texts.some(text => text.text.includes('Blueprints match. Owned helmet pieces are hidden by the current filters.'))).toBe(true);
     expect(view.texts.some(text => text.text.includes('No stored helmet pieces'))).toBe(false);
   });
 });

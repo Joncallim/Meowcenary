@@ -150,7 +150,8 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
 
   protected modifierDeltaCopy(sign: '+' | '−', delta: LoadoutModifierDelta, comparison: EquipmentComparison): string {
     const source = this.modifierSourceCopy(delta, comparison, sign === '−' ? 'before' : 'after');
-    return `${this.signedValue(sign, delta.afterValue ?? delta.beforeValue ?? '—')} ${delta.label} [${delta.target.label}] • Source: ${source.label}`;
+    const value = sign === '−' ? delta.beforeValue ?? delta.afterValue : delta.afterValue ?? delta.beforeValue;
+    return `${this.signedValue(sign, value ?? '—')} ${delta.label} [${delta.target.label}] • Source: ${source.label}`;
   }
 
   protected renderScopedLoadoutEffects(root: Phaser.GameObjects.Container, effects: readonly LoadoutEffectPresentation[], left: number, top: number, width: number, fontSize: number = ThemeFont.bodyMin): number {

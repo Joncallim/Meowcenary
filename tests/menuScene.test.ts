@@ -871,7 +871,7 @@ describe('MenuScene', () => {
       .toBe('equipment-candidate:recon');
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('REPLACES: Commando Helmet');
-    expect(harness.textContents().join('\n')).toContain('FIXED DECISION PREVIEW');
+    expect(harness.textContents().join('\n')).toContain('EQUIP PREVIEW');
     expect(harness.textContents().join('\n')).toContain('SET LOSS • Commando 2-piece bonus removed');
     expect(harness.textContents().join('\n')).toContain('ITEM GAIN •');
     expect(harness.textContents().join('\n')).toContain('ITEM LOSS •');
@@ -2152,12 +2152,12 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Pyro Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
 
-    const previewHeading = harness.objects.find((object) => object.state.text === 'FIXED DECISION PREVIEW' && !object.state.destroyed)!;
+    const previewHeading = harness.objects.find((object) => object.state.text === 'EQUIP PREVIEW' && !object.state.destroyed)!;
     expect(harness.textContents().join('\n')).toContain('NEW PYRO BONUS • 2-piece');
     const fixedRows = harness.objects
       .filter((object) => !object.state.destroyed && object.state.kind === 'text'
         && object.state.y >= previewHeading.state.y && object.state.y < 400
-        && ['FIXED DECISION PREVIEW', 'ACTION •', 'ITEM GAIN •', 'NEW PYRO BONUS •', '+ 6%'].some((prefix) => object.state.text.startsWith(prefix)))
+        && ['EQUIP PREVIEW', 'ACTION •', 'ITEM GAIN •', 'NEW PYRO BONUS •', '+ 6%'].some((prefix) => object.state.text.startsWith(prefix)))
       .sort((a, b) => a.state.y - b.state.y);
     expect(fixedRows.length).toBeGreaterThanOrEqual(4);
     for (let index = 1; index < fixedRows.length; index += 1) {
@@ -3024,7 +3024,7 @@ describe('MenuScene', () => {
     row.state.handlers.pointerup!();
     const previewCopy = harness.textContents().join('\n');
     expect(previewCopy).toContain('REPLACE HEAVY RECEIVER Uncommon • Upgrade Rank 2');
-    expect(previewCopy).toContain('Heavy Receiver Uncommon • Upgrade Rank 2 returns to STORED.');
+    expect(previewCopy).toContain('Outgoing: Heavy Receiver Uncommon • Upgrade Rank 2 to STORED');
     expect(previewCopy).toContain('CURRENT / PREVIEW • If fitted to Pistol • RUN EFFECTS');
     expect(previewCopy).toContain('Fire Rate • 1.35/s to 1.66/s');
     const scene = harness.menuScene as unknown as { controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot } };
@@ -3061,7 +3061,8 @@ describe('MenuScene', () => {
     expect(row.state.text).toContain('Standard Barrel Common • Upgrade Rank 1\nEQUIPPED • Pistol Build');
     expect(row.state.text).toContain('+10 Range');
     row.state.handlers.pointerup!();
-    expect(buttonByKey(harness, 'gunsmith-commit').state.text).toBe('MOVE FROM PISTOL BUILD');
+    expect(buttonByKey(harness, 'gunsmith-commit').state.text).toBe('FIT');
+    expect(harness.textContents().join('\n')).toContain('Donor: Pistol Build • Barrel to EMPTY');
   });
 
   it('keeps an unavailable fitted Part visibly occupied until the recovery command clears it', () => {

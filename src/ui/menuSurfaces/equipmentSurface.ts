@@ -628,12 +628,15 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     };
     const ownedEntries = equipment.filteredCatalog.filter((entry) => entry.kind === 'owned');
     const blueprintEntries = equipment.filteredCatalog.filter((entry) => entry.kind === 'blueprint');
+    const ownedForSlot = equipment.catalog.some((entry) => entry.kind === 'owned' && entry.slot === selectedSlot.slot);
     if (!equipment.filteredCatalog.length) {
       put(equipment.catalog.length === 0
         ? `No stored ${selectedSlot.label.toLowerCase()} pieces. Choose a blueprint to fabricate.`
         : 'No equipment matches the current search and filters.');
-    } else if (!ownedEntries.length) {
+    } else if (!ownedEntries.length && !ownedForSlot) {
       put(`No stored ${selectedSlot.label.toLowerCase()} pieces. Choose a blueprint to fabricate.`);
+    } else if (!ownedEntries.length && blueprintEntries.length) {
+      put(`Blueprints match. Owned ${selectedSlot.label.toLowerCase()} pieces are hidden by the current filters.`);
     }
     renderCards(ownedEntries,
       item => `${item.name}\n${equipmentGradeCopy(item.grade)} • ${item.state}`,
@@ -910,8 +913,10 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const selected = selectedSlot.candidates.find(item => item.instanceId === equipment.selectedInstanceId);
     const blueprint = equipment.blueprints.find(piece => piece.equipmentId === equipment.selectedBlueprintId);
     const selectedKey = selected ? `equipment-candidate:${selected.instanceId}` : blueprint ? `equipment-blueprint:${blueprint.equipmentId}` : `equipment-slot:${selectedSlot.slot}`;
-    const label = selected ? `${selected.name} • ${equipmentGradeAccessibleCopy(selected.tier)} • ${selected.state}`
-      : blueprint ? `${blueprint.name} • ${equipmentGradeAccessibleCopy(1)} • FABRICABLE • ${blueprint.fabricationCost} Scrap` : `Select a ${selectedSlot.label.toLowerCase()} candidate`;
+    const activeFilterCount = equipmentBrowseFilterCount(equipment.browse.filters);
+    const filterIndicator = activeFilterCount ? `\nFILTERS • ${activeFilterCount} ACTIVE` : '';
+    const label = selected ? `${selected.name} • ${equipmentGradeAccessibleCopy(selected.tier)} • ${selected.state}${filterIndicator}`
+      : blueprint ? `${blueprint.name} • ${equipmentGradeAccessibleCopy(1)} • FABRICABLE • ${blueprint.fabricationCost} Scrap${filterIndicator}` : `Select a ${selectedSlot.label.toLowerCase()} candidate${filterIndicator}`;
     const horizontalBand = this.layout.height <= 480 && this.layout.width >= 600;
     const actionWidth = Math.min(240, Math.max(180, Math.floor(contentWidth * 0.28)));
     const summaryWidth = horizontalBand ? contentWidth - actionWidth - 12 : contentWidth;
@@ -1134,7 +1139,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       const cost = upgrade.upgradePreview.cost;
       if (cost !== undefined) {
         if (review) labels.push(`Confirm Upgrade • ${cost} Scrap`, 'Cancel Upgrade');
-        else labels.push(upgrade.upgradeLockReason ? `LOCKED • ${upgrade.upgradeLockReason}` : 'Review upgrade');
+        else labels.push(upgrade.upgradeLockReason ? 'Upgrade locked' : 'Review upgrade');
       }
     }
     return labels;
@@ -1228,7 +1233,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       ? this.signedEffectCopy('−', selected.effects)
       : comparison?.displaced ? this.signedEffectCopy('−', comparison.displaced.effects) : undefined;
     const lines: { text: string; color: string; heading?: boolean }[] = [
-      { text: 'FIXED DECISION PREVIEW', color: '#f78003', heading: true },
+      { text: `${selected.state === 'EQUIPPED' ? 'UNEQUIP' : 'EQUIP'} PREVIEW`, color: '#f78003', heading: true },
       { text: `ACTION • ${consequence}`, color: '#d6f7ff' },
     ];
     if (pieceGain) lines.push({ text: `ITEM GAIN • ${pieceGain}`, color: '#86efac' });
@@ -1636,7 +1641,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
               () => this.cancelUpgradeReview(),
               `equipment-upgrade-cancel:${selected.instanceId}`);
           } else {
-            queueFixedDetailAction(upgrade.upgradeLockReason ? `LOCKED • ${upgrade.upgradeLockReason}` : 'Review upgrade',
+            queueFixedDetailAction(upgrade.upgradeLockReason ? 'Upgrade locked' : 'Review upgrade',
               () => this.beginUpgradeReview(selected.instanceId, selected.tier, selected.state),
               `equipment-upgrade:${selected.instanceId}`, upgrade.upgradeLocked || scrap < cost);
           }
