@@ -39,7 +39,12 @@ async function focusButton(page: Page, targetKey: string): Promise<void> {
     expect(target, `Missing focus target ${targetKey}`).toBeDefined();
     if (!current || !target) return;
     let direction: string;
-    if (current.key?.startsWith('equipment-slot:') && isCard(targetKey)) direction = 'ArrowDown';
+    if (current.key?.startsWith('equipment-slot:') && targetKey.startsWith('equipment-slot:')) {
+      const horizontal = Math.abs(target.bounds.x - current.bounds.x) >= Math.abs(target.bounds.y - current.bounds.y);
+      direction = horizontal
+        ? target.bounds.x < current.bounds.x ? 'ArrowLeft' : 'ArrowRight'
+        : target.bounds.y < current.bounds.y ? 'ArrowUp' : 'ArrowDown';
+    } else if (current.key?.startsWith('equipment-slot:') && isCard(targetKey)) direction = 'ArrowDown';
     else if (isCard(current.key) && isCard(targetKey)) {
       const rows = cardRows(state);
       const currentRow = rows.findIndex((row) => row.some((button) => button.key === current.key));
@@ -68,10 +73,46 @@ async function settle(page: Page): Promise<void> {
 
 async function clickButton(page: Page, matcher: string): Promise<void> {
   if (matcher.startsWith('equipment-candidate:') || matcher.startsWith('equipment-blueprint:')) {
-    await focusButton(page, matcher);
-    await pressMenuKey(page, 'Enter');
-    await settle(page);
-    return;
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      const state = await diagnostic(page);
+      const target = state.buttons.find((button) => button.key === matcher);
+      expect(target, `Missing Equipment card ${matcher}`).toBeDefined();
+      if (!target) return;
+      const viewport = page.viewportSize()!;
+      const inViewport = target.bounds.y >= 0 && target.bounds.y + target.bounds.height <= viewport.height;
+      if (!inViewport || !target.interactive) {
+        const scrollLane = state.scroll;
+        const touchCapable = await page.evaluate(() => navigator.maxTouchPoints > 0);
+        if (scrollLane && touchCapable) {
+          const down = target.bounds.y + target.bounds.height > viewport.height;
+          const edgeInset = Math.min(12, Math.max(4, (scrollLane.bottom - scrollLane.top) / 8));
+          const startY = down ? scrollLane.bottom - edgeInset : scrollLane.top + edgeInset;
+          const endY = down ? scrollLane.top + edgeInset : scrollLane.bottom - edgeInset;
+          if (viewport.width < 600) {
+            await touchDrag(page, { x: viewport.width / 2, y: startY },
+              { x: viewport.width / 2, y: endY });
+          } else {
+            await page.mouse.move(viewport.width / 2, startY);
+            await page.mouse.down();
+            await page.mouse.move(viewport.width / 2, endY, { steps: 3 });
+            await page.mouse.up();
+          }
+        } else {
+          const scrollY = scrollLane
+            ? Math.max(scrollLane.top + 8, Math.min(scrollLane.bottom - 8, (scrollLane.top + scrollLane.bottom) / 2))
+            : Math.max(120, viewport.height - 80);
+          await page.mouse.move(viewport.width / 2, scrollY);
+          await page.mouse.wheel(0, target.bounds.y < 0 ? -500 : 500);
+        }
+        await settle(page);
+        continue;
+      }
+      await focusButton(page, matcher);
+      await pressMenuKey(page, 'Enter');
+      await settle(page);
+      return;
+    }
+    throw new Error(`Could not bring Equipment card ${matcher} into view`);
   }
   for (let attempt = 0; attempt < 16; attempt += 1) {
     const state = await diagnostic(page);
@@ -88,7 +129,7 @@ async function clickButton(page: Page, matcher: string): Promise<void> {
     }
     const x = button.bounds.x + button.bounds.width / 2;
     const y = button.bounds.y + button.bounds.height / 2;
-    if (page.viewportSize()!.width < 600) await page.touchscreen.tap(x, y);
+    if (await page.evaluate(() => navigator.maxTouchPoints > 0)) await page.touchscreen.tap(x, y);
     else await page.mouse.click(x, y);
     await settle(page);
     return;
@@ -108,7 +149,7 @@ async function activateButtonText(page: Page, text: string): Promise<void> {
   if (!button) return;
   const x = button.bounds.x + button.bounds.width / 2;
   const y = button.bounds.y + button.bounds.height / 2;
-  if (await page.evaluate(() => navigator.maxTouchPoints > 0)) await page.touchscreen.tap(x, y);
+  if (await page.evaluate(() => navigator.maxTouchPoints > 0) && page.viewportSize()!.width < 600) await page.touchscreen.tap(x, y);
   else await page.mouse.click(x, y);
   await settle(page);
 }
@@ -122,18 +163,29 @@ async function capture(page: Page, path: string): Promise<void> {
 async function touchDrag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }): Promise<void> {
   const session = await page.context().newCDPSession(page);
   try {
-    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...from, id: 41 }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...from, id: 1 }] });
     await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{
-      x: from.x + (to.x - from.x) * 0.35, y: from.y + (to.y - from.y) * 0.35, id: 41,
+      x: from.x + (to.x - from.x) * 0.35, y: from.y + (to.y - from.y) * 0.35, id: 1,
     }] });
     await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{
-      x: from.x + (to.x - from.x) * 0.7, y: from.y + (to.y - from.y) * 0.7, id: 41,
+      x: from.x + (to.x - from.x) * 0.7, y: from.y + (to.y - from.y) * 0.7, id: 1,
     }] });
-    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...to, id: 41 }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...to, id: 1 }] });
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   } finally {
     await session.detach();
   }
+}
+
+async function physicalDrag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }): Promise<void> {
+  if (await page.evaluate(() => navigator.maxTouchPoints > 0)) {
+    await touchDrag(page, from, to);
+    return;
+  }
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 3 });
+  await page.mouse.up();
 }
 
 async function installLongNameFixture(page: Page, longName: string): Promise<void> {
@@ -398,10 +450,10 @@ test('touch drag released near fixed Equipment actions cannot activate the revie
 });
 
 test('compact scaled Equipment review keeps the longest multi-effect consequence readable', async ({ browser }, testInfo) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   const context = await browser.newContext({
     baseURL: 'http://127.0.0.1:4173',
-    viewport: { width: 360, height: 640 },
+    viewport: { width: 360, height: 500 },
     deviceScaleFactor: 2,
     hasTouch: true,
     isMobile: true,
@@ -415,7 +467,7 @@ test('compact scaled Equipment review keeps the longest multi-effect consequence
     await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
     await settle(page);
 
-    await clickButton(page, 'equipment-slot:armour');
+    await activateButton(page, 'equipment-slot:armour');
     await clickButton(page, 'equipment-candidate:owned:equipment:pyro-armour');
     await activateButtonText(page, 'View details');
     const detailState = await diagnostic(page);
@@ -424,43 +476,112 @@ test('compact scaled Equipment review keeps the longest multi-effect consequence
     expect(detailCopy).toContain('FIRE');
     expect(detailCopy).toContain('burn');
     await activateButtonText(page, 'Review upgrade');
-    const state = await diagnostic(page);
-    const copy = state.copy.join('\n');
-    expect(copy).toContain('UPGRADE REVIEW');
-    expect(copy).toContain('STATS:');
-    expect(copy).toContain('COST: 100 Scrap');
-    expect(copy).toContain('BALANCE AFTER: 0 Scrap');
-    const actions = state.buttons.filter((button) => button.text === 'Confirm Upgrade • 100 Scrap' || button.text === 'Cancel Upgrade');
-    expect(actions).toHaveLength(2);
-    for (const action of actions) {
-      expect(action.visible && action.interactive).toBe(true);
-      expect(action.bounds.y).toBeGreaterThanOrEqual(0);
-      expect(action.bounds.y + action.bounds.height).toBeLessThanOrEqual(640);
-      expect(action.textInsets.top).toBeGreaterThanOrEqual(6);
-      expect(action.textInsets.bottom).toBeGreaterThanOrEqual(6);
+    for (const viewport of [{ width: 360, height: 500 }, { width: 360, height: 640 },
+      { width: 844, height: 390 }, { width: 844, height: 481 }]) {
+      await page.setViewportSize(viewport);
+      await settle(page);
+      const state = await diagnostic(page);
+      const copy = state.copy.join('\n');
+      expect(copy).toContain('UPGRADE REVIEW');
+      expect(copy).toContain('STATS:');
+      expect(copy).toContain('COST: 100 Scrap');
+      expect(copy).toContain('BALANCE AFTER: 0 Scrap');
+      const actions = state.buttons.filter((button) => button.text === 'Confirm Upgrade • 100 Scrap' || button.text === 'Cancel Upgrade');
+      expect(actions).toHaveLength(2);
+      for (const action of actions) {
+        expect(action.visible && action.interactive).toBe(true);
+        expect(action.bounds.y).toBeGreaterThanOrEqual(0);
+        expect(action.bounds.y + action.bounds.height).toBeLessThanOrEqual(viewport.height);
+        expect(action.textInsets.top).toBeGreaterThanOrEqual(6);
+        expect(action.textInsets.bottom).toBeGreaterThanOrEqual(6);
+      }
+      const visibleCopy = (state.copyBounds ?? []).filter((row) => row.visible);
+      expect(visibleCopy.length).toBeGreaterThan(0);
+      for (const row of visibleCopy) {
+        expect(row.bounds.y).toBeGreaterThanOrEqual(0);
+        expect(row.bounds.y + row.bounds.height).toBeLessThanOrEqual(viewport.height);
+      }
+      await capture(page, testInfo.outputPath(`compact-scaled-pyro-upgrade-review-${viewport.width}x${viewport.height}.png`));
     }
-    const visibleCopy = (state.copyBounds ?? []).filter((row) => row.visible);
-    expect(visibleCopy.length).toBeGreaterThan(0);
-    for (const row of visibleCopy) {
-      expect(row.bounds.y).toBeGreaterThanOrEqual(0);
-      expect(row.bounds.y + row.bounds.height).toBeLessThanOrEqual(640);
-    }
-    await capture(page, testInfo.outputPath('compact-scaled-pyro-upgrade-review.png'));
   } finally {
     await context.close();
   }
 });
 
+test('compact Equipment browse keeps header controls and inventory end reachable without drag activation', async ({ browser }, testInfo) => {
+  test.setTimeout(240_000);
+  const viewports = [{ width: 360, height: 500 }, { width: 360, height: 640 },
+    { width: 844, height: 390 }, { width: 844, height: 481 }];
+  for (const viewport of viewports) {
+    const context = await browser.newContext({
+      baseURL: 'http://127.0.0.1:4173',
+      viewport,
+      deviceScaleFactor: viewport.width === 360 ? 2 : 1,
+      hasTouch: viewport.width === 360,
+      isMobile: viewport.width === 360,
+    });
+    const page = await context.newPage();
+    try {
+      await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), pyroThresholdSeed());
+      await page.goto('/?visual-test=1');
+      await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+      await settle(page);
+      await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
+      await settle(page);
+      const initial = await diagnostic(page);
+      const headerKeys = ['equipment-slot:helmet', 'equipment-slot:armour', 'equipment-slot:gloves',
+        'equipment-slot:boots', 'equipment:browse-sets'];
+      for (const key of headerKeys) {
+        const button = initial.buttons.find((candidate) => candidate.key === key);
+        expect(button, `Missing compact header control ${key}`).toBeDefined();
+        expect(button?.visible && button?.interactive).toBe(true);
+        expect(button!.bounds.y).toBeGreaterThanOrEqual(0);
+        expect(button!.bounds.y + button!.bounds.height).toBeLessThanOrEqual(viewport.height);
+      }
+      expect(initial.scroll?.bottom).toBeGreaterThan(initial.scroll?.top ?? 0);
+      expect(initial.scroll?.contentHeight).toBeGreaterThan(initial.scroll?.bottom ?? 0);
+
+      const browse = initial.buttons.find((button) => button.key === 'equipment:browse-sets')!;
+      const saveBeforeDrag = await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'));
+      const dragStart = {
+        x: Math.min(viewport.width - 18, Math.max(18, viewport.width / 2)),
+        y: Math.max(initial.scroll!.top + 12, initial.scroll!.bottom - 12),
+      };
+      await physicalDrag(page, dragStart, {
+        x: browse.bounds.x + browse.bounds.width / 2,
+        y: browse.bounds.y + browse.bounds.height / 2,
+      });
+      await settle(page);
+      const afterDrag = await diagnostic(page);
+      expect(afterDrag.buttons.find((button) => button.key === 'equipment:browse-sets')?.text).toBe('BROWSE SETS');
+      expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBeforeDrag);
+      expect(afterDrag.equipment?.selectedInstanceId).toBeUndefined();
+
+      const lastCandidate = 'equipment-candidate:owned:equipment:technician-helmet';
+      await clickButton(page, lastCandidate);
+      const endState = await diagnostic(page);
+      expect(endState.equipment?.selectedInstanceId).toBe('owned:equipment:technician-helmet');
+      expect(endState.scroll?.offset).toBeGreaterThan(0);
+      expect(endState.scroll?.contentHeight).toBeGreaterThan(endState.scroll?.bottom ?? 0);
+      await capture(page, testInfo.outputPath(`compact-equipment-inventory-end-${viewport.width}x${viewport.height}.png`));
+    } finally {
+      await context.close();
+    }
+  }
+});
+
 test('Upgrade review remains reachable across measured short-height layouts', async ({ browser }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   const context = await browser.newContext({
     baseURL: 'http://127.0.0.1:4173',
-    viewport: { width: 360, height: 640 },
-    hasTouch: false,
-    isMobile: false,
+    viewport: { width: 360, height: 500 },
+    hasTouch: true,
+    isMobile: true,
   });
   const page = await context.newPage();
   try {
+    const longName = 'Commando Helmet With A Deliberately Long Engineering Upgrade Review Name';
+    await installLongNameFixture(page, longName);
     await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), storedUpgradeSeed());
     await page.goto('/?visual-test=1');
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
@@ -472,12 +593,14 @@ test('Upgrade review remains reachable across measured short-height layouts', as
   await activateButtonText(page, 'View details');
   await activateButtonText(page, 'Review upgrade');
   const saveBefore = await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'));
-  for (const viewport of [{ width: 844, height: 390 }, { width: 844, height: 481 }, { width: 360, height: 500 }]) {
+  for (const viewport of [{ width: 360, height: 500 }, { width: 360, height: 640 },
+    { width: 844, height: 390 }, { width: 844, height: 481 }]) {
     await page.setViewportSize(viewport);
     await settle(page);
     const state = await diagnostic(page);
     const copy = state.copy.join('\n');
     expect(copy).toContain('UPGRADE REVIEW');
+    expect(copy).toContain(`UPGRADE REVIEW • ${longName}`);
     expect(copy).toContain('GRADE: Standard › → Reinforced ››');
     expect(copy).toContain('STATS: +5% Fire Rate [All Weapons] → +10% Fire Rate [All Weapons]');
     expect(state.buttons.some((button) => button.text === 'Cancel review to equip')).toBe(false);
@@ -494,15 +617,21 @@ test('Upgrade review remains reachable across measured short-height layouts', as
       expect(actions[index]!.bounds.y).toBeGreaterThanOrEqual(actions[index - 1]!.bounds.y + actions[index - 1]!.bounds.height);
     }
     expect(state.scroll?.bottom).toBeLessThanOrEqual(actions[0]!.bounds.y - 8);
+    for (const row of (state.copyBounds ?? []).filter((candidate) => candidate.visible)) {
+      expect(row.bounds.y).toBeGreaterThanOrEqual(0);
+      expect(row.bounds.y + row.bounds.height).toBeLessThanOrEqual(viewport.height);
+    }
   }
+  await page.setViewportSize({ width: 360, height: 500 });
+  await settle(page);
   await activateButtonText(page, 'Cancel Upgrade');
   expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
   expect((await diagnostic(page)).copy.join('\n')).not.toContain('UPGRADE REVIEW');
-  expect((await diagnostic(page)).buttons.some((button) => button.text === 'Equip Commando Helmet')).toBe(true);
+  expect((await diagnostic(page)).buttons.some((button) => button.text === `Equip ${longName}`)).toBe(true);
   await activateButtonText(page, 'Review upgrade');
   await activateButtonText(page, 'Cancel Upgrade');
   expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
-  expect((await diagnostic(page)).buttons.some((button) => button.text === 'Equip Commando Helmet')).toBe(true);
+  expect((await diagnostic(page)).buttons.some((button) => button.text === `Equip ${longName}`)).toBe(true);
   } finally {
     await context.close();
   }

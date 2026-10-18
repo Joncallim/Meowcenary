@@ -481,12 +481,18 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // usable inventory rows without reducing readable type.
     const compactTabs = true;
     const fixedSlotGrid = compactTabs || this.layout.height <= 480;
+    // At very short heights the fixed slot/header band and the selected-item
+    // summary can consume the entire lane between the menu chrome and footer.
+    // Let the complete Equipment collection own one overflow region in that
+    // case; the header remains reachable at its natural top position while
+    // inventory rows can scroll beneath the fixed summary/actions.
+    const compactOverflowScroll = !desktopCollectionScroll && this.layout.width < 600 && this.layout.height <= 500;
     this.collectionTop = desktopCollectionScroll ? sectionTop : collectionViewportTop;
     // Open the single collection region before slot rendering so authored
     // slot cards, candidate cards, copy, and art all enter the same Scene
     // owned mask. The fixed summary's measured bottom is applied below once
     // its wrapped text exists.
-    if (!fixedSlotGrid || desktopCollectionScroll) {
+    if (!fixedSlotGrid || desktopCollectionScroll || compactOverflowScroll) {
       this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.collectionTop, collectionWidth));
     }
     this.loadoutSection(root, left, sectionTop, 'EQUIPPED SLOTS');
@@ -502,7 +508,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // right-hand cards cannot sit outside their owner and disappear at the
     // mask edge.
     y = this.renderEquipmentSlots(root, snapshot, left, y, collectionWidth, hitTarget, false, compactTabs);
-    if (fixedSlotGrid && !desktopCollectionScroll) {
+    if (fixedSlotGrid && !desktopCollectionScroll && !compactOverflowScroll) {
       // Compact tabs and compact-landscape slot cards are fixed, reachable
       // headers. Only the body below them enters the shared scroll region.
       this.collectionTop = y;
@@ -510,7 +516,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     }
     // On desktop this control belongs to the same collection lane as the
     // candidate grid. Narrow layouts keep it fixed above their shorter body.
-    if (!desktopCollectionScroll) this.environment.controls.endScrollableRegion();
+    if (!desktopCollectionScroll && !compactOverflowScroll) this.environment.controls.endScrollableRegion();
     const browse = this.button(root, left, y, this.equipmentSetBrowserOpen ? 'CLOSE SETS' : 'BROWSE SETS', hitTarget, () => {
       this.equipmentSetBrowserOpen = !this.equipmentSetBrowserOpen;
       this.environment.controls.focusNext('equipment:browse-sets');
@@ -533,10 +539,11 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // All narrow layouts keep the authored slot/header band fixed. Only the
     // inventory/search body should move, including when the slot cards use
     // their larger art-led treatment at 390px portrait.
-    if (!desktopCollectionScroll) this.collectionTop = y;
-    if (!desktopCollectionScroll) {
+    if (!desktopCollectionScroll && !compactOverflowScroll) this.collectionTop = y;
+    if (!desktopCollectionScroll && !compactOverflowScroll) {
       this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.collectionTop, collectionWidth));
     }
+    if (compactOverflowScroll) this.collectionTop = sectionTop;
     // The structured catalog supplies a named, masked Set chooser. The old
     // closed state painted only four small emblems, which made the chooser
     // look like decoration and pushed the remaining names below the viewport.
@@ -568,7 +575,11 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // short phones retain a positive viewport instead of pushing collection
     // content below the fixed action band.
       const hasBrowseSelection = !!selectedForInspector || !!blueprintForInspector;
-      const collectionBottom = fixedSummary
+      const collectionBottom = compactOverflowScroll
+        ? fixedSummary && hasBrowseSelection
+          ? this.browseSummaryTop(browseSummary!.summary.height) - 16
+          : this.layout.scrollBottom
+        : fixedSummary
         // Unselected browsing has no action band. Give the inventory the full
         // available scroll lane instead of reserving a blank "Choose a
         // candidate" area and a disabled fabrication footer.
