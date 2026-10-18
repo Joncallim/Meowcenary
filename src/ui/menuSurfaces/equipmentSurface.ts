@@ -34,6 +34,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   private detailTop = 0;
   private detailLayoutWidth = 0;
   private detailLayoutHeight = 0;
+  private detailLayoutTop = 0;
   private selectionGeneration = 0;
   private drawingSelection = false;
   private collectionTop = 0;
@@ -90,6 +91,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     this.detailTop = 0;
     this.detailLayoutWidth = 0;
     this.detailLayoutHeight = 0;
+    this.detailLayoutTop = 0;
     this.environment.controls.focusNext(this.browseReturnFocusKey ?? `equipment-slot:${this.browseScope}`);
     this.environment.onSnapshot(this.commands.snapshot());
     if (this.browseReturnBookmark) this.environment.controls.restoreScrollBookmark(this.browseReturnBookmark);
@@ -137,10 +139,11 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       // its blank prefix scroll range remain authoritative for this update.
       // A same-geometry mutation (including a save failure notice) must not
       // move the local reader's viewport underneath its focused action. A
-      // resize or orientation change remounts this view and establishes a
-      // fresh detailTop in draw(); retained updates keep the existing anchor.
+      // notice changes layout.top even when the canvas size is unchanged, so
+      // treat that chrome shift like a remount and establish a fresh anchor.
       const sameDetailGeometry = this.detailLayoutWidth === this.layout.width
-        && this.detailLayoutHeight === this.layout.height;
+        && this.detailLayoutHeight === this.layout.height
+        && this.detailLayoutTop === this.layout.top;
       const reviewActive = this.detailReviewActive(snapshot, scrap);
       const compactReviewTop = this.detailReviewBodyTop();
       this.detailTop = reviewActive
@@ -150,6 +153,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
           : this.layout.top + 26;
       this.detailLayoutWidth = this.layout.width;
       this.detailLayoutHeight = this.layout.height;
+      this.detailLayoutTop = this.layout.top;
       this.collectionTop = this.detailTop;
       this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.detailTop, contentWidth,
         this.detailScrollableBottom(snapshot, scrap)));
@@ -223,6 +227,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     this.catalogCardVisuals.clear();
     this.detailLayoutWidth = 0;
     this.detailLayoutHeight = 0;
+    this.detailLayoutTop = 0;
     super.dispose();
   }
 
@@ -435,7 +440,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       // Detail is a local view: browse slots/cards are not mounted and the
       // single Scene-owned rectangle belongs only to this detail body.
       const sameDetailGeometry = this.detailLayoutWidth === this.layout.width
-        && this.detailLayoutHeight === this.layout.height;
+        && this.detailLayoutHeight === this.layout.height
+        && this.detailLayoutTop === this.layout.top;
       const reviewActive = this.detailReviewActive(snapshot, scrap);
       const compactReviewTop = this.detailReviewBodyTop();
       this.detailTop = reviewActive
@@ -445,6 +451,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
           : y;
       this.detailLayoutWidth = this.layout.width;
       this.detailLayoutHeight = this.layout.height;
+      this.detailLayoutTop = this.layout.top;
       this.collectionTop = this.detailTop;
       this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.detailTop, contentWidth,
         this.detailScrollableBottom(snapshot, scrap)));

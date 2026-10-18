@@ -5,7 +5,9 @@ import equipmentCatalog from '../src/data/equipment.json' with { type: 'json' };
 type Button = { key?: string; text: string; focused: boolean; visible: boolean; interactive: boolean;
   textInsets: { top: number; bottom: number };
   bounds: { x: number; y: number; width: number; height: number } };
+type CopyBounds = { text: string; visible: boolean; bounds: { x: number; y: number; width: number; height: number } };
 type Diagnostic = { panel: string; focusedKey?: string; buttons: Button[]; copy: string[];
+  copyBounds?: CopyBounds[];
   scroll?: { top: number; bottom: number; offset: number; contentHeight: number };
   equipment?: { selectedSlot: string; selectedInstanceId?: string; equipped: Record<string, string> } };
 type Seam = { showMenu(panel: string): boolean; waitForMenuPresentation(): Promise<boolean>;
@@ -233,6 +235,14 @@ test('Equipment review keeps equip non-mutating and surfaces committed feedback'
   expect(state.copy.join('\n')).toContain('Equipment upgraded');
   expect(state.copy.join('\n')).toContain('LOCKED • Defeat Scrap Crusher');
   expect(state.copy.join('\n')).toContain(longName);
+  const successNotice = state.copyBounds?.find((copy) => copy.text === 'Equipment upgraded');
+  expect(successNotice?.visible).toBe(true);
+  expect(successNotice?.bounds.y).toBeGreaterThanOrEqual(0);
+  const detailIdentityTop = Math.min(...(state.copyBounds ?? [])
+    .filter((copy) => copy.text.includes(longName) && copy.text !== 'Equipment upgraded')
+    .map((copy) => copy.bounds.y));
+  expect(Number.isFinite(detailIdentityTop)).toBe(true);
+  expect(successNotice!.bounds.y + successNotice!.bounds.height).toBeLessThanOrEqual(detailIdentityTop);
   expect((await diagnostic(reviewPage)).buttons.some((button) => button.text === `Equip ${longName}`)).toBe(true);
   const committedActions = (await diagnostic(reviewPage)).buttons
     .filter((button) => button.key?.startsWith('equipment-equip:') || button.key?.startsWith('equipment-upgrade:'))

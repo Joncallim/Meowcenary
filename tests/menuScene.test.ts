@@ -1376,7 +1376,7 @@ describe('MenuScene', () => {
     }
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-equip:recon');
     const action = buttonByKey(harness, 'equipment-equip:recon');
-    const relativeY = action.state.y - scene.scrollViewportTop;
+    const scrollViewportTopBefore = scene.scrollViewportTop;
     const before = harness.context.saveData;
     const write = vi.spyOn(MemoryStorageAdapter.prototype, 'setItem').mockReturnValue(false);
     try {
@@ -1387,7 +1387,8 @@ describe('MenuScene', () => {
       expect(scene.committedPanel).toBe('equipment');
       expect(harness.buttonByLabel('Back to candidates')).toBeDefined();
       expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-equip:recon');
-      expect(buttonByKey(harness, 'equipment-equip:recon').state.y - scene.scrollViewportTop).toBe(relativeY);
+      expect(buttonByKey(harness, 'equipment-equip:recon').state.y).toBe(action.state.y);
+      expect(scene.scrollViewportTop).toBeGreaterThan(scrollViewportTopBefore);
       expect(harness.textContents()).toContain('Equipment: cannot equip that item');
     } finally { write.mockRestore(); }
   });
