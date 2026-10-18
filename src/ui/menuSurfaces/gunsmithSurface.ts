@@ -88,7 +88,8 @@ export class GunsmithSurface extends MenuPanelSurface {
   constructor(environment: MenuSurfaceEnvironment, private readonly commands: GunsmithSurfaceCommands) { super(environment); }
   private get laneWidth(): number { return this.layout.width - this.layout.margin - this.layout.rightMargin; }
   private get wide(): boolean { return this.layout.width >= 1000 && this.laneWidth >= 700; }
-  private get mediaSize(): number { return this.wide ? 240 : this.layout.width < 380 ? 128 : 144; }
+  private get compactPhone(): boolean { return this.layout.width < 380; }
+  private get mediaSize(): number { return this.wide ? 240 : this.compactPhone ? 104 : 144; }
   private copy(root: Phaser.GameObjects.Container, x: number, y: number, value: string,
     width = this.laneWidth, color = '#adc1c7', size: number = ThemeFont.bodyMin): Phaser.GameObjects.Text {
     const text = this.own(root, createUiText(this.environment.scene, x, y, value, {
@@ -280,6 +281,9 @@ export class GunsmithSurface extends MenuPanelSurface {
         : slot.fitted ? [`${slot.fitted.name} T${slot.fitted.tier} • ${slot.fitted.effectLines.slice(0, 2).join(' • ')}`] : [])
         .join('\n')
       : '';
+    if (current && selected && this.compactPhone && !state.candidatePreview && !this.inspectedInstanceId) {
+      y = this.drawMobileSlotGrid(root, state, y);
+    }
     if (current) y = this.assembly(root, y, 'Your assembled weapon', current, framing,
       selected?.summary ?? 'Stock weapon • no persistent engineering fitted',
       fittedDetails && !this.wide ? `FITTED PARTS\n${fittedDetails}` : '',
@@ -306,27 +310,7 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
         y += cancel.height + 12;
       }
     }
-    if (!this.wide) y += this.copy(root, this.layout.margin, y, 'ENGINEERING SLOTS', this.laneWidth, '#24cec7').height + 8;
-    // Keep the catalog filter row compact without shrinking touch targets. A
-    // six-column desktop band turns the old three-row filter block into at
-    // most two rows while still leaving each filter comfortably tappable.
-    const columns = 2;
-    const slotWidth = (this.laneWidth - (columns - 1) * 8) / columns;
-    let rowHeight = 0;
-    if (!this.wide) state.slots.forEach((slot, index) => {
-      if (index > 0 && index % columns === 0) { y += rowHeight + 8; rowHeight = 0; }
-      const x = this.layout.margin + index % columns * (slotWidth + 8);
-      const fittedCount = slot.slot === 'trait' ? slot.traitFitted?.length ?? 0 : slot.fitted ? 1 : 0;
-      const label = `${state.selectedSlot === slot.slot ? '• ' : ''}${slot.label}\n${slot.unavailableFitted ? 'UNAVAILABLE' : slot.slot === 'trait' ? `${fittedCount}/2 EQUIPPED` : fittedCount ? 'EQUIPPED' : 'EMPTY'}`;
-      const button = this.button(root, x, y, label, 76, () => {
-        this.inspectedInstanceId = undefined;
-        this.redraw(this.commands.selectGunsmithSlot(slot.slot as PartSlot), `gunsmith-slot:${slot.slot}`);
-      }, 'ui:confirm', slotWidth, undefined, 0, 42, true);
-      this.environment.controls.rememberFocus(button, `gunsmith-slot:${slot.slot}`);
-      this.environment.controls.addCatalogIcon(root, x + 22, y + 30, slot.iconArtId, 32, this.environment.controls.buttonIndex(button));
-      rowHeight = Math.max(rowHeight, button.height);
-    });
-    if (!this.wide) y += rowHeight + 12;
+    if ((!this.compactPhone && !this.wide) || state.candidatePreview) y = this.drawMobileSlotGrid(root, state, y);
     const slot = state.slots.find(slot => slot.slot === state.selectedSlot);
     if (!slot) return;
     if (slot.unavailableFitted) {
@@ -355,6 +339,26 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
     for (const part of candidates) y = this.partCard(root, y, part,
       part.state === 'fitted-elsewhere' ? `EQUIPPED • ${part.assignedBuildName}` : 'STORED', `gunsmith-part:${part.instanceId}`,
       () => this.redraw(this.commands.previewGunPart(part.instanceId), 'gunsmith-commit'), this.mediaSize, 'Preview change');
+  }
+  private drawMobileSlotGrid(root: Phaser.GameObjects.Container, state: MainMenuSnapshot['gunsmith'], start: number): number {
+    let y = start + this.copy(root, this.layout.margin, start, 'ENGINEERING SLOTS', this.laneWidth, '#24cec7').height + 8;
+    const columns = 2;
+    const slotWidth = (this.laneWidth - (columns - 1) * 8) / columns;
+    let rowHeight = 0;
+    state.slots.forEach((slot, index) => {
+      if (index > 0 && index % columns === 0) { y += rowHeight + 8; rowHeight = 0; }
+      const x = this.layout.margin + index % columns * (slotWidth + 8);
+      const fittedCount = slot.slot === 'trait' ? slot.traitFitted?.length ?? 0 : slot.fitted ? 1 : 0;
+      const label = `${state.selectedSlot === slot.slot ? '• ' : ''}${slot.label}\n${slot.unavailableFitted ? 'UNAVAILABLE' : slot.slot === 'trait' ? `${fittedCount}/2 EQUIPPED` : fittedCount ? 'EQUIPPED' : 'EMPTY'}`;
+      const button = this.button(root, x, y, label, 76, () => {
+        this.inspectedInstanceId = undefined;
+        this.redraw(this.commands.selectGunsmithSlot(slot.slot as PartSlot), `gunsmith-slot:${slot.slot}`);
+      }, 'ui:confirm', slotWidth, undefined, 0, 42, true);
+      this.environment.controls.rememberFocus(button, `gunsmith-slot:${slot.slot}`);
+      this.environment.controls.addCatalogIcon(root, x + 22, y + 30, slot.iconArtId, 32, this.environment.controls.buttonIndex(button));
+      rowHeight = Math.max(rowHeight, button.height);
+    });
+    return y + rowHeight + 12;
   }
   private partCard(root: Phaser.GameObjects.Container, y: number, part: ArtPart, status: string,
     key: string, callback: () => void, size = this.mediaSize, actionLabel = 'Inspect this part'): number {
@@ -546,7 +550,7 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
     }
     y += this.copy(root, this.layout.margin, y, 'PARTS • OWNERSHIP / SOURCE / FABRICATION', this.laneWidth, '#24cec7').height + 12;
     const filters = ['All', ...new Set(catalog.map(part => part.slot))];
-    const columns = this.wide ? Math.min(6, filters.length) : 2;
+    const columns = this.wide ? Math.min(6, filters.length) : this.compactPhone ? 3 : 2;
     const filterWidth = (this.laneWidth - (columns - 1) * 8) / columns;
     let rowHeight = 0;
     filters.forEach((slot, index) => {
@@ -563,14 +567,17 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
     if (!this.wide) {
       for (const part of filteredCatalog) {
         const size = this.mediaSize;
+        const compactCard = this.compactPhone;
         const label = `${part.name}\n${part.slot.toUpperCase()} • ${part.stateLabel} • ${part.effectScope}\n${part.statChips.slice(0, 2).join(' • ') || 'Trait engineering'}${part.fabricationCost === undefined ? '' : `\n${part.fabricationCost} Scrap`}`;
-        const row = this.button(root, this.layout.margin, y, label, size + 144, () => {
+        const row = this.button(root, this.layout.margin, y, label, compactCard ? size + 32 : size + 144, () => {
           this.selectedCatalogPartId = part.partId; this.fabricationConfirmation = undefined;
           this.redraw(snapshot, `gunsmith-catalog-close:${part.partId}`);
-        }, 'ui:confirm', this.laneWidth, undefined, part.traitIcons.length * 38, 12, true, 'left', 'card', size + 24);
+        }, 'ui:confirm', this.laneWidth, undefined, part.traitIcons.length * 38,
+          compactCard ? size + 32 : 12, true, 'left', 'card', compactCard ? 12 : size + 24);
         this.environment.controls.rememberFocus(row, `gunsmith-catalog:${part.partId}`);
         const owner = this.environment.controls.buttonIndex(row);
-        this.environment.controls.addLoadoutArt(root, this.layout.centerX, y + size / 2 + 16, part.iconArtId, size, size, owner);
+        this.environment.controls.addLoadoutArt(root, compactCard ? this.layout.margin + size / 2 + 16 : this.layout.centerX,
+          y + size / 2 + 16, part.iconArtId, size, size, owner);
         part.traitIcons.forEach((trait, index) => this.environment.controls.addCatalogIcon(root,
           this.layout.margin + this.laneWidth - 24 - index * 38, y + size + 16, trait.iconArtId, 32, owner));
         y += row.height + 12;

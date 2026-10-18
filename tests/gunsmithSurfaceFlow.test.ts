@@ -121,6 +121,17 @@ describe('Gunsmith native flow surface', () => {
     expect(assemblies.every(entry => entry.width === 326)).toBe(true);
     expect(assemblies.every(entry => JSON.stringify(entry.framing) === JSON.stringify(['base:pistol', 'layer:t2']))).toBe(true);
   });
+  it('puts compact-phone engineering activation ahead of the assembled weapon art', () => {
+    const h = harness(360, 640); h.present();
+    const copy = h.visibleCopy();
+    expect(copy.indexOf('ENGINEERING SLOTS')).toBeGreaterThanOrEqual(0);
+    expect(copy.indexOf('ENGINEERING SLOTS')).toBeLessThan(copy.indexOf('Your assembled weapon'));
+  });
+  it('keeps compact-phone Parts identity and fabrication art in a horizontal card', () => {
+    const h = harness(360, 640); h.present(snapshot({ surface: 'parts' }));
+    expect(h.buttons.find(button => button.key === 'gunsmith-catalog:part:receiver')!.view.height).toBe(136);
+    expect(h.art.find(entry => entry.id === 'icon:receiver')!.width).toBe(104);
+  });
   it('renders controller-owned clamped stat rows and commits only through the preview action', () => {
     const h = harness();
     h.present(snapshot({ selectedCandidateInstanceId: 'receiver', candidatePreview: { baseArtId: 'base:pistol', layers: [], traitCores: [], traitEmblems: [] },
