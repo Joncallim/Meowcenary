@@ -339,7 +339,7 @@ export class MainMenuController {
     const before = this.equipmentController.snapshot();
     const ok = this.equipmentController.upgrade(instanceId, expectedTier);
     const after = this.equipmentController.snapshot();
-    this.notice = !ok ? 'Equipment: upgrade unavailable'
+    this.notice = !ok ? 'Equipment upgrade did not complete • No Scrap was spent'
       : before.selectedInstanceId !== undefined && after.selectedInstanceId === undefined
         ? 'Equipment upgraded • selected item hidden by filters' : 'Equipment upgraded';
     return this.snapshot();
@@ -376,7 +376,7 @@ export class MainMenuController {
       case 'slot-full': return 'That slot is occupied — unequip the current part first';
       case 'slot-incompatible': return 'That part does not fit this weapon build';
       case 'trait-cap-reached': return 'Trait capacity is full — unequip a trait first';
-      case 'fabrication-unavailable': return 'That blueprint is not available or needs more Scrap';
+      case 'fabrication-unavailable': return 'Part fabrication did not complete • No Scrap was spent';
       case 'save-failed': return 'Could not save that Gunsmith change';
       case 'no-pending-confirmation': return 'Choose a Workshop operation first';
       case 'workshop-operation-unavailable': return 'That Workshop operation is no longer available';

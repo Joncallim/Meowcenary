@@ -593,13 +593,23 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       }
       if (this.fabricationConfirmation?.partId === selected.partId && this.fabricationConfirmation.cost !== selected.fabricationCost) this.fabricationConfirmation = undefined;
       if (this.fabricationConfirmation?.partId === selected.partId) {
+        const confirmation = this.fabricationConfirmation;
         const remaining = scrap >= this.fabricationConfirmation.cost ? `${scrap - this.fabricationConfirmation.cost} Scrap` : `${scrap} Scrap (insufficient)`;
         y += this.copy(root, this.layout.margin, y,
           `FINAL CHECK\n${selected.name} ${gunsmithTierLabel(selected.rarity, 1)}\nAdds one STORED copy only; build remains unchanged.\nOutput destination: STORED inventory\nCost: ${this.fabricationConfirmation.cost} Scrap • Balance after: ${remaining}`,
           this.laneWidth, '#f7d774').height + 8;
         y = this.actionPair(root, y, 'Confirm fabrication', `gunsmith-fabricate-confirm:${selected.partId}`, () => {
+          if (this.fabricationConfirmation !== confirmation) return;
           this.fabricationConfirmation = undefined;
-          this.redraw(this.commands.fabricateGunPart(selected.partId), `gunsmith-catalog:${selected.partId}`);
+          const next = this.commands.fabricateGunPart(selected.partId);
+          const current = next.gunsmith.catalog.find(part => part.partId === selected.partId);
+          const unchanged = next.panel === 'gunsmith' && next.gunsmith.surface === 'parts'
+            && this.selectedCatalogPartId === selected.partId && current?.ownedCount === selected.ownedCount
+            && current.fabricationCost === confirmation.cost;
+          // A successful fabrication adds one owned copy. An unchanged result
+          // keeps the review, with a fresh identity that revokes this callback.
+          if (unchanged) this.fabricationConfirmation = { ...confirmation };
+          this.redraw(next, unchanged ? `gunsmith-fabricate-confirm:${selected.partId}` : `gunsmith-catalog:${selected.partId}`);
         }, `gunsmith-fabricate-cancel:${selected.partId}`, () => {
           this.fabricationConfirmation = undefined; this.redraw(snapshot, `gunsmith-fabricate-request:${selected.partId}`);
         }, selected.canFabricate);

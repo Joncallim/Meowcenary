@@ -1055,16 +1055,27 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     this.environment.onSnapshot(this.commands.snapshot());
   }
 
-  private confirmUpgradeReview(instanceId: string, expectedTier: number, expectedState: 'EQUIPPED' | 'STORED'): void {
-    // Clear the gate before invoking the authoritative command. A repeated
-    // pointerup against the old button therefore cannot spend twice while the
-    // Scene is repainting the after-state.
+  private upgradeReviewConfirmation(instanceId: string, expectedTier: number, expectedState: 'EQUIPPED' | 'STORED'): () => void {
     const review = this.upgradeReview;
-    if (!review || review.instanceId !== instanceId || review.expectedTier !== expectedTier
-      || review.expectedState !== expectedState) return;
-    this.upgradeReview = undefined;
-    const next = this.commands.upgradeEquipment(instanceId, expectedTier);
-    this.environment.onSnapshot(next);
+    return () => {
+      // Each rendered confirmation owns one attempt. Recovery creates a fresh
+      // review identity, so a duplicate or canceled callback cannot retry it.
+      if (!review || this.upgradeReview !== review || review.instanceId !== instanceId
+        || review.expectedTier !== expectedTier || review.expectedState !== expectedState) return;
+      this.upgradeReview = undefined;
+      const next = this.commands.upgradeEquipment(instanceId, expectedTier);
+      const current = next.equipment.presentation.slots.flatMap(slot => slot.candidates)
+        .find(item => item.instanceId === instanceId);
+      if (next.panel === 'equipment' && next.equipment.selectedInstanceId === instanceId
+        && current?.tier === expectedTier && current.state === expectedState
+        && next.equipment.owned.find(item => item.instanceId === instanceId)?.upgradePreview) {
+        // The authoritative item did not advance. Preserve the reviewed intent
+        // after a rejected write without interpreting player-facing notice copy.
+        this.upgradeReview = { ...review };
+        this.environment.controls.focusNext(`equipment-upgrade-confirm:${instanceId}`);
+      }
+      this.environment.onSnapshot(next);
+    };
   }
 
   private upgradeReviewBlocker(
@@ -1477,7 +1488,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
           this.renderUpgradeReview(fixedRoot, left, nextActionY, width, selected, upgrade, upgradeAfter, scrap, false);
           nextActionY += reviewHeight + actionGap;
           const confirm = this.button(fixedRoot, left, nextActionY, `Confirm Upgrade • ${cost} Scrap`, actionHeight,
-            () => this.confirmUpgradeReview(selected.instanceId, selected.tier, selected.state), 'ui:confirm', width);
+            this.upgradeReviewConfirmation(selected.instanceId, selected.tier, selected.state), 'ui:confirm', width);
           this.rememberLoadoutFocus(confirm, `equipment-upgrade-confirm:${selected.instanceId}`);
           if (this.upgradeReviewBlocker(upgrade, scrap) !== 'None') this.environment.controls.disableButton(confirm);
           nextActionY += confirm.height + actionGap;
@@ -1547,7 +1558,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       const isConfirm = label.startsWith('Confirm Upgrade •');
       const action = this.button(fixedRoot, left, nextActionY, label, actionHeights[index] ?? this.layout.hitTarget,
         isConfirm
-          ? () => this.confirmUpgradeReview(selected.instanceId, selected.tier, selected.state)
+          ? this.upgradeReviewConfirmation(selected.instanceId, selected.tier, selected.state)
           : () => this.cancelUpgradeReview(),
         isConfirm ? 'ui:confirm' : 'ui:back', contentWidth);
       this.rememberLoadoutFocus(action, isConfirm
@@ -1674,7 +1685,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         if (cost !== undefined) {
           if (upgradeReviewActive) {
             queueFixedDetailAction(`Confirm Upgrade • ${cost} Scrap`,
-              () => this.confirmUpgradeReview(selected.instanceId, selected.tier, selected.state),
+              this.upgradeReviewConfirmation(selected.instanceId, selected.tier, selected.state),
               `equipment-upgrade-confirm:${selected.instanceId}`,
               this.upgradeReviewBlocker(upgrade, scrap) !== 'None');
             queueFixedDetailAction('Cancel Upgrade',

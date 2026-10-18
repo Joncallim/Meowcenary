@@ -2075,6 +2075,96 @@ describe('MenuScene', () => {
     expect(harness.context.saveData.progression.scrap).toBe(0);
   });
 
+  it.each([[360, 640, false], [1280, 720, false], [360, 640, true], [1280, 720, true]] as const)('retains failed Equipment upgrade confirmation and semantic focus for one safe retry at %i×%i; cancel=%s', (width, height, cancelBeforeRetry) => {
+    const harness = createHarness({ create: false });
+    Object.assign(harness.menuScene.scale, { width, height, displaySize: { width, height } });
+    harness.menuScene.create();
+    harness.context.updateMeta(progression => ({ ...progression, scrap: 200, unlocks: [...progression.unlocks, 'capability:equipment-tier-2'] }));
+    harness.context.updateEquipment(() => ({ equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {} }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    activateKey(harness, 'equipment-candidate:helmet');
+    if (width < 600) harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+    activateKey(harness, 'equipment-upgrade:helmet');
+    const scene = harness.menuScene as unknown as { focusedButtonKey?: string };
+    const before = harness.context.saveData;
+    const firstConfirm = buttonByKey(harness, 'equipment-upgrade-confirm:helmet');
+    const write = vi.spyOn(MemoryStorageAdapter.prototype, 'setItem').mockReturnValue(false);
+    try {
+      firstConfirm.state.handlers.pointerup!();
+      expect(write).toHaveBeenCalledTimes(1);
+      expect(harness.context.saveData).toBe(before);
+      expect(harness.textContents()).toContain('Equipment upgrade did not complete • No Scrap was spent');
+      expect(harness.textContents().join('\n')).toContain('UPGRADE REVIEW • Commando Helmet');
+      expect(buttonByKey(harness, 'equipment-upgrade-confirm:helmet').state.interactive).toBe(true);
+      expect(scene.focusedButtonKey).toBe('equipment-upgrade-confirm:helmet');
+      firstConfirm.state.handlers.pointerup!();
+      expect(write).toHaveBeenCalledTimes(1);
+    } finally { write.mockRestore(); }
+    if (cancelBeforeRetry) {
+      const canceled = buttonByKey(harness, 'equipment-upgrade-confirm:helmet');
+      activateKey(harness, 'equipment-upgrade-cancel:helmet');
+      canceled.state.handlers.pointerup!();
+      expect(harness.context.saveData).toBe(before);
+      activateKey(harness, 'equipment-upgrade:helmet');
+      canceled.state.handlers.pointerup!();
+      expect(harness.context.saveData).toBe(before);
+    }
+    const retry = buttonByKey(harness, 'equipment-upgrade-confirm:helmet');
+    retry.state.handlers.pointerup!();
+    retry.state.handlers.pointerup!();
+    firstConfirm.state.handlers.pointerup!();
+    expect(harness.context.saveData.equipment.helmet?.tier).toBe(2);
+    expect(harness.context.saveData.progression.scrap).toBe(100);
+    expect(harness.buttonByLabel('Cancel Upgrade')).toBeUndefined();
+  });
+
+  it.each([[360, 640, false], [1280, 720, false], [360, 640, true], [1280, 720, true]] as const)('retains failed part fabrication confirmation and semantic focus for one safe retry at %i×%i; cancel=%s', (width, height, cancelBeforeRetry) => {
+    const harness = createHarness({ create: false });
+    Object.assign(harness.menuScene.scale, { width, height, displaySize: { width, height } });
+    harness.menuScene.create();
+    harness.context.updateMeta(progression => ({ ...progression, scrap: 180 }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Pistol')!.state.handlers.pointerup!();
+    activateKey(harness, 'gunsmith-surface:parts');
+    activateKey(harness, 'gunsmith-catalog:part:receiver-compact');
+    activateKey(harness, 'gunsmith-fabricate-request:part:receiver-compact');
+    const scene = harness.menuScene as unknown as { focusedButtonKey?: string };
+    const before = harness.context.saveData;
+    const key = 'gunsmith-fabricate-confirm:part:receiver-compact';
+    const firstConfirm = buttonByKey(harness, key);
+    const write = vi.spyOn(MemoryStorageAdapter.prototype, 'setItem').mockReturnValue(false);
+    try {
+      firstConfirm.state.handlers.pointerup!();
+      expect(write).toHaveBeenCalledTimes(1);
+      expect(harness.context.saveData).toBe(before);
+      expect(harness.textContents()).toContain('Part fabrication did not complete • No Scrap was spent');
+      expect(harness.textContents().join('\n')).toContain('FINAL CHECK');
+      expect(buttonByKey(harness, key).state.interactive).toBe(true);
+      expect(scene.focusedButtonKey).toBe(key);
+      firstConfirm.state.handlers.pointerup!();
+      expect(write).toHaveBeenCalledTimes(1);
+    } finally { write.mockRestore(); }
+    if (cancelBeforeRetry) {
+      const canceled = buttonByKey(harness, key);
+      activateKey(harness, 'gunsmith-fabricate-cancel:part:receiver-compact');
+      canceled.state.handlers.pointerup!();
+      expect(harness.context.saveData).toBe(before);
+      activateKey(harness, 'gunsmith-fabricate-request:part:receiver-compact');
+      canceled.state.handlers.pointerup!();
+      expect(harness.context.saveData).toBe(before);
+    }
+    const retry = buttonByKey(harness, key);
+    retry.state.handlers.pointerup!();
+    retry.state.handlers.pointerup!();
+    firstConfirm.state.handlers.pointerup!();
+    expect(Object.values(harness.context.saveData.gunsmith.parts).filter(part => part.partId === 'part:receiver-compact')).toHaveLength(1);
+    expect(harness.context.saveData.progression.scrap).toBe(120);
+    expect(harness.buttonByLabel('Confirm fabrication')).toBeUndefined();
+    expect(harness.context.saveData.gunsmith.builds[0]!.fitted).toEqual({});
+  });
+
   it('keeps the desktop Upgrade review visible before the authoritative after-state', () => {
     const harness = createHarness({ create: false });
     Object.assign(harness.menuScene.scale, { width: 1280, height: 720, displaySize: { width: 1280, height: 720 } });
