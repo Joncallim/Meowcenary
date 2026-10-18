@@ -1966,6 +1966,125 @@ describe('MenuScene', () => {
     expect(harness.context.saveData).toBe(before);
   });
 
+  it('gates Equipment Upgrade behind a review and commits exactly once after confirmation', () => {
+    const harness = createHarness({ create: false });
+    Object.assign(harness.menuScene.scale, { width: 360, height: 640, displaySize: { width: 360, height: 640 } });
+    harness.menuScene.create();
+    harness.context.updateMeta((progression) => ({ ...progression, scrap: 100, unlocks: [...progression.unlocks, 'capability:equipment-tier-2'] }));
+    harness.context.updateEquipment(() => ({ equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {} }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+
+    const before = harness.context.saveData;
+    const upgrade = harness.buttonByLabel('Upgrade for 100 Scrap')!;
+    expect(upgrade).toBeDefined();
+    upgrade.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    const reviewCopy = harness.textContents().join('\n');
+    expect(reviewCopy).toContain('UPGRADE REVIEW • Commando Helmet');
+    expect(reviewCopy).toContain('GRADE: Standard › → Reinforced ››');
+    expect(reviewCopy).toContain('COST: 100 Scrap • BALANCE AFTER: 0 Scrap');
+    expect(reviewCopy).toContain('EFFECT: STORED output becomes');
+    expect(reviewCopy).toContain('BLOCKER: None');
+    expect(harness.buttonByLabel('Confirm Upgrade')).toBeDefined();
+    expect(harness.buttonByLabel('Cancel Upgrade')).toBeDefined();
+
+    const scene = harness.menuScene as unknown as { handleResize(): void };
+    scene.handleResize();
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.buttonByLabel('Confirm Upgrade')).toBeDefined();
+
+    harness.buttonByLabel('Cancel Upgrade')!.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.buttonByLabel('Upgrade for 100 Scrap')).toBeDefined();
+
+    harness.buttonByLabel('Upgrade for 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Back to candidates')!.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    harness.buttonByLabel('Commando Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Upgrade for 100 Scrap')!.state.handlers.pointerup!();
+    const confirm = harness.buttonByLabel('Confirm Upgrade')!;
+    confirm.state.handlers.pointerup!();
+    expect(harness.context.saveData.equipment.helmet?.tier).toBe(2);
+    expect(harness.context.saveData.progression.scrap).toBe(0);
+
+    // A second activation against the stale pre-repaint button must be inert.
+    confirm.state.handlers.pointerup!();
+    expect(harness.context.saveData.equipment.helmet?.tier).toBe(2);
+    expect(harness.context.saveData.progression.scrap).toBe(0);
+  });
+
+  it('keeps the desktop Upgrade review visible before the authoritative after-state', () => {
+    const harness = createHarness({ create: false });
+    Object.assign(harness.menuScene.scale, { width: 1280, height: 720, displaySize: { width: 1280, height: 720 } });
+    harness.menuScene.create();
+    harness.context.updateMeta((progression) => ({ ...progression, scrap: 100, unlocks: [...progression.unlocks, 'capability:equipment-tier-2'] }));
+    harness.context.updateEquipment(() => ({ equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {} }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
+
+    const before = harness.context.saveData;
+    harness.buttonByLabel('Upgrade for 100 Scrap')!.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.textContents().join('\n')).toContain('UPGRADE REVIEW • Commando Helmet');
+    expect(harness.buttonByLabel('Confirm Upgrade')).toBeDefined();
+    expect(harness.buttonByLabel('Cancel Upgrade')).toBeDefined();
+
+    harness.buttonByLabel('Confirm Upgrade')!.state.handlers.pointerup!();
+    expect(harness.context.saveData.equipment.helmet?.tier).toBe(2);
+    expect(harness.context.saveData.progression.scrap).toBe(0);
+    expect(harness.textContents().join('\n')).toContain('Reinforced ››');
+  });
+
+  it('labels an equipped Upgrade review as an immediate active Loadout consequence', () => {
+    const harness = createHarness({ create: false });
+    Object.assign(harness.menuScene.scale, { width: 360, height: 640, displaySize: { width: 360, height: 640 } });
+    harness.menuScene.create();
+    harness.context.updateMeta((progression) => ({ ...progression, scrap: 100, unlocks: [...progression.unlocks, 'capability:equipment-tier-2'] }));
+    harness.context.updateEquipment(() => ({ equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: { helmet: 'helmet' } }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • EQUIPPED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Upgrade for 100 Scrap')!.state.handlers.pointerup!();
+    expect(harness.textContents().join('\n')).toContain('EFFECT: ACTIVE Loadout uses +10% Fire Rate [All Weapons] immediately');
+    expect(harness.context.saveData.progression.scrap).toBe(100);
+  });
+
+  it('measures wrapped multi-effect phone decision rows for a Pyro threshold change', () => {
+    const harness = createHarness({ create: false });
+    Object.assign(harness.menuScene.scale, { width: 360, height: 640, displaySize: { width: 360, height: 640 } });
+    harness.menuScene.create();
+    harness.context.updateEquipment(() => ({
+      equipment: {
+        helmet: { equipmentId: 'equipment:pyro-helmet', tier: 1 },
+        boots: { equipmentId: 'equipment:pyro-boots', tier: 1 },
+      },
+      loadout: { boots: 'boots' },
+    }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Pyro Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+
+    const previewHeading = harness.objects.find((object) => object.state.text === 'Decision preview' && !object.state.destroyed)!;
+    expect(harness.textContents().join('\n')).toContain('SET GAIN • Set gain → 2-piece');
+    const fixedRows = harness.objects
+      .filter((object) => !object.state.destroyed && object.state.kind === 'text'
+        && object.state.y >= previewHeading.state.y && object.state.y < 400
+        && ['Decision preview', 'ACTION •', 'GAIN •', 'SET GAIN •', '+ 6%'].some((prefix) => object.state.text.startsWith(prefix)))
+      .sort((a, b) => a.state.y - b.state.y);
+    expect(fixedRows.length).toBeGreaterThanOrEqual(4);
+    for (let index = 1; index < fixedRows.length; index += 1) {
+      expect(fixedRows[index - 1]!.state.y + fixedRows[index - 1]!.state.height)
+        .toBeLessThanOrEqual(fixedRows[index]!.state.y);
+    }
+  });
+
   it('uses real controller input to select a candidate without equipping and then commits its explicit action', () => {
     const harness = createHarness();
     harness.context.updateEquipment(() => ({ equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {} }));

@@ -47,6 +47,21 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     return copy;
   }
 
+  /** Measure with the same Phaser text object used by the rendered copy. This
+   * keeps fixed decision bands honest when a narrow viewport wraps a long
+   * effect line; callers must not advance by a guessed line height. */
+  protected measureLoadoutCopyHeight(text: string, width: number, fontSize: number = ThemeFont.bodyMin,
+    lineSpacing = 4, fontStyle: string = '600'): number {
+    // Reuse the production copy path so the centralized UI-text constructor
+    // remains the sole creation site and the measured style matches render.
+    const holder = this.environment.scene.add.container(0, 0);
+    const measured = this.loadoutCopy(holder, 0, 0, text, width, '#d6f7ff', false);
+    measured.setStyle({ fontSize: `${fontSize}px`, lineSpacing, fontStyle });
+    const height = measured.height;
+    holder.destroy(true);
+    return height;
+  }
+
   protected rememberLoadoutFocus(button: Phaser.GameObjects.Text, key: string): Phaser.GameObjects.Text {
     return this.environment.controls.rememberFocus(button, key);
   }
