@@ -18,6 +18,14 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     return effects.map((effect) => `${effect.kind === 'modifier' ? effect.text : effect.label} [${effect.target.label}]`).join(' • ');
   }
 
+  protected signedValue(sign: '+' | '−', value: string): string {
+    return `${sign} ${value.trim().replace(/^[+−]\s*/, '')}`;
+  }
+
+  protected signedEffectCopy(sign: '+' | '−', effects: readonly LoadoutEffectPresentation[]): string {
+    return this.signedValue(sign, this.loadoutEffectCopy(effects) || 'None');
+  }
+
   protected renderScopedLoadoutEffects(root: Phaser.GameObjects.Container, effects: readonly LoadoutEffectPresentation[], left: number, top: number, width: number, fontSize: number = ThemeFont.bodyMin): number {
     let y = top;
     for (const effect of effects) {
@@ -132,12 +140,12 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     const wideDecisionLayout = this.layout.width >= 1040 && width >= 560;
     if (wideDecisionLayout) {
       // Desktop has room for the preview and the decision copy to be assessed
-      // together. Keep the art recognizable, but stop it from owning the full
-      // first 290px of the inspector before effects and trade-offs appear.
-      const artColumn = Math.min(250, Math.max(210, Math.floor(width * 0.28)));
-      const artExtent = Math.min(220, Math.max(176, artColumn - 24));
+      // together. Keep the art recognizable, but keep the identity band
+      // compact enough that the comparison remains in the first viewport.
+      const artColumn = Math.min(196, Math.max(172, Math.floor(width * 0.2)));
+      const artExtent = Math.min(156, Math.max(132, artColumn - 28));
       const textWidth = width - artColumn - 16;
-      const bodyHeight = artExtent + 24;
+      const bodyHeight = artExtent + 32;
       this.loadoutMaterial(root, left, top, artColumn, bodyHeight);
       this.environment.controls.addLoadoutArt(root, left + artColumn / 2,
         top + 12 + artExtent / 2, artId, artExtent, artExtent,
@@ -228,6 +236,9 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
   }
 
   protected renderEquipmentComparison(root: Phaser.GameObjects.Container, comparison: EquipmentComparison, left: number, top: number, contentWidth: number, familyNames: ReadonlyMap<string, string>): number {
+    if (this.layout.width >= 1040 && contentWidth >= 800) {
+      return this.renderWideEquipmentComparison(root, comparison, left, top, contentWidth, familyNames);
+    }
     let y = top;
     const put = (text: string, color?: string) => { const copy = this.loadoutCopy(root, left, y, text, contentWidth, color); y += copy.height + 8; };
     put('SET CHANGES', '#f78003');
@@ -246,7 +257,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     const projectileCopy = (effects: readonly { readonly kind: string }[]): string => effects.map((effect) => effect.kind).join(', ') || 'None';
     put('GAINS', '#86efac');
     if (!gains.length && !projectileGains.length && !effects.traits.some((trait) => !trait.before && trait.after)) put('None');
-    for (const delta of gains) put(`+ ${delta.afterValue ?? '—'} ${delta.label} [${delta.target.label}]`, '#86efac');
+    for (const delta of gains) put(`${this.signedValue('+', delta.afterValue ?? '—')} ${delta.label} [${delta.target.label}]`, '#86efac');
     for (const delta of projectileGains) put(`+ ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.after)}`, '#86efac');
     for (const trait of effects.traits) {
       const family = familyNames.get(trait.familyId) ?? trait.familyId;
@@ -254,7 +265,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     }
     put('LOSSES', '#fbbf24');
     if (!losses.length && !projectileLosses.length && !effects.traits.some((trait) => trait.before && !trait.after)) put('None');
-    for (const delta of losses) put(`− ${delta.beforeValue ?? '—'} ${delta.label} [${delta.target.label}]`, '#fbbf24');
+    for (const delta of losses) put(`${this.signedValue('−', delta.beforeValue ?? '—')} ${delta.label} [${delta.target.label}]`, '#fbbf24');
     for (const delta of projectileLosses) put(`− ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.before)}`, '#fbbf24');
     for (const trait of effects.traits) {
       const family = familyNames.get(trait.familyId) ?? trait.familyId;
@@ -262,6 +273,74 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
       else if (trait.before && trait.after && trait.sourceChanged) put(`↔ ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${(trait.afterSourceLabels.length ? trait.afterSourceLabels : trait.beforeSourceLabels).join(' • ') || 'None'}`);
     }
     return y;
+  }
+
+  private renderWideEquipmentComparison(root: Phaser.GameObjects.Container, comparison: EquipmentComparison,
+    left: number, top: number, contentWidth: number, familyNames: ReadonlyMap<string, string>): number {
+    type ComparisonRow = { readonly text: string; readonly color: string; readonly heading?: boolean };
+    const setRows: ComparisonRow[] = [{ text: 'SET CHANGES', color: '#f78003', heading: true }];
+    for (const change of comparison.setChanges) {
+      const set = comparison.after.sets.find((row) => row.setId === change.setId)!;
+      setRows.push({ text: `${set.name} ${change.before}/4 → ${change.after}/4`, color: '#d6f7ff' });
+      for (const count of change.lost) setRows.push({
+        text: `− LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`,
+        color: '#fbbf24',
+      });
+      for (const count of change.gained) setRows.push({
+        text: `+ GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`,
+        color: '#86efac',
+      });
+    }
+    if (!comparison.setChanges.length) setRows.push({ text: 'None', color: '#d6f7ff' });
+
+    const effects = presentLoadoutRunTruthComparison(comparison.before.runTruth, comparison.after.runTruth);
+    const gains = effects.modifiers.filter((delta) => delta.state === 'added' || delta.state === 'changed');
+    const losses = effects.modifiers.filter((delta) => delta.state === 'removed' || delta.state === 'changed');
+    const projectileGains = effects.projectileEffects.filter((delta) => delta.after.length > delta.before.length);
+    const projectileLosses = effects.projectileEffects.filter((delta) => delta.before.length > delta.after.length);
+    const projectileCopy = (rows: readonly { readonly kind: string }[]): string => rows.map((effect) => effect.kind).join(', ') || 'None';
+    const gainRows: ComparisonRow[] = [{ text: 'GAINS', color: '#86efac', heading: true }];
+    if (!gains.length && !projectileGains.length && !effects.traits.some((trait) => !trait.before && trait.after)) gainRows.push({ text: 'None', color: '#d6f7ff' });
+    for (const delta of gains) gainRows.push({ text: `${this.signedValue('+', delta.afterValue ?? '—')} ${delta.label} [${delta.target.label}]`, color: '#86efac' });
+    for (const delta of projectileGains) gainRows.push({ text: `+ ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.after)}`, color: '#86efac' });
+    for (const trait of effects.traits) {
+      const family = familyNames.get(trait.familyId) ?? trait.familyId;
+      if (!trait.before && trait.after) gainRows.push({ text: `+ ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${trait.afterSourceLabels.join(' • ') || 'None'}`, color: '#86efac' });
+    }
+
+    const lossRows: ComparisonRow[] = [{ text: 'LOSSES', color: '#fbbf24', heading: true }];
+    if (!losses.length && !projectileLosses.length && !effects.traits.some((trait) => trait.before && !trait.after)) lossRows.push({ text: 'None', color: '#d6f7ff' });
+    for (const delta of losses) lossRows.push({ text: `${this.signedValue('−', delta.beforeValue ?? '—')} ${delta.label} [${delta.target.label}]`, color: '#fbbf24' });
+    for (const delta of projectileLosses) lossRows.push({ text: `− ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.before)}`, color: '#fbbf24' });
+    for (const trait of effects.traits) {
+      const family = familyNames.get(trait.familyId) ?? trait.familyId;
+      if (trait.before && !trait.after) lossRows.push({ text: `− ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${trait.beforeSourceLabels.join(' • ') || 'None'}`, color: '#fbbf24' });
+      else if (trait.before && trait.after && trait.sourceChanged) lossRows.push({ text: `↔ ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${(trait.afterSourceLabels.length ? trait.afterSourceLabels : trait.beforeSourceLabels).join(' • ') || 'None'}`, color: '#d6f7ff' });
+    }
+
+    const columns = [setRows, gainRows, lossRows];
+    const gap = 12;
+    const columnWidth = (contentWidth - gap * (columns.length - 1)) / columns.length;
+    const lineCapacity = Math.max(18, Math.floor(columnWidth / 9));
+    const estimate = (row: ComparisonRow): number => Math.max(18, row.text.split('\n').reduce((height, line) => height + Math.max(1, Math.ceil(line.length / lineCapacity)) * 18, 0)) + (row.heading ? 4 : 2);
+    const heights = columns.map((rows) => 20 + rows.reduce((height, row) => height + estimate(row), 0) + 12);
+    const columnHeight = Math.max(...heights);
+    columns.forEach((rows, column) => {
+      const x = left + column * (columnWidth + gap);
+      const panel = this.environment.visuals?.addPanel(this.environment.scene, x + columnWidth / 2, top + columnHeight / 2,
+        columnWidth, columnHeight, 'figma-card');
+      if (panel) {
+        this.own(root, panel);
+        this.environment.controls.registerScrollObject(panel);
+      }
+      let y = top + 12;
+      rows.forEach((row) => {
+        const copy = this.loadoutCopy(root, x + 12, y, row.text, columnWidth - 24, row.color);
+        if (row.heading) copy.setStyle({ fontStyle: '700' });
+        y += copy.height + (row.heading ? 6 : 4);
+      });
+    });
+    return top + columnHeight + 12;
   }
 
 }

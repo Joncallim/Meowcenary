@@ -247,7 +247,7 @@ describe('art-led Equipment layout', () => {
     expect(card.width).toBeLessThan(390 - 32);
     expect(art[4]).toBe(72);
     expect(art[5]).toBe(72);
-    expect(art[2]).toBe(card.y + 12 + 36);
+    expect(art[2]).toBe(card.y + 32 + 36);
   });
 
   it('opens local detail and restores the selected card on local Back without mutating save state', () => {
@@ -341,7 +341,7 @@ describe('art-led Equipment layout', () => {
     const owner = view.buttons.indexOf(blueprint);
     const emblem = view.icons.mock.calls.find(call => call[5] === owner && call[3] === 'equipment-set-icon:commando');
     expect(emblem).toBeDefined();
-    expect(emblem![2]).toBe(blueprint.y + blueprint.height / 2);
+    expect(emblem![2]).toBe(blueprint.y + 32 + 48);
   });
 
   it('updates retained candidate selection chrome without replacing the card visual identity', () => {
@@ -359,6 +359,44 @@ describe('art-led Equipment layout', () => {
     (view.surface as unknown as { updateCatalogCardVisuals(snapshot: unknown): void }).updateCatalogCardVisuals(view.commands.snapshot());
     expect(visuals.get('helmet')!.outline).toBe(retained.outline);
     expect(retained.outline.strokeColor).toBe(0x214756);
+  });
+
+  it('refreshes retained desktop candidate chrome when the wide inspector changes selection', () => {
+    const view = harness(1280, 720);
+    const retainedVisuals = (view.surface as unknown as {
+      catalogCardVisuals: Map<string, { outline: LayoutObject; marker: LayoutObject }>;
+    }).catalogCardVisuals;
+    const retained = retainedVisuals.get('helmet')!;
+    const blueprint = view.buttons.find(button => button.text.startsWith('Commando Helmet\nStandard'))!;
+    view.handlers.get(blueprint)!();
+    (view.surface as unknown as {
+      updateSelection(root: unknown, snapshot: unknown, scrap: number): void;
+      root: unknown;
+    }).updateSelection(view.surface.root, view.latest(), 320);
+    expect(retainedVisuals.get('helmet')!.outline).toBe(retained.outline);
+    expect(retained.outline.strokeColor).toBe(0x214756);
+    expect(retainedVisuals.get('equipment:commando-helmet')!.outline.strokeColor).toBe(0x2dd4b6);
+    expect(retainedVisuals.get('equipment:commando-helmet')!.marker.fillColor).toBe(0x2dd4b6);
+  });
+
+  it('does not finish native or fallback search on Enter during IME composition', () => {
+    const view = harness(390, 844);
+    const state = view.surface as unknown as {
+      searchMode: boolean; searchInputComposing: boolean;
+      handleSearchKey(event: KeyboardEvent): void;
+      handleSearchInputKey(event: KeyboardEvent): void;
+    };
+    const event = { key: 'Enter', stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as KeyboardEvent;
+    state.searchMode = true;
+    state.searchInputComposing = true;
+    state.handleSearchKey(event);
+    state.handleSearchInputKey(event);
+    expect(state.searchMode).toBe(true);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    state.searchInputComposing = false;
+    state.handleSearchInputKey(event);
+    expect(state.searchMode).toBe(false);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
   });
 
   it('distinguishes an empty inventory from a filtered-empty result state', () => {

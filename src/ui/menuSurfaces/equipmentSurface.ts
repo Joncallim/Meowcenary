@@ -151,8 +151,10 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       this.environment.controls.resizeScrollableRegion(this.collectionRectangle(left, this.collectionTop,
         listWidth, this.browseSummaryTop(summary.summary.height) - 8));
       this.drawBrowseSummary(scrollRoot, this.root!, summary, scrap);
-      this.updateCatalogCardVisuals(snapshot);
     }
+    // Wide retained browse cards stay mounted while the inspector changes;
+    // refresh their marker/outline state in that branch as well.
+    this.updateCatalogCardVisuals(snapshot);
     this.requestSelectionResources(snapshot);
   }
 
@@ -249,6 +251,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // Phaser fallback remains for headless/unit surfaces without a document.
     if (this.searchInput) return;
     if (!this.searchMode) return;
+    if (this.searchInputComposing) return;
     if (event.key === 'Escape' || event.key === 'Enter') {
       event.preventDefault();
       this.searchMode = false;
@@ -266,6 +269,21 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
       this.environment.onSnapshot(this.commands.setEquipmentSearch(`${current}${event.key}`));
+    }
+  }
+
+  private handleSearchInputKey(event: KeyboardEvent): void {
+    // Keep composition commits inside the IME. Enter must finish the
+    // composition first; closing the search field here would drop the final
+    // grapheme before compositionend publishes the query.
+    event.stopPropagation();
+    if (this.searchInputComposing) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.closeSearchInput();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeSearchInput(true);
     }
   }
 
@@ -320,18 +338,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       input.addEventListener('input', () => {
         if (!this.searchInputComposing) this.environment.onSnapshot(this.commands.setEquipmentSearch(input.value));
       });
-      input.addEventListener('keydown', (event) => {
-        // Prevent arrow/confirm/back shortcuts from reaching MenuScene while
-        // the soft keyboard or hardware keyboard edits this field.
-        event.stopPropagation();
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          this.closeSearchInput();
-        } else if (event.key === 'Escape') {
-          event.preventDefault();
-          this.closeSearchInput(true);
-        }
-      });
+      input.addEventListener('keydown', (event) => this.handleSearchInputKey(event));
       input.addEventListener('blur', () => {
         if (this.searchInput === input) this.closeSearchInput();
       });
@@ -474,7 +481,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       if (this.equipmentSetBrowserOpen) this.revealSetBrowserOnNextDraw = true;
       this.environment.onSnapshot(this.commands.snapshot());
       if (this.equipmentSetBrowserOpen) this.environment.controls.restoreScrollOffset(this.setBrowserRevealOffset);
-    }, 'ui:confirm', contentWidth, undefined, 0, 0, false, 'left', 'section');
+    }, 'ui:confirm', contentWidth, 'ui-chrome:figma-arrow', 44, 0, false, 'left', 'card');
     // Browse Sets is a semantic section control, but it is also the primary
     // entry point for the named chooser. Keep its label at the readable body
     // size on both the phone and foldable layouts.
@@ -513,7 +520,10 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const cardGap = cardColumns === 2 ? 12 : 8;
     const cardWidth = (collectionWidth - cardGap * (cardColumns - 1)) / cardColumns;
     const artExtent = this.layout.width < 600 ? 72 : this.layout.width >= 1040 ? 96 : 88;
-    const cardTopReserve = artExtent + 16;
+    // Cards have three fixed visual bands: grade, art/set identity, then the
+    // selectable name/state. Keeping those bands separate prevents the set
+    // emblem and grade badge from sitting on top of the item label.
+    const cardTopReserve = artExtent + 44;
     this.detailTop = y;
     const fixedSummary = !wideInspector || (!selectedForInspector && !blueprintForInspector);
     const browseSummary = fixedSummary ? this.prepareBrowseSummary(root, snapshot) : undefined;
@@ -574,7 +584,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
           row.setFixedSize(cardWidth, rowHeight);
           const ownerIndex = this.environment.controls.buttonIndex(row);
           this.environment.controls.addLoadoutArt(root, x + cardWidth / 2,
-            y + 12 + artExtent / 2, card.iconArtId, artExtent, artExtent, ownerIndex);
+            y + 32 + artExtent / 2, card.iconArtId, artExtent, artExtent, ownerIndex);
           decorate?.(card, x, y, ownerIndex, rowHeight);
         }
         y += rowHeight + 8;
@@ -672,7 +682,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const columnWidth = (width - gap * (columns - 1)) / columns;
     let y = top;
     const addControl = (label: string, key: string, action: () => void, x = left, controlWidth = width): Phaser.GameObjects.Text => {
-      const button = this.button(root, x, y, label, hitTarget, action, 'ui:confirm', controlWidth, undefined, 0, 0, false, 'left', 'section');
+      const button = this.button(root, x, y, label, hitTarget, action, 'ui:confirm', controlWidth, undefined, 0, 0, false, 'left', 'card');
       button.setStyle({ fontSize: '14px' });
       this.rememberLoadoutFocus(button, key);
       return button;
@@ -784,7 +794,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     outline.setStrokeStyle(2, selected ? 0x2dd4bf : 0x214756, selected ? 1 : 0.65);
     outline.setScrollFactor(0);
     this.environment.controls.registerScrollObject(outline, ownerIndex);
-    this.environment.controls.addCatalogIcon(root, x + width - 24, y + rowHeight / 2, entry.setEmblemArtId, 30, ownerIndex);
+    const artCenter = this.layout.width < 600 ? 36 : this.layout.width >= 1040 ? 48 : 44;
+    this.environment.controls.addCatalogIcon(root, x + width - 24, y + 32 + artCenter, entry.setEmblemArtId, 24, ownerIndex);
     // Keep the semantic card label stable for keyboard/screen-reader routes,
     // but give visual scanning an explicit ordinal badge instead of relying
     // on a tiny chevron glyph alone.
@@ -968,29 +979,49 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot!.slot })
       : snapshot.equipment.comparison;
     // The preview is complete enough to make Equip safe: piece change plus
-    // every set threshold transition. Reserve a measured-by-count band so
-    // simultaneous set loss and gain rows cannot collide with the action.
-    return Math.min(224, 64 + (this.equipmentSetChangeCopy(comparison).length + 2) * 22);
+    // every set threshold transition. Reserve one measured row per semantic
+    // line so gain/loss labels cannot collide with the fixed action stack.
+    return Math.min(214, 24 + this.detailDecisionPreviewLines(selected, selectedSlot!, comparison).length * 19);
   }
 
-  private detailDecisionPreviewCopy(
+  private detailDecisionPreviewLines(
     selected: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
     selectedSlot: MainMenuSnapshot['equipment']['presentation']['slots'][number],
     comparison: EquipmentComparison | undefined,
-  ): string {
+  ): readonly { readonly text: string; readonly color: string }[] {
     const setChanges = this.equipmentSetChangeCopy(comparison);
     const consequence = selected.state === 'EQUIPPED'
       ? `Unequip → Empty ${selectedSlot.label}`
       : `Equip → ${comparison?.displaced ? `Replaces ${comparison.displaced.name}` : `Fills ${selectedSlot.label} slot`}`;
     const pieceGain = selected.state === 'EQUIPPED' ? undefined
-      : `+ ${this.loadoutEffectCopy(selected.effects) || 'No piece effect'}`;
+      : this.signedEffectCopy('+', selected.effects);
     const pieceLoss = selected.state === 'EQUIPPED'
-      ? `− ${this.loadoutEffectCopy(selected.effects) || 'No piece effect'}`
-      : comparison?.displaced ? `− ${comparison.displaced.name}: ${this.loadoutEffectCopy(comparison.displaced.effects) || 'No piece effect'}` : undefined;
-    const setCopy = setChanges.length ? setChanges.map((line) => line.startsWith('LOSE ')
-      ? `Set loss → ${line.slice('LOSE '.length)}`
-      : line.startsWith('GAIN ') ? `Set gain → ${line.slice('GAIN '.length)}` : line).join('\n') : 'Set change → No threshold change';
-    return ['Decision preview', consequence, pieceGain, pieceLoss, setCopy].filter(Boolean).join('\n');
+      ? this.signedEffectCopy('−', selected.effects)
+      : comparison?.displaced ? this.signedEffectCopy('−', comparison.displaced.effects) : undefined;
+    const lines: { text: string; color: string }[] = [
+      { text: 'Decision preview', color: '#f78003' },
+      { text: `ACTION • ${consequence}`, color: '#d6f7ff' },
+    ];
+    if (pieceGain) lines.push({ text: `GAIN • ${pieceGain}`, color: '#86efac' });
+    if (pieceLoss) lines.push({ text: `LOSS • ${pieceLoss}`, color: '#fbbf24' });
+    if (setChanges.length) {
+      for (const line of setChanges) {
+        if (line.startsWith('LOSE ')) {
+          const [threshold, effect = 'None'] = line.slice('LOSE '.length).split(': ');
+          lines.push({ text: `SET LOSS • Set loss → ${threshold}`, color: '#fbbf24' });
+          lines.push({ text: this.signedValue('−', effect), color: '#fbbf24' });
+        } else if (line.startsWith('GAIN ')) {
+          const [threshold, effect = 'None'] = line.slice('GAIN '.length).split(': ');
+          lines.push({ text: `SET GAIN • Set gain → ${threshold}`, color: '#86efac' });
+          lines.push({ text: this.signedValue('+', effect), color: '#86efac' });
+        } else {
+          lines.push({ text: `SET • ${line}`, color: '#d6f7ff' });
+        }
+      }
+    } else {
+      lines.push({ text: 'SET • Set change → No threshold change', color: '#d6f7ff' });
+    }
+    return lines;
   }
 
   private fabricationActionLabel(
@@ -1286,12 +1317,14 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     this.environment.controls.endScrollableRegion();
     let fixedActionY = this.detailFixedActionTop(snapshot);
     if (selected && this.detailDecisionPreviewHeight(snapshot) > 0) {
-      const preview = this.loadoutCopy(fixedRoot, left,
-        fixedActionY - this.detailDecisionPreviewHeight(snapshot) - 8,
-        this.detailDecisionPreviewCopy(selected, selectedSlot,
-          selected.state === 'EQUIPPED' ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot }) : equipment.comparison),
-        contentWidth, '#fbbf24', false);
-      preview.setStyle({ fontSize: '13px', lineSpacing: 2 });
+      let previewY = fixedActionY - this.detailDecisionPreviewHeight(snapshot) - 8;
+      const previewLines = this.detailDecisionPreviewLines(selected, selectedSlot,
+        selected.state === 'EQUIPPED' ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot }) : equipment.comparison);
+      for (const line of previewLines) {
+        const preview = this.loadoutCopy(fixedRoot, left, previewY, line.text, contentWidth, line.color, false);
+        preview.setStyle({ fontSize: '13px', lineSpacing: 2, fontStyle: line.text === 'Decision preview' ? '700' : '600' });
+        previewY += 19;
+      }
     }
     for (const detailAction of fixedDetailActions) {
       const action = this.button(fixedRoot, left, fixedActionY, detailAction.label, hitTarget, detailAction.action,
