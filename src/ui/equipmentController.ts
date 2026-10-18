@@ -19,6 +19,12 @@ import {
 } from './equipmentCatalog';
 import type { EquipmentSetDefinition } from '../gameplay/equipment';
 export interface EquipmentSnapshot {
+    readonly progression: {
+        readonly characterName: string;
+        readonly masteryTier: number;
+        readonly equipmentGradeCap: EquipmentGrade;
+        readonly nextGradeRequirement?: string;
+    };
     readonly presentation: EquipmentLoadoutPresentation;
     readonly acquisition: readonly {
         readonly equipmentId: string;
@@ -106,6 +112,10 @@ export class EquipmentController {
         const equipped = Object.freeze({ ...(state.equipmentLoadout ?? {}) });
         const facts = this.facts();
         const maxTier = maxEquipmentTier(facts, this.registry.rules, state.progression.unlocks);
+        const selectedCharacter = this.context.characters.characterById(this.context.selectedCharacterId);
+        const nextGradeRequirement = maxTier < 4
+            ? describeProgressionCondition(this.registry.rules.unlocks[(maxTier + 1) as 2 | 3 | 4], this.context.data)
+            : undefined;
         const ownedDefinitionIds = new Set(Object.values(state.equipment).map((item) => item.equipmentId));
         const presentation = resolveEquipmentLoadoutPresentation(state, this.context.data);
         const selected = this.selectedInstanceId === undefined ? undefined : state.equipment[this.selectedInstanceId];
@@ -199,7 +209,13 @@ export class EquipmentController {
                 unlockReason: available ? 'Available' : describeProgressionCondition(set.unlock, this.context.data),
                 thresholds: presentationSet.thresholds });
         }));
-        return Object.freeze({ presentation, selectedSlot: this.selectedSlot, selectedInstanceId, selectedBlueprintId,
+        return Object.freeze({ progression: Object.freeze({
+                characterName: selectedCharacter?.name ?? 'Mercenary',
+                masteryTier: state.characters[this.context.selectedCharacterId]?.tier ?? 0,
+                equipmentGradeCap: equipmentGrade(maxTier).number,
+                ...(nextGradeRequirement ? { nextGradeRequirement } : {}),
+            }),
+            presentation, selectedSlot: this.selectedSlot, selectedInstanceId, selectedBlueprintId,
             comparison: selectedInstanceId === undefined ? undefined : this.preview({ kind: 'equip', instanceId: selectedInstanceId }),
             acquisition: Object.freeze(acquisition),
             browse: this.browse, catalog, filteredCatalog, setCatalog,
@@ -214,12 +230,15 @@ export class EquipmentController {
         this.browse = Object.freeze({ ...this.browse, filters: Object.freeze({ ...this.browse.filters, slots: [slot] }) });
         this.selectedInstanceId = this.context.saveData.equipmentLoadout?.[slot];
         this.selectedBlueprintId = undefined;
+        this.repairHiddenSelection();
         return true;
     }
     selectCandidate(instanceId: string): boolean {
         const item = this.context.saveData.equipment[instanceId];
         const definition = item && this.registry.equipmentById(item.equipmentId);
         if (!definition || (this.browse.filters.slots.length > 0 && !this.browse.filters.slots.includes(definition.slot)))
+            return false;
+        if (!this.snapshot().filteredCatalog.some((entry) => entry.kind === 'owned' && entry.id === instanceId))
             return false;
         this.selectedSlot = definition.slot;
         this.browse = Object.freeze({ ...this.browse, filters: Object.freeze({ ...this.browse.filters, slots: [definition.slot] }) });
@@ -229,7 +248,8 @@ export class EquipmentController {
     }
     selectBlueprint(equipmentId: string): boolean {
         const piece = this.registry.equipmentById(equipmentId);
-        if (!piece || !this.snapshot().blueprints.some((row) => row.equipmentId === equipmentId))
+        if (!piece || !this.snapshot().blueprints.some((row) => row.equipmentId === equipmentId)
+            || !this.snapshot().filteredCatalog.some((entry) => entry.kind === 'blueprint' && entry.id === equipmentId))
             return false;
         this.selectedSlot = piece.slot;
         this.browse = Object.freeze({ ...this.browse, filters: Object.freeze({ ...this.browse.filters, slots: [piece.slot] }) });
@@ -295,7 +315,7 @@ export class EquipmentController {
         return resolveEquipmentComparison(this.context.saveData, this.context.data, command);
     }
     equip(instanceId: string): boolean {
-        return this.context.updateEquipment(({ equipment, loadout }) => {
+        const persisted = this.context.updateEquipment(({ equipment, loadout }) => {
             const owned = new Map<string, OwnedEquipment>(Object.entries(equipment).map(([id, item]) => [id, { instanceId: id, ...item }]));
             const item = owned.get(instanceId);
             const definition = item && this.registry.equipmentById(item.equipmentId);
@@ -304,12 +324,16 @@ export class EquipmentController {
             const result = equipEquipment({ equipped: loadout }, instanceId, this.registry.asMap(), owned);
             return result.ok ? { equipment, loadout: result.loadout.equipped } : undefined;
         }).persisted;
+        if (persisted) this.repairHiddenSelection();
+        return persisted;
     }
     unequip(slot: EquipmentSlot): boolean {
-        return this.context.updateEquipment(({ equipment, loadout }) => {
+        const persisted = this.context.updateEquipment(({ equipment, loadout }) => {
             const result = unequipEquipment({ equipped: loadout }, slot);
             return result.ok ? { equipment, loadout: result.loadout.equipped } : undefined;
         }).persisted;
+        if (persisted) this.repairHiddenSelection();
+        return persisted;
     }
     upgrade(instanceId: string, expectedTier?: number): boolean {
         const save = this.context.saveData;
@@ -317,7 +341,9 @@ export class EquipmentController {
         if (!item || (expectedTier !== undefined && item.tier !== expectedTier)
             || item.tier >= maxEquipmentTier(this.facts(), this.registry.rules, save.progression.unlocks)
             || save.progression.scrap < upgradeCost(item.tier)) return false;
-        return this.context.commitEquipmentUpgrade(instanceId, item.tier, item.tier + 1, upgradeCost(item.tier));
+        const persisted = this.context.commitEquipmentUpgrade(instanceId, item.tier, item.tier + 1, upgradeCost(item.tier));
+        if (persisted) this.repairHiddenSelection();
+        return persisted;
     }
     fabricable(): readonly string[] { return this.snapshot().blueprints.map((blueprint) => blueprint.equipmentId); }
     fabricate(equipmentId: string): boolean {
@@ -326,6 +352,7 @@ export class EquipmentController {
             this.selectedInstanceId = Object.entries(this.context.saveData.equipment).find(([, item]) => item.equipmentId === equipmentId)?.[0];
             this.selectedBlueprintId = undefined;
         }
+        if (persisted) this.repairHiddenSelection();
         return persisted;
     }
 }

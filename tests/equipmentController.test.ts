@@ -101,6 +101,30 @@ describe('EquipmentController authoritative commands', () => {
     expect(controller.clearBrowseFilters()).toBe(false);
     expect(context.saveData).toBe(before);
   });
+  it('clears a selected item when a committed upgrade moves it out of the active grade filter', () => {
+    const { context, controller } = setup();
+    context.updateMeta((progression) => ({
+      ...progression, scrap: 500, unlocks: [...progression.unlocks, 'capability:equipment-tier-2'],
+    }));
+    controller.selectSlot('helmet');
+    expect(controller.selectCandidate('owned:helmet')).toBe(true);
+    expect(controller.toggleBrowseFilter('grade', '1')).toBe(false);
+
+    expect(controller.upgrade('owned:helmet', 1)).toBe(true);
+    const snapshot = controller.snapshot();
+    expect(snapshot.selectedInstanceId).toBeUndefined();
+    expect(snapshot.filteredCatalog.some((entry) => entry.id === 'owned:helmet')).toBe(false);
+    expect(context.saveData.equipment['owned:helmet']?.tier).toBe(2);
+  });
+  it('clears a selected item when equipping it violates a stored-only filter', () => {
+    const { controller } = setup();
+    controller.selectSlot('helmet');
+    expect(controller.selectCandidate('owned:helmet')).toBe(true);
+    expect(controller.toggleBrowseFilter('ownership', 'stored')).toBe(false);
+
+    expect(controller.equip('owned:helmet')).toBe(true);
+    expect(controller.snapshot().selectedInstanceId).toBeUndefined();
+  });
   it('equips against current ownership/loadout without overwriting a newer other-slot change', () => {
     const { context, storage, controller } = setup();
     let update: GameContext['updateEquipment'];

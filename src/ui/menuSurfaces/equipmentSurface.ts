@@ -211,6 +211,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     return JSON.stringify([
       snapshot.notice,
       scrap,
+      equipment.progression,
       equipment.selectedSlot,
       this.equipmentSetBrowserOpen,
       prefixSlots,
@@ -468,8 +469,13 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     };
     const ownedEntries = equipment.filteredCatalog.filter((entry) => entry.kind === 'owned');
     const blueprintEntries = equipment.filteredCatalog.filter((entry) => entry.kind === 'blueprint');
-    if (!ownedEntries.length) put(`No stored ${selectedSlot.label.toLowerCase()} pieces. Choose a blueprint to fabricate.`);
-    else if (!blueprintEntries.length && equipment.catalog.length === 0) put('No equipment matches the current search and filters.');
+    if (!equipment.filteredCatalog.length) {
+      put(equipment.catalog.length === 0
+        ? `No stored ${selectedSlot.label.toLowerCase()} pieces. Choose a blueprint to fabricate.`
+        : 'No equipment matches the current search and filters.');
+    } else if (!ownedEntries.length) {
+      put(`No stored ${selectedSlot.label.toLowerCase()} pieces. Choose a blueprint to fabricate.`);
+    }
     renderCards(ownedEntries,
       item => `${item.name}\n${equipmentGradeCopy(item.grade)} • ${item.state}`,
       item => `equipment-candidate:${item.id}`,
@@ -1033,6 +1039,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const { hitTarget } = this.layout;
     const contentWidth = this.loadoutContentWidth();
     const left = this.layout.centerX - contentWidth / 2;
+    const progressionCopy = `PERMANENT LOADOUT • ${equipment.progression.characterName} • MASTERY TIER ${equipment.progression.masteryTier} • EQUIPMENT GRADE CAP ${equipmentGradeCopy(equipment.progression.equipmentGradeCap)}${equipment.progression.nextGradeRequirement ? ` • NEXT UNLOCK: ${equipment.progression.nextGradeRequirement}` : ''}`;
     let y = this.detailTop;
     const selectedSlot = equipment.presentation.slots.find(slot => slot.slot === equipment.selectedSlot)!;
     const blueprints = equipment.blueprints.filter(piece => piece.slot === equipment.selectedSlot);
@@ -1054,7 +1061,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       const desktopDecisionCopy = this.layout.width >= 600
         ? this.equipmentDecisionCopy(selected, selectedSlot, comparison) : [];
       const detail = this.equipmentInspection(root, left, y, contentWidth,
-        [`${selected.name} • ${equipmentGradeAccessibleCopy(selected.tier)}`, `${selectedSlot.label} • ${set.name} Set • ${selected.state}`, source, ...desktopDecisionCopy]
+        [`${selected.name} • ${equipmentGradeAccessibleCopy(selected.tier)}`, `${selectedSlot.label} • ${set.name} Set • ${selected.state}`, progressionCopy, source, ...desktopDecisionCopy]
           .filter(Boolean).join('\n'), selected.iconArtId);
       this.rememberLoadoutFocus(detail, `equipment-detail:${selected.instanceId}`);
       y += detail.height + 16;
@@ -1104,7 +1111,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     } else if (selectedBlueprint) {
       const source = equipment.acquisition.find((row) => row.equipmentId === selectedBlueprint.equipmentId)?.summary ?? '';
       const detail = this.equipmentInspection(root, left, y, contentWidth,
-        `${selectedBlueprint.name}\n${selectedBlueprint.setName} Set • ${selectedSlot.label}\n${source}`, selectedBlueprint.iconArtId);
+        `${selectedBlueprint.name}\n${selectedBlueprint.setName} Set • ${selectedSlot.label}\n${progressionCopy}\n${source}`, selectedBlueprint.iconArtId);
       this.rememberLoadoutFocus(detail, `equipment-blueprint-detail:${selectedBlueprint.equipmentId}`);
       y += detail.height + 16;
       y = this.renderScopedLoadoutEffects(root, selectedBlueprint.effects, left, y, contentWidth, 22);

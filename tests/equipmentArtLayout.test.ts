@@ -346,4 +346,19 @@ describe('art-led Equipment layout', () => {
     expect(emblem).toBeDefined();
     expect(emblem![2]).toBe(blueprint.y + blueprint.height / 2);
   });
+
+  it('distinguishes an empty inventory from a filtered-empty result state', () => {
+    const view = harness(390, 844);
+    expect(view.commands.setEquipmentSearch('does-not-exist')).toBeDefined();
+    view.buttons.length = 0;
+    view.handlers.clear();
+    view.texts.length = 0;
+    view.surface.unmount();
+    view.surface.present(object() as unknown as Phaser.GameObjects.Container, view.commands.snapshot(), {
+      width: 390, height: 844, top: 72, margin: 16, rightMargin: 16, centerX: 195, hitTarget: 48,
+      viewport: responsiveUiViewport(390, 844, { top: 0, right: 0, bottom: 0, left: 0 }), scrollBottom: 724,
+    }, 320);
+    expect(view.texts.some(text => text.text === 'No equipment matches the current search and filters.')).toBe(true);
+    expect(view.texts.some(text => text.text.includes('No stored helmet pieces'))).toBe(false);
+  });
 });
