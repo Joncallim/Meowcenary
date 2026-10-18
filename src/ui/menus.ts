@@ -321,7 +321,7 @@ export class MainMenuController {
     const after = this.equipmentController.snapshot();
     this.notice = !ok ? 'Equipment: cannot equip that item'
       : before.selectedInstanceId !== undefined && after.selectedInstanceId === undefined
-        ? 'Equipment: selected item hidden by filters' : undefined;
+        ? 'Equipment equipped • selected item hidden by filters' : 'Equipment equipped';
     return this.snapshot();
   }
 
@@ -331,7 +331,7 @@ export class MainMenuController {
     const after = this.equipmentController.snapshot();
     this.notice = !ok ? 'Equipment: slot is empty'
       : before.selectedInstanceId !== undefined && after.selectedInstanceId === undefined
-        ? 'Equipment: selected item hidden by filters' : undefined;
+        ? 'Equipment unequipped • selected item hidden by filters' : 'Equipment unequipped';
     return this.snapshot();
   }
 
@@ -341,7 +341,7 @@ export class MainMenuController {
     const after = this.equipmentController.snapshot();
     this.notice = !ok ? 'Equipment: upgrade unavailable'
       : before.selectedInstanceId !== undefined && after.selectedInstanceId === undefined
-        ? 'Equipment: selected item hidden by filters' : undefined;
+        ? 'Equipment upgraded • selected item hidden by filters' : 'Equipment upgraded';
     return this.snapshot();
   }
 
@@ -351,7 +351,7 @@ export class MainMenuController {
     const after = this.equipmentController.snapshot();
     this.notice = !ok ? 'Equipment: fabrication unavailable'
       : before.selectedBlueprintId !== undefined && after.selectedInstanceId === undefined && after.selectedBlueprintId === undefined
-        ? 'Equipment: selected item hidden by filters' : undefined;
+        ? 'Equipment fabricated • selected item hidden by filters' : 'Equipment fabricated';
     return this.snapshot();
   }
 

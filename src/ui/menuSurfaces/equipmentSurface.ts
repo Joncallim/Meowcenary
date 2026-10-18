@@ -19,6 +19,14 @@ interface UpgradeReviewState {
   readonly expectedState: 'EQUIPPED' | 'STORED';
 }
 
+interface UpgradeReviewLine {
+  readonly text: string;
+  readonly color: string;
+  readonly heading?: boolean;
+  readonly fontSize?: number;
+  readonly lineSpacing?: number;
+}
+
 export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceCommands> {
   readonly panel = 'equipment' as const;
   private equipmentSetBrowserOpen = false;
@@ -1011,7 +1019,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     upgrade: MainMenuSnapshot['equipment']['owned'][number],
     afterItem: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
     scrap: number,
-  ): readonly { readonly text: string; readonly color: string; readonly heading?: boolean }[] {
+  ): readonly UpgradeReviewLine[] {
     const cost = upgrade.upgradePreview?.cost;
     const blocker = this.upgradeReviewBlocker(upgrade, scrap);
     const currentEffects = this.loadoutEffectCopy(selected.effects) || 'None';
@@ -1023,8 +1031,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       { text: `UPGRADE REVIEW • ${selected.name}`, color: '#f78003', heading: true },
       { text: `GRADE: ${equipmentGradeCopy(selected.tier)} → ${equipmentGradeCopy(afterItem.tier)}`, color: '#d6f7ff' },
       { text: `STATS: ${currentEffects} → ${nextEffects}`, color: '#86efac' },
-      { text: `COST: ${cost === undefined ? 'Unavailable' : `${cost} Scrap`} • BALANCE AFTER: ${cost === undefined ? `${scrap} Scrap` : `${scrap - cost} Scrap`}`, color: '#d6f7ff' },
-      { text: consequence, color: selected.state === 'EQUIPPED' ? '#86efac' : '#d6f7ff' },
+      { text: `COST: ${cost === undefined ? 'Unavailable' : `${cost} Scrap`}`, color: '#d6f7ff', fontSize: 14, lineSpacing: 2 },
+      { text: `BALANCE AFTER: ${cost === undefined ? `${scrap} Scrap` : `${scrap - cost} Scrap`}`, color: '#d6f7ff', fontSize: 14, lineSpacing: 2 },
+      { text: consequence.replace(/^EFFECT:/, 'ACTIVATION:'), color: selected.state === 'EQUIPPED' ? '#86efac' : '#d6f7ff', fontSize: 14, lineSpacing: 2 },
       { text: `BLOCKER: ${blocker}`, color: blocker === 'None' ? '#86efac' : '#fbbf24' },
     ];
   }
@@ -1038,7 +1047,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   ): number {
     const innerWidth = Math.max(1, width - 24);
     return 12 + this.upgradeReviewLines(selected, upgrade, afterItem, scrap)
-      .reduce((height, line) => height + this.measureLoadoutCopyHeight(line.text, innerWidth, 12, 1, line.heading ? '700' : '600') + 2, 0);
+      .reduce((height, line) => height + this.measureLoadoutCopyHeight(
+        line.text, innerWidth, line.fontSize ?? 12, line.lineSpacing ?? 1, line.heading ? '700' : '600',
+      ) + 2, 0);
   }
 
   private renderUpgradeReview(
@@ -1053,7 +1064,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   ): number {
     const innerWidth = Math.max(1, width - 24);
     const lines = this.upgradeReviewLines(selected, upgrade, afterItem, scrap);
-    const heights = lines.map((line) => this.measureLoadoutCopyHeight(line.text, innerWidth, 12, 1, line.heading ? '700' : '600'));
+    const heights = lines.map((line) => this.measureLoadoutCopyHeight(
+      line.text, innerWidth, line.fontSize ?? 12, line.lineSpacing ?? 1, line.heading ? '700' : '600',
+    ));
     const height = 12 + heights.reduce((sum, rowHeight) => sum + rowHeight + 2, 0);
     const panel = this.environment.visuals?.addPanel(this.environment.scene, left + width / 2, top + height / 2, width, height, 'figma-card');
     if (panel) {
@@ -1063,7 +1076,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     let y = top + 6;
     lines.forEach((line) => {
       const copy = this.loadoutCopy(root, left + 12, y, line.text, innerWidth, line.color, false);
-      copy.setStyle({ fontSize: '12px', lineSpacing: 1, fontStyle: line.heading ? '700' : '600' });
+      copy.setStyle({ fontSize: `${line.fontSize ?? 12}px`, lineSpacing: line.lineSpacing ?? 1, fontStyle: line.heading ? '700' : '600' });
       y += copy.height + 2;
     });
     return height;
@@ -1134,16 +1147,17 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // heights so a long multi-effect threshold cannot collide with the fixed
     // action stack on a phone viewport.
     const width = this.loadoutContentWidth();
-    return 8 + this.detailDecisionPreviewLines(selected, selectedSlot!, comparison)
-      .reduce((height, line) => height + this.measureLoadoutCopyHeight(line.text, width, 13, 2, line.text === 'Decision preview' ? '700' : '600') + 2, 0);
+    return 24 + this.detailDecisionPreviewLines(selected, selectedSlot!, comparison)
+      .reduce((height, line) => height + this.measureLoadoutCopyHeight(
+        line.text, Math.max(1, width - 24), line.heading ? 14 : 13, 2, line.heading ? '700' : '600',
+      ) + 4, 0);
   }
 
   private detailDecisionPreviewLines(
     selected: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
     selectedSlot: MainMenuSnapshot['equipment']['presentation']['slots'][number],
     comparison: EquipmentComparison | undefined,
-  ): readonly { readonly text: string; readonly color: string }[] {
-    const setChanges = this.equipmentSetChangeCopy(comparison);
+  ): readonly { readonly text: string; readonly color: string; readonly heading?: boolean }[] {
     const consequence = selected.state === 'EQUIPPED'
       ? `Unequip → Empty ${selectedSlot.label}`
       : `Equip → ${comparison?.displaced ? `Replaces ${comparison.displaced.name}` : `Fills ${selectedSlot.label} slot`}`;
@@ -1152,24 +1166,26 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const pieceLoss = selected.state === 'EQUIPPED'
       ? this.signedEffectCopy('−', selected.effects)
       : comparison?.displaced ? this.signedEffectCopy('−', comparison.displaced.effects) : undefined;
-    const lines: { text: string; color: string }[] = [
-      { text: 'Decision preview', color: '#f78003' },
+    const lines: { text: string; color: string; heading?: boolean }[] = [
+      { text: 'FIXED DECISION PREVIEW', color: '#f78003', heading: true },
       { text: `ACTION • ${consequence}`, color: '#d6f7ff' },
     ];
-    if (pieceGain) lines.push({ text: `GAIN • ${pieceGain}`, color: '#86efac' });
-    if (pieceLoss) lines.push({ text: `LOSS • ${pieceLoss}`, color: '#fbbf24' });
-    if (setChanges.length) {
-      for (const line of setChanges) {
-        if (line.startsWith('LOSE ')) {
-          const [threshold, effect = 'None'] = line.slice('LOSE '.length).split(': ');
-          lines.push({ text: `SET LOSS • Set loss → ${threshold}`, color: '#fbbf24' });
-          lines.push({ text: this.signedValue('−', effect), color: '#fbbf24' });
-        } else if (line.startsWith('GAIN ')) {
-          const [threshold, effect = 'None'] = line.slice('GAIN '.length).split(': ');
-          lines.push({ text: `SET GAIN • Set gain → ${threshold}`, color: '#86efac' });
-          lines.push({ text: this.signedValue('+', effect), color: '#86efac' });
-        } else {
-          lines.push({ text: `SET • ${line}`, color: '#d6f7ff' });
+    if (pieceGain) lines.push({ text: `ITEM GAIN • ${pieceGain}`, color: '#86efac' });
+    if (pieceLoss) lines.push({ text: `ITEM LOSS • ${pieceLoss}`, color: '#fbbf24' });
+    if (comparison?.setChanges.length) {
+      for (const change of comparison.setChanges) {
+        const set = comparison.after.sets.find((row) => row.setId === change.setId);
+        if (!set) continue;
+        for (const count of change.lost) {
+          const effect = comparison.before.sets.find((row) => row.setId === change.setId)?.thresholds
+            .find((threshold) => threshold.count === count)?.effects ?? [];
+          lines.push({ text: `SET LOSS • ${set.name} ${count}-piece bonus removed`, color: '#fbbf24' });
+          lines.push({ text: this.signedValue('−', this.loadoutEffectCopy(effect) || 'None'), color: '#fbbf24' });
+        }
+        for (const count of change.gained) {
+          const effect = set.thresholds.find((threshold) => threshold.count === count)?.effects ?? [];
+          lines.push({ text: `NEW ${set.name.toUpperCase()} BONUS • ${count}-piece`, color: '#86efac' });
+          lines.push({ text: this.signedValue('+', this.loadoutEffectCopy(effect) || 'None'), color: '#86efac' });
         }
       }
     } else {
@@ -1222,10 +1238,10 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const setChangeCopy = this.equipmentSetChangeCopy(comparison);
     return [
       `ACTION: ${equipped ? 'UNEQUIP' : 'EQUIP'} ${selected.name}`,
-      `${equipped ? 'GAINS: EFFECT WHILE EQUIPPED' : 'GAINS: EFFECT AFTER EQUIP'}: ${this.loadoutEffectCopy(selected.effects) || 'None'}`,
+      `${equipped ? 'ITEM GAIN: EFFECT WHILE EQUIPPED' : 'ITEM GAIN: EFFECT AFTER EQUIP'}: ${this.loadoutEffectCopy(selected.effects) || 'None'}`,
       equipped
-        ? `LOSSES: AFTER UNEQUIP: Empty ${selectedSlot.label} slot`
-        : comparison?.displaced ? `LOSSES: REPLACES: ${comparison.displaced.name} • ${this.loadoutEffectCopy(comparison.displaced.effects) || 'None'}` : `LOSSES: SLOT: ${selectedSlot.label}`,
+        ? `ITEM LOSS: AFTER UNEQUIP: Empty ${selectedSlot.label} slot`
+        : comparison?.displaced ? `ITEM LOSS: REPLACES: ${comparison.displaced.name} • ${this.loadoutEffectCopy(comparison.displaced.effects) || 'None'}` : `ITEM LOSS: SLOT: ${selectedSlot.label}`,
       `SET CHANGES: ${setChangeCopy.length ? setChangeCopy.join(' • ') : 'None'}`,
     ];
   }
@@ -1335,10 +1351,16 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     this.rememberLoadoutFocus(details, selected ? `equipment-inspector:${selected.instanceId}` : `equipment-blueprint-inspector:${blueprint!.equipmentId}`);
     nextActionY += details.height + actionGap;
     if (selected && showCommitActions) {
+      const loadoutActionLabel = upgradeReviewActive
+        ? `Cancel review to ${selected.state === 'EQUIPPED' ? 'unequip' : 'equip'}`
+        : selected.state === 'EQUIPPED' ? 'Unequip current item' : 'Equip selected item';
       const action = this.button(fixedRoot, left, nextActionY,
-        selected.state === 'EQUIPPED' ? 'Unequip current item' : 'Equip selected item',
+        loadoutActionLabel,
         actionHeight, () => {
-          this.upgradeReview = undefined;
+          if (upgradeReviewActive) {
+            this.cancelUpgradeReview();
+            return;
+          }
           const next = selected.state === 'EQUIPPED'
             ? this.commands.unequipEquipment(selectedSlot.slot)
             : this.commands.equipEquipment(selected.instanceId);
@@ -1351,7 +1373,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         if (upgradeReviewActive && upgradeAfter) {
           this.renderUpgradeReview(fixedRoot, left, nextActionY, width, selected, upgrade, upgradeAfter, scrap);
           nextActionY += reviewHeight + actionGap;
-          const confirm = this.button(fixedRoot, left, nextActionY, 'Confirm Upgrade', actionHeight,
+          const confirm = this.button(fixedRoot, left, nextActionY, `Confirm Upgrade • ${cost} Scrap`, actionHeight,
             () => this.confirmUpgradeReview(selected.instanceId, selected.tier, selected.state), 'ui:confirm', width);
           this.rememberLoadoutFocus(confirm, `equipment-upgrade-confirm:${selected.instanceId}`);
           if (this.upgradeReviewBlocker(upgrade, scrap) !== 'None') this.environment.controls.disableButton(confirm);
@@ -1361,7 +1383,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
           this.rememberLoadoutFocus(cancel, `equipment-upgrade-cancel:${selected.instanceId}`);
         } else {
           const upgradeAction = this.button(fixedRoot, left, nextActionY,
-            upgrade.upgradeLockReason ? 'Upgrade locked' : cost === undefined ? 'Upgrade unavailable' : `Upgrade for ${cost} Scrap`,
+            upgrade.upgradeLockReason ? 'Upgrade locked' : cost === undefined ? 'Upgrade unavailable' : 'Review upgrade',
             actionHeight, () => this.beginUpgradeReview(selected.instanceId, selected.tier, selected.state), 'ui:confirm', width);
           this.rememberLoadoutFocus(upgradeAction, `equipment-upgrade:${selected.instanceId}`);
           if (upgrade.upgradeLocked || upgrade.upgradeLockReason || cost === undefined || scrap < cost) this.environment.controls.disableButton(upgradeAction);
@@ -1434,13 +1456,22 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         }
         if (comparison) y = this.renderEquipmentComparison(root, comparison, left, y, contentWidth, new Map(snapshot.gunsmith.families.map((family) => [family.id, family.name])));
       }
-      queueFixedDetailAction(equipped ? `Unequip ${selected.name}` : `Equip ${selected.name}`, () => {
-        this.upgradeReview = undefined;
-        const next = equipped
-          ? this.commands.unequipEquipment(selectedSlot.slot)
-          : this.commands.equipEquipment(selected.instanceId);
-        this.environment.onSnapshot(next);
-      }, `equipment-equip:${selected.instanceId}`);
+      queueFixedDetailAction(
+        upgradeReviewActive
+          ? `Cancel review to ${equipped ? 'unequip' : 'equip'}`
+          : equipped ? `Unequip ${selected.name}` : `Equip ${selected.name}`,
+        () => {
+          if (upgradeReviewActive) {
+            this.cancelUpgradeReview();
+            return;
+          }
+          const next = equipped
+            ? this.commands.unequipEquipment(selectedSlot.slot)
+            : this.commands.equipEquipment(selected.instanceId);
+          this.environment.onSnapshot(next);
+        },
+        `equipment-equip:${selected.instanceId}`,
+      );
       const upgrade = selectedUpgrade!;
       if (upgrade.upgradePreview) {
         const cost = upgrade.upgradePreview.cost;
@@ -1464,7 +1495,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         put(`ITEM NOW\n${this.loadoutEffectCopy(selected.effects)}\nITEM AFTER UPGRADE\n${this.loadoutEffectCopy(afterItem.effects)}`);
         if (cost !== undefined) {
           if (upgradeReviewActive) {
-            queueFixedDetailAction('Confirm Upgrade',
+            queueFixedDetailAction(`Confirm Upgrade • ${cost} Scrap`,
               () => this.confirmUpgradeReview(selected.instanceId, selected.tier, selected.state),
               `equipment-upgrade-confirm:${selected.instanceId}`,
               this.upgradeReviewBlocker(upgrade, scrap) !== 'None');
@@ -1472,7 +1503,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
               () => this.cancelUpgradeReview(),
               `equipment-upgrade-cancel:${selected.instanceId}`);
           } else {
-            queueFixedDetailAction(upgrade.upgradeLockReason ? `LOCKED • ${upgrade.upgradeLockReason}` : `Upgrade for ${cost} Scrap`,
+            queueFixedDetailAction(upgrade.upgradeLockReason ? `LOCKED • ${upgrade.upgradeLockReason}` : 'Review upgrade',
               () => this.beginUpgradeReview(selected.instanceId, selected.tier, selected.state),
               `equipment-upgrade:${selected.instanceId}`, upgrade.upgradeLocked || scrap < cost);
           }
@@ -1505,14 +1536,28 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     if (equipment.unavailable.length) put('A legacy Equipment item is unavailable in this version.', '#fbbf24');
     this.environment.controls.endScrollableRegion();
     let fixedActionY = this.detailFixedActionTop(snapshot);
-    if (selected && this.detailDecisionPreviewHeight(snapshot) > 0) {
-      let previewY = fixedActionY - this.detailDecisionPreviewHeight(snapshot) - 8;
+    const decisionPreviewHeight = selected ? this.detailDecisionPreviewHeight(snapshot) : 0;
+    if (selected && decisionPreviewHeight > 0) {
+      const previewTop = fixedActionY - decisionPreviewHeight - 8;
+      const panel = this.environment.visuals?.addPanel(
+        this.environment.scene, left + contentWidth / 2, previewTop + decisionPreviewHeight / 2,
+        contentWidth, decisionPreviewHeight, 'figma-card', { alpha: 0.96 },
+      );
+      if (panel) {
+        this.own(fixedRoot, panel);
+        fixedRoot.moveTo(panel, 0);
+      }
+      const boundary = this.own(fixedRoot, this.environment.scene.add.rectangle(
+        left + contentWidth / 2, previewTop + 2, contentWidth, 2, 0x2dd4bf, 1,
+      ));
+      fixedRoot.moveTo(boundary, 1);
+      let previewY = previewTop + 10;
       const previewLines = this.detailDecisionPreviewLines(selected, selectedSlot,
         selected.state === 'EQUIPPED' ? this.commands.equipmentPreview({ kind: 'unequip', slot: selectedSlot.slot }) : equipment.comparison);
       for (const line of previewLines) {
-        const preview = this.loadoutCopy(fixedRoot, left, previewY, line.text, contentWidth, line.color, false);
-        preview.setStyle({ fontSize: '13px', lineSpacing: 2, fontStyle: line.text === 'Decision preview' ? '700' : '600' });
-        previewY += preview.height + 2;
+        const preview = this.loadoutCopy(fixedRoot, left + 12, previewY, line.text, Math.max(1, contentWidth - 24), line.color, false);
+        preview.setStyle({ fontSize: `${line.heading ? 14 : 13}px`, lineSpacing: 2, fontStyle: line.heading ? '700' : '600' });
+        previewY += preview.height + 4;
       }
     }
     if (upgradeReviewActive && selected && selectedUpgrade && selectedUpgradeAfterItem) {

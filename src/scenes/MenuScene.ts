@@ -534,9 +534,10 @@ export class MenuScene extends Phaser.Scene {
       }
 
       if (snapshot.notice) {
+        const successNotice = /^Equipment (equipped|unequipped|upgraded|fabricated)/.test(snapshot.notice);
         const notice = this.own(root, createUiText(this,this.safeCenterX, 58 + topMargin, snapshot.notice, {
           align: 'center',
-          color: '#f87171',
+          color: successNotice ? '#86efac' : '#f87171',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
           wordWrap: { width: width - leftMargin - this.safeRightMargin },

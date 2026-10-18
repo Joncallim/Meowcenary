@@ -871,10 +871,10 @@ describe('MenuScene', () => {
       .toBe('equipment-candidate:recon');
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('REPLACES: Commando Helmet');
-    expect(harness.textContents().join('\n')).toContain('Decision preview');
-    expect(harness.textContents().join('\n')).toContain('Set loss → 2-piece');
-    expect(harness.textContents().join('\n')).toContain('GAIN •');
-    expect(harness.textContents().join('\n')).toContain('LOSS •');
+    expect(harness.textContents().join('\n')).toContain('FIXED DECISION PREVIEW');
+    expect(harness.textContents().join('\n')).toContain('SET LOSS • Commando 2-piece bonus removed');
+    expect(harness.textContents().join('\n')).toContain('ITEM GAIN •');
+    expect(harness.textContents().join('\n')).toContain('ITEM LOSS •');
     expect(harness.textContents().join('\n')).toContain('SET LOSS •');
     expect(harness.textContents().join('\n')).toContain('REMOVES: +5% Fire Rate [All Weapons]');
     expect(harness.textContents().join('\n')).toContain('LOSE 2-piece');
@@ -1978,38 +1978,45 @@ describe('MenuScene', () => {
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
 
     const before = harness.context.saveData;
-    const upgrade = harness.buttonByLabel('Upgrade for 100 Scrap')!;
+    const upgrade = harness.buttonByLabel('Review upgrade')!;
     expect(upgrade).toBeDefined();
     upgrade.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     const reviewCopy = harness.textContents().join('\n');
     expect(reviewCopy).toContain('UPGRADE REVIEW • Commando Helmet');
     expect(reviewCopy).toContain('GRADE: Standard › → Reinforced ››');
-    expect(reviewCopy).toContain('COST: 100 Scrap • BALANCE AFTER: 0 Scrap');
-    expect(reviewCopy).toContain('EFFECT: STORED output becomes');
+    expect(reviewCopy).toContain('COST: 100 Scrap');
+    expect(reviewCopy).toContain('BALANCE AFTER: 0 Scrap');
+    expect(reviewCopy).toContain('ACTIVATION: STORED output becomes');
     expect(reviewCopy).toContain('BLOCKER: None');
-    expect(harness.buttonByLabel('Confirm Upgrade')).toBeDefined();
+    expect(harness.buttonByLabel('Confirm Upgrade • 100 Scrap')).toBeDefined();
     expect(harness.buttonByLabel('Cancel Upgrade')).toBeDefined();
+    for (const label of ['COST: 100 Scrap', 'BALANCE AFTER: 0 Scrap', 'ACTIVATION: STORED output becomes']) {
+      const copy = harness.objects.find((object) => object.state.text.startsWith(label) && !object.state.destroyed);
+      expect(copy?.state.style.fontSize, label).toBe('14px');
+    }
 
     const scene = harness.menuScene as unknown as { handleResize(): void };
     scene.handleResize();
     expect(harness.context.saveData).toBe(before);
-    expect(harness.buttonByLabel('Confirm Upgrade')).toBeDefined();
+    expect(harness.buttonByLabel('Confirm Upgrade • 100 Scrap')).toBeDefined();
 
     harness.buttonByLabel('Cancel Upgrade')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
-    expect(harness.buttonByLabel('Upgrade for 100 Scrap')).toBeDefined();
+    expect(harness.buttonByLabel('Review upgrade')).toBeDefined();
 
-    harness.buttonByLabel('Upgrade for 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Review upgrade')!.state.handlers.pointerup!();
     harness.buttonByLabel('Back to candidates')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     harness.buttonByLabel('Commando Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Upgrade for 100 Scrap')!.state.handlers.pointerup!();
-    const confirm = harness.buttonByLabel('Confirm Upgrade')!;
+    harness.buttonByLabel('Review upgrade')!.state.handlers.pointerup!();
+    const confirm = harness.buttonByLabel('Confirm Upgrade • 100 Scrap')!;
     confirm.state.handlers.pointerup!();
     expect(harness.context.saveData.equipment.helmet?.tier).toBe(2);
     expect(harness.context.saveData.progression.scrap).toBe(0);
+    expect(harness.textContents()).toContain('Equipment upgraded');
+    expect(harness.textContents()).toContain('LOCKED • Defeat Scrap Crusher');
 
     // A second activation against the stale pre-repaint button must be inert.
     confirm.state.handlers.pointerup!();
@@ -2028,13 +2035,13 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Commando Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
 
     const before = harness.context.saveData;
-    harness.buttonByLabel('Upgrade for 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Review upgrade')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     expect(harness.textContents().join('\n')).toContain('UPGRADE REVIEW • Commando Helmet');
-    expect(harness.buttonByLabel('Confirm Upgrade')).toBeDefined();
+    expect(harness.buttonByLabel('Confirm Upgrade • 100 Scrap')).toBeDefined();
     expect(harness.buttonByLabel('Cancel Upgrade')).toBeDefined();
 
-    harness.buttonByLabel('Confirm Upgrade')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Confirm Upgrade • 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.context.saveData.equipment.helmet?.tier).toBe(2);
     expect(harness.context.saveData.progression.scrap).toBe(0);
     expect(harness.textContents().join('\n')).toContain('Reinforced ››');
@@ -2050,8 +2057,8 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     harness.buttonByLabel('Commando Helmet\nStandard › • EQUIPPED')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Upgrade for 100 Scrap')!.state.handlers.pointerup!();
-    expect(harness.textContents().join('\n')).toContain('EFFECT: ACTIVE Loadout uses +10% Fire Rate [All Weapons] immediately');
+    harness.buttonByLabel('Review upgrade')!.state.handlers.pointerup!();
+    expect(harness.textContents().join('\n')).toContain('ACTIVATION: ACTIVE Loadout uses +10% Fire Rate [All Weapons] immediately');
     expect(harness.context.saveData.progression.scrap).toBe(100);
   });
 
@@ -2065,13 +2072,16 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     harness.buttonByLabel('Commando Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Upgrade for 100 Scrap')!.state.handlers.pointerup!();
-    expect(harness.buttonByLabel('Confirm Upgrade')).toBeDefined();
+    harness.buttonByLabel('Review upgrade')!.state.handlers.pointerup!();
+    expect(harness.buttonByLabel('Confirm Upgrade • 100 Scrap')).toBeDefined();
 
+    const before = harness.context.saveData;
+    harness.buttonByLabel('Cancel review to equip')!.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.context.saveData.progression.scrap).toBe(100);
+    expect(harness.buttonByLabel('Confirm Upgrade • 100 Scrap')).toBeUndefined();
     harness.buttonByLabel('Equip Commando Helmet')!.state.handlers.pointerup!();
     expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('helmet');
-    expect(harness.context.saveData.progression.scrap).toBe(100);
-    expect(harness.buttonByLabel('Confirm Upgrade')).toBeUndefined();
     expect(harness.textContents().join('\n')).toContain('AFTER UNEQUIP: Empty Helmet slot');
   });
 
@@ -2091,12 +2101,12 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Pyro Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
 
-    const previewHeading = harness.objects.find((object) => object.state.text === 'Decision preview' && !object.state.destroyed)!;
-    expect(harness.textContents().join('\n')).toContain('SET GAIN • Set gain → 2-piece');
+    const previewHeading = harness.objects.find((object) => object.state.text === 'FIXED DECISION PREVIEW' && !object.state.destroyed)!;
+    expect(harness.textContents().join('\n')).toContain('NEW PYRO BONUS • 2-piece');
     const fixedRows = harness.objects
       .filter((object) => !object.state.destroyed && object.state.kind === 'text'
         && object.state.y >= previewHeading.state.y && object.state.y < 400
-        && ['Decision preview', 'ACTION •', 'GAIN •', 'SET GAIN •', '+ 6%'].some((prefix) => object.state.text.startsWith(prefix)))
+        && ['FIXED DECISION PREVIEW', 'ACTION •', 'ITEM GAIN •', 'NEW PYRO BONUS •', '+ 6%'].some((prefix) => object.state.text.startsWith(prefix)))
       .sort((a, b) => a.state.y - b.state.y);
     expect(fixedRows.length).toBeGreaterThanOrEqual(4);
     for (let index = 1; index < fixedRows.length; index += 1) {

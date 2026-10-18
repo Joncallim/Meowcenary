@@ -261,8 +261,8 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     for (const change of comparison.setChanges) {
       const set = comparison.after.sets.find((row) => row.setId === change.setId)!;
       put(`${set.name} ${change.before}/4 → ${change.after}/4`);
-      for (const count of change.lost) put(`− LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#fbbf24');
-      for (const count of change.gained) put(`+ GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#86efac');
+      for (const count of change.lost) put(`− SET LOSS • ${set.name} • LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#fbbf24');
+      for (const count of change.gained) put(`+ NEW ${set.name.toUpperCase()} BONUS • GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#86efac');
     }
     const effects = presentLoadoutRunTruthComparison(comparison.before.runTruth, comparison.after.runTruth);
     const gains = effects.modifiers.filter((delta) => delta.state === 'added' || delta.state === 'changed');
@@ -270,7 +270,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     const projectileGains = effects.projectileEffects.filter((delta) => delta.after.length > delta.before.length);
     const projectileLosses = effects.projectileEffects.filter((delta) => delta.before.length > delta.after.length);
     const projectileCopy = (effects: readonly { readonly kind: string }[]): string => effects.map((effect) => effect.kind).join(', ') || 'None';
-    put('GAINS', '#86efac');
+    put('ITEM GAIN', '#86efac');
     if (!gains.length && !projectileGains.length && !effects.traits.some((trait) => !trait.before && trait.after)) put('None');
     for (const delta of gains) put(`${this.signedValue('+', delta.afterValue ?? '—')} ${delta.label} [${delta.target.label}]`, '#86efac');
     for (const delta of projectileGains) put(`+ ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.after)}`, '#86efac');
@@ -278,7 +278,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
       const family = familyNames.get(trait.familyId) ?? trait.familyId;
       if (!trait.before && trait.after) put(`+ ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${trait.afterSourceLabels.join(' • ') || 'None'}`, '#86efac');
     }
-    put('LOSSES', '#fbbf24');
+    put('ITEM LOSS', '#fbbf24');
     if (!losses.length && !projectileLosses.length && !effects.traits.some((trait) => trait.before && !trait.after)) put('None');
     for (const delta of losses) put(`${this.signedValue('−', delta.beforeValue ?? '—')} ${delta.label} [${delta.target.label}]`, '#fbbf24');
     for (const delta of projectileLosses) put(`− ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.before)}`, '#fbbf24');
@@ -298,11 +298,11 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
       const set = comparison.after.sets.find((row) => row.setId === change.setId)!;
       setRows.push({ text: `${set.name} ${change.before}/4 → ${change.after}/4`, color: '#d6f7ff' });
       for (const count of change.lost) setRows.push({
-        text: `− LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`,
+        text: `− SET LOSS • ${set.name} • LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`,
         color: '#fbbf24',
       });
       for (const count of change.gained) setRows.push({
-        text: `+ GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`,
+        text: `+ NEW ${set.name.toUpperCase()} BONUS • GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`,
         color: '#86efac',
       });
     }
@@ -314,7 +314,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     const projectileGains = effects.projectileEffects.filter((delta) => delta.after.length > delta.before.length);
     const projectileLosses = effects.projectileEffects.filter((delta) => delta.before.length > delta.after.length);
     const projectileCopy = (rows: readonly { readonly kind: string }[]): string => rows.map((effect) => effect.kind).join(', ') || 'None';
-    const gainRows: ComparisonRow[] = [{ text: 'GAINS', color: '#86efac', heading: true }];
+    const gainRows: ComparisonRow[] = [{ text: 'ITEM GAIN', color: '#86efac', heading: true }];
     if (!gains.length && !projectileGains.length && !effects.traits.some((trait) => !trait.before && trait.after)) gainRows.push({ text: 'None', color: '#d6f7ff' });
     for (const delta of gains) gainRows.push({ text: `${this.signedValue('+', delta.afterValue ?? '—')} ${delta.label} [${delta.target.label}]`, color: '#86efac' });
     for (const delta of projectileGains) gainRows.push({ text: `+ ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.after)}`, color: '#86efac' });
@@ -323,7 +323,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
       if (!trait.before && trait.after) gainRows.push({ text: `+ ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${trait.afterSourceLabels.join(' • ') || 'None'}`, color: '#86efac' });
     }
 
-    const lossRows: ComparisonRow[] = [{ text: 'LOSSES', color: '#fbbf24', heading: true }];
+    const lossRows: ComparisonRow[] = [{ text: 'ITEM LOSS', color: '#fbbf24', heading: true }];
     if (!losses.length && !projectileLosses.length && !effects.traits.some((trait) => trait.before && !trait.after)) lossRows.push({ text: 'None', color: '#d6f7ff' });
     for (const delta of losses) lossRows.push({ text: `${this.signedValue('−', delta.beforeValue ?? '—')} ${delta.label} [${delta.target.label}]`, color: '#fbbf24' });
     for (const delta of projectileLosses) lossRows.push({ text: `− ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.before)}`, color: '#fbbf24' });
