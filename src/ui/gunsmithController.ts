@@ -27,7 +27,7 @@ import {
 import { getAllWeaponFamilies, isValidFamily } from '../gameplay/weaponFamilies';
 import { DataPartRegistry } from '../systems/parts';
 import type { Build, GunsmithState, PartInstance } from '../systems/save';
-import { formatGunsmithEffect, gunsmithSlotLabel } from './gunsmithPresentation';
+import { formatGunsmithEffect, gunsmithSlotLabel, gunsmithTierLabel } from './gunsmithPresentation';
 import { createConditionContext } from '../gameplay/conditionEvaluator';
 import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
 import { resolveAvailabilitySnapshot } from '../gameplay/persistentAvailability';
@@ -53,6 +53,7 @@ export interface GunsmithPartView {
   readonly name: string;
   readonly slot: string;
   readonly tier: number;
+  readonly rarity?: string;
   readonly traits: readonly string[];
   readonly compatible: boolean;
   readonly fitted: boolean;
@@ -169,6 +170,7 @@ export interface GunsmithWorkshopPartView {
   readonly name: string;
   readonly slot: PartSlot;
   readonly tier: number;
+  readonly rarity?: string;
   readonly iconArtId: string;
   readonly statChips: readonly string[];
   readonly traitLines: readonly BehaviorTrait[];
@@ -176,6 +178,15 @@ export interface GunsmithWorkshopPartView {
   readonly stateLabel: 'EQUIPPED' | 'STORED';
   readonly effectScope: string;
   readonly fittingLocations: readonly GunsmithFittingFact[];
+}
+
+export interface GunsmithWorkshopBuildImpact {
+  readonly buildId: string;
+  readonly buildName: string;
+  readonly familyId: string;
+  readonly slot: PartSlot;
+  readonly removedPart: GunsmithWorkshopPartView;
+  readonly comparison: GunsmithComparisonPresentation;
 }
 
 export interface GunsmithWorkshopConfirmation {
@@ -191,6 +202,7 @@ export interface GunsmithWorkshopConfirmation {
   readonly preservedInstanceIds: readonly string[];
   readonly clearedFittings: readonly GunsmithFittingFact[];
   readonly preservedFittings: readonly GunsmithFittingFact[];
+  readonly buildImpacts?: readonly GunsmithWorkshopBuildImpact[];
   readonly sideEffectLines: readonly string[];
   /** Equipment + Gunsmith run truth, separate from the output's engineering gain. */
   readonly comparison: {
@@ -224,6 +236,7 @@ export interface GunsmithAssembledPreview {
     readonly instanceId: string;
     readonly iconArtId: string;
     readonly tier: number;
+    readonly rarity?: string;
   }[];
   readonly traitEmblems: readonly { readonly trait: string; readonly iconArtId: string }[];
 }
@@ -356,7 +369,10 @@ export class GunsmithController {
         : replacePartInBuild(state, selected.id, definition.slot, instanceId, this.registry.asMap(),
           definition.slot === 'trait' ? selectedTraitInstanceId : undefined);
       const displacedInstanceId = replacement?.ok ? replacement.displacedInstanceId : undefined;
-      const replaceLabel = displacedInstanceId === undefined ? undefined : `REPLACE ${this.partLabel(displacedInstanceId, state).toUpperCase()}`;
+      const displaced = displacedInstanceId === undefined ? undefined : state.parts[displacedInstanceId];
+      const displacedDefinition = displaced === undefined ? undefined : this.registry.partById(displaced.partId);
+      const replaceLabel = displacedInstanceId === undefined ? undefined
+        : `REPLACE ${(displacedDefinition?.name ?? this.partLabel(displacedInstanceId, state)).toUpperCase()} ${gunsmithTierLabel(displacedDefinition?.rarity, displaced?.tier ?? 1)}`;
       const moveLabel = replacement?.ok && replacement.movedFromBuildId !== undefined
         ? `MOVE FROM ${(state.builds.find((build) => build.id === replacement.movedFromBuildId)?.name ?? replacement.movedFromBuildId).toUpperCase()}` : undefined;
       const traits = Object.freeze([...definition.traits, ...stored.infusedTraits]);
@@ -367,7 +383,7 @@ export class GunsmithController {
         : undefined;
       const view: GunsmithPartView = Object.freeze({
         instanceId, partId: stored.partId, name: definition.name, slot: definition.slot,
-        tier: stored.tier, traits,
+        tier: stored.tier, rarity: definition.rarity, traits,
         iconArtId: resolveGunsmithPartVisual(definition, stored.tier).iconArtId,
         traitIcons: Object.freeze(traits.flatMap((trait) => {
           const iconArtId = traitIconByTrait.get(trait);
@@ -477,9 +493,9 @@ export class GunsmithController {
       const statChips = Object.freeze(formatPartEffects(definition, displayTier));
       const affordable = fabricationCost !== undefined && save.progression.scrap >= fabricationCost;
       const canFabricate = fabricationCost !== undefined && fabricable && affordable;
-      const stateLabel = catalogState === 'fitted' ? `EQUIPPED • T${displayTier}`
-        : catalogState === 'owned' ? `STORED ×${owned.length} • best T${displayTier}`
-          : catalogState === 'fabricable' ? `FABRICABLE • ${fabricationCost} Scrap`
+      const stateLabel = catalogState === 'fitted' ? `EQUIPPED • ${gunsmithTierLabel(definition.rarity, displayTier)}`
+        : catalogState === 'owned' ? `STORED ×${owned.length} • best ${gunsmithTierLabel(definition.rarity, displayTier)}`
+          : catalogState === 'fabricable' ? `FABRICABLE • ${gunsmithTierLabel(definition.rarity, 1)} • ${fabricationCost} Scrap`
             : catalogState === 'locked' ? 'LOCKED' : 'REWARD ONLY';
       const representativeInfusedTraits = representative?.instanceId === undefined
         ? [] as readonly BehaviorTrait[]
@@ -492,6 +508,10 @@ export class GunsmithController {
       const catalogComparison = selected === undefined ? undefined
         : representative?.comparison ?? catalogCandidateComparisonPresentation(selected, definition, displayTier, representativeInfusedTraits,
           state, this.registry, representativeWeapon, save, this.context.data);
+      const rawComparisonSummary = representative?.comparisonSummary ?? (catalogComparison === undefined
+        ? catalogCandidateComparison(selected, definition, catalogState, displayTier, representativeInfusedTraits,
+          state, this.registry, representativeWeapon, save, this.context.data)
+        : formatBuildComparisonSummary(catalogComparison));
       return Object.freeze({
         partId: definition.id, name: definition.name, slot: definition.slot, rarity: definition.rarity,
         effectScope: compatibleFamilyScope(definition.slot),
@@ -504,10 +524,8 @@ export class GunsmithController {
         // actual instance whenever one exists. Keep its action summary too,
         // so a cross-build move/unequip disclosure cannot disagree with the
         // detailed before/after mechanics shown when the row opens.
-        comparisonSummary: representative?.comparisonSummary ?? (catalogComparison === undefined
-          ? catalogCandidateComparison(selected, definition, catalogState, displayTier, representativeInfusedTraits,
-            state, this.registry, representativeWeapon, save, this.context.data)
-          : formatBuildComparisonSummary(catalogComparison)),
+        comparisonSummary: selected === undefined ? rawComparisonSummary
+          : formatCatalogComparisonSummary(rawComparisonSummary, selected.baseWeaponFamily),
         sourceLabel,
         canFabricate,
         ...(fabricationCost === undefined ? {} : {
@@ -526,7 +544,7 @@ export class GunsmithController {
       const definition = this.registry.partById(group.partId);
       return definition === undefined ? [] : [Object.freeze({
         kind: 'merge' as const, groupId: group.id, ownedCount: group.ownedCount,
-        label: `Merge 2 of ${group.ownedCount} owned ${definition.name} T${group.tier} → T${group.tier + 1}`,
+        label: `Merge 2 of ${group.ownedCount} owned ${definition.name} ${gunsmithTierLabel(definition.rarity, group.tier)} → ${gunsmithTierLabel(definition.rarity, group.tier + 1)}`,
       })];
     });
     for (const recipe of listWorkshopInfusions(ownedParts, this.registry.asMap(), assignedIds)) {
@@ -760,7 +778,7 @@ export class GunsmithController {
   private workshopOutcome(inputs: readonly OwnedPart[], output: OwnedPart, consumed: readonly string[],
     beforeState: GunsmithState, afterState: GunsmithState): Pick<GunsmithWorkshopConfirmation,
       'inputs' | 'output' | 'consumedInstanceIds' | 'preservedInstanceIds' | 'clearedFittings'
-      | 'preservedFittings' | 'sideEffectLines' | 'comparison'> {
+      | 'preservedFittings' | 'buildImpacts' | 'sideEffectLines' | 'comparison'> {
     const outputView = workshopPartView(output, afterState, this.registry);
     const inputViews = inputs.map((part) => workshopPartView(part, beforeState, this.registry));
     const afterReferences = new Set(fittingFacts(afterState).map(fittingKey));
@@ -770,6 +788,15 @@ export class GunsmithController {
       && afterState.parts[part.instanceId] !== undefined).map((part) => part.instanceId);
     const preservedFittings = fittingFacts(beforeState).filter((fact) => preservedInstanceIds.includes(fact.instanceId)
       && afterReferences.has(fittingKey(fact)));
+    const buildImpacts = clearedFittings.flatMap((fact) => {
+      const beforeBuild = beforeState.builds.find((build) => build.id === fact.buildId);
+      const afterBuild = afterState.builds.find((build) => build.id === fact.buildId);
+      const removedPart = inputViews.find((part) => part.instanceId === fact.instanceId);
+      if (!beforeBuild || !afterBuild || !removedPart) return [];
+      const weapon = this.context.data.weapons.find((row) => row.family === fact.familyId && row.mergeTier === 1);
+      return [{ buildId: fact.buildId, buildName: fact.buildName, familyId: fact.familyId, slot: fact.slot, removedPart,
+        comparison: buildComparisonPresentationAcrossStates(beforeBuild, afterBuild, beforeState, afterState, this.registry, weapon) }];
+    });
     const beforeSave = { ...this.context.saveData, gunsmith: beforeState };
     const afterSave = { ...this.context.saveData, gunsmith: afterState };
     const before = resolveEquipmentLoadoutPresentation(beforeSave, this.context.data).runTruth;
@@ -779,12 +806,12 @@ export class GunsmithController {
     const structured = persistentComparisonPresentation(before, after, weapon);
     return {
       inputs: inputViews, output: outputView, consumedInstanceIds: [...consumed], preservedInstanceIds,
-      clearedFittings, preservedFittings,
+      clearedFittings, preservedFittings, buildImpacts,
       sideEffectLines: [
         `Consumes ${consumed.length} ${consumed.length === 1 ? 'input' : 'inputs'}.`,
         ...clearedFittings.map((fact) => `Clears ${fact.buildName} • ${gunsmithSlotLabel(fact.slot)}.`),
         ...preservedFittings.map((fact) => `Keeps ${fact.buildName} • ${gunsmithSlotLabel(fact.slot)} fitted.`),
-        ...(preservedInstanceIds.includes(output.instanceId) ? [`Preserves ${outputView.name} T${outputView.tier} identity.`] : []),
+        ...(preservedInstanceIds.includes(output.instanceId) ? [`Preserves ${outputView.name} ${gunsmithTierLabel(outputView.rarity, outputView.tier)} identity.`] : []),
         ...(outputView.stateLabel === 'STORED' ? ['Output remains STORED. Fit it separately.'] : []),
       ],
       comparison: { before, after, lines: structured.lines, stats: structured.stats, effects: structured.effects },
@@ -929,7 +956,7 @@ export class GunsmithController {
 
   private partLabel(instanceId: string, state: GunsmithState): string {
     const part = state.parts[instanceId];
-    return part ? `${this.registry.partById(part.partId)?.name ?? part.partId} T${part.tier}` : instanceId;
+    return part ? `${this.registry.partById(part.partId)?.name ?? part.partId} ${gunsmithTierLabel(this.registry.partById(part.partId)?.rarity, part.tier)}` : instanceId;
   }
 
   unequipPart(instanceId: string): GunsmithCommandResult {
@@ -973,7 +1000,7 @@ export class GunsmithController {
     let failure: string | undefined;
     let collision = false;
     const update = this.context.updateGunsmith((current) => {
-      if (expected && JSON.stringify(this.buildWorkshopConfirmation({ kind: 'merge', firstInstanceId, secondInstanceId }, current)) !== JSON.stringify(expected)) {
+      if (expected && !workshopConfirmationMatches(this.buildWorkshopConfirmation({ kind: 'merge', firstInstanceId, secondInstanceId }, current), expected)) {
         failure = 'workshop-operation-unavailable'; return undefined;
       }
       // GameContext re-resolves current state immediately before the one save.
@@ -1002,7 +1029,7 @@ export class GunsmithController {
   infuse(targetInstanceId: string, traitInstanceId: string, expected?: GunsmithWorkshopConfirmation): GunsmithCommandResult {
     let failure: string | undefined;
     const update = this.context.updateGunsmith((current) => {
-      if (expected && JSON.stringify(this.buildWorkshopConfirmation({ kind: 'infuse', targetInstanceId, traitInstanceId }, current)) !== JSON.stringify(expected)) {
+      if (expected && !workshopConfirmationMatches(this.buildWorkshopConfirmation({ kind: 'infuse', targetInstanceId, traitInstanceId }, current), expected)) {
         failure = 'workshop-operation-unavailable'; return undefined;
       }
         const target = ownedPart(current, targetInstanceId);
@@ -1057,6 +1084,24 @@ function freezeConfirmation(input: GunsmithWorkshopConfirmation): GunsmithWorksh
   return deepFreeze(input);
 }
 
+/** Confirmation identity guards the durable transaction, not a presentation
+ * snapshot of unrelated builds or Equipment effects that may change while a
+ * player is deciding. Fitted donor locations remain part of the guard. */
+function workshopConfirmationMatches(current: GunsmithWorkshopConfirmation | undefined,
+  expected: GunsmithWorkshopConfirmation): boolean {
+  if (current === undefined) return false;
+  const identity = (confirmation: GunsmithWorkshopConfirmation) => JSON.stringify({
+    kind: confirmation.kind,
+    inputs: confirmation.inputs.map((part) => ({ instanceId: part.instanceId, partId: part.partId, tier: part.tier, traits: part.traitLines, fittingLocations: part.fittingLocations })),
+    output: { instanceId: confirmation.output.instanceId, partId: confirmation.output.partId, tier: confirmation.output.tier, traits: confirmation.output.traitLines, fittingLocations: confirmation.output.fittingLocations },
+    consumedInstanceIds: confirmation.consumedInstanceIds,
+    preservedInstanceIds: confirmation.preservedInstanceIds,
+    clearedFittings: confirmation.clearedFittings,
+    preservedFittings: confirmation.preservedFittings,
+  });
+  return identity(current) === identity(expected);
+}
+
 function fittingFacts(state: GunsmithState): GunsmithFittingFact[] {
   return state.builds.flatMap((build) => [
     ...Object.entries(build.fitted).flatMap(([slot, instanceId]) => instanceId === undefined ? [] : [{
@@ -1085,7 +1130,7 @@ function workshopPartView(part: OwnedPart, state: GunsmithState, registry: DataP
     return iconArtId === undefined ? [] : [{ trait, iconArtId }];
   });
   return { instanceId: part.instanceId, partId: part.partId, name: definition.name, slot: definition.slot,
-    tier: part.tier, iconArtId: resolveGunsmithPartVisual(definition, part.tier).iconArtId, statChips: formatPartEffects(definition, part.tier),
+    tier: part.tier, rarity: definition.rarity, iconArtId: resolveGunsmithPartVisual(definition, part.tier).iconArtId, statChips: formatPartEffects(definition, part.tier),
     traitLines: traits, traitIcons, fittingLocations, stateLabel: fittingLocations.length > 0 ? 'EQUIPPED' : 'STORED',
     effectScope: fittingLocations.length > 0 ? [...new Set(fittingLocations.map((fact) => familyName(fact.familyId)))].join(' / ')
       : compatibleFamilyScope(definition.slot) };
@@ -1097,7 +1142,7 @@ function formatPartEffects(definition: PartDefinition, tier: number): string[] {
 
 function partSummaryLine(part: OwnedPart, definition: PartDefinition, location?: string): string {
   const summary = [
-    `${definition.name} T${part.tier}`,
+    `${definition.name} ${gunsmithTierLabel(definition.rarity, part.tier)}`,
     ...formatPartEffects(definition, part.tier),
     ...[...new Set([...definition.traits, ...part.infusedTraits])],
   ].join(' • ');
@@ -1164,19 +1209,42 @@ function buildComparisonPresentation(
   registry: DataPartRegistry,
   weapon: WeaponDefinition | undefined,
 ): GunsmithComparisonPresentation {
-  const owned = ownedParts(state);
-  const before = resolveBuildRunTruth(beforeBuild, registry, owned);
-  const after = resolveBuildRunTruth(afterBuild, registry, owned);
-  const beforeStats = weapon === undefined ? undefined : resolveBuildWeaponStats(beforeBuild, registry.asMap(), owned, weapon);
-  const afterStats = weapon === undefined ? undefined : resolveBuildWeaponStats(afterBuild, registry.asMap(), owned, weapon);
+  return buildComparisonPresentationAcrossStates(beforeBuild, afterBuild, state, state, registry, weapon);
+}
+
+function buildComparisonPresentationAcrossStates(
+  beforeBuild: WeaponBuild,
+  afterBuild: WeaponBuild,
+  beforeState: GunsmithState,
+  afterState: GunsmithState,
+  registry: DataPartRegistry,
+  weapon: WeaponDefinition | undefined,
+): GunsmithComparisonPresentation {
+  const beforeOwned = ownedParts(beforeState);
+  const afterOwned = ownedParts(afterState);
+  const before = resolveBuildRunTruth(beforeBuild, registry, beforeOwned);
+  const after = resolveBuildRunTruth(afterBuild, registry, afterOwned);
+  const beforeStats = weapon === undefined ? undefined : resolveBuildWeaponStats(beforeBuild, registry.asMap(), beforeOwned, weapon);
+  const afterStats = weapon === undefined ? undefined : resolveBuildWeaponStats(afterBuild, registry.asMap(), afterOwned, weapon);
   const stats = beforeStats === undefined || afterStats === undefined ? Object.freeze([])
     : presentLoadoutWeaponStats(beforeStats, afterStats);
   const changed = beforeStats === undefined || afterStats === undefined ? []
     : (Object.keys(WEAPON_STAT_LABELS) as Array<keyof EffectiveWeaponStats>).flatMap((key) =>
       Math.abs(beforeStats[key] - afterStats[key]) < 1e-9 ? []
         : [`${WEAPON_STAT_LABELS[key]} ${formatResolvedStat(key, beforeStats[key])} to ${formatResolvedStat(key, afterStats[key])}`]);
-  return deepFreeze({ before, after, effects: presentLoadoutRunTruthComparison(before, after),
+  return deepFreezeAll({ before, after, effects: presentLoadoutRunTruthComparison(before, after),
     lines: [`Current build: ${changed.join(' • ') || (weapon === undefined ? 'comparison unavailable' : 'No mechanical change')}`], stats });
+}
+
+/** Some authoritative data resolvers share already-frozen outer arrays whose
+ * children are not frozen. Workshop donor disclosures are nested into a
+ * durable confirmation, so finish that graph without changing its values. */
+function deepFreezeAll<T>(value: T, seen = new WeakSet<object>()): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return value;
+  seen.add(value);
+  for (const child of Object.values(value)) deepFreezeAll(child, seen);
+  return Object.isFrozen(value) ? value : Object.freeze(value);
 }
 
 type EquipmentPresentationCatalog = Parameters<typeof resolveEquipmentLoadoutPresentation>[1];
@@ -1233,6 +1301,11 @@ function selectedBuildComparisonPresentation(
 
 function formatBuildComparisonSummary(comparison: GunsmithComparisonPresentation | undefined): string {
   return comparison?.lines[0] ?? 'Current build comparison unavailable.';
+}
+
+function formatCatalogComparisonSummary(summary: string, familyId: string): string {
+  const normalized = summary.replace(/^Current build:\s*/, '');
+  return `If fitted to ${familyName(familyId)}: ${normalized}`;
 }
 
 function loadoutSignature(save: GameContext['saveData']): string {
@@ -1360,7 +1433,7 @@ function acquisitionSourceLabel(partId: string, fabricationCost: number | undefi
   const part = context.data.gunParts?.find((row) => row.id === partId);
   if (fabricationCost !== undefined) {
     const requirement = part?.unlock ? describeProgressionCondition(part.unlock, context.data) : 'Available';
-    labels.push(`Blueprint: ${requirement}. Fabricate for ${fabricationCost} Scrap; creates one T1 part.`);
+    labels.push(`Blueprint: ${requirement}. Fabricate for ${fabricationCost} Scrap; creates one ${gunsmithTierLabel(part?.rarity, 1)} part.`);
   }
   const rewardProfiles = new Map((context.data.rewardProfiles ?? []).map((reward) => [reward.id, reward] as const));
   for (const stage of context.data.stages ?? []) {

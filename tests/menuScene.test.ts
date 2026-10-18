@@ -2394,9 +2394,9 @@ describe('MenuScene', () => {
     activateKey(harness, 'gunsmith-catalog:part:receiver-compact');
     expect(harness.textContents().join('\n')).toContain('+8% Fire Rate');
     expect(harness.textContents()).toContain('Fabricate — 60 Scrap');
-    expect(harness.textContents().join('\n')).toContain('FABRICABLE • 60 Scrap');
+    expect(harness.textContents().join('\n')).toContain('FABRICABLE • Common ›1 • 60 Scrap');
     expect(harness.textContents()).toContain('PARTS • OWNERSHIP / SOURCE / FABRICATION');
-    expect(harness.textContents().join('\n')).toContain('Current build: Fire interval 650ms to 601.9ms');
+    expect(harness.textContents().join('\n')).toContain('If fitted to Pistol: Fire interval 650ms to 601.9ms');
     expect(harness.textContents().join('\n')).toContain('BARREL • LOCKED');
     expect(buttonByKey(harness, 'gunsmith-fabricate-request:part:receiver-compact').state.interactive).toBe(false);
     expect(harness.context.saveData.gunsmith.parts).toEqual({});
@@ -2473,7 +2473,7 @@ describe('MenuScene', () => {
     const shell = scene.root, content = scene.panelContentRoot, mask = scene.scrollMaskContainer;
     const heading = harness.objects.find(object => !object.state.destroyed && object.state.text === 'Gunsmith')!;
     const family = harness.buttonByLabel('Pistol')!;
-    const row = harness.objects.find(object => !object.state.destroyed && object.state.text.startsWith('Compact Receiver T1\nSTORED'))!;
+    const row = harness.objects.find(object => !object.state.destroyed && object.state.text.startsWith('Compact Receiver Common ›1\nSTORED'))!;
     expect(row).toBeDefined();
     const beforePreview = harness.context.saveData;
     const oldPreviewCommand = row.state.handlers.pointerup!;
@@ -2590,7 +2590,7 @@ describe('MenuScene', () => {
     const fit = vi.spyOn(scene.controller, 'commitGunPartPreview');
     const update = vi.spyOn(harness.context, 'updateGunsmith');
     const compactCandidate = harness.objects.find(object =>
-      !object.state.destroyed && object.state.text.startsWith('Compact Receiver T1\nSTORED'))!;
+      !object.state.destroyed && object.state.text.startsWith('Compact Receiver Common ›1\nSTORED'))!;
     compactCandidate.state.handlers.pointerup!();
     expect(update).not.toHaveBeenCalled();
     const confirm = buttonByKey(harness, 'gunsmith-commit');
@@ -2604,7 +2604,7 @@ describe('MenuScene', () => {
     expect(scene.root).not.toBe(root);
     expect(root.state.destroyed).toBe(true);
     expect(scene.committedDisplay).toBe(true);
-    expect(harness.textContents().some(text => text.includes('Compact Receiver T1\nReceiver • EQUIPPED'))).toBe(true);
+    expect(harness.textContents().some(text => text.includes('Compact Receiver Common ›1\nReceiver • EQUIPPED'))).toBe(true);
     expect(harness.textContents()).not.toContain('Something went wrong — press Esc to retry');
   });
 
@@ -2631,7 +2631,7 @@ describe('MenuScene', () => {
       persisted: false,
     });
     const compactCandidate = harness.objects.find(object =>
-      !object.state.destroyed && object.state.text.startsWith('Compact Receiver T1\nSTORED'))!;
+      !object.state.destroyed && object.state.text.startsWith('Compact Receiver Common ›1\nSTORED'))!;
 
     compactCandidate.state.handlers.pointerup!();
     expect(update).not.toHaveBeenCalled();
@@ -2643,7 +2643,7 @@ describe('MenuScene', () => {
     expect(scene.root).not.toBe(root);
     expect(root.state.destroyed).toBe(true);
     expect(harness.textContents()).toContain('Could not save that Gunsmith change');
-    expect(harness.textContents().some(text => text.startsWith('Heavy Receiver T2\nReceiver • EQUIPPED'))).toBe(true);
+    expect(harness.textContents().some(text => text.startsWith('Heavy Receiver Uncommon ›2\nReceiver • EQUIPPED'))).toBe(true);
   });
 
   it('creates a Gunsmith build once and leaves retryable fallback after its first presentation draw fails', () => {
@@ -2774,12 +2774,12 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     activateKey(harness, 'gunsmith-surface:workshop');
 
-    expect(harness.textContents()).toContain('Merge 2 of 50 owned Standard Barrel T1 → T2');
+    expect(harness.textContents()).toContain('Merge 2 of 50 owned Standard Barrel Common ›1 → Common ›2');
     expect(harness.textContents().filter((text) => text.startsWith('Merge '))).toHaveLength(1);
-    harness.buttonByLabel('Merge 2 of 50 owned Standard Barrel T1 → T2')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Merge 2 of 50 owned Standard Barrel Common ›1 → Common ›2')!.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('Choose first merge input');
     expect(harness.textContents().filter((text) => text.includes('STORED') && text.includes('INPUT'))).toHaveLength(50);
-    const first = harness.textContents().find((text) => text.includes('INPUT A • RECOMMENDED') && text.startsWith('Standard Barrel T1'))!;
+    const first = harness.textContents().find((text) => text.includes('INPUT A • RECOMMENDED') && text.startsWith('Standard Barrel Common ›1'))!;
     harness.buttonByLabel(first)!.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('Choose compatible second input');
     expect(harness.textContents().filter((text) => text.includes('STORED') && text.includes('LEGAL INPUT B'))).toHaveLength(49);
@@ -2798,7 +2798,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     activateKey(harness, 'gunsmith-surface:parts');
     activateKey(harness, 'gunsmith-catalog:part:receiver-compact');
-    expect(harness.textContents().join('\n')).toContain('EQUIPPED • T1');
+    expect(harness.textContents().join('\n')).toContain('EQUIPPED • Common ›1');
     const label = harness.textContents().find((text) => text.includes('Fabricate another — 60 Scrap'))!;
     expect(label).toBe('Fabricate another — 60 Scrap');
     for (let step = 0; step < 20 && !harness.buttonByLabel(label)!.state.interactive; step += 1) {
@@ -2826,18 +2826,18 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     activateKey(harness, 'gunsmith-surface:workshop');
-    const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel T1 → T2'))!;
+    const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel Common ›1 → Common ›2'))!;
     harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
-    const firstInput = harness.textContents().find((text) => text.includes('INPUT A • RECOMMENDED') && text.startsWith('Standard Barrel T1'))!;
+    const firstInput = harness.textContents().find((text) => text.includes('INPUT A • RECOMMENDED') && text.startsWith('Standard Barrel Common ›1'))!;
     harness.buttonByLabel(firstInput)!.state.handlers.pointerup!();
-    const secondInput = harness.textContents().find((text) => text.includes('LEGAL INPUT B • RECOMMENDED') && text.startsWith('Standard Barrel T1'))!;
+    const secondInput = harness.textContents().find((text) => text.includes('LEGAL INPUT B • RECOMMENDED') && text.startsWith('Standard Barrel Common ›1'))!;
     harness.buttonByLabel(secondInput)!.state.handlers.pointerup!();
     expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');
     expect(harness.context.saveData.gunsmith.parts).toHaveProperty('b');
     expect(harness.textContents()).toEqual(expect.arrayContaining([
       'CONFIRM MERGE', 'INPUT A', 'INPUT B', 'OUTPUT',
-      'Standard Barrel T1\nSTORED • Pistol / SMG / Shotgun\n+10 Range',
-      'Standard Barrel T2\nSTORED • Pistol / SMG / Shotgun\n+20 Range', '+10 Range → +20 Range',
+      'Standard Barrel Common ›1\nSTORED • Pistol / SMG / Shotgun\n+10 Range',
+      'Standard Barrel Common ›2\nSTORED • Pistol / SMG / Shotgun\n+20 Range', '+10 Range → +20 Range',
       'Merge parts', 'Cancel',
     ]));
     expect(harness.textContents()).not.toContain('Choose compatible second input');
@@ -2845,7 +2845,7 @@ describe('MenuScene', () => {
 
     harness.buttonByLabel('Cancel')!.state.handlers.pointerup!();
     expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');
-    const retryInput = harness.textContents().find((text) => text.includes('LEGAL INPUT B • RECOMMENDED') && text.startsWith('Standard Barrel T1'))!;
+    const retryInput = harness.textContents().find((text) => text.includes('LEGAL INPUT B • RECOMMENDED') && text.startsWith('Standard Barrel Common ›1'))!;
     harness.buttonByLabel(retryInput)!.state.handlers.pointerup!();
     const confirm = harness.buttonByLabel('Merge parts')!;
     confirm.state.handlers.pointerup!();
@@ -2890,11 +2890,11 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     activateKey(harness, 'gunsmith-surface:workshop');
-    const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel T1 → T2'))!;
+    const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel Common ›1 → Common ›2'))!;
     harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
-    let input = harness.textContents().find((text) => text.includes('INPUT A • RECOMMENDED') && text.startsWith('Standard Barrel T1'))!;
+    let input = harness.textContents().find((text) => text.includes('INPUT A • RECOMMENDED') && text.startsWith('Standard Barrel Common ›1'))!;
     harness.buttonByLabel(input)!.state.handlers.pointerup!();
-    input = harness.textContents().find((text) => text.includes('LEGAL INPUT B • RECOMMENDED') && text.startsWith('Standard Barrel T1'))!;
+    input = harness.textContents().find((text) => text.includes('LEGAL INPUT B • RECOMMENDED') && text.startsWith('Standard Barrel Common ›1'))!;
     harness.buttonByLabel(input)!.state.handlers.pointerup!();
     harness.menuScene.update(0, 16); // release the accepted pointer edge before logical Back
 
@@ -2957,11 +2957,11 @@ describe('MenuScene', () => {
     const mutate = vi.spyOn(harness.context, 'updateGunsmith');
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
-    const row = harness.objects.find((object) => !object.state.destroyed && object.state.text.startsWith('Compact Receiver T1\nSTORED'))!;
+    const row = harness.objects.find((object) => !object.state.destroyed && object.state.text.startsWith('Compact Receiver Common ›1\nSTORED'))!;
     row.state.handlers.pointerup!();
     const previewCopy = harness.textContents().join('\n');
-    expect(previewCopy).toContain('REPLACE HEAVY RECEIVER T2');
-    expect(previewCopy).toContain('Heavy Receiver T2 returns to STORED.');
+    expect(previewCopy).toContain('REPLACE HEAVY RECEIVER Uncommon ›2');
+    expect(previewCopy).toContain('Heavy Receiver Uncommon ›2 returns to STORED.');
     expect(previewCopy).toContain('CURRENT / PREVIEW • RUN EFFECTS');
     expect(previewCopy).toContain('Fire Rate • 1.35/s to 1.66/s');
     const scene = harness.menuScene as unknown as { controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot } };
@@ -2995,7 +2995,7 @@ describe('MenuScene', () => {
     expect(slots.map(slot => buttonByKey(harness, `gunsmith-slot:${slot}`).state.text.replace(/^• /, '').split('\n')[0]!.toUpperCase())).toEqual(['RECEIVER', 'BARREL', 'OPTIC', 'STOCK', 'TRIGGER', 'MAGAZINE', 'TRAITS']);
     expect(buttonByKey(harness, 'gunsmith-slot:trait').state.text).toContain('0/2 EQUIPPED');
     const row = buttonByKey(harness, 'gunsmith-part:barrel');
-    expect(row.state.text).toContain('Standard Barrel T1\nEQUIPPED • Pistol Build');
+    expect(row.state.text).toContain('Standard Barrel Common ›1\nEQUIPPED • Pistol Build');
     expect(row.state.text).toContain('+10 Range');
     row.state.handlers.pointerup!();
     expect(buttonByKey(harness, 'gunsmith-commit').state.text).toBe('MOVE FROM PISTOL BUILD');

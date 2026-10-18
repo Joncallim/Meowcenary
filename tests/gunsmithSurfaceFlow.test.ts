@@ -29,7 +29,7 @@ class ObjectView {
 }
 
 const part = (id: string, slot: string) => ({ instanceId: id, partId: `part:${id}`, name: `${id} Part`, slot,
-  tier: 1, traits: [], compatible: true, fitted: false, stateLabel: 'STORED' as const,
+  tier: 1, rarity: 'common', traits: [], compatible: true, fitted: false, stateLabel: 'STORED' as const,
   effectScope: 'Pistol', comparisonSummary: 'Detailed comparison', actionLabel: 'FIT',
   iconArtId: `icon:${id}`, traitIcons: [], state: 'owned-unfitted' as const,
   effectLines: ['+10 Range'], statChips: ['+10 Range'], sourceLabel: 'Fabricate 30 Scrap', traitLines: [] });
@@ -156,21 +156,34 @@ describe('Gunsmith native flow surface', () => {
   });
   it('Workshop shows exact input/output art, traits and destructive fitting consequences before confirm', () => {
     const h = harness();
-    const first = { ...receiver, slot: 'receiver' as const, fittingLocations: [{ buildId: 'build:pistol', buildName: 'Sidearm', familyId: 'pistol', slot: 'receiver' as const, instanceId: 'receiver' }], traitLines: [], traitIcons: [] };
-    const second = { ...first, instanceId: 'second', fittingLocations: [] };
-    const output = { ...first, instanceId: 'merged', name: 'Output Part', tier: 2, iconArtId: 'icon:receiver:t2', fittingLocations: [],
+    const first = { ...receiver, slot: 'receiver' as const, fitted: true, stateLabel: 'EQUIPPED' as const, fittingLocations: [{ buildId: 'build:pistol', buildName: 'Sidearm', familyId: 'pistol', slot: 'receiver' as const, instanceId: 'receiver' }], traitLines: [], traitIcons: [] };
+    const second = { ...first, instanceId: 'second', fitted: false, stateLabel: 'STORED' as const, fittingLocations: [] };
+    const output = { ...first, instanceId: 'merged', name: 'Output Part', tier: 2, fitted: false, stateLabel: 'STORED' as const, iconArtId: 'icon:receiver:t2', fittingLocations: [],
       traitLines: ['FIRE' as const], traitIcons: [{ trait: 'FIRE' as const, iconArtId: 'trait:fire' }] };
     const state = snapshot({ surface: 'workshop', confirmation: { kind: 'merge', title: 'Merge receivers', confirmLabel: 'Confirm Merge',
       inputLines: [], outputLine: 'Output', mechanicalDelta: ['+20 Range'], inputs: [first, second], output,
       consumedInstanceIds: ['receiver', 'second'], preservedInstanceIds: [], clearedFittings: first.fittingLocations, preservedFittings: [],
+      buildImpacts: [{ buildId: 'build:smg', buildName: 'Sprayer', familyId: 'smg', slot: 'receiver', removedPart: first,
+        comparison: { before: { modifiers: [], families: [] }, after: { modifiers: [], families: [] }, lines: [], stats: [], effects: {
+          modifiers: [{ stat: 'range', label: 'Range', target: { kind: 'weapon-family', familyId: 'smg', label: 'SMG' }, beforeValue: '+10 Range', state: 'removed' }],
+          traits: [], projectileEffects: [],
+        } } }],
       sideEffectLines: ['Output remains STORED. Fit it separately.'],
       comparison: { before: { modifiers: [], families: [] }, after: { modifiers: [], families: [] }, lines: [], stats: [] } } });
     h.present(state);
     expect(h.visibleCopy()).toContain('INPUT A'); expect(h.visibleCopy()).toContain('INPUT B'); expect(h.visibleCopy()).toContain('OUTPUT');
-    expect(h.visibleCopy()).toContain('Output Part T2'); expect(h.visibleCopy()).toContain('FIRE');
+    expect(h.visibleCopy()).toContain('Output Part Common ›2'); expect(h.visibleCopy()).toContain('FIRE');
     expect(h.visibleCopy()).toContain('EMPTIES Sidearm • receiver.');
     expect(h.visibleCopy()).toContain('Output remains STORED. Fit it separately.');
     expect(h.visibleCopy()).toContain('CONSUMES receiver Part.');
+    expect(h.visibleCopy()).toContain('AFFECTED BUILD • Sprayer • SMG • RECEIVER');
+    expect(h.visibleCopy()).toContain('REMOVES receiver Part Common ›1');
+    expect(h.visibleCopy()).toContain('Loses SMG • +10 Range (removed)');
+    expect(h.visibleCopy()).toContain('FINAL CHECK');
+    expect(h.visibleCopy()).toContain('Inputs: receiver Part Common ›1 • EQUIPPED + receiver Part Common ›1 • STORED');
+    expect(h.visibleCopy()).toContain('Output destination: STORED • Pistol');
+    expect(h.visibleCopy()).toContain('Cost: 0 Scrap • Balance after: 100 Scrap');
+    expect(h.visibleCopy()).not.toContain('shared or clamped');
     expect(h.art.map(entry => entry.id)).toEqual(expect.arrayContaining(['icon:receiver', 'icon:receiver:t2', 'trait:fire']));
     expect(collectGunsmithArtIds(state)).toEqual(expect.arrayContaining(['icon:receiver:t2', 'trait:fire']));
     expect(h.commands.confirmGunWorkshop).not.toHaveBeenCalled();

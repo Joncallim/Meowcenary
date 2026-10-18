@@ -32,7 +32,7 @@ export function resolveGunsmithVisualAssembly(build: Build, state: GunsmithState
   const traitCores = build.traitParts.flatMap((instanceId) => {
     const part = state.parts[instanceId];
     const definition = part && definitions.get(part.partId);
-    return !part || !definition ? [] : [{ instanceId, tier: part.tier, iconArtId: resolveGunsmithPartVisual(definition, part.tier).iconArtId }];
+    return !part || !definition ? [] : [{ instanceId, tier: part.tier, rarity: definition.rarity, iconArtId: resolveGunsmithPartVisual(definition, part.tier).iconArtId }];
   });
   const icons = new Map<string, string>();
   for (const definition of definitions.values()) for (const [trait, artId] of Object.entries(definition.presentation.traitIconArtIds)) {

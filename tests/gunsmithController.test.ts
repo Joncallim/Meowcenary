@@ -116,7 +116,7 @@ describe('GunsmithController durable commands', () => {
         { instanceId: 'receiver', slot: 'receiver', artId: 'gun-build-part:receiver-heavy:t3', tier: 3 },
         { instanceId: 'trigger', slot: 'trigger', artId: 'gun-build-part:trigger-hair:t2', tier: 2 },
       ],
-      traitCores: [{ instanceId: 'core', iconArtId: 'gun-part-icon:trait-fire', tier: 1 }],
+      traitCores: [{ instanceId: 'core', iconArtId: 'gun-part-icon:trait-fire', rarity: 'uncommon', tier: 1 }],
       traitEmblems: [{ trait: 'FIRE', iconArtId: 'trait-icon:fire' }],
     });
     expect(build.summary).toBe('FIRE SMG • Heavy Receiver • Hair Trigger • Fire Trait Core');
@@ -179,9 +179,9 @@ describe('GunsmithController durable commands', () => {
       const before = context.saveData;
       const writes = vi.spyOn(storage, 'setItem');
       const candidate = controller.snapshot().parts.find((part) => part.instanceId === 'long')!;
-      expect(candidate.actionLabel).toBe(moved ? 'MOVE FROM SMG BUILD • REPLACE STANDARD BARREL T2' : 'REPLACE STANDARD BARREL T2');
+      expect(candidate.actionLabel).toBe(moved ? 'MOVE FROM SMG BUILD • REPLACE STANDARD BARREL Common ›2' : 'REPLACE STANDARD BARREL Common ›2');
       expect(candidate.displacedInstanceId).toBe('standard');
-      expect(candidate.displacementSummary).toBe('Standard Barrel T2 returns to STORED.');
+      expect(candidate.displacementSummary).toBe('Standard Barrel Common ›2 returns to STORED.');
       expect(candidate.comparisonSummary).toContain('Current build:');
       expect(candidate.comparisonSummary).toContain('Range 220 to 305');
       if (moved) expect(candidate.comparisonSummary).toContain('Move from SMG Build.');
@@ -215,7 +215,7 @@ describe('GunsmithController durable commands', () => {
     controller.selectTraitSocket('fire');
     const before = context.saveData;
     const candidate = controller.snapshot().parts.find((part) => part.instanceId === 'spare')!;
-    expect(candidate).toMatchObject({ compatible: true, actionLabel: 'REPLACE FIRE TRAIT CORE T1', displacedInstanceId: 'fire', displacementSummary: 'Fire Trait Core T1 returns to STORED.' });
+    expect(candidate).toMatchObject({ compatible: true, actionLabel: 'REPLACE FIRE TRAIT CORE Uncommon ›1', displacedInstanceId: 'fire', displacementSummary: 'Fire Trait Core Uncommon ›1 returns to STORED.' });
     expect(controller.previewPart('spare')).toMatchObject({ ok: true, persisted: false });
     expect(controller.snapshot().candidateComparison?.displacedInstanceId).toBe('fire');
     expect(context.saveData).toBe(before);
@@ -355,7 +355,7 @@ describe('GunsmithController durable commands', () => {
     } }));
 
     expect(controller.snapshot().workshop).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: 'merge', ownedCount: 3, label: 'Merge 2 of 3 owned Compact Receiver T1 → T2' }),
+      expect.objectContaining({ kind: 'merge', ownedCount: 3, label: 'Merge 2 of 3 owned Compact Receiver Common ›1 → Common ›2' }),
       expect.objectContaining({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'zzz-fire' }),
     ]));
     expect(controller.snapshot().workshop).not.toEqual(expect.arrayContaining([
@@ -469,8 +469,8 @@ describe('GunsmithController durable commands', () => {
     expect(controller.snapshot().mergeSelection?.choices.map((choice) => choice.instanceId)).toEqual(['b', 'c', 'd']);
     controller.selectMergeInput('d');
     expect(controller.snapshot().confirmation?.inputLines).toEqual([
-      'Standard Barrel T1 • +10 Range — fitted to Build A • Barrel',
-      'Standard Barrel T1 • +10 Range — fitted to Build D • Barrel',
+      'Standard Barrel Common ›1 • +10 Range — fitted to Build A • Barrel',
+      'Standard Barrel Common ›1 • +10 Range — fitted to Build D • Barrel',
     ]);
   });
 
@@ -516,10 +516,19 @@ describe('GunsmithController durable commands', () => {
     controller.beginMerge(recipe.groupId);
     controller.selectMergeInput('a');
     controller.selectMergeInput('b');
-    expect(controller.snapshot().confirmation?.inputLines).toEqual([
-      'Standard Barrel T1 • +10 Range — fitted to Sidearm • Barrel',
-      'Standard Barrel T1 • +10 Range — fitted to Sprayer • Barrel',
+    const confirmation = controller.snapshot().confirmation!;
+    expect(confirmation.inputLines).toEqual([
+      'Standard Barrel Common ›1 • +10 Range — fitted to Sidearm • Barrel',
+      'Standard Barrel Common ›1 • +10 Range — fitted to Sprayer • Barrel',
     ]);
+    expect(confirmation.buildImpacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ buildName: 'Sidearm', slot: 'barrel', removedPart: expect.objectContaining({ instanceId: 'a' }) }),
+      expect.objectContaining({ buildName: 'Sprayer', slot: 'barrel', removedPart: expect.objectContaining({ instanceId: 'b' }) }),
+    ]));
+    const sprayerImpact = confirmation.buildImpacts?.find((impact) => impact.buildName === 'Sprayer');
+    expect(sprayerImpact?.comparison.effects.modifiers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'Range', beforeValue: '+10', state: 'removed' }),
+    ]));
   });
 
   it('owns an immutable two-step merge confirmation with exact inputs, output and tier-scaled delta', () => {
@@ -532,8 +541,8 @@ describe('GunsmithController durable commands', () => {
     expect(controller.requestWorkshop({ kind: 'merge', firstInstanceId: 'a', secondInstanceId: 'b' })).toMatchObject({ ok: true });
     expect(controller.snapshot().confirmation).toMatchObject({
       kind: 'merge', title: 'Confirm merge', confirmLabel: 'Merge parts',
-      inputLines: ['Standard Barrel T1 • +10 Range', 'Standard Barrel T1 • +10 Range'],
-      outputLine: 'Standard Barrel T2 • +20 Range',
+      inputLines: ['Standard Barrel Common ›1 • +10 Range', 'Standard Barrel Common ›1 • +10 Range'],
+      outputLine: 'Standard Barrel Common ›2 • +20 Range',
       mechanicalDelta: ['+10 Range → +20 Range'],
     });
     expect(Object.isFrozen(controller.snapshot().confirmation)).toBe(true);
@@ -555,10 +564,10 @@ describe('GunsmithController durable commands', () => {
     expect(controller.requestWorkshop({ kind: 'merge', firstInstanceId: 'explosive', secondInstanceId: 'fire' })).toMatchObject({ ok: true });
     expect(controller.snapshot().confirmation).toMatchObject({
       inputLines: [
-        'Standard Barrel T1 • +10 Range • EXPLOSIVE',
-        'Standard Barrel T1 • +10 Range • FIRE',
+        'Standard Barrel Common ›1 • +10 Range • EXPLOSIVE',
+        'Standard Barrel Common ›1 • +10 Range • FIRE',
       ],
-      outputLine: 'Standard Barrel T2 • +20 Range • EXPLOSIVE • FIRE',
+      outputLine: 'Standard Barrel Common ›2 • +20 Range • EXPLOSIVE • FIRE',
       mechanicalDelta: ['+10 Range → +20 Range', 'Traits EXPLOSIVE + FIRE → EXPLOSIVE / FIRE'],
     });
   });
@@ -573,8 +582,8 @@ describe('GunsmithController durable commands', () => {
     expect(controller.requestWorkshop({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'fire' })).toMatchObject({ ok: true });
     expect(controller.snapshot().confirmation).toMatchObject({
       kind: 'infuse', title: 'Confirm infusion', confirmLabel: 'Infuse part',
-      inputLines: ['Standard Barrel T2 • +20 Range', 'Fire Trait Core T1 • +2% Damage • FIRE'],
-      outputLine: 'Standard Barrel T2 • +20 Range • FIRE',
+      inputLines: ['Standard Barrel Common ›2 • +20 Range', 'Fire Trait Core Uncommon ›1 • +2% Damage • FIRE'],
+      outputLine: 'Standard Barrel Common ›2 • +20 Range • FIRE',
       mechanicalDelta: ['Traits None → FIRE', 'FIRE adds +15% Damage and burning hits'],
     });
     expect(controller.cancelWorkshop()).toMatchObject({ ok: true });
@@ -612,12 +621,12 @@ describe('GunsmithController durable commands', () => {
     const catalog = controller.snapshot().catalog;
     expect(catalog).toHaveLength(context.data.gunParts!.length);
     expect(catalog.find((part) => part.partId === 'part:barrel-standard')).toMatchObject({
-      state: 'fitted', stateLabel: 'EQUIPPED • T2', ownedCount: 1, fabricationCost: 60,
-      effectLines: ['+20 Range'], comparisonSummary: 'Current build: Range 220 to 200',
+      state: 'fitted', stateLabel: 'EQUIPPED • Common ›2', ownedCount: 1, fabricationCost: 60,
+      effectLines: ['+20 Range'], comparisonSummary: 'If fitted to Pistol: Range 220 to 200',
     });
     expect(catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
-      state: 'fabricable', stateLabel: 'FABRICABLE • 60 Scrap', fabricationCost: 60,
-      affordable: false, canFabricate: false, fabricationActionLabel: 'Fabricate — 60 Scrap', sourceLabel: 'Blueprint: Available. Fabricate for 60 Scrap; creates one T1 part.',
+      state: 'fabricable', stateLabel: 'FABRICABLE • Common ›1 • 60 Scrap', fabricationCost: 60,
+      affordable: false, canFabricate: false, fabricationActionLabel: 'Fabricate — 60 Scrap', sourceLabel: 'Blueprint: Available. Fabricate for 60 Scrap; creates one Common ›1 part.',
     });
     expect(catalog.find((part) => part.partId === 'part:underbarrel-grenade')).toMatchObject({
       state: 'reward-only', stateLabel: 'REWARD ONLY', sourceLabel: 'Owned part on first clear: Cut the Feed',
@@ -643,8 +652,8 @@ describe('GunsmithController durable commands', () => {
     }));
 
     expect(controller.snapshot().catalog.find((part) => part.partId === 'part:barrel-standard')).toMatchObject({
-      state: 'fitted', stateLabel: 'EQUIPPED • T5', ownedCount: 2,
-      effectLines: ['+50 Range'], comparisonSummary: 'Move from Scattergun. Current build: Range 200 to 250',
+      state: 'fitted', stateLabel: 'EQUIPPED • Common ›5', ownedCount: 2,
+      effectLines: ['+50 Range'], comparisonSummary: 'If fitted to Pistol: Move from Scattergun. Current build: Range 200 to 250',
     });
   });
 
@@ -663,7 +672,7 @@ describe('GunsmithController durable commands', () => {
     }));
 
     const catalog = controller.snapshot().catalog.find((part) => part.partId === 'part:trait-fire')!;
-    expect(catalog.stateLabel).toBe('EQUIPPED • T1');
+    expect(catalog.stateLabel).toBe('EQUIPPED • Uncommon ›1');
     expect(catalog.comparison?.after.modifiers.find((modifier) => modifier.sourceId === 'fitted'))
       .toMatchObject({ stat: 'damage', value: 1.02 });
     const piercing = catalog.comparison?.after.families.find((family) => family.familyId === 'pistol')
@@ -681,7 +690,7 @@ describe('GunsmithController durable commands', () => {
     }));
 
     expect(controller.snapshot().catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
-      state: 'fitted', stateLabel: 'EQUIPPED • T1', ownedCount: 1,
+      state: 'fitted', stateLabel: 'EQUIPPED • Common ›1', ownedCount: 1,
       canFabricate: true, fabricationActionLabel: 'Fabricate another — 60 Scrap',
     });
     expect(controller.fabricate('part:receiver-compact')).toMatchObject({ ok: true, persisted: true });
@@ -696,7 +705,7 @@ describe('GunsmithController durable commands', () => {
 
     expect(controller.snapshot().catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
       state: 'locked', stateLabel: 'LOCKED', fabricationCost: 60,
-      affordable: false, sourceLabel: 'Blueprint: Clear Scrap Run. Fabricate for 60 Scrap; creates one T1 part.', lockReason: 'Clear Scrap Run.',
+      affordable: false, sourceLabel: 'Blueprint: Clear Scrap Run. Fabricate for 60 Scrap; creates one Common ›1 part.', lockReason: 'Clear Scrap Run.',
     });
   });
 
