@@ -107,6 +107,7 @@ describe('Gunsmith native flow surface', () => {
     expect(h.commands.fabricateGunPart).not.toHaveBeenCalled();
     h.press('gunsmith-fabricate-request:part:receiver');
     expect(h.commands.fabricateGunPart).not.toHaveBeenCalled();
+    expect(h.visibleCopy()).toContain('Output destination: STORED inventory');
     const confirm = h.buttons.find(button => button.key === 'gunsmith-fabricate-confirm:part:receiver')!.action!;
     h.press('gunsmith-fabricate-confirm:part:receiver');
     confirm();

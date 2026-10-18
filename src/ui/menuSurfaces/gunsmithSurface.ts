@@ -567,7 +567,7 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       if (this.fabricationConfirmation?.partId === selected.partId) {
         const remaining = scrap >= this.fabricationConfirmation.cost ? `${scrap - this.fabricationConfirmation.cost} Scrap` : `${scrap} Scrap (insufficient)`;
         y += this.copy(root, this.layout.margin, y,
-          `FINAL CHECK\n${selected.name} ${gunsmithTierLabel(selected.rarity, 1)}\nAdds one STORED copy only; build remains unchanged.\nCost: ${this.fabricationConfirmation.cost} Scrap • Balance after: ${remaining}`,
+          `FINAL CHECK\n${selected.name} ${gunsmithTierLabel(selected.rarity, 1)}\nAdds one STORED copy only; build remains unchanged.\nOutput destination: STORED inventory\nCost: ${this.fabricationConfirmation.cost} Scrap • Balance after: ${remaining}`,
           this.laneWidth, '#f7d774').height + 8;
         y = this.actionPair(root, y, 'Confirm fabrication', `gunsmith-fabricate-confirm:${selected.partId}`, () => {
           this.fabricationConfirmation = undefined;
