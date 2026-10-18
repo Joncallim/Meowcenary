@@ -76,7 +76,8 @@ export interface MenuSurfaceResources {
 export type LoadoutSurfaceCommands = Pick<MainMenuController, 'open' | 'selectEquipmentSlot'>;
 export type EquipmentSurfaceCommands = LoadoutSurfaceCommands & Pick<MainMenuController,
   'snapshot' | 'selectEquipmentCandidate' | 'selectEquipmentBlueprint' | 'equipmentPreview' |
-  'unequipEquipment' | 'equipEquipment' | 'upgradeEquipment' | 'fabricateEquipment'>;
+  'unequipEquipment' | 'equipEquipment' | 'upgradeEquipment' | 'fabricateEquipment' |
+  'setEquipmentSearch' | 'toggleEquipmentFilter' | 'clearEquipmentFilters' | 'cycleEquipmentSort'>;
 export type GunsmithSurfaceCommands = Pick<MainMenuController,
   'back' | 'selectGunBuild' | 'createGunBuild' | 'removeUnavailableGunPart' | 'unequipGunPart' |
   'fitGunPart' | 'beginGunMerge' | 'requestGunWorkshop' | 'selectGunMergeInput' |

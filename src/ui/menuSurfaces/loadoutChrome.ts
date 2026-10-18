@@ -6,6 +6,7 @@ import { ThemeColor, ThemeFont } from '../theme';
 import type { MainMenuSnapshot } from '../menus';
 import { presentLoadoutRunTruthComparison, type LoadoutEffectPresentation } from '../loadoutPresentation';
 import type { EquipmentComparison, EquipmentSetProgressPresentation } from '../equipmentPresentation';
+import { equipmentGradeCopy } from '../equipmentCatalog';
 import { MenuPanelSurface, type MenuSurfaceEnvironment, type LoadoutSurfaceCommands } from './surface';
 
 /** Shared presentation language for Loadout and Equipment, consuming domain
@@ -171,7 +172,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
       for (let row = 0; row < Math.ceil(4 / columns); row += 1) {
         snapshot.equipment.presentation.slots.slice(row * columns, (row + 1) * columns).forEach((slot, column) => {
           const item = slot.equipped;
-          const label = `${slot.label.toUpperCase()}\n${item ? `T${item.tier} • EQUIPPED` : 'Empty'}`;
+          const label = `${slot.label.toUpperCase()}\n${item ? `${equipmentGradeCopy(item.tier)} • EQUIPPED` : 'Empty'}`;
           const x = left + column * (slotWidth + gap);
           const button = this.button(root, x, y, label, rowHeight, () => {
             const next = this.commands.selectEquipmentSlot(slot.slot);
@@ -184,6 +185,11 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
             const index = this.environment.controls.buttonIndex(button);
             this.environment.controls.addLoadoutArt(root, x + 8 + artExtent / 2,
               y + rowHeight / 2, item.iconArtId, artExtent, artExtent, index);
+          } else {
+            const artExtent = Math.min(32, Math.max(24, rowHeight - 16));
+            const index = this.environment.controls.buttonIndex(button);
+            this.environment.controls.addPanelArt(root, x + 8 + artExtent / 2,
+              y + rowHeight / 2, slot.placeholderArtId, artExtent, true, false, index);
           }
         });
         y += rowHeight + gap;
@@ -201,7 +207,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
       snapshot.equipment.presentation.slots.slice(row * columns, (row + 1) * columns).forEach((slot, column) => {
         const x = left + column * (slotWidth + gap);
         const item = slot.equipped;
-        const label = `${slot.label.toUpperCase()}\n${item ? overview ? `T${item.tier} • EQUIPPED` : `${item.name}\nT${item.tier} • EQUIPPED` : 'Empty'}`;
+        const label = `${slot.label.toUpperCase()}\n${item ? overview ? `${equipmentGradeCopy(item.tier)} • EQUIPPED` : `${item.name}\n${equipmentGradeCopy(item.tier)} • EQUIPPED` : 'Empty'}`;
         const button = this.button(root, x, y, label, rowHeight, () => {
           const next = this.commands.selectEquipmentSlot(slot.slot);
           this.environment.controls.focusNext(`equipment-slot:${slot.slot}`);
@@ -223,6 +229,8 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
   protected renderEquipmentComparison(root: Phaser.GameObjects.Container, comparison: EquipmentComparison, left: number, top: number, contentWidth: number, familyNames: ReadonlyMap<string, string>): number {
     let y = top;
     const put = (text: string, color?: string) => { const copy = this.loadoutCopy(root, left, y, text, contentWidth, color); y += copy.height + 8; };
+    put('SET CHANGES', '#f78003');
+    if (!comparison.setChanges.length) put('None');
     for (const change of comparison.setChanges) {
       const set = comparison.after.sets.find((row) => row.setId === change.setId)!;
       put(`${set.name} ${change.before}/4 → ${change.after}/4`);
@@ -230,12 +238,27 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
       for (const count of change.gained) put(`GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#86efac');
     }
     const effects = presentLoadoutRunTruthComparison(comparison.before.runTruth, comparison.after.runTruth);
-    const modifierCopy = effects.modifiers.map((delta) => `${delta.label} [${delta.target.label}] ${delta.beforeValue ?? '—'} → ${delta.afterValue ?? '—'}`).join(' • ') || 'No persistent stat modifiers';
-    put(`CURRENT / AFTER LOADOUT EFFECTS\n${modifierCopy}`);
+    const gains = effects.modifiers.filter((delta) => delta.state === 'added' || delta.state === 'changed');
+    const losses = effects.modifiers.filter((delta) => delta.state === 'removed' || delta.state === 'changed');
+    const projectileGains = effects.projectileEffects.filter((delta) => delta.after.length > delta.before.length);
+    const projectileLosses = effects.projectileEffects.filter((delta) => delta.before.length > delta.after.length);
+    const projectileCopy = (effects: readonly { readonly kind: string }[]): string => effects.map((effect) => effect.kind).join(', ') || 'None';
+    put('GAINS', '#86efac');
+    if (!gains.length && !projectileGains.length && !effects.traits.some((trait) => !trait.before && trait.after)) put('None');
+    for (const delta of gains) put(`+ ${delta.afterValue ?? '—'} ${delta.label} [${delta.target.label}]`, '#86efac');
+    for (const delta of projectileGains) put(`+ ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.after)}`, '#86efac');
     for (const trait of effects.traits) {
       const family = familyNames.get(trait.familyId) ?? trait.familyId;
-      put(`${family} • ${trait.trait} traits\n${trait.before ? 'ACTIVE' : 'None'} → ${trait.after ? trait.afterDeduplicated ? 'ACTIVE • Does not stack' : 'ACTIVE' : 'REMOVED'}
-Sources: ${(trait.afterSourceLabels.length ? trait.afterSourceLabels : trait.beforeSourceLabels).join(' • ') || 'None'}`);
+      if (!trait.before && trait.after) put(`+ ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${trait.afterSourceLabels.join(' • ') || 'None'}`, '#86efac');
+    }
+    put('LOSSES', '#fbbf24');
+    if (!losses.length && !projectileLosses.length && !effects.traits.some((trait) => trait.before && !trait.after)) put('None');
+    for (const delta of losses) put(`− ${delta.beforeValue ?? '—'} ${delta.label} [${delta.target.label}]`, '#fbbf24');
+    for (const delta of projectileLosses) put(`− ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.before)}`, '#fbbf24');
+    for (const trait of effects.traits) {
+      const family = familyNames.get(trait.familyId) ?? trait.familyId;
+      if (trait.before && !trait.after) put(`− ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${trait.beforeSourceLabels.join(' • ') || 'None'}`, '#fbbf24');
+      else if (trait.before && trait.after && trait.sourceChanged) put(`↔ ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${(trait.afterSourceLabels.length ? trait.afterSourceLabels : trait.beforeSourceLabels).join(' • ') || 'None'}`);
     }
     return y;
   }

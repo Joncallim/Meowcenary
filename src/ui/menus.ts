@@ -287,6 +287,23 @@ export class MainMenuController {
     this.notice = this.equipmentController.selectBlueprint(equipmentId) ? undefined : 'Equipment: blueprint unavailable';
     return this.snapshot();
   }
+  setEquipmentSearch(query: string): MainMenuSnapshot {
+    this.notice = this.equipmentController.setBrowseSearch(query) ? 'Equipment: selected item hidden by filters' : undefined;
+    return this.snapshot();
+  }
+  toggleEquipmentFilter(facet: Parameters<EquipmentController['toggleBrowseFilter']>[0], value: string): MainMenuSnapshot {
+    this.notice = this.equipmentController.toggleBrowseFilter(facet, value) ? 'Equipment: selected item hidden by filters' : undefined;
+    return this.snapshot();
+  }
+  clearEquipmentFilters(): MainMenuSnapshot {
+    this.notice = this.equipmentController.clearBrowseFilters() ? 'Equipment: selected item hidden by filters' : undefined;
+    return this.snapshot();
+  }
+  cycleEquipmentSort(): MainMenuSnapshot {
+    this.equipmentController.cycleBrowseSort();
+    this.notice = undefined;
+    return this.snapshot();
+  }
 
   equipmentPreview(command: EquipmentPreviewCommand): EquipmentComparison | undefined {
     return this.equipmentController.preview(command);

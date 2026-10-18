@@ -174,10 +174,8 @@ describe('art-led Equipment layout', () => {
       const [name, count] = text.text.split('\n');
       return names.includes(name!) && count?.endsWith('/4 EQUIPPED');
     });
-    expect(labels).toHaveLength(names.length);
-    // 1280px reserves a 320px inspector plus a 16px gutter; the collection
-    // lane therefore ends at x=928 rather than at the full content edge.
-    expect(Math.max(...labels.map(label => label.x + label.width))).toBeLessThanOrEqual(928);
+    expect(labels).toHaveLength(0);
+    expect(view.buttons.some(button => button.text === 'BROWSE SETS')).toBe(true);
   });
 
   it.each([[376, 640], [390, 640]])('keeps empty Equipment Browse Sets above fixed actions at %i×%i', (width, height) => {
@@ -342,7 +340,7 @@ describe('art-led Equipment layout', () => {
     const candidate = view.buttons.find(button => button.text.startsWith('Scavenger Helmet'))!;
     view.handlers.get(candidate)!();
     expect((view.surface as unknown as { browseReturnFocusKey?: string }).browseReturnFocusKey).toBe('equipment-candidate:helmet');
-    const blueprint = view.buttons.find(button => button.text.startsWith('Commando Helmet\nFABRICABLE'))!;
+    const blueprint = view.buttons.find(button => button.text.startsWith('Commando Helmet\nStandard'))!;
     const owner = view.buttons.indexOf(blueprint);
     const emblem = view.icons.mock.calls.find(call => call[5] === owner && call[3] === 'equipment-set-icon:commando');
     expect(emblem).toBeDefined();

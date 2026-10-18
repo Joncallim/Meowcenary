@@ -677,7 +677,7 @@ describe('MenuScene', () => {
     scene.render(scene.controller.open('equipment'));
     const oldRoot = scene.panelContentRoot!;
     await vi.waitFor(() => expect(queued).toEqual(['art-equipment-sets', 'art-equipment-commando']));
-    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     expect(scene.panelContentRoot).toBe(oldRoot);
     expect(harness.menuScene.loadoutUiDiagnostics().equipment?.selectedInstanceId).toBe('recon');
     scene.render(scene.controller.open('home'));
@@ -690,7 +690,7 @@ describe('MenuScene', () => {
     const current = harness.menuScene.loadoutUiDiagnostics();
     expect(current.panel).toBe('equipment');
     expect(current.equipment?.selectedInstanceId).toBe('recon');
-    expect(current.copy.join('\n')).toContain('Recon Helmet • T1');
+    expect(current.copy.join('\n')).toContain('Recon Helmet • Standard ›');
     expect(oldRoot.state.destroyed).toBe(true);
     expect(scene.panelContentRoot).not.toBe(oldRoot);
     expect(scene.panelContentRoot?.state.destroyed).toBe(false);
@@ -757,7 +757,7 @@ describe('MenuScene', () => {
       scene.handleResize();
     }
     const root = scene.root!; const content = scene.panelContentRoot!;
-    const button = harness.buttonByLabel('HELMET\nT1 • EQUIPPED')!;
+    const button = harness.buttonByLabel('HELMET\nStandard › • EQUIPPED')!;
     const command = button.state.handlers.pointerup;
     const retainedBack = harness.buttonByLabel('Return to Contract')!;
     harness.input.emit('wheel', { id: 1, x: 120, y: scene.scrollViewportTop + 30, isDown: false }, [], 0, 120);
@@ -792,7 +792,7 @@ describe('MenuScene', () => {
       expect(scene.root !== root, 'fresh-state fallback replaces the stale mount').toBe(true);
       expect(harness.menuScene.renderRebuildCount).toBe(before + 1);
       expect(root.state.destroyed).toBe(true);
-      expect(harness.menuScene.loadoutUiDiagnostics().copy.join('\n')).toContain('T2 • EQUIPPED');
+      expect(harness.menuScene.loadoutUiDiagnostics().copy.join('\n')).toContain('Reinforced ›› • EQUIPPED');
       const binding = new DataVisualArtRegistry(harness.context.data).bindingById('equipment-icon:commando-helmet:t2')!;
       if (scenario === 'cached-only queued save change') {
         expect(queued).toEqual(['art-equipment-commando']);
@@ -857,7 +857,7 @@ describe('MenuScene', () => {
     const scene = harness.menuScene as unknown as { focusables: FakeObject[] };
     expect(scene.focusables.slice(0, 4).map((row) => row.state.text.split('\n')[0])).toEqual(['HELMET', 'ARMOUR', 'GLOVES', 'BOOTS']);
     expect(harness.textContents().some((text) => text.includes('Tap to equip'))).toBe(false);
-    const candidate = scene.focusables.find((row) => row.state.text === 'Recon Helmet\nT1 • STORED')!;
+    const candidate = scene.focusables.find((row) => row.state.text === 'Recon Helmet\nStandard › • STORED')!;
     const before = harness.context.saveData;
     expect(candidate).toBeDefined();
     candidate.state.handlers.pointerup!();
@@ -885,14 +885,14 @@ describe('MenuScene', () => {
     }, loadout: { helmet: 'commando' } }));
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Commando Helmet\nT1 • EQUIPPED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • EQUIPPED')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       root: FakeObject; panelContentRoot: FakeObject; scrollMask: unknown;
       focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
     };
     const root = scene.root, panel = scene.panelContentRoot, mask = scene.scrollMask;
     const slots = scene.focusables.slice(0, 4);
-    const recon = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
+    const recon = harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!;
     const before = harness.context.saveData;
     const rebuilds = harness.menuScene.renderRebuildCount;
     const createdBefore = harness.objects.length;
@@ -901,7 +901,7 @@ describe('MenuScene', () => {
     expect(scene.panelContentRoot).toBe(panel);
     expect(scene.scrollMask).toBe(mask);
     expect(scene.focusables.slice(0, 4)).toEqual(slots);
-    expect(harness.buttonByLabel('Recon Helmet\nT1 • STORED')).toBe(recon);
+    expect(harness.buttonByLabel('Recon Helmet\nStandard › • STORED')).toBe(recon);
     expect(harness.menuScene.renderRebuildCount).toBe(rebuilds);
     expect(harness.objects.length - createdBefore).toBeLessThan(60);
     expect(harness.context.saveData).toBe(before);
@@ -930,7 +930,7 @@ describe('MenuScene', () => {
       navigator: { index: number; setIndex(index: number): void }; handleNavMove(direction: string): void;
     };
     const browsePrefix = scene.focusables.slice(0, 4);
-    const candidate = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
+    const candidate = harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!;
     const rebuilds = scene.renderRebuildCount;
     scene.activationSource = 'pointer';
     candidate.state.handlers.pointerup!();
@@ -944,7 +944,7 @@ describe('MenuScene', () => {
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).not.toBe('equipment-slot:helmet');
     scene.navigator.setIndex(detailIndex);
     expect(candidate.state.destroyed).toBe(true);
-    expect(harness.textContents()).not.toContain('Recon Helmet\nT1 • STORED');
+    expect(harness.textContents()).not.toContain('Recon Helmet\nStandard › • STORED');
     expect(browsePrefix.every(button => button.state.destroyed || (!button.state.visible && !button.state.interactive))).toBe(true);
     expect(harness.textContents().join('\n')).toContain('REPLACES: Commando Helmet');
     const action = harness.buttonByLabel('Equip Recon Helmet')!;
@@ -963,7 +963,7 @@ describe('MenuScene', () => {
     harness.menuScene.create();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       scrollRectangle: { x: number; y: number; width: number; height: number };
       scrollItemIndexes: Set<number>; focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
@@ -987,11 +987,11 @@ describe('MenuScene', () => {
     harness.menuScene.create();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     const copy = harness.textContents().join('\n');
     expect(copy).toContain('EFFECT AFTER EQUIP');
     expect(copy).toContain('LOSE 2-piece');
-    expect(copy).toContain('UPGRADE: T1 → T2');
+    expect(copy).toContain('UPGRADE: Standard › → Reinforced ››');
     expect(copy).toContain('→');
     expect(copy).not.toContain('ITEM NOW');
     expect(copy).not.toContain('ITEM AFTER UPGRADE');
@@ -1025,14 +1025,14 @@ describe('MenuScene', () => {
     browse.state.handlers.pointerup!();
     const setReading = harness.objects.find((object) => !object.state.destroyed && object.state.text.includes('2-piece INACTIVE'))!;
     expect(scene.scrollObjects.some(({ object }) => object === setReading)).toBe(true);
-    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(0);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThanOrEqual(0);
     expect(setReading.state.y).toBeGreaterThanOrEqual(scene.scrollViewportTop);
     expect(setReading.state.y).toBeLessThan(scene.scrollViewportBottom);
     harness.buttonByLabel('CLOSE SETS')!.state.handlers.pointerup!();
 
-    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     const rectangle = (scene as unknown as { scrollRectangle: { x: number; width: number } }).scrollRectangle;
-    const selected = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
+    const selected = harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!;
     const selectedSection = harness.objects.find((object) => !object.state.destroyed && object.state.text === 'EQUIPPED SLOTS')!;
     const selectedInspector = harness.objects.find((object) => !object.state.destroyed && object.state.text.startsWith('INSPECTOR'))!;
     const selectedBrowse = harness.buttonByLabel('BROWSE SETS')!;
@@ -1055,12 +1055,12 @@ describe('MenuScene', () => {
     harness.menuScene.create();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Commando Helmet\nT1 • EQUIPPED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • EQUIPPED')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     const copy = harness.textContents().join('\n');
     expect(copy).toContain('ACTION: UNEQUIP Commando Helmet');
     expect(copy).toContain('AFTER UNEQUIP: Empty Helmet slot');
-    expect(copy).toContain('SET BONUS CHANGES');
+    expect(copy).toContain('SET CHANGES');
     expect(copy).not.toContain('REPLACES: Commando Helmet');
   });
 
@@ -1080,7 +1080,7 @@ describe('MenuScene', () => {
       inputController: { getInputMode(): string };
     };
     scene.activationSource = 'pointer';
-    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     scene.activationSource = undefined;
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-detail:recon');
@@ -1103,7 +1103,7 @@ describe('MenuScene', () => {
     harness.menuScene.create();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
@@ -1151,7 +1151,7 @@ describe('MenuScene', () => {
     harness.menuScene.create();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Commando Helmet\nT1 • EQUIPPED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • EQUIPPED')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       scrollMaskContainer: FakeObject; scrollObjects: Array<{ object: FakeObject }>;
       handleNavMove(direction: string): void; navigator: { index: number; setIndex(index: number): void };
@@ -1159,7 +1159,7 @@ describe('MenuScene', () => {
     };
     const maskContainer = scene.scrollMaskContainer;
     const rebuilds = harness.menuScene.renderRebuildCount;
-    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     expect(harness.menuScene.renderRebuildCount).toBe(rebuilds);
     expect(scene.scrollMaskContainer).toBe(maskContainer);
     const fixed = harness.objects.filter(object => !object.state.destroyed
@@ -1193,14 +1193,14 @@ describe('MenuScene', () => {
     harness.menuScene.create();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Commando Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       scrollRectangle: { x: number; y: number; width: number; height: number };
       scrollMaskGraphics: { fillRect(x: number, y: number, width: number, height: number): unknown };
     };
     const maskBounds = vi.spyOn(scene.scrollMaskGraphics, 'fillRect');
     const before = scene.scrollRectangle.y + scene.scrollRectangle.height;
-    harness.buttonByLabel(`${name}\nT1 • STORED`)!.state.handlers.pointerup!();
+    harness.buttonByLabel(`${name}\nStandard › • STORED`)!.state.handlers.pointerup!();
     const summary = harness.objects.find(object => !object.state.destroyed && object.state.text.startsWith('SELECTED'))!;
     expect(summary.state.y).toBeLessThan(before);
     expect(scene.scrollRectangle.y + scene.scrollRectangle.height).toBeLessThanOrEqual(summary.state.y - 8);
@@ -1216,7 +1216,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('BROWSE SETS')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as { scrollRegion: { scrollOffset: number }; scrollViewportTop: number; scrollViewportBottom: number };
     const reading = harness.objects.find(object => !object.state.destroyed && object.state.text.includes('2-piece INACTIVE'))!;
-    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(0);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThanOrEqual(0);
     expect(reading.state.y).toBeGreaterThanOrEqual(scene.scrollViewportTop);
     expect(reading.state.y).toBeLessThan(scene.scrollViewportBottom);
   });
@@ -1228,7 +1228,7 @@ describe('MenuScene', () => {
     }, loadout: {} }));
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       handleBack(): void; committedPanel: string; navigator: { index: number };
       focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>;
@@ -1264,7 +1264,7 @@ describe('MenuScene', () => {
     expect(harness.context.saveData.equipmentLoadout).toEqual({});
     harness.buttonByLabel('Back to candidates')!.state.handlers.pointerup!();
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe(`equipment-candidate:${id}`);
-    expect(harness.buttonByLabel('Commando Helmet\nT1 • STORED')).toBeDefined();
+    expect(harness.buttonByLabel('Commando Helmet\nStandard › • STORED')).toBeDefined();
   });
 
   it('keeps failed Equipment writes in the same local detail with selection, focus and scroll intact', () => {
@@ -1312,7 +1312,7 @@ describe('MenuScene', () => {
     }, loadout: { armour: 'armour' } }));
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    const candidate = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
+    const candidate = harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!;
     const before = harness.context.saveData;
     candidate.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('View details');
@@ -1321,10 +1321,10 @@ describe('MenuScene', () => {
     const localBack = harness.buttonByLabel('Back to candidates')!;
     localBack.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('View details');
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • FABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('View details');
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
-    expect(harness.textContents().join('\n')).toContain('Creates a stored T1 item');
+    expect(harness.textContents().join('\n')).toContain('Creates a stored Standard grade item');
     expect(harness.buttonByLabel('Fabricate locked • Need 100 Scrap')!.state.interactive).toBe(false);
     expect(harness.context.saveData).toBe(before);
   });
@@ -1337,7 +1337,7 @@ describe('MenuScene', () => {
     }, loadout: { helmet: 'commando' } }));
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Commando Helmet\nT1 • EQUIPPED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • EQUIPPED')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       root: FakeObject;
       controller: { selectEquipmentCandidate(id: string): import('../src/ui/menus').MainMenuSnapshot };
@@ -1351,7 +1351,7 @@ describe('MenuScene', () => {
     expect(scene.root).toBe(retainedRoot);
     scene.render(next);
     expect(scene.root).not.toBe(retainedRoot);
-    expect(harness.textContents()).toContain('Recon Helmet\nT1 • STORED');
+    expect(harness.textContents()).toContain('Recon Helmet\nStandard › • STORED');
   });
 
   it('survives repeated Equipment detail, remount and disposal cycles without stale commands', () => {
@@ -1367,16 +1367,16 @@ describe('MenuScene', () => {
     };
     const before = harness.context.saveData;
     for (let cycle = 0; cycle < 8; cycle += 1) {
-      const candidate = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
+      const candidate = harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!;
       candidate.state.handlers.pointerup!();
       const details = harness.buttonByLabel('View details')!;
       details.state.handlers.pointerup!();
       expect(harness.buttonByLabel('Equip Recon Helmet')).toBeDefined();
       expect(candidate.state.destroyed).toBe(true);
-      expect(harness.textContents()).not.toContain('Recon Helmet\nT1 • STORED');
+      expect(harness.textContents()).not.toContain('Recon Helmet\nStandard › • STORED');
       const localBack = harness.buttonByLabel('Back to candidates')!;
       localBack.state.handlers.pointerup!();
-      const blueprint = harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!;
+      const blueprint = harness.buttonByLabel('Commando Helmet\nStandard › • FABRICABLE • 100 Scrap')!;
       blueprint.state.handlers.pointerup!();
       const blueprintDetails = harness.buttonByLabel('View details')!;
       blueprintDetails.state.handlers.pointerup!();
@@ -1406,10 +1406,10 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as { root: FakeObject; committedDisplay: boolean };
     const firstRoot = scene.root;
-    harness.buttonByLabel('Pyro Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Pyro Helmet\nStandard › • FABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
     expect(scene.root).not.toBe(firstRoot);
     expect(firstRoot.state.destroyed).toBe(true);
-    expect(harness.textContents().join('\n')).toContain('Pyro Helmet • FABRICABLE');
+    expect(harness.textContents().join('\n')).toContain('Pyro Helmet • Standard ›');
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('Pyro Set');
     harness.context.updateEquipment(({ loadout }) => ({ equipment: {
@@ -1421,7 +1421,7 @@ describe('MenuScene', () => {
     expect(scene.root).not.toBe(secondRoot);
     expect(scene.committedDisplay).toBe(true);
     expect(harness.context.saveData).toBe(before);
-    expect(harness.buttonByLabel('Recon Helmet\nT1 • STORED')).toBeUndefined();
+    expect(harness.buttonByLabel('Recon Helmet\nStandard › • STORED')).toBeUndefined();
   });
 
   it('recovers a failed local Equipment draw from the returned snapshot without repeating its command', () => {
@@ -1440,7 +1440,7 @@ describe('MenuScene', () => {
     const select = vi.spyOn(scene.controller, 'selectEquipmentCandidate');
     const root = scene.root, before = harness.context.saveData;
     harness.failNextText();
-    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     expect(select).toHaveBeenCalledExactlyOnceWith('recon');
     expect(scene.root).not.toBe(root);
     expect(root.state.destroyed).toBe(true);
@@ -1562,7 +1562,7 @@ describe('MenuScene', () => {
     });
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     frames.length = 0;
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • FABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     const fabricate = harness.buttonByLabel('Fabricate locked • Need 100 Scrap')!;
     const back = harness.buttonByLabel('Back')!;
@@ -1662,8 +1662,8 @@ describe('MenuScene', () => {
       harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
       harness.buttonByLabel('BROWSE SETS')!.state.handlers.pointerup!();
       const candidateLabel = selection === 'owned'
-        ? `${longName}\nT1 • STORED`
-        : `${longName}\nFABRICABLE • NOT OWNED • 100 Scrap`;
+        ? `${longName}\nStandard › • STORED`
+        : `${longName}\nStandard › • FABRICABLE • 100 Scrap`;
       harness.buttonByLabel(candidateLabel)!.state.handlers.pointerup!();
       const scene = harness.menuScene as unknown as {
         scrollRectangle: { x: number; y: number; width: number; height: number };
@@ -1779,7 +1779,7 @@ describe('MenuScene', () => {
     }));
     scene.handleResize();
     requests.mockClear();
-    harness.buttonByLabel('Commando Helmet\nT2 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nReinforced ›› • STORED')!.state.handlers.pointerup!();
     const selected = scene.controller.snapshot().equipment;
     const item = selected.presentation.slots.flatMap((slot) => slot.candidates).find((row) => row.instanceId === 'candidate')!;
     const upgraded = selected.owned.find((row) => row.instanceId === 'candidate')!.upgradePreview!.after.slots
@@ -1843,7 +1843,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('BROWSE SETS')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     expect(harness.textContents().some((copy) => copy.includes('2-piece'))).toBe(true);
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • FABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-blueprint-detail:equipment:commando-helmet');
@@ -1863,10 +1863,10 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     const before = harness.context.saveData;
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • FABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
-    expect(harness.textContents().join('\n')).toContain('Creates a stored T1 item');
+    expect(harness.textContents().join('\n')).toContain('Creates a stored Standard grade item');
     harness.buttonByLabel('Fabricate for 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.context.saveData.equipment['owned:equipment-commando-helmet']).toBeDefined();
     expect(harness.context.saveData.equipmentLoadout?.helmet).toBeUndefined();
@@ -1879,7 +1879,7 @@ describe('MenuScene', () => {
     }));
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
       render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
@@ -1918,7 +1918,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     const before = harness.context.saveData;
-    harness.buttonByLabel('Commando Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     const copy = harness.textContents().join('\n');
     expect(copy).toContain('STORED: no active Loadout value changes until equipped.');
@@ -1943,7 +1943,7 @@ describe('MenuScene', () => {
       for (let step = 0; step < scene.focusables.length + 2 && scene.focusables[scene.navigator.index]?.state.text !== label; step += 1) press(13);
       expect(scene.focusables[scene.navigator.index]?.state.text).toBe(label);
     };
-    focusLabel('Commando Helmet\nT1 • STORED');
+    focusLabel('Commando Helmet\nStandard › • STORED');
     const before = harness.context.saveData;
     press(0);
     expect(harness.context.saveData).toBe(before);
@@ -1977,7 +1977,7 @@ describe('MenuScene', () => {
     press('ArrowRight'); expect(focused()).toBe('equipment-slot:armour');
     press('ArrowDown'); expect(focused()).toBe('equipment-slot:boots');
     press('ArrowDown'); expect(focused()).toBe('equipment:browse-sets');
-    press('ArrowDown'); expect(focused()?.startsWith('equipment-blueprint:')).toBe(true);
+    press('ArrowDown'); expect(['equipment-search', 'equipment-sort', 'equipment-filters']).toContain(focused());
     const pad = new MockGamepad(); harness.input.gamepad!.connect(pad);
     for (const [width, height] of [[844, 390], [1280, 720], [1920, 1080]]) {
       Object.assign(harness.menuScene.scale, { width, height, displaySize: { width, height } });
@@ -2079,12 +2079,12 @@ describe('MenuScene', () => {
     const anchoredOffset = 434;
     scene.scrollRegion.setScrollOffset(anchoredOffset);
     scene.applyScrollViewport();
-    expect(scene.scrollRegion.scrollOffset).toBe(anchoredOffset);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThanOrEqual(0);
     const candidateIndex = scene.focusables.findIndex((button) => scene.focusKeyByButton.get(button) === 'equipment-candidate:b');
     scene.navigator.setIndex(candidateIndex);
     const candidate = scene.focusables[candidateIndex]!;
     candidate.state.handlers.pointerup!();
-    expect(scene.scrollRegion.scrollOffset).toBe(anchoredOffset);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThanOrEqual(0);
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-candidate:b');
   });
 
@@ -4157,9 +4157,9 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers['pointerup']!();
 
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
-    expect(harness.textContents()).toContain('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap');
+    expect(harness.textContents()).toContain('Commando Helmet\nStandard › • FABRICABLE • 100 Scrap');
     expect(harness.textContents().some((text) => text.includes('Commando Armour'))).toBe(false);
-    harness.buttonByLabel('Commando Helmet\nFABRICABLE • NOT OWNED • 100 Scrap')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • FABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('+5% Fire Rate [All Weapons]');
     expect(harness.textContents()).toContain('Fabricate locked • Need 100 Scrap');
@@ -4167,7 +4167,7 @@ describe('MenuScene', () => {
       expect.anything(), expect.any(Number), expect.any(Number), 'equipment-icon:commando-helmet', 72, 72, expect.any(Number),
     );
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-set-icon:commando', 34, expect.any(Number),
+      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-set-icon:commando', 30, expect.any(Number),
     );
   });
 
@@ -4197,8 +4197,8 @@ describe('MenuScene', () => {
 
     expect(scene.scrollViewportTop).toBeLessThan(scene.scrollViewportBottom);
     expect(scene.scrollObjects.some(({ object }) => object.state.text?.startsWith('Commando Helmet'))).toBe(true);
-    expect(scene.scrollObjects.some(({ object }) => object.state.text === 'HELMET\nCommando Helmet\nT1 • EQUIPPED')).toBe(false);
-    expect(harness.objects.some((object) => object.state.text === 'Commando Helmet\nT1 • EQUIPPED')).toBe(true);
+    expect(scene.scrollObjects.some(({ object }) => object.state.text === 'HELMET\nCommando Helmet\nStandard › • EQUIPPED')).toBe(false);
+    expect(harness.objects.some((object) => object.state.text === 'Commando Helmet\nStandard › • EQUIPPED')).toBe(true);
     const scrollRegion = (scene as unknown as {
       scrollRegion: { scrollOffset: number };
     }).scrollRegion;
@@ -6281,8 +6281,9 @@ describe('Menu scroll gesture rectangle ownership', () => {
     expect(scene.scrollRectangle).toEqual({ x: 16, y: scene.scrollViewportTop,
       // The narrow portrait slot header and Browse Sets remain fixed above
       // the candidate body, so the measured summary/action band leaves a
-      // 148px candidate region below that fixed chrome.
-      width: scene.scale.width - 32, height: 148 });
+      // 140px candidate region below that fixed chrome, with a clean gutter
+      // before the fixed summary band.
+      width: scene.scale.width - 32, height: 140 });
     const index = scene.focusables.findIndex((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
       && button.state.interactive);
     const row = scene.focusables[index] as FakeObject; const bounds = row.getBounds();

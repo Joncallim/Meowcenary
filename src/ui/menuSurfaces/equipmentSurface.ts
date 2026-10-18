@@ -1,9 +1,17 @@
 import type Phaser from 'phaser';
 import type { MainMenuSnapshot } from '../menus';
 import { LoadoutPanelSurface } from './loadoutChrome';
-import { type MenuScrollBookmark, type MenuScrollRectangle, type MenuSurfaceLayout, type EquipmentSurfaceCommands, type MenuSurfaceControls } from './surface';
+import { type MenuScrollBookmark, type MenuScrollRectangle, type MenuSurfaceLayout, type EquipmentSurfaceCommands, type MenuSurfaceControls, type MenuSurfaceEnvironment } from './surface';
 import { edgeMargin } from '../layout';
 import type { EquipmentComparison } from '../equipmentPresentation';
+import {
+  equipmentBrowseFilterCount,
+  equipmentGradeAccessibleCopy,
+  equipmentGradeCopy,
+  equipmentSortCopy,
+  type EquipmentCatalogEntry,
+  type EquipmentFilterFacet,
+} from '../equipmentCatalog';
 
 export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceCommands> {
   readonly panel = 'equipment' as const;
@@ -28,6 +36,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   private renderedBlueprintId?: string;
   private renderedSlot?: string;
   private renderedWideInspector = false;
+  private filtersOpen = false;
+  private searchMode = false;
+  private readonly searchKeyListener: (event: KeyboardEvent) => void;
   /** Candidate cards remain mounted while browse selection replaces only the
    * fixed summary. They become replaceable when the same mount enters detail. */
   private browseCandidateObjects: Phaser.GameObjects.GameObject[] = [];
@@ -36,6 +47,12 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
    * replaceable candidate/summary tail. Detail updates suppress this slice
    * explicitly; they never suppress the whole masked content container. */
   private browsePrefixObjects: Phaser.GameObjects.GameObject[] = [];
+
+  constructor(environment: MenuSurfaceEnvironment, commands: EquipmentSurfaceCommands) {
+    super(environment, commands);
+    this.searchKeyListener = (event: KeyboardEvent) => this.handleSearchKey(event);
+    environment.scene.input?.keyboard?.on('keydown', this.searchKeyListener, this);
+  }
 
   get selectionObjects(): readonly Phaser.GameObjects.GameObject[] {
     return this.detailViewOpen ? [...this.browseCandidateObjects, ...this.tailObjects] : this.tailObjects;
@@ -147,6 +164,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   }
 
   override unmount(): void {
+    this.searchMode = false;
     this.selectionGeneration += 1;
     this.selectionInvariant = undefined;
     this.tailObjects = [];
@@ -157,6 +175,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   }
 
   override dispose(): void {
+    this.environment.scene.input?.keyboard?.off('keydown', this.searchKeyListener, this);
     this.selectionGeneration += 1;
     this.selectionInvariant = undefined;
     this.tailObjects = [];
@@ -200,13 +219,43 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       equipment.blueprints,
       equipment.acquisition,
       equipment.unavailable,
+      equipment.browse,
+      equipment.filteredCatalog,
+      equipment.setCatalog,
       snapshot.stage.stages.find(stage => stage.selected)?.menuBackdropArtId,
     ]);
   }
 
+  private handleSearchKey(event: KeyboardEvent): void {
+    if (!this.searchMode) return;
+    if (event.key === 'Escape' || event.key === 'Enter') {
+      event.preventDefault();
+      this.searchMode = false;
+      if (event.key === 'Escape' && this.environment.scene.input?.keyboard) {
+        this.environment.onSnapshot(this.commands.setEquipmentSearch(''));
+      } else {
+        this.environment.onSnapshot(this.commands.snapshot());
+      }
+      return;
+    }
+    const current = this.cachedSearchQuery;
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+      this.environment.onSnapshot(this.commands.setEquipmentSearch(current.slice(0, -1)));
+    } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+      this.environment.onSnapshot(this.commands.setEquipmentSearch(`${current}${event.key}`));
+    }
+  }
+
+  private cachedSearchQuery = '';
+
   protected draw(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, layout: MenuSurfaceLayout, scrap: number): void {
     const { top, hitTarget } = layout;
     const equipment = snapshot.equipment;
+    this.cachedSearchQuery = equipment.browse.filters.query;
+    this.renderedSelectionId = equipment.selectedInstanceId;
+    this.renderedBlueprintSelectionId = equipment.selectedBlueprintId;
     const scope = equipment.selectedSlot;
     if (this.browseScope !== scope) {
       this.browseScope = scope;
@@ -329,7 +378,10 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // scroll offset can move the first helmet card underneath Browse Sets.
     // Compact landscape has a smaller vertical budget and retains its shared
     // region so the candidate viewport stays positive.
-    if (fixedSlotGrid && !desktopCollectionScroll) this.collectionTop = y;
+    // All narrow layouts keep the authored slot/header band fixed. Only the
+    // inventory/search body should move, including when the slot cards use
+    // their larger art-led treatment at 390px portrait.
+    if (!desktopCollectionScroll) this.collectionTop = y;
     if (!desktopCollectionScroll) {
       this.environment.controls.beginScrollableRegion(this.collectionRectangle(left, this.collectionTop, collectionWidth));
     }
@@ -340,23 +392,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // readable name/count summary in the same scroll-owned region. Compact
     // phones use two columns; wider profiles use four and naturally expose a
     // scroll rail for the second row when the viewport cannot show it all.
-    const setColumns = compactCollection ? Math.min(2, equipment.presentation.sets.length)
-      : Math.min(4, equipment.presentation.sets.length);
-    const setWidth = (collectionWidth - Math.max(0, setColumns - 1) * 8) / Math.max(1, setColumns);
-    const setRowHeight = compactCollection ? 58 : 64;
-    const setRows = Math.ceil(equipment.presentation.sets.length / Math.max(1, setColumns));
-    equipment.presentation.sets.forEach((set, index) => {
-      const column = index % setColumns;
-      const row = Math.floor(index / setColumns);
-      const tileX = left + column * (setWidth + 8);
-      const tileY = y + row * setRowHeight;
-      this.environment.controls.addCatalogIcon(root, tileX + 20, tileY + setRowHeight / 2,
-        set.emblemArtId, compactCollection ? 32 : 36);
-      const label = this.loadoutCopy(root, tileX + 44, tileY + (compactCollection ? 6 : 2),
-        `${set.name}\n${set.equippedCount}/4 EQUIPPED`, setWidth - 52, '#f7f1d5');
-      label.setStyle({ fontSize: this.layout.width >= 600 ? '14px' : '12px', fontStyle: '700', lineSpacing: 1 });
-    });
-    y += setRows * setRowHeight;
+    // The full set catalog is intentionally behind Browse Sets. The always-
+    // visible shell keeps only the selected-set context in the header, which
+    // returns browsing height to the inventory on phones and foldables.
     const browsePrefixObjects = new Set([...root.list]);
     this.browsePrefixObjects = [...browsePrefixObjects];
     const put = (text: string, color?: string) => { const copy = this.loadoutCopy(root, left, y, text, collectionWidth, color); y += copy.height + 8; };
@@ -375,19 +413,30 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // short phones retain a positive viewport instead of pushing collection
     // content below the fixed action band.
       const collectionBottom = fixedSummary
-        ? this.browseSummaryTop(browseSummary!.summary.height) - (fixedSlotGrid && this.layout.width >= 600 ? 0 : 8)
+        // Leave a clean lower gutter so the first browse-control line cannot
+        // peek beneath the fixed summary on short phones. The body remains a
+        // single scroll lane, so the controls and cards are still reachable.
+        ? this.browseSummaryTop(browseSummary!.summary.height) - (this.layout.width >= 600 ? 8 : 16)
         : this.layout.scrollBottom;
       this.environment.controls.resizeScrollableRegion(this.collectionRectangle(left, this.collectionTop,
         collectionWidth, collectionBottom));
     const setReadingTop = y;
     if (this.equipmentSetBrowserOpen) {
-      for (const set of equipment.presentation.sets) {
-        const copy = this.loadoutCopy(root, left + 46, y, this.setProgressCopy(set), collectionWidth - 46);
+      for (const set of equipment.setCatalog) {
+        const availability = set.available ? `${set.pieces}/4 equipped` : `LOCKED • ${set.unlockReason}`;
+        const thresholds = set.thresholds.map((threshold) => `${threshold.count}-piece ${threshold.active ? 'ACTIVE' : 'INACTIVE'}: ${this.loadoutEffectCopy(threshold.effects)}`).join('\n');
+        const copy = this.loadoutCopy(root, left + 46, y, `${set.name}  ${availability}\n${set.description}\n${thresholds}`, collectionWidth - 46);
         this.environment.controls.addCatalogIcon(root, left + 20, y + 22, set.emblemArtId, 36);
         y += copy.height + 12;
       }
+      const unavailable = equipment.acquisition.filter((row) => row.slot === equipment.selectedSlot && !row.available && !row.owned);
+      if (unavailable.length) {
+        put('UNAVAILABLE FABRICATION');
+        for (const route of unavailable) put(`${route.name}: ${route.summary}`, '#fbbf24');
+      }
     }
-    put(`${selectedSlot.label.toUpperCase()} CANDIDATES • ${scrap} Scrap`);
+    y = this.renderBrowseControls(root, snapshot, left, y, collectionWidth, hitTarget);
+    put(`INVENTORY • ${equipment.filteredCatalog.length} OF ${equipment.catalog.length} RESULTS • ${scrap} Scrap`);
     const renderCards = <T extends { readonly name: string; readonly iconArtId: string }>(
       cards: readonly T[], label: (card: T) => string, key: (card: T) => string,
       action: (card: T) => void, trailingReserve = 0,
@@ -417,38 +466,37 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         y += rowHeight + 8;
       }
     };
-    renderCards(selectedSlot.candidates,
-      item => `${item.name}\nT${item.tier} • ${item.state}`,
-      item => `equipment-candidate:${item.instanceId}`,
+    const ownedEntries = equipment.filteredCatalog.filter((entry) => entry.kind === 'owned');
+    const blueprintEntries = equipment.filteredCatalog.filter((entry) => entry.kind === 'blueprint');
+    if (!ownedEntries.length) put(`No stored ${selectedSlot.label.toLowerCase()} pieces. Choose a blueprint to fabricate.`);
+    else if (!blueprintEntries.length && equipment.catalog.length === 0) put('No equipment matches the current search and filters.');
+    renderCards(ownedEntries,
+      item => `${item.name}\n${equipmentGradeCopy(item.grade)} • ${item.state}`,
+      item => `equipment-candidate:${item.id}`,
       item => {
-        this.browseReturnFocusKey = `equipment-candidate:${item.instanceId}`;
+        this.browseReturnFocusKey = `equipment-candidate:${item.id}`;
         this.browseReturnScrollOffset = this.environment.controls.currentScrollOffset();
         this.browseReturnBookmark = this.environment.controls.currentScrollBookmark();
         // Pointer selection is an explicit visual inspection gesture and can
         // stationary-summary contract: card selection never auto-opens local
         // detail. The explicit View details action owns that transition for
         // both pointer and keyboard/controller users.
-        this.environment.controls.focusNext(`equipment-candidate:${item.instanceId}`);
-        this.environment.onSnapshot(this.commands.selectEquipmentCandidate(item.instanceId), 'equipment-selection');
-      });
-    for (const route of equipment.acquisition.filter((row) => row.slot === equipment.selectedSlot && !row.available && !row.owned)) put(`${route.name}: ${route.summary}`);
-    if (!selectedSlot.candidates.length) put(`No stored ${selectedSlot.label.toLowerCase()} pieces. Choose a blueprint to fabricate.`);
-    if (blueprints.length) put('AVAILABLE BLUEPRINTS');
-    renderCards(blueprints,
-      blueprint => `${blueprint.name}\nFABRICABLE • NOT OWNED • ${blueprint.fabricationCost} Scrap`,
-      blueprint => `equipment-blueprint:${blueprint.equipmentId}`,
+        this.environment.controls.focusNext(`equipment-candidate:${item.id}`);
+        this.environment.onSnapshot(this.commands.selectEquipmentCandidate(item.id), 'equipment-selection');
+      }, 0, (item, x, rowY, ownerIndex, rowHeight) => this.decorateCatalogCard(root, item, x, rowY, cardWidth, rowHeight, ownerIndex));
+    if (blueprintEntries.length) put('AVAILABLE BLUEPRINTS');
+    renderCards(blueprintEntries,
+      blueprint => `${blueprint.name}\n${equipmentGradeCopy(blueprint.grade)} • FABRICABLE • ${blueprint.fabricationCost} Scrap`,
+      blueprint => `equipment-blueprint:${blueprint.id}`,
       blueprint => {
-        this.browseReturnFocusKey = `equipment-blueprint:${blueprint.equipmentId}`;
+        this.browseReturnFocusKey = `equipment-blueprint:${blueprint.id}`;
         this.browseReturnScrollOffset = this.environment.controls.currentScrollOffset();
         this.browseReturnBookmark = this.environment.controls.currentScrollBookmark();
         // Blueprint selection follows the same stationary-summary rule as
         // owned candidates; detail remains an explicit action.
-        this.environment.controls.focusNext(`equipment-blueprint:${blueprint.equipmentId}`);
-        this.environment.onSnapshot(this.commands.selectEquipmentBlueprint(blueprint.equipmentId), 'equipment-selection');
-      }, 48, (blueprint, x, rowY, ownerIndex, rowHeight) => {
-        this.environment.controls.addCatalogIcon(root, x + cardWidth - 24,
-          rowY + rowHeight / 2, blueprint.setEmblemArtId, 34, ownerIndex);
-      });
+        this.environment.controls.focusNext(`equipment-blueprint:${blueprint.id}`);
+        this.environment.onSnapshot(this.commands.selectEquipmentBlueprint(blueprint.id), 'equipment-selection');
+      }, 48, (blueprint, x, rowY, ownerIndex, rowHeight) => this.decorateCatalogCard(root, blueprint, x, rowY, cardWidth, rowHeight, ownerIndex));
     this.browseCandidateObjects = [...new Set(root.list)].filter(object =>
       !this.browsePrefixObjects.includes(object) && object !== browseSummary?.summary);
     this.environment.resources.equipment([
@@ -481,6 +529,138 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // replaceable body. Browse/detail transitions rebuild the surface mount;
     // same-mode selection updates replace this owned suffix in place.
   }
+
+  private renderBrowseControls(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot,
+    left: number, top: number, width: number, hitTarget: number): number {
+    const equipment = snapshot.equipment;
+    const filters = equipment.browse.filters;
+    const activeCount = equipmentBrowseFilterCount(filters);
+    const gap = 8;
+    const columns = width >= 600 ? 2 : 1;
+    const columnWidth = (width - gap * (columns - 1)) / columns;
+    let y = top;
+    const addControl = (label: string, key: string, action: () => void, x = left, controlWidth = width): Phaser.GameObjects.Text => {
+      const button = this.button(root, x, y, label, hitTarget, action, 'ui:confirm', controlWidth, undefined, 0, 0, false, 'left', 'section');
+      button.setStyle({ fontSize: '14px' });
+      this.rememberLoadoutFocus(button, key);
+      return button;
+    };
+    const searchLabel = this.searchMode
+      ? `SEARCHING • ${filters.query || 'type a name, set, or effect'} • ENTER DONE • ESC CLEAR`
+      : filters.query ? `SEARCH • ${filters.query}` : 'SEARCH NAMES, SETS, OR EFFECTS';
+    const search = addControl(searchLabel, 'equipment-search', () => {
+      this.searchMode = !this.searchMode;
+      this.environment.controls.focusNext('equipment-search');
+      this.environment.onSnapshot(this.commands.snapshot());
+    });
+    y += search.height + gap;
+    const sort = addControl(`SORT • ${equipmentSortCopy(equipment.browse.sort, equipment.browse.direction)}`,
+      'equipment-sort', () => this.environment.onSnapshot(this.commands.cycleEquipmentSort()), left, columnWidth);
+    if (columns === 1) y += sort.height + gap;
+    const filter = addControl(`FILTERS • ${activeCount} ACTIVE`,
+      'equipment-filters', () => { this.filtersOpen = !this.filtersOpen; this.environment.onSnapshot(this.commands.snapshot()); },
+      left + (columns === 2 ? columnWidth + gap : 0), columnWidth);
+    y += columns === 1 ? filter.height + gap : Math.max(sort.height, filter.height) + gap;
+    const result = this.loadoutCopy(root, left, y,
+      `SHOWING ${equipment.filteredCatalog.length} OF ${equipment.catalog.length} ITEMS${activeCount ? ` • ${activeCount} FILTER${activeCount === 1 ? '' : 'S'} ACTIVE` : ''}`,
+      width, '#d6f7ff');
+    result.setStyle({ fontSize: '13px' });
+    y += result.height + gap;
+    const addFilterChip = (label: string, facet: EquipmentFilterFacet, value: string): void => {
+      const chip = this.button(root, left, y, `× ${label}`, hitTarget - 4, () => {
+        this.environment.onSnapshot(this.commands.toggleEquipmentFilter(facet, value));
+      }, 'ui:confirm', width, undefined, 0, 0, false, 'left', 'card');
+      this.rememberLoadoutFocus(chip, `equipment-filter-chip:${facet}:${value}`);
+      y += chip.height + 4;
+    };
+    if (filters.query) {
+      const chip = this.button(root, left, y, `× Search “${filters.query}”`, hitTarget - 4,
+        () => this.environment.onSnapshot(this.commands.setEquipmentSearch('')), 'ui:confirm', width, undefined, 0, 0, false, 'left', 'card');
+      this.rememberLoadoutFocus(chip, 'equipment-filter-chip:search');
+      y += chip.height + 4;
+    }
+    filters.slots.forEach((slot) => addFilterChip(`Slot: ${slot}`, 'slot', slot));
+    filters.sets.forEach((setId) => addFilterChip(`Set: ${equipment.setCatalog.find((set) => set.setId === setId)?.name ?? setId}`, 'set', setId));
+    filters.grades.forEach((grade) => addFilterChip(`Grade: ${equipmentGradeCopy(grade)}`, 'grade', String(grade)));
+    filters.ownership.forEach((ownership) => addFilterChip(`State: ${ownership}`, 'ownership', ownership));
+    filters.readiness.forEach((readiness) => addFilterChip(`Upgrade: ${readiness}`, 'readiness', readiness));
+    if (activeCount) {
+      const clear = this.button(root, left, y, 'CLEAR FILTERS', hitTarget - 4,
+        () => this.environment.onSnapshot(this.commands.clearEquipmentFilters()), 'ui:back', width, undefined, 0, 0, false, 'left', 'section');
+      this.rememberLoadoutFocus(clear, 'equipment-clear-filters');
+      y += clear.height + gap;
+    }
+    if (!this.filtersOpen) return y;
+    const addFacet = (title: string, facet: EquipmentFilterFacet, options: readonly { value: string; label: string }[]): void => {
+      const heading = this.loadoutCopy(root, left, y, title, width, '#f78003');
+      heading.setStyle({ fontSize: '13px', fontStyle: '700' });
+      y += heading.height + 4;
+      const facetColumns = width >= 600 ? 3 : 2;
+      const facetGap = 6;
+      const facetWidth = (width - facetGap * (facetColumns - 1)) / facetColumns;
+      let rowHeight = 0;
+      options.forEach((option, index) => {
+        if (index > 0 && index % facetColumns === 0) { y += rowHeight + facetGap; rowHeight = 0; }
+        const x = left + (index % facetColumns) * (facetWidth + facetGap);
+        const active = facet === 'slot' ? filters.slots.includes(option.value as never)
+          : facet === 'set' ? filters.sets.includes(option.value)
+            : facet === 'grade' ? filters.grades.includes(Number(option.value) as never)
+              : facet === 'ownership' ? filters.ownership.includes(option.value as never)
+                : filters.readiness.includes(option.value as never);
+        const button = this.button(root, x, y, `${active ? '✓ ' : ''}${option.label}`, hitTarget - 8,
+          () => this.environment.onSnapshot(this.commands.toggleEquipmentFilter(facet, option.value)),
+          'ui:confirm', facetWidth, undefined, 0, 0, true, 'left', 'card');
+        this.rememberLoadoutFocus(button, `equipment-filter:${facet}:${option.value}`);
+        rowHeight = Math.max(rowHeight, button.height);
+      });
+      y += rowHeight + facetGap;
+    };
+    addFacet('SLOT • OR WITHIN THIS FACET', 'slot', [
+      { value: 'all', label: filters.slots.length ? 'All slots' : 'All slots ✓' },
+      { value: 'helmet', label: 'Helmet' }, { value: 'armour', label: 'Armour' },
+      { value: 'gloves', label: 'Gloves' }, { value: 'boots', label: 'Boots' },
+    ]);
+    addFacet('SET • OR WITHIN THIS FACET', 'set', [
+      { value: 'all', label: filters.sets.length ? 'All sets' : 'All sets ✓' },
+      ...equipment.setCatalog.map((set) => ({ value: set.setId, label: set.name })),
+    ]);
+    addFacet('GRADE • OR WITHIN THIS FACET', 'grade', [
+      { value: 'all', label: filters.grades.length ? 'All grades' : 'All grades ✓' },
+      ...([1, 2, 3, 4] as const).map((grade) => ({ value: String(grade), label: equipmentGradeAccessibleCopy(grade) })),
+    ]);
+    addFacet('OWNERSHIP • OR WITHIN THIS FACET', 'ownership', [
+      { value: 'all', label: filters.ownership.length ? 'All states' : 'All states ✓' },
+      { value: 'equipped', label: 'Equipped' }, { value: 'stored', label: 'Stored' }, { value: 'blueprint', label: 'Blueprint' },
+    ]);
+    addFacet('UPGRADE READINESS • OR WITHIN THIS FACET', 'readiness', [
+      { value: 'all', label: filters.readiness.length ? 'All statuses' : 'All statuses ✓' },
+      { value: 'ready', label: 'Ready' }, { value: 'insufficient-scrap', label: 'Insufficient Scrap' },
+      { value: 'progression-lock', label: 'Progression locked' }, { value: 'maxed', label: 'Maxed' },
+    ]);
+    return y;
+  }
+
+  private decorateCatalogCard(root: Phaser.GameObjects.Container, entry: EquipmentCatalogEntry,
+    x: number, y: number, width: number, rowHeight: number, ownerIndex: number): void {
+    const selected = entry.kind === 'owned'
+      ? entry.id === this.currentSnapshotSelectionId
+      : entry.id === this.currentSnapshotBlueprintId;
+    const marker = this.own(root, this.environment.scene.add.rectangle(x + 4, y + rowHeight / 2, 4, 24,
+      selected ? 0x2dd4bf : entry.state === 'EQUIPPED' ? 0xfbbf24 : 0x526273));
+    marker.setScrollFactor(0);
+    this.environment.controls.registerScrollObject(marker, ownerIndex);
+    const outline = this.own(root, this.environment.scene.add.rectangle(x + width / 2, y + rowHeight / 2,
+      Math.max(0, width - 2), Math.max(0, rowHeight - 2), 0x2dd4bf, 0));
+    outline.setStrokeStyle(2, selected ? 0x2dd4bf : 0x214756, selected ? 1 : 0.65);
+    outline.setScrollFactor(0);
+    this.environment.controls.registerScrollObject(outline, ownerIndex);
+    this.environment.controls.addCatalogIcon(root, x + width - 24, y + rowHeight / 2, entry.setEmblemArtId, 30, ownerIndex);
+  }
+
+  private get currentSnapshotSelectionId(): string | undefined { return this.renderedSelectionId; }
+  private get currentSnapshotBlueprintId(): string | undefined { return this.renderedBlueprintSelectionId; }
+  private renderedSelectionId?: string;
+  private renderedBlueprintSelectionId?: string;
 
   /** Compact browse state keeps the selected identity visible without
    * appending a long inspector. Details are an explicit local view. */
@@ -523,8 +703,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const selected = selectedSlot.candidates.find(item => item.instanceId === equipment.selectedInstanceId);
     const blueprint = equipment.blueprints.find(piece => piece.equipmentId === equipment.selectedBlueprintId);
     const selectedKey = selected ? `equipment-candidate:${selected.instanceId}` : blueprint ? `equipment-blueprint:${blueprint.equipmentId}` : `equipment-slot:${selectedSlot.slot}`;
-    const label = selected ? `${selected.name} • T${selected.tier} • ${selected.state}`
-      : blueprint ? `${blueprint.name} • FABRICABLE • ${blueprint.fabricationCost} Scrap` : `Select a ${selectedSlot.label.toLowerCase()} candidate`;
+    const label = selected ? `${selected.name} • ${equipmentGradeAccessibleCopy(selected.tier)} • ${selected.state}`
+      : blueprint ? `${blueprint.name} • ${equipmentGradeAccessibleCopy(1)} • FABRICABLE • ${blueprint.fabricationCost} Scrap` : `Select a ${selectedSlot.label.toLowerCase()} candidate`;
     const horizontalBand = this.layout.height <= 480 && this.layout.width >= 600;
     const actionWidth = Math.min(240, Math.max(180, Math.floor(contentWidth * 0.28)));
     const summaryWidth = horizontalBand ? contentWidth - actionWidth - 12 : contentWidth;
@@ -566,7 +746,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
    * left the 390px phone's 641–677px band with a native two-row grid whose
    * Browse Sets row overlapped the footer. */
   private useCompactEquipmentTabs(collectionTop: number, contentWidth: number): boolean {
-    if (this.layout.width <= 375 || this.layout.height <= 480) return true;
+    if (this.layout.width < 600 || this.layout.height <= 480) return true;
     const columns = this.layout.width >= 1040 ? 4 : 2;
     const gap = columns === 4 ? 8 : 12;
     const slotWidth = (contentWidth - gap * (columns - 1)) / columns;
@@ -681,7 +861,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const missing = blueprint.fabricationCost - scrap;
     return missing > 0
       ? `FABRICATE LOCKED • Need ${missing} more Scrap (balance ${scrap}).`
-      : `FABRICATE • Creates a stored T1 item for ${blueprint.fabricationCost} Scrap.`;
+      : `FABRICATE • Creates a stored Standard grade item for ${blueprint.fabricationCost} Scrap.`;
   }
 
   private equipmentSetChangeCopy(comparison: EquipmentComparison | undefined): string[] {
@@ -708,11 +888,11 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const setChangeCopy = this.equipmentSetChangeCopy(comparison);
     return [
       `ACTION: ${equipped ? 'UNEQUIP' : 'EQUIP'} ${selected.name}`,
-      `${equipped ? 'EFFECT WHILE EQUIPPED' : 'EFFECT AFTER EQUIP'}: ${this.loadoutEffectCopy(selected.effects) || 'None'}`,
+      `${equipped ? 'GAINS: EFFECT WHILE EQUIPPED' : 'GAINS: EFFECT AFTER EQUIP'}: ${this.loadoutEffectCopy(selected.effects) || 'None'}`,
       equipped
-        ? `AFTER UNEQUIP: Empty ${selectedSlot.label} slot`
-        : comparison?.displaced ? `REPLACES: ${comparison.displaced.name}` : `SLOT: ${selectedSlot.label}`,
-      `SET BONUS CHANGES: ${setChangeCopy.length ? setChangeCopy.join(' • ') : 'None'}`,
+        ? `LOSSES: AFTER UNEQUIP: Empty ${selectedSlot.label} slot`
+        : comparison?.displaced ? `LOSSES: REPLACES: ${comparison.displaced.name}` : `LOSSES: SLOT: ${selectedSlot.label}`,
+      `SET CHANGES: ${setChangeCopy.length ? setChangeCopy.join(' • ') : 'None'}`,
     ];
   }
 
@@ -737,7 +917,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     let actionTop = actionTopFor(actionCount);
     const contentBottom = (): number => actionTop - actionGap;
     const contentTop = this.layout.top + 18;
-    const title = selected ? `${selected.name} • T${selected.tier}` : blueprint!.name;
+    const title = selected ? `${selected.name} • ${equipmentGradeAccessibleCopy(selected.tier)}` : `${blueprint!.name} • ${equipmentGradeAccessibleCopy(1)}`;
     const subtitle = selected ? `${selectedSlot.label} • ${selected.state}` : `${blueprint!.setName} Set • ${selectedSlot.label}`;
     const heading = this.loadoutCopy(root, left, contentTop, `INSPECTOR\n${title}\n${subtitle}`, width, '#f7f1d5');
     const comparison = selected
@@ -756,13 +936,13 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         ...(comparison?.displaced && selected.state !== 'EQUIPPED'
           ? [`REMOVES: ${this.loadoutEffectCopy(comparison.displaced.effects) || 'None'}`] : []),
         upgradeAfter
-          ? `UPGRADE: T${selected.tier} → T${upgradeAfter.tier} • ${selectedEffects} → ${this.loadoutEffectCopy(upgradeAfter.effects) || 'None'}${upgrade?.upgradePreview?.cost === undefined ? '' : ` • ${upgrade.upgradePreview.cost} Scrap`}`
+          ? `UPGRADE: ${equipmentGradeCopy(selected.tier)} → ${equipmentGradeCopy(upgradeAfter.tier)} • ${selectedEffects} → ${this.loadoutEffectCopy(upgradeAfter.effects) || 'None'}${upgrade?.upgradePreview?.cost === undefined ? '' : ` • ${upgrade.upgradePreview.cost} Scrap`}`
           : 'UPGRADE: No preview',
       ].join('\n')
       : [
         `${blueprint!.effects.length} blueprint effect${blueprint!.effects.length === 1 ? '' : 's'}`,
         'EFFECTS', this.loadoutEffectCopy(blueprint!.effects) || 'None',
-        'Creates a stored T1 item; equip it separately.',
+        'Creates a stored Standard grade item; equip it separately.',
         this.fabricationReason(blueprint, scrap),
       ].join('\n');
     const fallbackSummaryText = 'View details for full consequences';
@@ -874,7 +1054,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       const desktopDecisionCopy = this.layout.width >= 600
         ? this.equipmentDecisionCopy(selected, selectedSlot, comparison) : [];
       const detail = this.equipmentInspection(root, left, y, contentWidth,
-        [`${selected.name} • T${selected.tier}`, `${selectedSlot.label} • ${set.name} Set • ${selected.state}`, source, ...desktopDecisionCopy]
+        [`${selected.name} • ${equipmentGradeAccessibleCopy(selected.tier)}`, `${selectedSlot.label} • ${set.name} Set • ${selected.state}`, source, ...desktopDecisionCopy]
           .filter(Boolean).join('\n'), selected.iconArtId);
       this.rememberLoadoutFocus(detail, `equipment-detail:${selected.instanceId}`);
       y += detail.height + 16;
@@ -896,7 +1076,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       if (upgrade.upgradePreview) {
         const cost = upgrade.upgradePreview.cost;
         const afterItem = upgrade.upgradePreview.after.slots.find((slot) => slot.slot === selected.slot)!.candidates.find((item) => item.instanceId === selected.instanceId)!;
-        put(`UPGRADE • T${selected.tier} → T${selected.tier + 1} • ${cost} Scrap\nBENEFIT: ${this.loadoutEffectCopy(selected.effects)} → ${this.loadoutEffectCopy(afterItem.effects)}\n${equipped ? 'EQUIPPED: improved values apply immediately after upgrade.' : 'STORED: no active Loadout value changes until equipped.'}`);
+        put(`UPGRADE • ${equipmentGradeCopy(selected.tier)} → ${equipmentGradeCopy(selected.tier + 1)} • ${cost} Scrap\nBENEFIT: ${this.loadoutEffectCopy(selected.effects)} → ${this.loadoutEffectCopy(afterItem.effects)}\n${equipped ? 'EQUIPPED: improved values apply immediately after upgrade.' : 'STORED: no active Loadout value changes until equipped.'}`);
         if (cost !== undefined) put(upgrade.upgradeLockReason ? `No Scrap spent • balance remains ${scrap}`
           : scrap < cost ? `Need ${cost - scrap} more Scrap • balance remains ${scrap}`
             : `Balance after: ${scrap - cost} Scrap`);
@@ -909,8 +1089,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
           selected.iconArtId, extent, extent, undefined, framing);
         this.environment.controls.addLoadoutArt(root, left + pairWidth + 16 + pairWidth / 2, y + 12 + extent / 2,
           afterItem.iconArtId, extent, extent, undefined, framing);
-        this.loadoutCopy(root, left + 12, y + extent + 24, `TIER ${selected.tier}`, pairWidth - 24, '#24cec7');
-        this.loadoutCopy(root, left + pairWidth + 28, y + extent + 24, `TIER ${afterItem.tier}`, pairWidth - 24, '#24cec7');
+        this.loadoutCopy(root, left + 12, y + extent + 24, equipmentGradeAccessibleCopy(selected.tier), pairWidth - 24, '#24cec7');
+        this.loadoutCopy(root, left + pairWidth + 28, y + extent + 24, equipmentGradeAccessibleCopy(afterItem.tier), pairWidth - 24, '#24cec7');
         y += extent + 72;
         put(`ITEM NOW\n${this.loadoutEffectCopy(selected.effects)}\nITEM AFTER UPGRADE\n${this.loadoutEffectCopy(afterItem.effects)}`);
         if (cost !== undefined) {
@@ -920,7 +1100,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         }
       }
       if (upgrade.upgradeLockReason) put(`LOCKED • ${upgrade.upgradeLockReason}`, '#fbbf24');
-      else if (selected.tier >= 4) put('Maximum Equipment tier');
+      else if (selected.tier >= 4) put('Masterwork grade reached • Maximum upgrade');
     } else if (selectedBlueprint) {
       const source = equipment.acquisition.find((row) => row.equipmentId === selectedBlueprint.equipmentId)?.summary ?? '';
       const detail = this.equipmentInspection(root, left, y, contentWidth,
@@ -928,7 +1108,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       this.rememberLoadoutFocus(detail, `equipment-blueprint-detail:${selectedBlueprint.equipmentId}`);
       y += detail.height + 16;
       y = this.renderScopedLoadoutEffects(root, selectedBlueprint.effects, left, y, contentWidth, 22);
-      put('Creates a stored T1 item. Equip it separately to change your Loadout.');
+      put('Creates a stored Standard grade item. Equip it separately to change your Loadout.');
     }
     put(this.fabricationReason(selectedBlueprint, scrap), selectedBlueprint && scrap >= selectedBlueprint.fabricationCost ? '#d6f7ff' : '#fbbf24');
     put('ACTIVE SETS');
