@@ -928,6 +928,7 @@ describe('MenuScene', () => {
     expect(setGain).toBeGreaterThan(itemGain);
     expect(rows.some((row) => row.includes('FIRE') && row.includes('Source: Pyro 2-piece bonus'))).toBe(true);
     expect(rows.some((row) => row.includes('burn') && row.includes('Source: Pyro 2-piece bonus'))).toBe(true);
+    expect(rows.some((row) => row.includes('Damage [Pistol]') && row.includes('Source: Pyro 2-piece bonus'))).toBe(true);
     expect(rows.findIndex((row) => row.includes('FIRE') && row.includes('Source:'))).toBeGreaterThan(setGain);
     expect(rows.findIndex((row) => row.includes('burn') && row.includes('Source:'))).toBeGreaterThan(setGain);
   });

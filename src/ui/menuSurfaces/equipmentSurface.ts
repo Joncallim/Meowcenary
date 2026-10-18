@@ -318,9 +318,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
 
   private closeSearchInput(clear = false): void {
     const input = this.searchInput;
-    if (clear) this.environment.onSnapshot(this.commands.setEquipmentSearch(''));
-    this.removeSearchInput();
     this.searchMode = false;
+    this.removeSearchInput();
+    if (clear) this.environment.onSnapshot(this.commands.setEquipmentSearch(''));
     if (!clear && input) this.environment.onSnapshot(this.commands.snapshot());
     this.environment.controls.focusNext('equipment-search');
   }
@@ -1061,6 +1061,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     upgrade: MainMenuSnapshot['equipment']['owned'][number],
     afterItem: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
     scrap: number,
+    registerScroll = true,
   ): number {
     const innerWidth = Math.max(1, width - 24);
     const lines = this.upgradeReviewLines(selected, upgrade, afterItem, scrap);
@@ -1071,11 +1072,12 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const panel = this.environment.visuals?.addPanel(this.environment.scene, left + width / 2, top + height / 2, width, height, 'figma-card');
     if (panel) {
       this.own(root, panel);
+      if (registerScroll) this.environment.controls.registerScrollObject(panel);
       root.moveTo(panel, 0);
     }
     let y = top + 6;
     lines.forEach((line) => {
-      const copy = this.loadoutCopy(root, left + 12, y, line.text, innerWidth, line.color, false);
+      const copy = this.loadoutCopy(root, left + 12, y, line.text, innerWidth, line.color, registerScroll);
       copy.setStyle({ fontSize: `${line.fontSize ?? 12}px`, lineSpacing: line.lineSpacing ?? 1, fontStyle: line.heading ? '700' : '600' });
       y += copy.height + 2;
     });
@@ -1120,6 +1122,10 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     return this.detailActionLabels(snapshot).map((label) => this.measureLoadoutActionHeight(label, this.loadoutContentWidth()));
   }
 
+  private detailReviewInScrollBody(): boolean {
+    return this.layout.height <= 480;
+  }
+
   private detailScrollableBottom(snapshot: MainMenuSnapshot, scrap: number): number {
     const actionHeights = this.detailActionHeights(snapshot);
     if (!actionHeights.length) return this.layout.scrollBottom;
@@ -1127,10 +1133,14 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const footerTop = snapshot.equipment.selectedBlueprintId === undefined ? this.layout.scrollBottom : this.footerTop();
     const fixedActionsTop = footerTop - actionHeights.reduce((height, actionHeight) => height + actionHeight + actionGap, 0);
     const previewHeight = this.detailDecisionPreviewHeight(snapshot);
-    const reviewHeight = this.detailUpgradeReviewHeight(snapshot, scrap);
-    return Math.min(this.layout.scrollBottom, fixedActionsTop - actionGap
+    const reviewHeight = this.detailReviewInScrollBody() ? 0 : this.detailUpgradeReviewHeight(snapshot, scrap);
+    const reservedBottom = Math.min(this.layout.scrollBottom, fixedActionsTop - actionGap
       - (reviewHeight > 0 ? reviewHeight + actionGap : 0)
       - (previewHeight > 0 ? previewHeight + actionGap : 0));
+    // On a short landscape viewport the review reader moves into the body
+    // scroll lane, but the action stack remains fixed. Keep the shared mask
+    // valid even when wrapped fixed labels consume nearly all of the height.
+    return Math.max(this.detailTop + 32, reservedBottom);
   }
 
   private detailFixedActionTop(snapshot: MainMenuSnapshot): number {
@@ -1386,7 +1396,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       if (upgrade?.upgradePreview) {
         const cost = upgrade.upgradePreview.cost;
         if (upgradeReviewActive && upgradeAfter) {
-          this.renderUpgradeReview(fixedRoot, left, nextActionY, width, selected, upgrade, upgradeAfter, scrap);
+          this.renderUpgradeReview(fixedRoot, left, nextActionY, width, selected, upgrade, upgradeAfter, scrap, false);
           nextActionY += reviewHeight + actionGap;
           const confirm = this.button(fixedRoot, left, nextActionY, `Confirm Upgrade • ${cost} Scrap`, actionHeight,
             () => this.confirmUpgradeReview(selected.instanceId, selected.tier, selected.state), 'ui:confirm', width);
@@ -1549,6 +1559,11 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       y += copy.height + 10;
     }
     if (equipment.unavailable.length) put('A legacy Equipment item is unavailable in this version.', '#fbbf24');
+    if (upgradeReviewActive && selected && selectedUpgrade && selectedUpgradeAfterItem && this.detailReviewInScrollBody()) {
+      y += 8;
+      this.renderUpgradeReview(root, left, y, contentWidth,
+        selected, selectedUpgrade, selectedUpgradeAfterItem, scrap);
+    }
     this.environment.controls.endScrollableRegion();
     let fixedActionY = this.detailFixedActionTop(snapshot);
     const decisionPreviewHeight = selected ? this.detailDecisionPreviewHeight(snapshot) : 0;
@@ -1575,18 +1590,19 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         previewY += preview.height + 4;
       }
     }
-    if (upgradeReviewActive && selected && selectedUpgrade && selectedUpgradeAfterItem) {
+    if (upgradeReviewActive && selected && selectedUpgrade && selectedUpgradeAfterItem && !this.detailReviewInScrollBody()) {
       const reviewHeight = this.upgradeReviewHeight(selected, selectedUpgrade, selectedUpgradeAfterItem, scrap, contentWidth);
       this.renderUpgradeReview(fixedRoot, left, fixedActionY - reviewHeight - 8, contentWidth,
-        selected, selectedUpgrade, selectedUpgradeAfterItem, scrap);
+        selected, selectedUpgrade, selectedUpgradeAfterItem, scrap, false);
     }
-    for (const detailAction of fixedDetailActions) {
-      const action = this.button(fixedRoot, left, fixedActionY, detailAction.label, hitTarget, detailAction.action,
+    const actionHeights = this.detailActionHeights(snapshot);
+    fixedDetailActions.forEach((detailAction, index) => {
+      const action = this.button(fixedRoot, left, fixedActionY, detailAction.label, actionHeights[index] ?? hitTarget, detailAction.action,
         'ui:confirm', contentWidth);
       this.rememberLoadoutFocus(action, detailAction.key);
       if (detailAction.disabled) this.environment.controls.disableButton(action);
       fixedActionY += action.height + 8;
-    }
+    });
     if (selectedBlueprint) {
       this.loadoutFooter(fixedRoot, left, contentWidth, hitTarget,
         this.fabricationActionLabel(selectedBlueprint, scrap), () => {

@@ -73,13 +73,14 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     );
   }
 
-  private modifierSourceCopy(delta: LoadoutModifierDelta, comparison: EquipmentComparison): LoadoutSourceCopy {
+  private modifierSourceCopy(delta: LoadoutModifierDelta, comparison: EquipmentComparison,
+    side: 'before' | 'after' = delta.state === 'removed' ? 'before' : 'after'): LoadoutSourceCopy {
     const sourceId = delta.after?.modifier.sourceId ?? delta.before?.modifier.sourceId;
     if (!sourceId) return { kind: 'other', label: 'Loadout source' };
     const traitMatch = /^trait:([^:]+):([^:]+):(add|mult)$/.exec(sourceId);
     if (traitMatch) {
-      const family = [...comparison.before.runTruth.families, ...comparison.after.runTruth.families]
-        .find((row) => row.familyId === traitMatch[1]);
+      const truth = side === 'after' ? comparison.after.runTruth : comparison.before.runTruth;
+      const family = truth.families.find((row) => row.familyId === traitMatch[1]);
       const trait = family?.traits.find((row) => {
         const modifier = TRAIT_BEHAVIORS[row.trait].modifier;
         return modifier?.stat === traitMatch[2] && modifier.op === traitMatch[3];
@@ -127,8 +128,8 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
       else (group === 'set' ? setLosses : itemLosses).push(text);
     };
     for (const delta of effects.modifiers) {
-      if (delta.state === 'added' || delta.state === 'changed') add(this.modifierSourceCopy(delta, comparison).kind, 'gain', this.modifierDeltaCopy('+', delta, comparison));
-      if (delta.state === 'removed' || delta.state === 'changed') add(this.modifierSourceCopy(delta, comparison).kind, 'loss', this.modifierDeltaCopy('−', delta, comparison));
+      if (delta.state === 'added' || delta.state === 'changed') add(this.modifierSourceCopy(delta, comparison, 'after').kind, 'gain', this.modifierDeltaCopy('+', delta, comparison));
+      if (delta.state === 'removed' || delta.state === 'changed') add(this.modifierSourceCopy(delta, comparison, 'before').kind, 'loss', this.modifierDeltaCopy('−', delta, comparison));
     }
     for (const delta of effects.projectileEffects) {
       for (const row of this.projectileDeltaCopies('+', delta, comparison, familyNames)) add(row.kind, 'gain', row.text);
@@ -148,7 +149,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
   }
 
   protected modifierDeltaCopy(sign: '+' | '−', delta: LoadoutModifierDelta, comparison: EquipmentComparison): string {
-    const source = this.modifierSourceCopy(delta, comparison);
+    const source = this.modifierSourceCopy(delta, comparison, sign === '−' ? 'before' : 'after');
     return `${this.signedValue(sign, delta.afterValue ?? delta.beforeValue ?? '—')} ${delta.label} [${delta.target.label}] • Source: ${source.label}`;
   }
 
@@ -201,7 +202,11 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
       wordWrap: { width: Math.max(1, width - leftInset - rightInset) },
     });
     const bounds = text.getBounds();
-    const targetHeight = Math.max(minHeight, bounds.height);
+    // Preserve a real inner text cushion even when wrapping makes the label
+    // taller than the nominal hit target. The fixed action stack measures this
+    // same height before rendering, so the chrome and the following control
+    // remain aligned while the final glyphs stay clear of the border.
+    const targetHeight = Math.max(minHeight, bounds.height + 12);
     const verticalPadding = Math.max(0, Math.round((targetHeight - bounds.height) / 2));
     text.setPadding(leftInset, verticalPadding, rightInset, verticalPadding);
     const measured = text.getBounds();

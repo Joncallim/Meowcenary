@@ -3,6 +3,7 @@ import { pressMenuKey } from './menuInputReceipt';
 import equipmentCatalog from '../src/data/equipment.json' with { type: 'json' };
 
 type Button = { key?: string; text: string; focused: boolean; visible: boolean; interactive: boolean;
+  textInsets: { top: number; bottom: number };
   bounds: { x: number; y: number; width: number; height: number } };
 type Diagnostic = { panel: string; focusedKey?: string; buttons: Button[]; copy: string[];
   scroll?: { top: number; bottom: number; offset: number; contentHeight: number };
@@ -91,6 +92,23 @@ async function clickButton(page: Page, matcher: string): Promise<void> {
     return;
   }
   throw new Error(`Could not bring Equipment control ${matcher} into view`);
+}
+
+async function activateButton(page: Page, targetKey: string): Promise<void> {
+  await focusButton(page, targetKey);
+  await pressMenuKey(page, 'Enter');
+  await settle(page);
+}
+
+async function activateButtonText(page: Page, text: string): Promise<void> {
+  const button = (await diagnostic(page)).buttons.find((candidate) => candidate.text === text);
+  expect(button?.key, `Missing keyed Equipment control ${text}`).toBeDefined();
+  if (!button) return;
+  const x = button.bounds.x + button.bounds.width / 2;
+  const y = button.bounds.y + button.bounds.height / 2;
+  if (await page.evaluate(() => navigator.maxTouchPoints > 0)) await page.touchscreen.tap(x, y);
+  else await page.mouse.click(x, y);
+  await settle(page);
 }
 
 async function capture(page: Page, path: string): Promise<void> {
@@ -223,12 +241,65 @@ test('Equipment review keeps equip non-mutating and surfaces committed feedback'
     const current = committedActions[index]!;
     expect(current.bounds.y).toBeGreaterThanOrEqual(previous.bounds.y + previous.bounds.height);
   }
+  const committedEquip = committedActions.find((button) => button.text === `Equip ${longName}`);
+  expect(committedEquip).toBeDefined();
+  expect(committedEquip!.textInsets.top).toBeGreaterThanOrEqual(6);
+  expect(committedEquip!.textInsets.bottom).toBeGreaterThanOrEqual(6);
   await capture(reviewPage, testInfo.outputPath('equipment-upgrade-committed.png'));
 
   // The review gate is cleared after commit, so a second confirmation cannot
   // remain available while the authoritative after-state is shown.
   expect((await diagnostic(reviewPage)).buttons.some((button) => button.text === 'Confirm Upgrade • 100 Scrap')).toBe(false);
   expect((await reviewPage.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')!))).progression.scrap).toBe(0);
+});
+
+test('Upgrade review remains reachable across a 360px-to-landscape short-height resize', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const context = await browser.newContext({
+    baseURL: 'http://127.0.0.1:4173',
+    viewport: { width: 360, height: 640 },
+    hasTouch: false,
+    isMobile: false,
+  });
+  const page = await context.newPage();
+  try {
+    await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), storedUpgradeSeed());
+    await page.goto('/?visual-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  await settle(page);
+  await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
+  await settle(page);
+  const instanceId = 'owned:equipment:commando-helmet';
+  await activateButton(page, `equipment-candidate:${instanceId}`);
+  await activateButtonText(page, 'View details');
+  await activateButtonText(page, 'Review upgrade');
+  const saveBefore = await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'));
+  await page.setViewportSize({ width: 844, height: 390 });
+  await settle(page);
+  const state = await diagnostic(page);
+  expect(state.copy.join('\n')).toContain('UPGRADE REVIEW');
+  expect(state.buttons.some((button) => button.text === 'Cancel review to equip')).toBe(true);
+  expect(state.buttons.some((button) => button.text === 'Confirm Upgrade • 100 Scrap')).toBe(true);
+  expect(state.buttons.some((button) => button.text === 'Cancel Upgrade')).toBe(true);
+  const actions = state.buttons.filter((button) => button.key?.startsWith('equipment-equip:') || button.key?.startsWith('equipment-upgrade-'));
+  expect(actions.length).toBe(3);
+  for (const action of actions) {
+    expect(action.visible && action.interactive).toBe(true);
+    expect(action.bounds.y).toBeGreaterThanOrEqual(0);
+    expect(action.bounds.y + action.bounds.height).toBeLessThanOrEqual(390);
+  }
+  for (let index = 1; index < actions.length; index += 1) {
+    expect(actions[index]!.bounds.y).toBeGreaterThanOrEqual(actions[index - 1]!.bounds.y + actions[index - 1]!.bounds.height);
+  }
+  await activateButtonText(page, 'Cancel Upgrade');
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
+  expect((await diagnostic(page)).copy.join('\n')).not.toContain('UPGRADE REVIEW');
+  await activateButtonText(page, 'Review upgrade');
+  await activateButtonText(page, 'Cancel review to equip');
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
+  } finally {
+    await context.close();
+  }
 });
 
 test('filtered Equipment browse returns from detail with query, filter, and scroll intact', async ({ page }, testInfo) => {
@@ -247,8 +318,34 @@ test('filtered Equipment browse returns from detail with query, filter, and scro
   await settle(page);
   const search = page.locator('input[aria-label="Search equipment names, sets, or effects"]');
   await expect(search).toBeVisible();
+  await search.dispatchEvent('compositionstart');
   await search.fill('helmet');
-  await search.press('Enter');
+  await search.press('Escape');
+  await expect(search).toBeVisible();
+  await search.dispatchEvent('compositionend');
+  await settle(page);
+  await search.press('Escape');
+  await expect(search).toBeHidden();
+  let searchState = await diagnostic(page);
+  expect(searchState.copy.join('\n')).not.toContain('SEARCHING');
+  expect(searchState.copy.join('\n')).toContain('SEARCH NAMES, SETS, OR EFFECTS');
+  await focusButton(page, 'equipment-search');
+  await pressMenuKey(page, 'Enter');
+  await settle(page);
+  const reopenedSearch = page.locator('input[aria-label="Search equipment names, sets, or effects"]');
+  await expect(reopenedSearch).toBeVisible();
+  await reopenedSearch.evaluate((input) => input.blur());
+  await settle(page);
+  await expect(reopenedSearch).toBeHidden();
+  searchState = await diagnostic(page);
+  expect(searchState.copy.join('\n')).not.toContain('SEARCHING');
+  await focusButton(page, 'equipment-search');
+  await pressMenuKey(page, 'Enter');
+  await settle(page);
+  const activeSearch = page.locator('input[aria-label="Search equipment names, sets, or effects"]');
+  await expect(activeSearch).toBeVisible();
+  await activeSearch.fill('helmet');
+  await activeSearch.press('Enter');
   await settle(page);
 
   const candidate = 'equipment-candidate:owned:equipment:recon-helmet';
