@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { pressMenuKey } from './menuInputReceipt';
+import { pressMenuKey, waitForMenuInput } from './menuInputReceipt';
 import equipmentCatalog from '../src/data/equipment.json' with { type: 'json' };
 
 type Button = { key?: string; text: string; focused: boolean; visible: boolean; interactive: boolean;
@@ -117,6 +117,23 @@ async function capture(page: Page, path: string): Promise<void> {
   await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.freeze());
   try { await page.screenshot({ path }); }
   finally { await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.resume()); }
+}
+
+async function touchDrag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }): Promise<void> {
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...from, id: 41 }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{
+      x: from.x + (to.x - from.x) * 0.35, y: from.y + (to.y - from.y) * 0.35, id: 41,
+    }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{
+      x: from.x + (to.x - from.x) * 0.7, y: from.y + (to.y - from.y) * 0.7, id: 41,
+    }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...to, id: 41 }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  } finally {
+    await session.detach();
+  }
 }
 
 async function installLongNameFixture(page: Page, longName: string): Promise<void> {
@@ -262,6 +279,176 @@ test('Equipment review keeps equip non-mutating and surfaces committed feedback'
   // remain available while the authoritative after-state is shown.
   expect((await diagnostic(reviewPage)).buttons.some((button) => button.text === 'Confirm Upgrade • 100 Scrap')).toBe(false);
   expect((await reviewPage.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')!))).progression.scrap).toBe(0);
+});
+
+test('Equipment review requires a fresh keyboard confirm edge and restores semantic focus on Escape', async ({ page }) => {
+  test.setTimeout(120_000);
+  const instanceId = 'owned:equipment:commando-helmet';
+  const summaryKey = `equipment-summary:equipment-candidate:${instanceId}`;
+  const detailKeys = [summaryKey, `equipment-inspector:${instanceId}`];
+  await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), storedUpgradeSeed());
+  await page.goto('/?visual-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  await settle(page);
+  await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
+  await settle(page);
+
+  await focusButton(page, `equipment-candidate:${instanceId}`);
+  await pressMenuKey(page, 'Enter');
+  let state = await diagnostic(page);
+  const detail = state.buttons.find((button) => button.text === 'View details');
+  expect(detail?.key).toBeDefined();
+  expect(detailKeys).toContain(detail!.key);
+  await focusButton(page, detail!.key!);
+  await pressMenuKey(page, 'Enter');
+  state = await diagnostic(page);
+  const review = state.buttons.find((button) => button.text === 'Review upgrade');
+  expect(review?.key).toBe(`equipment-upgrade:${instanceId}`);
+  await focusButton(page, review!.key!);
+  const saveBefore = await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'));
+
+  // Keep the physical Enter down across the detail → review rebuild. The
+  // transition may open the review, but the same held edge must not confirm
+  // the spend or mutate durable state in the destination panel.
+  await waitForMenuInput(page, true);
+  await page.keyboard.down('Enter');
+  try {
+    await waitForMenuInput(page, false);
+    await expect.poll(async () => (await diagnostic(page)).copy.join('\n')).toContain('UPGRADE REVIEW');
+    state = await diagnostic(page);
+    expect(state.buttons.some((button) => button.text === 'Confirm Upgrade • 100 Scrap')).toBe(true);
+    expect(state.focusedKey).toBe(`equipment-detail-back:${instanceId}`);
+    expect(state.buttons.find((button) => button.key === state.focusedKey)?.text).toBe('Back to candidates');
+    expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
+    await waitForMenuInput(page, false);
+    expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
+  } finally {
+    await page.keyboard.up('Enter');
+  }
+  await waitForMenuInput(page, true);
+
+  await pressMenuKey(page, 'Escape');
+  state = await diagnostic(page);
+  expect(state.copy.join('\n')).not.toContain('UPGRADE REVIEW');
+  expect(state.focusedKey).toBe(`equipment-candidate:${instanceId}`);
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
+
+  // Re-enter through the same keyboard focus contract, then accept exactly
+  // one fresh confirm edge in the review destination.
+  await pressMenuKey(page, 'Enter');
+  state = await diagnostic(page);
+  const reopenedDetail = state.buttons.find((button) => button.text === 'View details');
+  expect(reopenedDetail?.key).toBeDefined();
+  expect(detailKeys).toContain(reopenedDetail!.key);
+  await focusButton(page, reopenedDetail!.key!);
+  await pressMenuKey(page, 'Enter');
+  state = await diagnostic(page);
+  const reopenedReview = state.buttons.find((button) => button.text === 'Review upgrade');
+  expect(reopenedReview?.key).toBe(`equipment-upgrade:${instanceId}`);
+  await focusButton(page, reopenedReview!.key!);
+  await pressMenuKey(page, 'Enter');
+  state = await diagnostic(page);
+  const confirm = state.buttons.find((button) => button.text === 'Confirm Upgrade • 100 Scrap');
+  expect(confirm?.key).toBe(`equipment-upgrade-confirm:${instanceId}`);
+  await focusButton(page, confirm!.key!);
+  await pressMenuKey(page, 'Enter');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')!));
+  expect(saved.equipment[instanceId].tier).toBe(2);
+  expect(saved.progression.scrap).toBe(0);
+  expect((await diagnostic(page)).copy.join('\n')).toContain('Equipment upgraded');
+});
+
+test('touch drag released near fixed Equipment actions cannot activate the review', async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.use.hasTouch, 'requires a touch-capable browser context');
+  test.setTimeout(120_000);
+  const instanceId = 'owned:equipment:commando-helmet';
+  await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), storedUpgradeSeed());
+  await page.goto('/?visual-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  await settle(page);
+  await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
+  await settle(page);
+
+  await clickButton(page, `equipment-candidate:${instanceId}`);
+  await activateButtonText(page, 'View details');
+  await activateButtonText(page, 'Review upgrade');
+  const before = await diagnostic(page);
+  const saveBefore = await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'));
+  const cancel = before.buttons.find((button) => button.text === 'Cancel Upgrade');
+  const confirm = before.buttons.find((button) => button.text === 'Confirm Upgrade • 100 Scrap');
+  expect(cancel).toBeDefined();
+  expect(confirm).toBeDefined();
+  const viewport = page.viewportSize()!;
+  const from = {
+    x: Math.min(viewport.width - 24, Math.max(24, viewport.width / 2)),
+    y: confirm!.bounds.y - 12,
+  };
+  expect(from.y).toBeLessThan(confirm!.bounds.y);
+  expect(before.buttons.some((button) => from.y >= button.bounds.y && from.y <= button.bounds.y + button.bounds.height)).toBe(false);
+  const to = { x: cancel!.bounds.x + cancel!.bounds.width / 2, y: cancel!.bounds.y + cancel!.bounds.height / 2 };
+  await touchDrag(page, from, to);
+  await settle(page);
+
+  const after = await diagnostic(page);
+  expect(after.copy.join('\n')).toContain('UPGRADE REVIEW');
+  expect(after.buttons.some((button) => button.text === 'Cancel Upgrade')).toBe(true);
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
+  await activateButtonText(page, 'Cancel Upgrade');
+  expect((await diagnostic(page)).copy.join('\n')).not.toContain('UPGRADE REVIEW');
+});
+
+test('compact scaled Equipment review keeps the longest multi-effect consequence readable', async ({ browser }, testInfo) => {
+  test.setTimeout(120_000);
+  const context = await browser.newContext({
+    baseURL: 'http://127.0.0.1:4173',
+    viewport: { width: 360, height: 640 },
+    deviceScaleFactor: 2,
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await context.newPage();
+  try {
+    await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), pyroThresholdSeed());
+    await page.goto('/?visual-test=1');
+    await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+    await settle(page);
+    await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
+    await settle(page);
+
+    await clickButton(page, 'equipment-slot:armour');
+    await clickButton(page, 'equipment-candidate:owned:equipment:pyro-armour');
+    await activateButtonText(page, 'View details');
+    const detailState = await diagnostic(page);
+    const detailCopy = detailState.copy.join('\n');
+    expect(detailCopy).toContain('SET BONUS GAIN');
+    expect(detailCopy).toContain('FIRE');
+    expect(detailCopy).toContain('burn');
+    await activateButtonText(page, 'Review upgrade');
+    const state = await diagnostic(page);
+    const copy = state.copy.join('\n');
+    expect(copy).toContain('UPGRADE REVIEW');
+    expect(copy).toContain('STATS:');
+    expect(copy).toContain('COST: 100 Scrap');
+    expect(copy).toContain('BALANCE AFTER: 0 Scrap');
+    const actions = state.buttons.filter((button) => button.text === 'Confirm Upgrade • 100 Scrap' || button.text === 'Cancel Upgrade');
+    expect(actions).toHaveLength(2);
+    for (const action of actions) {
+      expect(action.visible && action.interactive).toBe(true);
+      expect(action.bounds.y).toBeGreaterThanOrEqual(0);
+      expect(action.bounds.y + action.bounds.height).toBeLessThanOrEqual(640);
+      expect(action.textInsets.top).toBeGreaterThanOrEqual(6);
+      expect(action.textInsets.bottom).toBeGreaterThanOrEqual(6);
+    }
+    const visibleCopy = (state.copyBounds ?? []).filter((row) => row.visible);
+    expect(visibleCopy.length).toBeGreaterThan(0);
+    for (const row of visibleCopy) {
+      expect(row.bounds.y).toBeGreaterThanOrEqual(0);
+      expect(row.bounds.y + row.bounds.height).toBeLessThanOrEqual(640);
+    }
+    await capture(page, testInfo.outputPath('compact-scaled-pyro-upgrade-review.png'));
+  } finally {
+    await context.close();
+  }
 });
 
 test('Upgrade review remains reachable across measured short-height layouts', async ({ browser }) => {
