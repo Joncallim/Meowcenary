@@ -141,7 +141,13 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       // fresh detailTop in draw(); retained updates keep the existing anchor.
       const sameDetailGeometry = this.detailLayoutWidth === this.layout.width
         && this.detailLayoutHeight === this.layout.height;
-      this.detailTop = sameDetailGeometry && this.detailTop > 0 ? this.detailTop : this.layout.top + 26;
+      const reviewInScrollBody = this.detailReviewInScrollBody(snapshot, scrap);
+      const compactReviewTop = this.detailReviewBodyTop();
+      this.detailTop = reviewInScrollBody
+        ? compactReviewTop
+        : sameDetailGeometry && this.detailTop > 0 && this.detailTop !== compactReviewTop
+          ? this.detailTop
+          : this.layout.top + 26;
       this.detailLayoutWidth = this.layout.width;
       this.detailLayoutHeight = this.layout.height;
       this.collectionTop = this.detailTop;
@@ -430,7 +436,13 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       // single Scene-owned rectangle belongs only to this detail body.
       const sameDetailGeometry = this.detailLayoutWidth === this.layout.width
         && this.detailLayoutHeight === this.layout.height;
-      this.detailTop = sameDetailGeometry && this.detailTop > 0 ? this.detailTop : y;
+      const reviewInScrollBody = this.detailReviewInScrollBody(snapshot, scrap);
+      const compactReviewTop = this.detailReviewBodyTop();
+      this.detailTop = reviewInScrollBody
+        ? compactReviewTop
+        : sameDetailGeometry && this.detailTop > 0 && this.detailTop !== compactReviewTop
+          ? this.detailTop
+          : y;
       this.detailLayoutWidth = this.layout.width;
       this.detailLayoutHeight = this.layout.height;
       this.collectionTop = this.detailTop;
@@ -1094,6 +1106,16 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     return this.upgradeReviewHeight(selected, upgrade, afterItem, scrap, this.loadoutContentWidth());
   }
 
+  private detailUpgradeReviewContextHeight(snapshot: MainMenuSnapshot, scrap: number): number {
+    const equipment = snapshot.equipment;
+    const selectedSlot = equipment.presentation.slots.find(slot => slot.slot === equipment.selectedSlot);
+    const selected = selectedSlot?.candidates.find(item => item.instanceId === equipment.selectedInstanceId);
+    const upgrade = selected ? equipment.owned.find(item => item.instanceId === selected.instanceId) : undefined;
+    const afterItem = selected ? this.upgradeAfterItem(selected, upgrade) : undefined;
+    if (!selected || !upgrade || !afterItem || !this.upgradeReviewMatches(selected, upgrade)) return 0;
+    return this.upgradeReviewContextHeight(selected, upgrade, afterItem, scrap, this.loadoutContentWidth());
+  }
+
   private detailActionLabels(snapshot: MainMenuSnapshot): readonly string[] {
     const equipment = snapshot.equipment;
     const selectedSlot = equipment.presentation.slots.find(slot => slot.slot === equipment.selectedSlot);
@@ -1122,8 +1144,85 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     return this.detailActionLabels(snapshot).map((label) => this.measureLoadoutActionHeight(label, this.loadoutContentWidth()));
   }
 
-  private detailReviewInScrollBody(): boolean {
-    return this.layout.height <= 480;
+  private detailReviewBodyTop(): number {
+    // Keep a narrow review reader below the fixed menu chrome. The fixed
+    // context card owns the space immediately above the commit actions, so a
+    // tiny positive reader lane is still useful for scrolling the complete
+    // review without exposing the selected art through that card.
+    return this.layout.top + 8;
+  }
+
+  private detailReviewMinimumBodyHeight(): number {
+    // A body lane smaller than one compact hit-target minus its chrome is not
+    // a meaningful reader. Derive this budget from the measured control
+    // geometry instead of using a viewport-height cutoff.
+    return Math.max(12, this.layout.hitTarget - 8);
+  }
+
+  private detailReviewInScrollBody(snapshot: MainMenuSnapshot, scrap: number): boolean {
+    const reviewHeight = this.detailUpgradeReviewHeight(snapshot, scrap);
+    if (reviewHeight <= 0) return false;
+    const fixedReviewTop = this.detailFixedActionTop(snapshot) - reviewHeight - 8;
+    const fixedReviewBodyBottom = fixedReviewTop - 8;
+    return fixedReviewBodyBottom < this.detailReviewBodyTop() + this.detailReviewMinimumBodyHeight();
+  }
+
+  private upgradeReviewContextLines(
+    selected: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
+    upgrade: MainMenuSnapshot['equipment']['owned'][number],
+    afterItem: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
+    scrap: number,
+  ): readonly UpgradeReviewLine[] {
+    const lines = this.upgradeReviewLines(selected, upgrade, afterItem, scrap);
+    const identity = lines[0]!;
+    const grade = lines[1]!;
+    const stats = lines[2]!;
+    return [
+      { ...identity, text: `${identity.text} • ${grade.text.replace(/^GRADE: /, '')}` },
+      stats,
+    ];
+  }
+
+  private upgradeReviewContextHeight(
+    selected: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
+    upgrade: MainMenuSnapshot['equipment']['owned'][number],
+    afterItem: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
+    scrap: number,
+    width: number,
+  ): number {
+    const innerWidth = Math.max(1, width - 24);
+    return 12 + this.upgradeReviewContextLines(selected, upgrade, afterItem, scrap)
+      .reduce((height, line) => height + this.measureLoadoutCopyHeight(
+        line.text, innerWidth, line.fontSize ?? 12, line.lineSpacing ?? 1, line.heading ? '700' : '600',
+      ) + 2, 0);
+  }
+
+  private renderUpgradeReviewContext(
+    root: Phaser.GameObjects.Container,
+    left: number,
+    top: number,
+    width: number,
+    selected: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
+    upgrade: MainMenuSnapshot['equipment']['owned'][number],
+    afterItem: MainMenuSnapshot['equipment']['presentation']['slots'][number]['candidates'][number],
+    scrap: number,
+  ): number {
+    const innerWidth = Math.max(1, width - 24);
+    const lines = this.upgradeReviewContextLines(selected, upgrade, afterItem, scrap);
+    const height = this.upgradeReviewContextHeight(selected, upgrade, afterItem, scrap, width);
+    const panel = this.environment.visuals?.addPanel(this.environment.scene,
+      left + width / 2, top + height / 2, width, height, 'figma-card');
+    if (panel) {
+      this.own(root, panel);
+      root.moveTo(panel, 0);
+    }
+    let y = top + 6;
+    lines.forEach((line) => {
+      const copy = this.loadoutCopy(root, left + 12, y, line.text, innerWidth, line.color, false);
+      copy.setStyle({ fontSize: `${line.fontSize ?? 12}px`, lineSpacing: line.lineSpacing ?? 1, fontStyle: line.heading ? '700' : '600' });
+      y += copy.height + 2;
+    });
+    return height;
   }
 
   private detailScrollableBottom(snapshot: MainMenuSnapshot, scrap: number): number {
@@ -1133,14 +1232,18 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const footerTop = snapshot.equipment.selectedBlueprintId === undefined ? this.layout.scrollBottom : this.footerTop();
     const fixedActionsTop = footerTop - actionHeights.reduce((height, actionHeight) => height + actionHeight + actionGap, 0);
     const previewHeight = this.detailDecisionPreviewHeight(snapshot);
-    const reviewHeight = this.detailReviewInScrollBody() ? 0 : this.detailUpgradeReviewHeight(snapshot, scrap);
+    const reviewInScrollBody = this.detailReviewInScrollBody(snapshot, scrap);
+    const reviewHeight = reviewInScrollBody ? 0 : this.detailUpgradeReviewHeight(snapshot, scrap);
+    const compactContextHeight = reviewInScrollBody ? this.detailUpgradeReviewContextHeight(snapshot, scrap) : 0;
     const reservedBottom = Math.min(this.layout.scrollBottom, fixedActionsTop - actionGap
       - (reviewHeight > 0 ? reviewHeight + actionGap : 0)
+      - (compactContextHeight > 0 ? compactContextHeight + actionGap : 0)
       - (previewHeight > 0 ? previewHeight + actionGap : 0));
-    // On a short landscape viewport the review reader moves into the body
-    // scroll lane, but the action stack remains fixed. Keep the shared mask
-    // valid even when wrapped fixed labels consume nearly all of the height.
-    return Math.max(this.detailTop + 32, reservedBottom);
+    // The fixed review/context budget is measured from the same wrapped rows
+    // that are rendered below. Never push the body mask back through that
+    // budget with a hard minimum; the review reader may be only a few pixels
+    // tall on a very short viewport, but it must remain non-overlapping.
+    return Math.max(this.detailTop + 1, reservedBottom);
   }
 
   private detailFixedActionTop(snapshot: MainMenuSnapshot): number {
@@ -1444,6 +1547,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const selectedUpgrade = selected ? equipment.owned.find((item) => item.instanceId === selected.instanceId) : undefined;
     const selectedUpgradeAfterItem = selected ? this.upgradeAfterItem(selected, selectedUpgrade) : undefined;
     const upgradeReviewActive = !!selected && !!selectedUpgrade && this.upgradeReviewMatches(selected, selectedUpgrade);
+    const reviewInScrollBody = this.detailReviewInScrollBody(snapshot, scrap);
     const fixedDetailActions: Array<{ label: string; action: () => void; key: string; disabled?: boolean }> = [];
     const queueFixedDetailAction = (label: string, action: () => void, key: string, disabled = false): void => {
       fixedDetailActions.push({ label, action, key, disabled });
@@ -1559,7 +1663,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       y += copy.height + 10;
     }
     if (equipment.unavailable.length) put('A legacy Equipment item is unavailable in this version.', '#fbbf24');
-    if (upgradeReviewActive && selected && selectedUpgrade && selectedUpgradeAfterItem && this.detailReviewInScrollBody()) {
+    if (upgradeReviewActive && selected && selectedUpgrade && selectedUpgradeAfterItem && reviewInScrollBody) {
       y += 8;
       this.renderUpgradeReview(root, left, y, contentWidth,
         selected, selectedUpgrade, selectedUpgradeAfterItem, scrap);
@@ -1590,7 +1694,11 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         previewY += preview.height + 4;
       }
     }
-    if (upgradeReviewActive && selected && selectedUpgrade && selectedUpgradeAfterItem && !this.detailReviewInScrollBody()) {
+    if (upgradeReviewActive && selected && selectedUpgrade && selectedUpgradeAfterItem && reviewInScrollBody) {
+      const contextHeight = this.upgradeReviewContextHeight(selected, selectedUpgrade, selectedUpgradeAfterItem, scrap, contentWidth);
+      this.renderUpgradeReviewContext(fixedRoot, left, fixedActionY - contextHeight - 8, contentWidth,
+        selected, selectedUpgrade, selectedUpgradeAfterItem, scrap);
+    } else if (upgradeReviewActive && selected && selectedUpgrade && selectedUpgradeAfterItem) {
       const reviewHeight = this.upgradeReviewHeight(selected, selectedUpgrade, selectedUpgradeAfterItem, scrap, contentWidth);
       this.renderUpgradeReview(fixedRoot, left, fixedActionY - reviewHeight - 8, contentWidth,
         selected, selectedUpgrade, selectedUpgradeAfterItem, scrap, false);
