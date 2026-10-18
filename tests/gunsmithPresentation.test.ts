@@ -21,9 +21,9 @@ describe('Gunsmith player-facing presentation', () => {
     expect(formatGunsmithEffect({ stat: 'pickupRadius', op: 'add', value: 10 }, 2)).toBe('+20 Pickup Radius');
   });
 
-  it('labels the established Gunsmith rarity ladder with a compact rank chevron', () => {
-    expect(gunsmithTierLabel('common', 1)).toBe('Common ›1');
-    expect(gunsmithTierLabel('legendary', 5)).toBe('Legendary ›5');
-    expect(gunsmithTierLabel('equipment-grade', 2)).toBe('Part ›2');
+  it('labels catalog rarity separately from the mutable upgrade rank', () => {
+    expect(gunsmithTierLabel('common', 1)).toBe('Common • Upgrade Rank 1');
+    expect(gunsmithTierLabel('legendary', 5)).toBe('Legendary • Upgrade Rank 5');
+    expect(gunsmithTierLabel('equipment-grade', 2)).toBe('Part • Upgrade Rank 2');
   });
 });

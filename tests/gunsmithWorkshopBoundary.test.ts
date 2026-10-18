@@ -47,4 +47,56 @@ describe('Workshop confirmation persistence boundary', () => {
       expect(context.saveData.gunsmith.builds[0].fitted.receiver).toBe('target');
     });
   }
+
+  it('rejects a stale merge when an intervening donor change alters the reviewed shared trait consequence', () => {
+    const { context, storage, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: {
+        first: { partId: 'part:trait-fire', tier: 1, infusedTraits: [] },
+        second: { partId: 'part:trait-fire', tier: 1, infusedTraits: [] },
+        other: { partId: 'part:trait-fire', tier: 1, infusedTraits: [] },
+      },
+      builds: [{ id: 'build:pistol', name: 'Sidearm', baseWeaponFamily: 'pistol', fitted: {}, traitParts: ['first', 'other'] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    expect(controller.requestWorkshop({ kind: 'merge', firstInstanceId: 'first', secondInstanceId: 'second' })).toMatchObject({ ok: true });
+
+    const write = vi.spyOn(storage, 'setItem');
+    const update = context.updateGunsmith.bind(context);
+    context.updateGunsmith = (transform) => {
+      update((state) => ({ ...state,
+        parts: Object.fromEntries(Object.entries(state.parts).filter(([id]) => id !== 'other')),
+        builds: state.builds.map((build) => build.id === 'build:pistol' ? { ...build, traitParts: build.traitParts.filter((id) => id !== 'other') } : build),
+      }));
+      return update(transform);
+    };
+
+    expect(controller.confirmWorkshop()).toEqual({ ok: false, reason: 'workshop-operation-unavailable' });
+    expect(write).toHaveBeenCalledTimes(1); // Only the intervening donor edit persisted.
+    expect(context.saveData.gunsmith.parts.first).toBeDefined();
+    expect(context.saveData.gunsmith.parts.second).toBeDefined();
+    expect(context.saveData.gunsmith.parts.other).toBeUndefined();
+    expect(context.saveData.gunsmith.builds[0]?.traitParts).toEqual(['first']);
+  });
+
+  it('allows an unrelated build update while preserving the reviewed Workshop consequence', () => {
+    const { context, storage, controller } = setup();
+    expect(controller.requestWorkshop({ kind: 'merge', firstInstanceId: 'target', secondInstanceId: 'spare' })).toMatchObject({ ok: true });
+
+    const write = vi.spyOn(storage, 'setItem');
+    const update = context.updateGunsmith.bind(context);
+    context.updateGunsmith = (transform) => {
+      update((state) => ({ ...state,
+        parts: { ...state.parts, unrelated: { partId: 'part:stock-padded', tier: 1, infusedTraits: [] } },
+        builds: [...state.builds, { id: 'build:smg', name: 'Unrelated', baseWeaponFamily: 'smg', fitted: { stock: 'unrelated' }, traitParts: [] }],
+      }));
+      return update(transform);
+    };
+
+    expect(controller.confirmWorkshop()).toEqual({ ok: true, persisted: true });
+    expect(write).toHaveBeenCalledTimes(2); // Unrelated update plus the accepted merge.
+    expect(context.saveData.gunsmith.parts.unrelated).toBeDefined();
+    expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.stock).toBe('unrelated');
+    expect(Object.values(context.saveData.gunsmith.parts)).toHaveLength(3);
+  });
 });

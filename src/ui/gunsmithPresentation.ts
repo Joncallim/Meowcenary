@@ -2,9 +2,9 @@ import type { ModifierSpec } from '../gameplay/stats';
 import type { PartSlot } from '../gameplay/gunsmith';
 import { presentLoadoutModifier } from './loadoutPresentation';
 
-/** Gunsmith's own five-step part ladder. This is intentionally separate from
- * Equipment grades: the chevron/rank is a workshop part label, not an
- * Equipment tier or rarity color contract. */
+/** Gunsmith part labels keep catalog rarity separate from the mutable upgrade
+ * rank. The rank is part of the owned-instance progression and is not a
+ * second rarity value. */
 const PART_TIER_NAMES: Readonly<Record<string, string>> = Object.freeze({
   common: 'Common',
   uncommon: 'Uncommon',
@@ -16,7 +16,7 @@ const PART_TIER_NAMES: Readonly<Record<string, string>> = Object.freeze({
 export function gunsmithTierLabel(rarity: string | undefined, tier: number): string {
   const normalized = rarity?.toLowerCase();
   const name = (normalized && PART_TIER_NAMES[normalized]) ?? 'Part';
-  return `${name} ›${Math.max(1, tier)}`;
+  return `${name} • Upgrade Rank ${Math.max(1, tier)}`;
 }
 
 /** Fixed player-facing order.  Family compatibility remains data-owned by

@@ -1086,7 +1086,10 @@ function freezeConfirmation(input: GunsmithWorkshopConfirmation): GunsmithWorksh
 
 /** Confirmation identity guards the durable transaction, not a presentation
  * snapshot of unrelated builds or Equipment effects that may change while a
- * player is deciding. Fitted donor locations remain part of the guard. */
+ * player is deciding. Fitted donor locations remain part of the guard. The
+ * consequence facts are also checked inside the authoritative save transform:
+ * a stable pair of input IDs is not enough when another source changes whether
+ * consuming one input removes a resolved modifier or trait. */
 function workshopConfirmationMatches(current: GunsmithWorkshopConfirmation | undefined,
   expected: GunsmithWorkshopConfirmation): boolean {
   if (current === undefined) return false;
@@ -1099,7 +1102,24 @@ function workshopConfirmationMatches(current: GunsmithWorkshopConfirmation | und
     clearedFittings: confirmation.clearedFittings,
     preservedFittings: confirmation.preservedFittings,
   });
-  return identity(current) === identity(expected);
+  const consequences = (confirmation: GunsmithWorkshopConfirmation) => JSON.stringify({
+    // Build impacts are scoped to the fitted donor builds touched by this
+    // operation. Compare only each impact's consequence delta, not its
+    // absolute before/after build snapshot, so an unrelated tier change on
+    // that build remains valid while shared-trait changes still go stale.
+    buildImpacts: (confirmation.buildImpacts ?? []).map((impact) => ({
+      buildId: impact.buildId,
+      familyId: impact.familyId,
+      slot: impact.slot,
+      effects: impact.comparison.effects,
+    })),
+    // The persistent comparison captures selected-build consequences such as
+    // a trait becoming inactive after a non-input source disappears. Compare
+    // its delta, not the absolute before/after run truth, so unrelated stable
+    // loadout facts do not make a pending transaction stale.
+    comparisonEffects: confirmation.comparison.effects,
+  });
+  return identity(current) === identity(expected) && consequences(current) === consequences(expected);
 }
 
 function fittingFacts(state: GunsmithState): GunsmithFittingFact[] {
