@@ -99,7 +99,7 @@ describe('art-led Equipment layout', () => {
   it.each([[360, 640], [375, 640], [390, 844], [844, 390], [1114, 720], [1280, 720], [1920, 1080]])('keeps four distinct responsive slots with visible media inside each card at %i×%i', (width, height) => {
     const view = harness(width, height);
     const slots = view.buttons.slice(0, 4);
-    expect(view.columns).toHaveBeenCalledWith(width >= 1040 || (height <= 480 && width >= 600) ? 4 : 2);
+    expect(view.columns).toHaveBeenCalledWith(width >= 1040 || (height <= 500 && width >= 600) ? 4 : 2);
     expect(slots.map(slot => slot.text.split('\n')[0])).toEqual(['HELMET', 'ARMOUR', 'GLOVES', 'BOOTS']);
     for (const slot of slots) {
       expect(slot.width).toBeGreaterThanOrEqual(44);
@@ -136,9 +136,10 @@ describe('art-led Equipment layout', () => {
     }
     if (width <= 375) expect(slots.every(slot => slot.height >= 64)).toBe(true);
     // Desktop keeps the section label, Browse Sets, and candidates in one
-    // scroll-owned lane. Narrow layouts retain their fixed header and body
-    // split, so only those paths open two regions.
-    const expectedRegions = width >= 1040 ? 1 : 2;
+    // scroll-owned lane. Portrait keeps its fixed header when the measured
+    // candidate fits the body; short landscape uses the same single region
+    // for the readable card height instead of leaving a card-top slit.
+    const expectedRegions = width >= 1040 || (width >= 600 && height <= 500) ? 1 : 2;
     expect(view.begin).toHaveBeenCalledTimes(expectedRegions);
     expect(view.end).toHaveBeenCalledTimes(expectedRegions);
     if (width >= 1040) {

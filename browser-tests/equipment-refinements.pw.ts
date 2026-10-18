@@ -410,7 +410,7 @@ test('Equipment review requires a fresh keyboard confirm edge and restores seman
   expect((await diagnostic(page)).copy.join('\n')).toContain('Equipment upgraded');
 });
 
-test('touch drag released near fixed Equipment actions cannot activate the review', async ({ page }, testInfo) => {
+test('synthetic touch-device drag released near fixed Equipment actions cannot activate the review', async ({ page }, testInfo) => {
   test.skip(!testInfo.project.use.hasTouch, 'requires a touch-capable browser context');
   test.setTimeout(120_000);
   const instanceId = 'owned:equipment:commando-helmet';
@@ -449,7 +449,7 @@ test('touch drag released near fixed Equipment actions cannot activate the revie
   expect((await diagnostic(page)).copy.join('\n')).not.toContain('UPGRADE REVIEW');
 });
 
-test('compact scaled Equipment review keeps the longest multi-effect consequence readable', async ({ browser }, testInfo) => {
+test('synthetic touch-device compact scaled Equipment review keeps the upgrade consequence and Set attribution readable', async ({ browser }, testInfo) => {
   test.setTimeout(240_000);
   const context = await browser.newContext({
     baseURL: 'http://127.0.0.1:4173',
@@ -480,6 +480,8 @@ test('compact scaled Equipment review keeps the longest multi-effect consequence
       { width: 844, height: 390 }, { width: 844, height: 481 }]) {
       await page.setViewportSize(viewport);
       await settle(page);
+      if (viewport.width >= 600) await expect(page.locator('#portrait-orientation-guard')).toBeVisible();
+      else await expect(page.locator('#portrait-orientation-guard')).toBeHidden();
       const state = await diagnostic(page);
       const copy = state.copy.join('\n');
       expect(copy).toContain('UPGRADE REVIEW');
@@ -508,7 +510,57 @@ test('compact scaled Equipment review keeps the longest multi-effect consequence
   }
 });
 
-test('compact Equipment browse keeps header controls and inventory end reachable without drag activation', async ({ browser }, testInfo) => {
+test('fine-pointer landscape Equipment review keeps identity and actions readable without rotate guard', async ({ browser }, testInfo) => {
+  test.setTimeout(120_000);
+  const context = await browser.newContext({
+    baseURL: 'http://127.0.0.1:4173',
+    viewport: { width: 844, height: 390 },
+    deviceScaleFactor: 1,
+    hasTouch: false,
+    isMobile: false,
+  });
+  const page = await context.newPage();
+  try {
+    await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), pyroThresholdSeed());
+    await page.goto('/?visual-test=1');
+    await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+    await settle(page);
+    await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
+    await settle(page);
+
+    await activateButton(page, 'equipment-slot:armour');
+    await clickButton(page, 'equipment-candidate:owned:equipment:pyro-armour');
+    await activateButtonText(page, 'View details');
+    await activateButtonText(page, 'Review upgrade');
+
+    await expect(page.locator('#portrait-orientation-guard')).toBeHidden();
+    const state = await diagnostic(page);
+    const copy = state.copy.join('\n');
+    expect(copy).toContain('UPGRADE REVIEW');
+    expect(copy).toContain('COST: 100 Scrap');
+    expect(copy).toContain('BALANCE AFTER: 0 Scrap');
+    const actions = state.buttons.filter((button) => button.text === 'Confirm Upgrade • 100 Scrap' || button.text === 'Cancel Upgrade');
+    expect(actions).toHaveLength(2);
+    for (const action of actions) {
+      expect(action.visible && action.interactive).toBe(true);
+      expect(action.bounds.y).toBeGreaterThanOrEqual(0);
+      expect(action.bounds.y + action.bounds.height).toBeLessThanOrEqual(390);
+      expect(action.textInsets.top).toBeGreaterThanOrEqual(6);
+      expect(action.textInsets.bottom).toBeGreaterThanOrEqual(6);
+    }
+    const visibleCopy = (state.copyBounds ?? []).filter((row) => row.visible);
+    expect(visibleCopy.length).toBeGreaterThan(0);
+    for (const row of visibleCopy) {
+      expect(row.bounds.y).toBeGreaterThanOrEqual(0);
+      expect(row.bounds.y + row.bounds.height).toBeLessThanOrEqual(390);
+    }
+    await capture(page, testInfo.outputPath('fine-pointer-landscape-pyro-upgrade-review-844x390.png'));
+  } finally {
+    await context.close();
+  }
+});
+
+test('compact Equipment browse keeps header controls and inventory end reachable', async ({ browser }, testInfo) => {
   test.setTimeout(240_000);
   const viewports = [{ width: 360, height: 500 }, { width: 360, height: 640 },
     { width: 844, height: 390 }, { width: 844, height: 481 }];
@@ -563,10 +615,79 @@ test('compact Equipment browse keeps header controls and inventory end reachable
       expect(endState.equipment?.selectedInstanceId).toBe('owned:equipment:technician-helmet');
       expect(endState.scroll?.offset).toBeGreaterThan(0);
       expect(endState.scroll?.contentHeight).toBeGreaterThan(endState.scroll?.bottom ?? 0);
+      if (viewport.width >= 600) {
+        const selectedCard = endState.buttons.find((button) => button.key === lastCandidate);
+        expect(selectedCard?.visible && selectedCard?.interactive).toBe(true);
+        expect(selectedCard!.bounds.y).toBeGreaterThanOrEqual(endState.scroll!.top);
+        expect(selectedCard!.bounds.y + selectedCard!.bounds.height).toBeLessThanOrEqual(endState.scroll!.bottom);
+        // The card's actual two-line name/status label and art reserve must
+        // remain inside the shared scroll viewport; a positive-height mask
+        // alone would still permit a one-pixel card-top slit.
+        expect(selectedCard!.bounds.y + selectedCard!.textInsets.top + 34)
+          .toBeLessThanOrEqual(endState.scroll!.bottom);
+        const selectedCopy = endState.copyBounds?.find((copy) => copy.text === selectedCard!.text);
+        expect(selectedCopy?.visible).toBe(true);
+        expect(selectedCopy!.bounds.y + selectedCopy!.bounds.height).toBeLessThanOrEqual(endState.scroll!.bottom);
+        const selectedSummary = endState.copyBounds?.find((copy) => copy.text.startsWith('SELECTED'));
+        expect(selectedSummary?.text).toContain('Technician Helmet');
+        expect(selectedSummary?.text).toContain('STORED');
+      }
       await capture(page, testInfo.outputPath(`compact-equipment-inventory-end-${viewport.width}x${viewport.height}.png`));
     } finally {
       await context.close();
     }
+  }
+});
+
+test('synthetic touch-device Equipment browse drag and tap reach inventory without keyboard focus', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const context = await browser.newContext({
+    baseURL: 'http://127.0.0.1:4173',
+    viewport: { width: 360, height: 640 },
+    deviceScaleFactor: 2,
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await context.newPage();
+  try {
+    await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), pyroThresholdSeed());
+    await page.goto('/?visual-test=1');
+    await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+    await settle(page);
+    await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
+    await settle(page);
+    const initial = await diagnostic(page);
+    expect(initial.scroll?.bottom).toBeGreaterThan(initial.scroll?.top ?? 0);
+    const targetKey = 'equipment-candidate:owned:equipment:technician-helmet';
+    let scrolled = initial;
+    let target = scrolled.buttons.find((button) => button.key === targetKey);
+    const targetFitsScroll = (): boolean => target?.visible === true && target.interactive
+      && target.bounds.y >= (scrolled.scroll?.top ?? 0)
+      && target.bounds.y + target.bounds.height <= (scrolled.scroll?.bottom ?? 0);
+    for (let attempt = 0; attempt < 24 && !targetFitsScroll(); attempt += 1) {
+      const scroll = scrolled.scroll!;
+      await touchDrag(page,
+        { x: 180, y: scroll.bottom - 12 },
+        { x: 180, y: scroll.top + 12 });
+      await settle(page);
+      scrolled = await diagnostic(page);
+      target = scrolled.buttons.find((button) => button.key === targetKey);
+    }
+    expect(targetFitsScroll()).toBe(true);
+    expect(scrolled.scroll?.offset).toBeGreaterThan(0);
+    expect(target!.bounds.y).toBeGreaterThanOrEqual(scrolled.scroll!.top);
+    expect(target!.bounds.y + target!.bounds.height).toBeLessThanOrEqual(scrolled.scroll!.bottom);
+    const saveBefore = await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'));
+    // Pure touch path: no semantic focus helper, keyboard key, or Enter edge.
+    await page.touchscreen.tap(target!.bounds.x + target!.bounds.width / 2, target!.bounds.y + target!.bounds.height / 2);
+    await settle(page);
+    const selected = await diagnostic(page);
+    expect(selected.equipment?.selectedInstanceId).toBe('owned:equipment:technician-helmet');
+    expect(selected.copy.join('\n')).toContain('SELECTED');
+    expect(selected.copy.join('\n')).toContain('Technician Helmet');
+    expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
+  } finally {
+    await context.close();
   }
 });
 

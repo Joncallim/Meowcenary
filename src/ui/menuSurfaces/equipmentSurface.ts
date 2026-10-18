@@ -481,12 +481,39 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // usable inventory rows without reducing readable type.
     const compactTabs = true;
     const fixedSlotGrid = compactTabs || this.layout.height <= 480;
-    // At very short heights the fixed slot/header band and the selected-item
+    const cardColumns = this.layout.width >= 1040 ? 3
+      : this.layout.width >= 600 ? ((contentWidth - 24) / 3 >= 176 ? 3 : 2)
+        : 2;
+    const cardGap = cardColumns === 2 ? 12 : 8;
+    const cardWidth = (collectionWidth - cardGap * (cardColumns - 1)) / cardColumns;
+    const artExtent = this.layout.width < 600 ? 72 : this.layout.width >= 1040 ? 96 : 88;
+    const candidateLabels = equipment.filteredCatalog.map((entry) => entry.kind === 'owned'
+      ? `${entry.name}\n${equipmentGradeCopy(entry.grade)} • ${entry.state}`
+      : `${entry.name}\n${equipmentGradeCopy(entry.grade)} • FABRICABLE • ${entry.fabricationCost} Scrap`);
+    const readableCandidateHeight = Math.max(this.layout.hitTarget, artExtent + 112,
+      ...candidateLabels.map((label) => this.measureLoadoutActionHeight(label, cardWidth, this.layout.hitTarget)));
+    const slotColumns = this.layout.width >= 1040
+      || (compactTabs && this.layout.height <= 500 && this.layout.width >= 600) ? 4 : 2;
+    const slotRows = Math.ceil(4 / slotColumns);
+    const slotRowHeight = Math.max(this.layout.hitTarget, this.layout.width <= 375 ? 64 : 48);
+    const estimatedBrowseTop = collectionViewportTop + slotRows * (slotRowHeight + 8) + 6;
+    const estimatedBodyTop = estimatedBrowseTop + this.layout.hitTarget
+      + (this.layout.width < 600 || this.layout.height <= 500 ? 6 : 4);
+    const hasBrowseSelectionForEstimate = equipment.selectedInstanceId !== undefined || equipment.selectedBlueprintId !== undefined;
+    const estimatedBodyBottom = hasBrowseSelectionForEstimate
+      ? Math.min(this.layout.scrollBottom, this.browseSummaryTop(this.layout.hitTarget) - 8)
+      : this.layout.scrollBottom;
+    // At short heights the fixed slot/header band and the selected-item
     // summary can consume the entire lane between the menu chrome and footer.
     // Let the complete Equipment collection own one overflow region in that
     // case; the header remains reachable at its natural top position while
-    // inventory rows can scroll beneath the fixed summary/actions.
-    const compactOverflowScroll = !desktopCollectionScroll && this.layout.width < 600 && this.layout.height <= 500;
+    // inventory rows can scroll beneath the fixed summary/actions. This also
+    // applies to short landscape, where the four compact slot tabs and Browse
+    // Sets control otherwise leave only a thin card-top slit for the grid.
+    const compactOverflowScroll = !desktopCollectionScroll && (
+      this.layout.width < 600 && this.layout.height <= 500
+      || this.layout.width >= 600 && estimatedBodyBottom - estimatedBodyTop < readableCandidateHeight
+    );
     this.collectionTop = desktopCollectionScroll ? sectionTop : collectionViewportTop;
     // Open the single collection region before slot rendering so authored
     // slot cards, candidate cards, copy, and art all enter the same Scene
@@ -529,7 +556,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     // size on both the phone and foldable layouts.
     browse.setStyle({ fontSize: '14px' });
     this.rememberLoadoutFocus(browse, 'equipment:browse-sets');
-    const compactCollection = this.layout.width < 600 || this.layout.height <= 480;
+    const compactCollection = this.layout.width < 600 || this.layout.height <= 500;
     y += browse.height + (compactCollection ? 6 : 4);
     // The narrow portrait slot header and Browse Sets are fixed, reachable
     // chrome. Its candidate body must begin below both; otherwise the initial
@@ -557,12 +584,6 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const browsePrefixObjects = new Set([...root.list]);
     this.browsePrefixObjects = [...browsePrefixObjects];
     const put = (text: string, color?: string) => { const copy = this.loadoutCopy(root, left, y, text, collectionWidth, color); y += copy.height + 8; };
-    const cardColumns = this.layout.width >= 1040 ? 3
-      : this.layout.width >= 600 ? ((contentWidth - 24) / 3 >= 176 ? 3 : 2)
-        : 2;
-    const cardGap = cardColumns === 2 ? 12 : 8;
-    const cardWidth = (collectionWidth - cardGap * (cardColumns - 1)) / cardColumns;
-    const artExtent = this.layout.width < 600 ? 72 : this.layout.width >= 1040 ? 96 : 88;
     // Cards have three fixed visual bands: grade, art/set identity, then the
     // selectable name/state. Keeping those bands separate prevents the set
     // emblem and grade badge from sitting on top of the item label.
@@ -928,7 +949,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     const filterIndicator = activeFilterCount ? `\nFILTERS • ${activeFilterCount} ACTIVE` : '';
     const label = selected ? `${selected.name} • ${equipmentGradeAccessibleCopy(selected.tier)} • ${selected.state}${filterIndicator}`
       : blueprint ? `${blueprint.name} • ${equipmentGradeAccessibleCopy(1)} • FABRICABLE • ${blueprint.fabricationCost} Scrap${filterIndicator}` : `Select a ${selectedSlot.label.toLowerCase()} candidate${filterIndicator}`;
-    const horizontalBand = this.layout.height <= 480 && this.layout.width >= 600;
+    const horizontalBand = this.layout.height <= 500 && this.layout.width >= 600;
     const actionWidth = Math.min(240, Math.max(180, Math.floor(contentWidth * 0.28)));
     const summaryWidth = horizontalBand ? contentWidth - actionWidth - 12 : contentWidth;
     let summary = this.loadoutCopy(root, left, this.footerTop(),
@@ -970,11 +991,19 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   }
 
   private browseSummaryTop(summaryHeight = 0): number {
-    const bandHeight = this.layout.height <= 480 && this.layout.width >= 600
-      ? Math.max(this.layout.hitTarget, summaryHeight) + 8
-      : this.layout.height <= 480
-        ? summaryHeight + this.layout.hitTarget + 8
-        : Math.max(112, summaryHeight + this.layout.hitTarget + 16);
+    const horizontalBand = this.layout.height <= 500 && this.layout.width >= 600;
+    const fixedFooter = this.renderedBlueprintSelectionId !== undefined;
+    if (horizontalBand && !fixedFooter) {
+      // Equipment has no fabrication footer in the browse state. The shared
+      // scroll bottom still reserves that footer lane, so place the compact
+      // identity/action band just below it and give the inventory the full
+      // readable card viewport above. The action remains fixed and outside
+      // the scroll rectangle, preserving the drag-to-scroll guard.
+      return this.footerTop() + 8;
+    }
+    const bandHeight = this.layout.height <= 480
+      ? summaryHeight + this.layout.hitTarget + 8
+      : Math.max(112, summaryHeight + this.layout.hitTarget + 16);
     return this.footerTop() - bandHeight;
   }
 

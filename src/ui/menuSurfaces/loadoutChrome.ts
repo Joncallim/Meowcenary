@@ -337,13 +337,13 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
   protected renderEquipmentSlots(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, left: number, top: number, contentWidth: number, hitTarget: number, overview = false, compactTabs = false): number {
     if (compactTabs) {
       const columns = this.layout.width >= 1040
-        || (compactTabs && this.layout.height <= 480 && this.layout.width >= 600) ? 4 : 2;
+        || (compactTabs && this.layout.height <= 500 && this.layout.width >= 600) ? 4 : 2;
       const gap = 8;
       const slotWidth = (contentWidth - gap * (columns - 1)) / columns;
       // The 360px portrait treatment wraps the equipped-state copy to three
       // lines once the leading art reserve is applied. Give that narrow
       // header a little more vertical room so the last line does not crowd
-      // the card border; compact landscape still keeps its 48px touch row.
+      // the card border; short landscape still keeps its 48px touch row.
       const rowHeight = Math.max(hitTarget, compactTabs && this.layout.width <= 375 ? 64 : 48);
       this.environment.controls.equipmentSlotColumns(columns);
       let y = top;
