@@ -16,6 +16,7 @@ import {
 interface UpgradeReviewState {
   readonly instanceId: string;
   readonly expectedTier: number;
+  readonly expectedState: 'EQUIPPED' | 'STORED';
 }
 
 export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceCommands> {
@@ -964,14 +965,15 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
   ): boolean {
     const review = this.upgradeReview;
     const matches = !!review && review.instanceId === selected.instanceId
-      && review.expectedTier === selected.tier && !!upgrade?.upgradePreview;
+      && review.expectedTier === selected.tier && review.expectedState === selected.state && !!upgrade?.upgradePreview;
     if (review && !matches) this.upgradeReview = undefined;
     return matches;
   }
 
-  private beginUpgradeReview(instanceId: string, expectedTier: number): void {
-    if (this.upgradeReview?.instanceId === instanceId && this.upgradeReview.expectedTier === expectedTier) return;
-    this.upgradeReview = { instanceId, expectedTier };
+  private beginUpgradeReview(instanceId: string, expectedTier: number, expectedState: 'EQUIPPED' | 'STORED'): void {
+    if (this.upgradeReview?.instanceId === instanceId && this.upgradeReview.expectedTier === expectedTier
+      && this.upgradeReview.expectedState === expectedState) return;
+    this.upgradeReview = { instanceId, expectedTier, expectedState };
     this.environment.onSnapshot(this.commands.snapshot());
   }
 
@@ -981,12 +983,13 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     this.environment.onSnapshot(this.commands.snapshot());
   }
 
-  private confirmUpgradeReview(instanceId: string, expectedTier: number): void {
+  private confirmUpgradeReview(instanceId: string, expectedTier: number, expectedState: 'EQUIPPED' | 'STORED'): void {
     // Clear the gate before invoking the authoritative command. A repeated
     // pointerup against the old button therefore cannot spend twice while the
     // Scene is repainting the after-state.
     const review = this.upgradeReview;
-    if (!review || review.instanceId !== instanceId || review.expectedTier !== expectedTier) return;
+    if (!review || review.instanceId !== instanceId || review.expectedTier !== expectedTier
+      || review.expectedState !== expectedState) return;
     this.upgradeReview = undefined;
     const next = this.commands.upgradeEquipment(instanceId, expectedTier);
     this.environment.onSnapshot(next);
@@ -1334,9 +1337,13 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     if (selected && showCommitActions) {
       const action = this.button(fixedRoot, left, nextActionY,
         selected.state === 'EQUIPPED' ? 'Unequip current item' : 'Equip selected item',
-        actionHeight, () => this.environment.onSnapshot(selected.state === 'EQUIPPED'
-          ? this.commands.unequipEquipment(selectedSlot.slot)
-          : this.commands.equipEquipment(selected.instanceId)), 'ui:confirm', width);
+        actionHeight, () => {
+          this.upgradeReview = undefined;
+          const next = selected.state === 'EQUIPPED'
+            ? this.commands.unequipEquipment(selectedSlot.slot)
+            : this.commands.equipEquipment(selected.instanceId);
+          this.environment.onSnapshot(next);
+        }, 'ui:confirm', width);
       this.rememberLoadoutFocus(action, `equipment-equip:${selected.instanceId}`);
       nextActionY += action.height + actionGap;
       if (upgrade?.upgradePreview) {
@@ -1345,7 +1352,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
           this.renderUpgradeReview(fixedRoot, left, nextActionY, width, selected, upgrade, upgradeAfter, scrap);
           nextActionY += reviewHeight + actionGap;
           const confirm = this.button(fixedRoot, left, nextActionY, 'Confirm Upgrade', actionHeight,
-            () => this.confirmUpgradeReview(selected.instanceId, selected.tier), 'ui:confirm', width);
+            () => this.confirmUpgradeReview(selected.instanceId, selected.tier, selected.state), 'ui:confirm', width);
           this.rememberLoadoutFocus(confirm, `equipment-upgrade-confirm:${selected.instanceId}`);
           if (this.upgradeReviewBlocker(upgrade, scrap) !== 'None') this.environment.controls.disableButton(confirm);
           nextActionY += confirm.height + actionGap;
@@ -1355,7 +1362,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         } else {
           const upgradeAction = this.button(fixedRoot, left, nextActionY,
             upgrade.upgradeLockReason ? 'Upgrade locked' : cost === undefined ? 'Upgrade unavailable' : `Upgrade for ${cost} Scrap`,
-            actionHeight, () => this.beginUpgradeReview(selected.instanceId, selected.tier), 'ui:confirm', width);
+            actionHeight, () => this.beginUpgradeReview(selected.instanceId, selected.tier, selected.state), 'ui:confirm', width);
           this.rememberLoadoutFocus(upgradeAction, `equipment-upgrade:${selected.instanceId}`);
           if (upgrade.upgradeLocked || upgrade.upgradeLockReason || cost === undefined || scrap < cost) this.environment.controls.disableButton(upgradeAction);
         }
@@ -1427,9 +1434,13 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         }
         if (comparison) y = this.renderEquipmentComparison(root, comparison, left, y, contentWidth, new Map(snapshot.gunsmith.families.map((family) => [family.id, family.name])));
       }
-      queueFixedDetailAction(equipped ? `Unequip ${selected.name}` : `Equip ${selected.name}`, () => this.environment.onSnapshot(equipped
-        ? this.commands.unequipEquipment(selectedSlot.slot)
-        : this.commands.equipEquipment(selected.instanceId)), `equipment-equip:${selected.instanceId}`);
+      queueFixedDetailAction(equipped ? `Unequip ${selected.name}` : `Equip ${selected.name}`, () => {
+        this.upgradeReview = undefined;
+        const next = equipped
+          ? this.commands.unequipEquipment(selectedSlot.slot)
+          : this.commands.equipEquipment(selected.instanceId);
+        this.environment.onSnapshot(next);
+      }, `equipment-equip:${selected.instanceId}`);
       const upgrade = selectedUpgrade!;
       if (upgrade.upgradePreview) {
         const cost = upgrade.upgradePreview.cost;
@@ -1454,7 +1465,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         if (cost !== undefined) {
           if (upgradeReviewActive) {
             queueFixedDetailAction('Confirm Upgrade',
-              () => this.confirmUpgradeReview(selected.instanceId, selected.tier),
+              () => this.confirmUpgradeReview(selected.instanceId, selected.tier, selected.state),
               `equipment-upgrade-confirm:${selected.instanceId}`,
               this.upgradeReviewBlocker(upgrade, scrap) !== 'None');
             queueFixedDetailAction('Cancel Upgrade',
@@ -1462,7 +1473,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
               `equipment-upgrade-cancel:${selected.instanceId}`);
           } else {
             queueFixedDetailAction(upgrade.upgradeLockReason ? `LOCKED • ${upgrade.upgradeLockReason}` : `Upgrade for ${cost} Scrap`,
-              () => this.beginUpgradeReview(selected.instanceId, selected.tier),
+              () => this.beginUpgradeReview(selected.instanceId, selected.tier, selected.state),
               `equipment-upgrade:${selected.instanceId}`, upgrade.upgradeLocked || scrap < cost);
           }
         }

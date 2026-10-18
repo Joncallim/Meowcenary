@@ -2055,6 +2055,26 @@ describe('MenuScene', () => {
     expect(harness.context.saveData.progression.scrap).toBe(100);
   });
 
+  it('clears a stored Upgrade review when Equip changes its active consequence', () => {
+    const harness = createHarness({ create: false });
+    Object.assign(harness.menuScene.scale, { width: 360, height: 640, displaySize: { width: 360, height: 640 } });
+    harness.menuScene.create();
+    harness.context.updateMeta((progression) => ({ ...progression, scrap: 100, unlocks: [...progression.unlocks, 'capability:equipment-tier-2'] }));
+    harness.context.updateEquipment(() => ({ equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {} }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Upgrade for 100 Scrap')!.state.handlers.pointerup!();
+    expect(harness.buttonByLabel('Confirm Upgrade')).toBeDefined();
+
+    harness.buttonByLabel('Equip Commando Helmet')!.state.handlers.pointerup!();
+    expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('helmet');
+    expect(harness.context.saveData.progression.scrap).toBe(100);
+    expect(harness.buttonByLabel('Confirm Upgrade')).toBeUndefined();
+    expect(harness.textContents().join('\n')).toContain('AFTER UNEQUIP: Empty Helmet slot');
+  });
+
   it('measures wrapped multi-effect phone decision rows for a Pyro threshold change', () => {
     const harness = createHarness({ create: false });
     Object.assign(harness.menuScene.scale, { width: 360, height: 640, displaySize: { width: 360, height: 640 } });
