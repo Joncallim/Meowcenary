@@ -214,12 +214,13 @@ test('Equipment review keeps equip non-mutating and surfaces committed feedback'
   expect(reviewCopy).toContain('COST: 100 Scrap');
   expect(reviewCopy).toContain('BALANCE AFTER: 0 Scrap');
   expect(reviewCopy).toContain('ACTIVATION: STORED output becomes');
-  expect(state.buttons.some((button) => button.text === 'Cancel review to equip')).toBe(true);
+  expect(state.buttons.some((button) => button.text === 'Cancel review to equip')).toBe(false);
   expect(state.buttons.some((button) => button.text === 'Confirm Upgrade • 100 Scrap')).toBe(true);
+  expect(state.buttons.some((button) => button.text === 'Cancel Upgrade')).toBe(true);
   expect(await reviewPage.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(beforeReview);
   await capture(reviewPage, testInfo.outputPath('equipment-upgrade-review-long-name.png'));
 
-  await clickButton(reviewPage, 'Cancel review to equip');
+  await clickButton(reviewPage, 'Cancel Upgrade');
   expect(await reviewPage.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(beforeReview);
   expect((await diagnostic(reviewPage)).buttons.some((button) => button.text === `Equip ${longName}`)).toBe(true);
 
@@ -282,11 +283,11 @@ test('Upgrade review remains reachable across measured short-height layouts', as
     expect(copy).toContain('UPGRADE REVIEW');
     expect(copy).toContain('GRADE: Standard › → Reinforced ››');
     expect(copy).toContain('STATS: +5% Fire Rate [All Weapons] → +10% Fire Rate [All Weapons]');
-    expect(state.buttons.some((button) => button.text === 'Cancel review to equip')).toBe(true);
+    expect(state.buttons.some((button) => button.text === 'Cancel review to equip')).toBe(false);
     expect(state.buttons.some((button) => button.text === 'Confirm Upgrade • 100 Scrap')).toBe(true);
     expect(state.buttons.some((button) => button.text === 'Cancel Upgrade')).toBe(true);
     const actions = state.buttons.filter((button) => button.key?.startsWith('equipment-equip:') || button.key?.startsWith('equipment-upgrade-'));
-    expect(actions.length).toBe(3);
+    expect(actions.length).toBe(2);
     for (const action of actions) {
       expect(action.visible && action.interactive).toBe(true);
       expect(action.bounds.y).toBeGreaterThanOrEqual(0);
@@ -300,9 +301,11 @@ test('Upgrade review remains reachable across measured short-height layouts', as
   await activateButtonText(page, 'Cancel Upgrade');
   expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
   expect((await diagnostic(page)).copy.join('\n')).not.toContain('UPGRADE REVIEW');
+  expect((await diagnostic(page)).buttons.some((button) => button.text === 'Equip Commando Helmet')).toBe(true);
   await activateButtonText(page, 'Review upgrade');
-  await activateButtonText(page, 'Cancel review to equip');
+  await activateButtonText(page, 'Cancel Upgrade');
   expect(await page.evaluate(() => localStorage.getItem('meowcenary.save.v2'))).toBe(saveBefore);
+  expect((await diagnostic(page)).buttons.some((button) => button.text === 'Equip Commando Helmet')).toBe(true);
   } finally {
     await context.close();
   }

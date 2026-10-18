@@ -2126,7 +2126,7 @@ describe('MenuScene', () => {
     expect(harness.buttonByLabel('Confirm Upgrade • 100 Scrap')).toBeDefined();
 
     const before = harness.context.saveData;
-    harness.buttonByLabel('Cancel review to equip')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Cancel Upgrade')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     expect(harness.context.saveData.progression.scrap).toBe(100);
     expect(harness.buttonByLabel('Confirm Upgrade • 100 Scrap')).toBeUndefined();
