@@ -120,7 +120,7 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
   }
 
   protected equipmentInspectionExtent(contentWidth: number): number {
-    const maxExtent = this.layout.height <= 480 ? 128 : this.layout.width <= 375 ? 128 : this.layout.width < 600 ? 136 : 184;
+    const maxExtent = this.layout.height <= 480 ? 128 : this.layout.width <= 375 ? 80 : this.layout.width < 600 ? 136 : 184;
     return Math.min(maxExtent, contentWidth - 24);
   }
 
@@ -149,7 +149,8 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     // not a command: no save callback, action sound, or pointer activation.
     // Keyboard/controller focus can still page the masked body through the
     // Scene-owned navigation boundary.
-    const button = this.button(root, left, top, label, extent + 110, undefined,
+    const detailReserve = this.layout.width <= 375 ? 64 : 110;
+    const button = this.button(root, left, top, label, extent + detailReserve, undefined,
       undefined, width, undefined, 0, 12, true, 'left', 'card', extent + 24);
     this.environment.controls.addLoadoutArt(root, left + width / 2, top + 12 + extent / 2,
       artId, extent, extent, this.environment.controls.buttonIndex(button));
@@ -234,8 +235,8 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     for (const change of comparison.setChanges) {
       const set = comparison.after.sets.find((row) => row.setId === change.setId)!;
       put(`${set.name} ${change.before}/4 → ${change.after}/4`);
-      for (const count of change.lost) put(`LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#fbbf24');
-      for (const count of change.gained) put(`GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#86efac');
+      for (const count of change.lost) put(`− LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#fbbf24');
+      for (const count of change.gained) put(`+ GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#86efac');
     }
     const effects = presentLoadoutRunTruthComparison(comparison.before.runTruth, comparison.after.runTruth);
     const gains = effects.modifiers.filter((delta) => delta.state === 'added' || delta.state === 'changed');

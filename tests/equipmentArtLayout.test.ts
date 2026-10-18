@@ -16,20 +16,20 @@ import { responsiveUiViewport } from '../src/ui/layout';
 import type { EquipmentLoadoutState, EquipmentState } from '../src/systems/save';
 
 interface LayoutObject {
-  x: number; y: number; text: string; width: number; height: number; textLeft: number; list: LayoutObject[];
+  x: number; y: number; text: string; width: number; height: number; textLeft: number; fillColor?: number; strokeColor?: number; strokeAlpha?: number; list: LayoutObject[];
   add(child: LayoutObject): LayoutObject; moveTo(): LayoutObject; setScrollFactor(): LayoutObject;
   setPosition(x: number, y: number): LayoutObject;
-  setStrokeStyle(): LayoutObject; setStyle(): LayoutObject; setPadding(): LayoutObject;
+  setFillStyle(color: number, alpha?: number): LayoutObject; setStrokeStyle(lineWidth?: number, color?: number, alpha?: number): LayoutObject; setStyle(): LayoutObject; setPadding(): LayoutObject;
   setFixedSize(width: number, height: number): LayoutObject;
   getBounds(): { centerX: number; centerY: number; width: number; height: number };
   destroy(): void;
 }
 
 function object(x = 0, y = 0, text = '', width = 0, height = 20): LayoutObject {
-  const result = {
+  const result: LayoutObject = {
     x, y, text, width, height, textLeft: x, list: [] as ReturnType<typeof object>[],
     add(child: ReturnType<typeof object>) { this.list.push(child); return this; },
-    moveTo() { return this; }, setScrollFactor() { return this; }, setStrokeStyle() { return this; },
+    moveTo() { return this; }, setScrollFactor() { return this; }, setFillStyle(color: number) { this.fillColor = color; return this; }, setStrokeStyle(lineWidth?: number, color?: number, alpha?: number) { this.strokeColor = color ?? lineWidth; this.strokeAlpha = alpha; return this; },
     setPosition(nextX: number, nextY: number) { this.x = nextX; this.y = nextY; return this; },
     setStyle() { return this; }, setPadding() { return this; },
     setFixedSize(w: number, h: number) { this.width = w; this.height = h; return this; },
@@ -118,8 +118,8 @@ describe('art-led Equipment layout', () => {
       const slotOwner = view.buttons.indexOf(slots[0]!);
       const slotArt = view.art.mock.calls.find(call => call[3] === 'equipment-icon:scavenger-helmet' && call[6] === slotOwner);
       expect(slotArt).toBeDefined();
-      expect(slotArt![4]).toBeGreaterThanOrEqual(128);
-      expect(slotArt![4]).toBeLessThanOrEqual(176);
+      expect(slotArt![4]).toBeGreaterThanOrEqual(24);
+      expect(slotArt![4]).toBeLessThanOrEqual(32);
       expect(slotArt![5]).toBe(slotArt![4]);
     }
     if (width <= 375 || height <= 480) {
@@ -157,13 +157,12 @@ describe('art-led Equipment layout', () => {
     expect(candidate.y).toBeGreaterThanOrEqual(browse.y + browse.height);
   });
 
-  it.each([[390, 641], [390, 677]])('budgets the 390px slot header above Browse Sets and the footer at %i×%i', (width, height) => {
+  it.each([[390, 641], [390, 677]])('budgets the 390px slot header above Browse Sets without a permanent footer at %i×%i', (width, height) => {
     const view = harness(width, height);
     const slots = view.buttons.slice(0, 4);
     const browse = view.buttons.find(button => button.text === 'BROWSE SETS')!;
-    const footer = view.buttons.find(button => button.text === 'Fabricate unavailable')!;
     expect(slots.every(slot => slot.height === 48)).toBe(true);
-    expect(browse.y + browse.height).toBeLessThanOrEqual(footer.y);
+    expect(view.buttons.find(button => button.text === 'Fabricate unavailable')).toBeUndefined();
     expect(browse.y).toBeGreaterThanOrEqual(slots[3]!.y + slots[3]!.height);
   });
 
@@ -178,13 +177,11 @@ describe('art-led Equipment layout', () => {
     expect(view.buttons.some(button => button.text === 'BROWSE SETS')).toBe(true);
   });
 
-  it.each([[376, 640], [390, 640]])('keeps empty Equipment Browse Sets above fixed actions at %i×%i', (width, height) => {
+  it.each([[376, 640], [390, 640]])('keeps empty Equipment Browse Sets above the full inventory lane at %i×%i', (width, height) => {
     const view = harness(width, height, 'equipment', true);
     const browse = view.buttons.find(button => button.text === 'BROWSE SETS')!;
-    const footer = view.buttons.find(button => button.text === 'Fabricate unavailable')!;
     expect(browse).toBeDefined();
-    expect(footer).toBeDefined();
-    expect(browse.y + browse.height).toBeLessThanOrEqual(footer.y);
+    expect(view.buttons.find(button => button.text === 'Fabricate unavailable')).toBeUndefined();
   });
 
   it.each([[390, 844, 136], [1280, 720, 80]])('gives inspection its own bounded frame and compares both tiers in one optical frame at %i×%i', (width, height, detailExtent) => {
@@ -345,6 +342,23 @@ describe('art-led Equipment layout', () => {
     const emblem = view.icons.mock.calls.find(call => call[5] === owner && call[3] === 'equipment-set-icon:commando');
     expect(emblem).toBeDefined();
     expect(emblem![2]).toBe(blueprint.y + blueprint.height / 2);
+  });
+
+  it('updates retained candidate selection chrome without replacing the card visual identity', () => {
+    const view = harness(390, 844);
+    const candidate = view.buttons.find(button => button.text.startsWith('Scavenger Helmet'))!;
+    const visuals = (view.surface as unknown as { catalogCardVisuals: Map<string, { outline: LayoutObject; marker: LayoutObject }> }).catalogCardVisuals;
+    const retained = visuals.get('helmet')!;
+    view.handlers.get(candidate)!();
+    (view.surface as unknown as { updateCatalogCardVisuals(snapshot: unknown): void }).updateCatalogCardVisuals(view.commands.snapshot());
+    expect(visuals.get('helmet')!.outline).toBe(retained.outline);
+    expect(retained.outline.strokeColor).toBe(0x2dd4b6);
+    expect(retained.marker.fillColor).toBe(0x2dd4b6);
+    const filtered = view.commands.setEquipmentSearch('does-not-exist');
+    expect(filtered.equipment.browse.filters.query).toBe('does-not-exist');
+    (view.surface as unknown as { updateCatalogCardVisuals(snapshot: unknown): void }).updateCatalogCardVisuals(view.commands.snapshot());
+    expect(visuals.get('helmet')!.outline).toBe(retained.outline);
+    expect(retained.outline.strokeColor).toBe(0x214756);
   });
 
   it('distinguishes an empty inventory from a filtered-empty result state', () => {

@@ -101,6 +101,22 @@ describe('EquipmentController authoritative commands', () => {
     expect(controller.clearBrowseFilters()).toBe(false);
     expect(context.saveData).toBe(before);
   });
+  it('preserves an All-slots browse intent when selecting an owned candidate', () => {
+    const { controller } = setup();
+    expect(controller.clearBrowseFilters()).toBe(false);
+    expect(controller.snapshot().browse.filters.slots).toEqual([]);
+    expect(controller.selectCandidate('owned:helmet')).toBe(true);
+    expect(controller.snapshot().browse.filters.slots).toEqual([]);
+  });
+  it('preserves a multi-slot browse intent when selecting a blueprint', () => {
+    const { controller } = setup();
+    expect(controller.clearBrowseFilters()).toBe(false);
+    expect(controller.toggleBrowseFilter('slot', 'helmet')).toBe(false);
+    expect(controller.toggleBrowseFilter('slot', 'boots')).toBe(false);
+    const before = controller.snapshot().browse.filters.slots;
+    expect(controller.selectBlueprint('equipment:commando-boots')).toBe(true);
+    expect(controller.snapshot().browse.filters.slots).toEqual(before);
+  });
   it('clears a selected item when a committed upgrade moves it out of the active grade filter', () => {
     const { context, controller } = setup();
     context.updateMeta((progression) => ({

@@ -241,7 +241,6 @@ export class EquipmentController {
         if (!this.snapshot().filteredCatalog.some((entry) => entry.kind === 'owned' && entry.id === instanceId))
             return false;
         this.selectedSlot = definition.slot;
-        this.browse = Object.freeze({ ...this.browse, filters: Object.freeze({ ...this.browse.filters, slots: [definition.slot] }) });
         this.selectedInstanceId = instanceId;
         this.selectedBlueprintId = undefined;
         return true;
@@ -252,7 +251,6 @@ export class EquipmentController {
             || !this.snapshot().filteredCatalog.some((entry) => entry.kind === 'blueprint' && entry.id === equipmentId))
             return false;
         this.selectedSlot = piece.slot;
-        this.browse = Object.freeze({ ...this.browse, filters: Object.freeze({ ...this.browse.filters, slots: [piece.slot] }) });
         this.selectedBlueprintId = equipmentId;
         this.selectedInstanceId = undefined;
         return true;

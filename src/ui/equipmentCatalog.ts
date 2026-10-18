@@ -47,9 +47,10 @@ export interface EquipmentCatalogEntry {
 }
 
 export const DEFAULT_EQUIPMENT_BROWSE_STATE: EquipmentBrowseState = Object.freeze({
-  // Keep the browse shell aligned with the selected Equipment tab on first
-  // entry. The All slots facet remains an explicit way to widen the view.
-  filters: Object.freeze({ query: '', slots: ['helmet'] as readonly EquipmentSlot[], sets: [], grades: [], ownership: [], readiness: [] }),
+  // The equipped strip provides the current-slot context; the initial
+  // catalogue remains All slots so the first browse frame shows inventory
+  // rather than spending its phone viewport on a hidden facet transition.
+  filters: Object.freeze({ query: '', slots: [] as readonly EquipmentSlot[], sets: [], grades: [], ownership: [], readiness: [] }),
   sort: 'name',
   direction: 'asc',
 });

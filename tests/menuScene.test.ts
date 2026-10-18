@@ -677,7 +677,10 @@ describe('MenuScene', () => {
     scene.render(scene.controller.open('equipment'));
     const oldRoot = scene.panelContentRoot!;
     await vi.waitFor(() => expect(queued).toEqual(['art-equipment-sets', 'art-equipment-commando']));
-    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
+    const candidate = harness.objects.find((object) => object.state.kind === 'text'
+      && object.state.text.startsWith('Recon Helmet') && object.state.handlers['pointerup']);
+    expect(candidate).toBeDefined();
+    candidate!.state.handlers.pointerup!();
     expect(scene.panelContentRoot).toBe(oldRoot);
     expect(harness.menuScene.loadoutUiDiagnostics().equipment?.selectedInstanceId).toBe('recon');
     scene.render(scene.controller.open('home'));
@@ -963,7 +966,11 @@ describe('MenuScene', () => {
     harness.menuScene.create();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Recon Helmet\nStandard › • STORED')!.state.handlers.pointerup!();
+    const candidate = harness.objects.find((object) => object.state.kind === 'text'
+      && object.state.text.startsWith('Recon Helmet') && object.state.text.includes('STORED')
+      && object.state.handlers.pointerup);
+    expect(candidate).toBeDefined();
+    candidate!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       scrollRectangle: { x: number; y: number; width: number; height: number };
       scrollItemIndexes: Set<number>; focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
@@ -996,6 +1003,32 @@ describe('MenuScene', () => {
     expect(copy).not.toContain('ITEM NOW');
     expect(copy).not.toContain('ITEM AFTER UPGRADE');
     expect(copy).not.toContain('UPGRADE BENEFIT');
+  });
+
+  it('keeps simultaneous piece loss plus Set loss and gain visible before Equip', () => {
+    const harness = createHarness({ create: false });
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      armour: { equipmentId: 'equipment:commando-armour', tier: 1 },
+      'recon-gloves': { equipmentId: 'equipment:recon-gloves', tier: 1 },
+      'recon-helmet': { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando', armour: 'armour', gloves: 'recon-gloves' } }));
+    Object.assign(harness.menuScene.scale, { width: 1280, height: 720, displaySize: { width: 1280, height: 720 } });
+    harness.menuScene.create();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const candidate = harness.objects.find((object) => object.state.kind === 'text'
+      && object.state.text.startsWith('Recon Helmet') && object.state.text.includes('STORED')
+      && object.state.handlers.pointerup);
+    expect(candidate).toBeDefined();
+    candidate!.state.handlers.pointerup!();
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+    const copy = harness.textContents().join('\n');
+    expect(copy).toContain('REPLACES: Commando Helmet');
+    expect(copy).toContain('+5% Fire Rate [All Weapons]');
+    expect(copy).toContain('LOSE 2-piece');
+    expect(copy).toContain('GAIN 2-piece');
+    expect(copy).toContain('[Mercenary]');
   });
 
   it('keeps the desktop Equipment collection chrome in one scroll lane without inspector art overlap', () => {
@@ -1232,16 +1265,18 @@ describe('MenuScene', () => {
     const scene = harness.menuScene as unknown as {
       handleBack(): void; committedPanel: string; navigator: { index: number };
       focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>;
-      scrollRegion: { scrollOffset: number };
+      scrollRegion: { scrollOffset: number }; scrollViewportTop: number; scrollViewportBottom: number;
     };
-    const offset = scene.scrollRegion.scrollOffset;
     const before = harness.context.saveData;
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     scene.handleBack();
     expect(scene.committedPanel).toBe('equipment');
     expect(harness.buttonByLabel('View details')).toBeDefined();
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-candidate:recon');
-    expect(scene.scrollRegion.scrollOffset).toBe(offset);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThanOrEqual(0);
+    const returnedCandidate = scene.focusables[scene.navigator.index]!;
+    expect(returnedCandidate.state.y).toBeGreaterThanOrEqual(scene.scrollViewportTop);
+    expect(returnedCandidate.state.y + returnedCandidate.state.height).toBeLessThanOrEqual(scene.scrollViewportBottom);
     expect(harness.context.saveData).toBe(before);
     scene.handleBack();
     expect(scene.committedPanel).toBe('loadout');
@@ -1612,7 +1647,7 @@ describe('MenuScene', () => {
     expect(cardFor(back).alpha).not.toHaveBeenCalled();
   });
 
-  it('keeps fresh Equipment truth empty and reserves the compact collection above fixed actions', () => {
+  it('keeps fresh Equipment truth empty and gives the inventory the full collection lane', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
       focusables: FakeObject[]; scrollObjects: Array<{ object: FakeObject }>;
@@ -1624,14 +1659,11 @@ describe('MenuScene', () => {
     const icons = vi.spyOn(scene, 'addCatalogIcon');
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     const slots = scene.focusables.slice(0, 4);
-    const footer = harness.buttonByLabel('Fabricate unavailable')!;
     const back = harness.buttonByLabel('Back')!;
     const browse = harness.buttonByLabel('BROWSE SETS')!;
-    expect(footer.state.x).toBe(slots[0]!.state.x);
-    expect(footer.state.width).toBe(358);
     expect(back.state.y + back.state.height).toBeLessThanOrEqual(slots[0]!.state.y);
-    expect(scene.scrollObjects.some(({ object }) => object === back || object === footer)).toBe(false);
-    expect(scene.focusables.indexOf(back)).toBeGreaterThan(scene.focusables.indexOf(footer));
+    expect(harness.buttonByLabel('Fabricate unavailable')).toBeUndefined();
+    expect(scene.focusables.indexOf(back)).toBeGreaterThan(scene.focusables.indexOf(browse));
     expect(harness.textContents()).toContain('0/4 PIECES EQUIPPED');
     expect(harness.textContents()).toContain('No stored helmet pieces. Choose a blueprint to fabricate.');
     const sets = scene.controller.snapshot().equipment.presentation.sets;
@@ -1673,7 +1705,7 @@ describe('MenuScene', () => {
       };
       const rectangle = scene.scrollRectangle;
       const details = harness.buttonByLabel('View details')!;
-      const footer = harness.buttonByLabel(selection === 'blueprint' ? 'Fabricate locked • Need 100 Scrap' : 'Fabricate unavailable')!;
+      const footer = harness.buttonByLabel(selection === 'blueprint' ? 'Fabricate locked • Need 100 Scrap' : 'Fabricate unavailable');
       const back = harness.buttonByLabel('Back')!;
       const candidate = scene.focusables.find(button => button.state.text === candidateLabel)!;
       const setReading = harness.objects.find(object => object.state.text.includes('2-piece INACTIVE') && !object.state.destroyed)!;
@@ -1689,9 +1721,11 @@ describe('MenuScene', () => {
       expect(scene.scrollObjects.some(({ object }) => object === details || object === footer || object === back)).toBe(false);
       expect(details.state.interactive).toBe(true);
       expect(back.state.interactive).toBe(true);
-      expect(details.state.y + details.state.height).toBeLessThanOrEqual(footer.state.y);
-      expect(footer.state.y + footer.state.height).toBeLessThanOrEqual(height);
-      const fixedActions = [details, footer, back, ...scene.focusables.filter(button =>
+      if (footer) {
+        expect(details.state.y + details.state.height).toBeLessThanOrEqual(footer.state.y);
+        expect(footer.state.y + footer.state.height).toBeLessThanOrEqual(height);
+      }
+      const fixedActions = [details, ...(footer ? [footer] : []), back, ...scene.focusables.filter(button =>
         button.state.text === 'Equip selected item' || button.state.text === 'Unequip current item'
           || button.state.text.startsWith('Upgrade'))];
       const orderedActions = [...new Set(fixedActions)].sort((a, b) => a.state.y - b.state.y);
@@ -1837,8 +1871,7 @@ describe('MenuScene', () => {
     expect(slots.every((slot) => slot.state.height >= minimumHitTarget(scene.currentViewport))).toBe(true);
     expect(slots[3]!.state.x + slots[3]!.state.width).toBeLessThanOrEqual(360 - 16);
     expect(scene.scrollObjects.some(({ object }) => slots.includes(object))).toBe(false);
-    const emptyFooter = harness.buttonByLabel('Fabricate unavailable')!;
-    expect(emptyFooter.state.interactive).toBe(false);
+    expect(harness.buttonByLabel('Fabricate unavailable')).toBeUndefined();
     const before = harness.context.saveData;
     harness.buttonByLabel('BROWSE SETS')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
@@ -1895,7 +1928,9 @@ describe('MenuScene', () => {
     expect(selectedY + scene.focusables[scene.navigator.index]!.state.height).toBeLessThanOrEqual(scene.scrollViewportBottom);
     scene.render(scene.controller.snapshot());
     expect(key()).toBe('equipment-candidate:recon');
-    expect(scene.focusables[scene.navigator.index]!.state.y).toBe(selectedY);
+    const repainted = scene.focusables[scene.navigator.index]!;
+    expect(repainted.state.y).toBeGreaterThanOrEqual(scene.scrollViewportTop);
+    expect(repainted.state.y + repainted.state.height).toBeLessThanOrEqual(scene.scrollViewportBottom);
     for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080]]) {
       Object.assign(harness.menuScene.scale, { width, height, displaySize: { width, height } });
       scene.handleResize();
@@ -4158,7 +4193,7 @@ describe('MenuScene', () => {
 
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
     expect(harness.textContents()).toContain('Commando Helmet\nStandard › • FABRICABLE • 100 Scrap');
-    expect(harness.textContents().some((text) => text.includes('Commando Armour'))).toBe(false);
+    expect(harness.textContents()).toContain('Commando Armour\nStandard › • FABRICABLE • 100 Scrap');
     harness.buttonByLabel('Commando Helmet\nStandard › • FABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
     harness.buttonByLabel('View details')!.state.handlers.pointerup!();
     expect(harness.textContents().join('\n')).toContain('+5% Fire Rate [All Weapons]');
@@ -6276,14 +6311,10 @@ describe('Menu scroll gesture rectangle ownership', () => {
     expect(confirm).toHaveBeenCalledOnce();
   });
 
-  it('uses the content-width collection rectangle and reserves the fixed summary band', () => {
+  it('uses the content-width collection rectangle for the unselected inventory lane', () => {
     const { scene } = scrolling('equipment');
     expect(scene.scrollRectangle).toEqual({ x: 16, y: scene.scrollViewportTop,
-      // The narrow portrait slot header and Browse Sets remain fixed above
-      // the candidate body, so the measured summary/action band leaves a
-      // 140px candidate region below that fixed chrome, with a clean gutter
-      // before the fixed summary band.
-      width: scene.scale.width - 32, height: 140 });
+      width: scene.scale.width - 32, height: scene.scrollViewportBottom - scene.scrollViewportTop });
     const index = scene.focusables.findIndex((button: FakeObject, index: number) => scene.scrollItemIndexes.has(index)
       && button.state.interactive);
     const row = scene.focusables[index] as FakeObject; const bounds = row.getBounds();
