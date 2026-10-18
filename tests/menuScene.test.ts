@@ -905,6 +905,33 @@ describe('MenuScene', () => {
     expect(copy).toContain('Source: Commando 2-piece bonus');
   });
 
+  it('keeps Pyro trait and projectile effects under the named Set source', () => {
+    const harness = createHarness({ create: false });
+    harness.context.updateEquipment(() => ({ equipment: {
+      'pyro-helmet': { equipmentId: 'equipment:pyro-helmet', tier: 1 },
+      'pyro-armour': { equipmentId: 'equipment:pyro-armour', tier: 1 },
+      'commando-armour': { equipmentId: 'equipment:commando-armour', tier: 1 },
+      'commando-gloves': { equipmentId: 'equipment:commando-gloves', tier: 1 },
+    }, loadout: { helmet: 'pyro-helmet', armour: 'commando-armour', gloves: 'commando-gloves' } }));
+    Object.assign(harness.menuScene.scale, { width: 1280, height: 720, displaySize: { width: 1280, height: 720 } });
+    harness.menuScene.create();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const armourSlot = harness.objects.find((object) => object.state.kind === 'text'
+      && object.state.text.startsWith('ARMOUR') && object.state.text.includes('EQUIPPED'))!;
+    armourSlot.state.handlers.pointerup!();
+    harness.buttonByLabel('Pyro Armour\nStandard › • STORED')!.state.handlers.pointerup!();
+    harness.buttonByLabel('View details')!.state.handlers.pointerup!();
+    const rows = harness.textContents();
+    const setGain = rows.indexOf('SET BONUS GAIN');
+    const itemGain = rows.indexOf('ITEM GAIN');
+    expect(setGain).toBeGreaterThan(itemGain);
+    expect(rows.some((row) => row.includes('FIRE') && row.includes('Source: Pyro 2-piece bonus'))).toBe(true);
+    expect(rows.some((row) => row.includes('burn') && row.includes('Source: Pyro 2-piece bonus'))).toBe(true);
+    expect(rows.findIndex((row) => row.includes('FIRE') && row.includes('Source:'))).toBeGreaterThan(setGain);
+    expect(rows.findIndex((row) => row.includes('burn') && row.includes('Source:'))).toBeGreaterThan(setGain);
+  });
+
   it('retains the Equipment shell, prefix and mask during candidate selection while revoking replaced detail commands', () => {
     const harness = createHarness({ audio: true });
     harness.context.updateEquipment(() => ({ equipment: {

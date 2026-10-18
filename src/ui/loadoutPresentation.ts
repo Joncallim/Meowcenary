@@ -74,6 +74,8 @@ export interface LoadoutTraitDelta {
   readonly after: boolean;
   readonly beforeDeduplicated: boolean;
   readonly afterDeduplicated: boolean;
+  readonly beforeSourceIds: readonly string[];
+  readonly afterSourceIds: readonly string[];
   readonly beforeSourceLabels: readonly string[];
   readonly afterSourceLabels: readonly string[];
   readonly sourceChanged: boolean;
@@ -151,6 +153,7 @@ export function presentLoadoutRunTruthComparison(
       traits.push({ familyId, trait, target: presentLoadoutTrait(trait, familyId).target,
         before: oldTrait !== undefined, after: newTrait !== undefined,
         beforeDeduplicated: oldTrait?.deduplicated ?? false, afterDeduplicated: newTrait?.deduplicated ?? false,
+        beforeSourceIds: oldTrait?.sourceIds ?? [], afterSourceIds: newTrait?.sourceIds ?? [],
         beforeSourceLabels, afterSourceLabels, sourceChanged });
     }
     const beforeEffects = previous?.projectileEffects ?? [];

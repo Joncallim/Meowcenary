@@ -7,7 +7,17 @@ import type { MainMenuSnapshot } from '../menus';
 import { presentLoadoutRunTruthComparison, type LoadoutEffectPresentation, type LoadoutModifierDelta } from '../loadoutPresentation';
 import type { EquipmentComparison, EquipmentSetProgressPresentation } from '../equipmentPresentation';
 import { equipmentGradeCopy } from '../equipmentCatalog';
+import { TRAIT_BEHAVIORS, type BehaviorTrait } from '../../gameplay/weaponTraits';
 import { MenuPanelSurface, type MenuSurfaceEnvironment, type LoadoutSurfaceCommands } from './surface';
+
+type LoadoutSourceKind = 'item' | 'set' | 'other';
+type LoadoutSourceCopy = { readonly kind: LoadoutSourceKind; readonly label: string };
+type ComparisonEffectGroups = {
+  readonly itemGains: readonly string[];
+  readonly setGains: readonly string[];
+  readonly itemLosses: readonly string[];
+  readonly setLosses: readonly string[];
+};
 
 /** Shared presentation language for Loadout and Equipment, consuming domain
  * read models without moving Set/modifier/equip truth into presentation. */
@@ -26,19 +36,115 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     return this.signedValue(sign, this.loadoutEffectCopy(effects) || 'None');
   }
 
-  protected modifierSourceCopy(delta: LoadoutModifierDelta, comparison: EquipmentComparison): { kind: 'item' | 'set' | 'other'; label: string } {
-    const sourceId = delta.after?.modifier.sourceId ?? delta.before?.modifier.sourceId;
-    if (!sourceId) return { kind: 'other', label: 'Loadout source' };
-    const setMatch = /^set-bonus:(.+):(2|4)$/.exec(sourceId);
+  private sourceLabelForId(sourceId: string, fallback: string | undefined, comparison: EquipmentComparison): string {
+    const setMatch = /^(?:set-bonus:)?(set:[a-z0-9-]+):(2|4)$/.exec(sourceId);
     if (setMatch) {
       const set = [...comparison.before.sets, ...comparison.after.sets].find((row) => row.setId === setMatch[1]);
-      return { kind: 'set', label: `${set?.name ?? setMatch[1]} ${setMatch[2]}-piece bonus` };
+      return `${set?.name ?? setMatch[1]} ${setMatch[2]}-piece bonus`;
     }
     const item = [...comparison.before.slots, ...comparison.after.slots]
       .flatMap((slot) => slot.candidates)
       .find((candidate) => candidate.instanceId === sourceId);
-    if (item) return { kind: 'item', label: item.name };
-    return { kind: 'other', label: sourceId.startsWith('build:') ? 'Gunsmith build' : 'Loadout source' };
+    return item?.name ?? fallback ?? (sourceId.startsWith('build:') ? 'Gunsmith build' : 'Loadout source');
+  }
+
+  private sourceCopy(sourceIds: readonly string[], sourceLabels: readonly string[], comparison: EquipmentComparison): LoadoutSourceCopy {
+    const ids = [...new Set(sourceIds)];
+    const labels = ids.length
+      ? ids.map((sourceId) => this.sourceLabelForId(sourceId, sourceLabels[sourceIds.indexOf(sourceId)], comparison))
+      : [...new Set(sourceLabels)];
+    const setIds = ids.filter((sourceId) => /^(?:set-bonus:)?(set:[a-z0-9-]+):(2|4)$/.test(sourceId));
+    const itemIds = ids.filter((sourceId) => [...comparison.before.slots, ...comparison.after.slots]
+      .flatMap((slot) => slot.candidates).some((candidate) => candidate.instanceId === sourceId));
+    return {
+      kind: setIds.length ? 'set' : itemIds.length ? 'item' : 'other',
+      label: labels.join(' • ') || 'Loadout source',
+    };
+  }
+
+  private traitSourceCopy(familyId: string, trait: BehaviorTrait, sourceIds: readonly string[], sourceLabels: readonly string[], comparison: EquipmentComparison): LoadoutSourceCopy {
+    const truth = [...comparison.before.runTruth.families, ...comparison.after.runTruth.families]
+      .filter((family) => family.familyId === familyId);
+    const records = truth.flatMap((family) => family.traits.filter((row) => row.trait === trait));
+    return this.sourceCopy(
+      sourceIds.length ? sourceIds : records.flatMap((row) => row.sourceIds),
+      sourceLabels.length ? sourceLabels : records.flatMap((row) => row.sourceLabels),
+      comparison,
+    );
+  }
+
+  private modifierSourceCopy(delta: LoadoutModifierDelta, comparison: EquipmentComparison): LoadoutSourceCopy {
+    const sourceId = delta.after?.modifier.sourceId ?? delta.before?.modifier.sourceId;
+    if (!sourceId) return { kind: 'other', label: 'Loadout source' };
+    const traitMatch = /^trait:([^:]+):([^:]+):(add|mult)$/.exec(sourceId);
+    if (traitMatch) {
+      const family = [...comparison.before.runTruth.families, ...comparison.after.runTruth.families]
+        .find((row) => row.familyId === traitMatch[1]);
+      const trait = family?.traits.find((row) => {
+        const modifier = TRAIT_BEHAVIORS[row.trait].modifier;
+        return modifier?.stat === traitMatch[2] && modifier.op === traitMatch[3];
+      });
+      if (trait) return this.sourceCopy(trait.sourceIds, trait.sourceLabels, comparison);
+    }
+    return this.sourceCopy([sourceId], [], comparison);
+  }
+
+  private projectileSourceCopy(familyId: string, effectKind: string, comparison: EquipmentComparison): LoadoutSourceCopy {
+    const records = [...comparison.before.runTruth.families, ...comparison.after.runTruth.families]
+      .filter((family) => family.familyId === familyId)
+      .flatMap((family) => family.traits.filter((row) => TRAIT_BEHAVIORS[row.trait].projectileEffect?.kind === effectKind));
+    return this.sourceCopy(records.flatMap((row) => row.sourceIds), records.flatMap((row) => row.sourceLabels), comparison);
+  }
+
+  private traitDeltaCopy(sign: '+' | '−' | '↔', delta: { readonly familyId: string; readonly trait: BehaviorTrait; readonly target: { readonly label: string }; readonly before: boolean; readonly after: boolean; readonly beforeSourceIds: readonly string[]; readonly afterSourceIds: readonly string[]; readonly beforeSourceLabels: readonly string[]; readonly afterSourceLabels: readonly string[] }, comparison: EquipmentComparison, familyNames: ReadonlyMap<string, string>): { kind: LoadoutSourceKind; text: string } {
+    const sourceIds = delta.after ? delta.afterSourceIds : delta.beforeSourceIds;
+    const sourceLabels = delta.after ? delta.afterSourceLabels : delta.beforeSourceLabels;
+    const source = this.traitSourceCopy(delta.familyId, delta.trait, sourceIds, sourceLabels, comparison);
+    const family = familyNames.get(delta.familyId) ?? delta.familyId;
+    return { kind: source.kind, text: `${sign} ${family} • ${delta.trait} [${delta.target.label}]\nSource: ${source.label}` };
+  }
+
+  private projectileDeltaCopies(sign: '+' | '−', delta: { readonly familyId: string; readonly before: readonly { readonly kind: string }[]; readonly after: readonly { readonly kind: string }[] }, comparison: EquipmentComparison, familyNames: ReadonlyMap<string, string>): { kind: LoadoutSourceKind; text: string }[] {
+    const beforeKinds = new Set(delta.before.map((effect) => effect.kind));
+    const afterKinds = new Set(delta.after.map((effect) => effect.kind));
+    const effects = sign === '+'
+      ? delta.after.filter((effect) => !beforeKinds.has(effect.kind))
+      : delta.before.filter((effect) => !afterKinds.has(effect.kind));
+    return effects.map((effect) => {
+      const source = this.projectileSourceCopy(delta.familyId, effect.kind, comparison);
+      return { kind: source.kind, text: `${sign} ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effect [All Weapons]: ${effect.kind} • Source: ${source.label}` };
+    });
+  }
+
+  private comparisonEffectGroups(comparison: EquipmentComparison, familyNames: ReadonlyMap<string, string>): ComparisonEffectGroups {
+    const effects = presentLoadoutRunTruthComparison(comparison.before.runTruth, comparison.after.runTruth);
+    const itemGains: string[] = [];
+    const setGains: string[] = [];
+    const itemLosses: string[] = [];
+    const setLosses: string[] = [];
+    const add = (group: LoadoutSourceKind, direction: 'gain' | 'loss', text: string): void => {
+      if (direction === 'gain') (group === 'set' ? setGains : itemGains).push(text);
+      else (group === 'set' ? setLosses : itemLosses).push(text);
+    };
+    for (const delta of effects.modifiers) {
+      if (delta.state === 'added' || delta.state === 'changed') add(this.modifierSourceCopy(delta, comparison).kind, 'gain', this.modifierDeltaCopy('+', delta, comparison));
+      if (delta.state === 'removed' || delta.state === 'changed') add(this.modifierSourceCopy(delta, comparison).kind, 'loss', this.modifierDeltaCopy('−', delta, comparison));
+    }
+    for (const delta of effects.projectileEffects) {
+      for (const row of this.projectileDeltaCopies('+', delta, comparison, familyNames)) add(row.kind, 'gain', row.text);
+      for (const row of this.projectileDeltaCopies('−', delta, comparison, familyNames)) add(row.kind, 'loss', row.text);
+    }
+    for (const delta of effects.traits) {
+      if ((!delta.before && delta.after) || (delta.before && delta.after && delta.sourceChanged)) {
+        const row = this.traitDeltaCopy(delta.before && delta.after ? '↔' : '+', delta, comparison, familyNames);
+        add(row.kind, 'gain', row.text);
+      }
+      if (delta.before && !delta.after) {
+        const row = this.traitDeltaCopy('−', delta, comparison, familyNames);
+        add(row.kind, 'loss', row.text);
+      }
+    }
+    return { itemGains, setGains, itemLosses, setLosses };
   }
 
   protected modifierDeltaCopy(sign: '+' | '−', delta: LoadoutModifierDelta, comparison: EquipmentComparison): string {
@@ -79,6 +185,28 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     measured.setStyle({ fontSize: `${fontSize}px`, lineSpacing, fontStyle });
     const height = measured.height;
     holder.destroy(true);
+    return height;
+  }
+
+  /** Match MenuScene.addButton's wrapped label geometry before a fixed action
+   * stack is positioned. This keeps a long identity label's actual button,
+   * chrome, hit target, and following action on one measured cadence. */
+  protected measureLoadoutActionHeight(label: string, width: number, minHeight = this.layout.hitTarget): number {
+    const leftInset = 12;
+    const rightInset = 12;
+    const fontSize = width < 110 ? 10 : width < 190 ? ThemeFont.bodyMin : ThemeFont.labelMin;
+    const text = createUiText(this.environment.scene, 0, 0, label, {
+      color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${fontSize}px`, fontStyle: '600',
+      align: 'center', padding: { left: leftInset, right: rightInset, top: 0, bottom: 0 },
+      wordWrap: { width: Math.max(1, width - leftInset - rightInset) },
+    });
+    const bounds = text.getBounds();
+    const targetHeight = Math.max(minHeight, bounds.height);
+    const verticalPadding = Math.max(0, Math.round((targetHeight - bounds.height) / 2));
+    text.setPadding(leftInset, verticalPadding, rightInset, verticalPadding);
+    const measured = text.getBounds();
+    const height = Math.max(targetHeight, measured.height);
+    text.destroy();
     return height;
   }
 
@@ -284,42 +412,20 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
       for (const count of change.lost) put(`− SET LOSS • ${set.name} • LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#fbbf24');
       for (const count of change.gained) put(`+ NEW ${set.name.toUpperCase()} BONUS • GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#86efac');
     }
-    const effects = presentLoadoutRunTruthComparison(comparison.before.runTruth, comparison.after.runTruth);
-    const gains = effects.modifiers.filter((delta) => delta.state === 'added' || delta.state === 'changed');
-    const losses = effects.modifiers.filter((delta) => delta.state === 'removed' || delta.state === 'changed');
-    const itemGains = gains.filter((delta) => this.modifierSourceCopy(delta, comparison).kind !== 'set');
-    const setGains = gains.filter((delta) => this.modifierSourceCopy(delta, comparison).kind === 'set');
-    const itemLosses = losses.filter((delta) => this.modifierSourceCopy(delta, comparison).kind !== 'set');
-    const setLosses = losses.filter((delta) => this.modifierSourceCopy(delta, comparison).kind === 'set');
-    const projectileGains = effects.projectileEffects.filter((delta) => delta.after.length > delta.before.length);
-    const projectileLosses = effects.projectileEffects.filter((delta) => delta.before.length > delta.after.length);
-    const projectileCopy = (effects: readonly { readonly kind: string }[]): string => effects.map((effect) => effect.kind).join(', ') || 'None';
-    const traitGains = effects.traits.some((trait) => !trait.before && trait.after);
-    if (itemGains.length || projectileGains.length || traitGains || !setGains.length) put('ITEM GAIN', '#86efac');
-    if (!itemGains.length && !projectileGains.length && !traitGains && !setGains.length) put('None');
-    for (const delta of itemGains) put(this.modifierDeltaCopy('+', delta, comparison), '#86efac');
-    for (const delta of projectileGains) put(`+ ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.after)}`, '#86efac');
-    for (const trait of effects.traits) {
-      const family = familyNames.get(trait.familyId) ?? trait.familyId;
-      if (!trait.before && trait.after) put(`+ ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${trait.afterSourceLabels.join(' • ') || 'None'}`, '#86efac');
-    }
-    if (setGains.length) {
+    const groups = this.comparisonEffectGroups(comparison, familyNames);
+    if (groups.itemGains.length || !groups.setGains.length) put('ITEM GAIN', '#86efac');
+    if (!groups.itemGains.length && !groups.setGains.length) put('None');
+    for (const row of groups.itemGains) put(row, '#86efac');
+    if (groups.setGains.length) {
       put('SET BONUS GAIN', '#86efac');
-      for (const delta of setGains) put(this.modifierDeltaCopy('+', delta, comparison), '#86efac');
+      for (const row of groups.setGains) put(row, '#86efac');
     }
-    const traitLosses = effects.traits.some((trait) => trait.before && !trait.after);
-    if (itemLosses.length || projectileLosses.length || traitLosses || !setLosses.length) put('ITEM LOSS', '#fbbf24');
-    if (!itemLosses.length && !projectileLosses.length && !traitLosses && !setLosses.length) put('None');
-    for (const delta of itemLosses) put(this.modifierDeltaCopy('−', delta, comparison), '#fbbf24');
-    for (const delta of projectileLosses) put(`− ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.before)}`, '#fbbf24');
-    for (const trait of effects.traits) {
-      const family = familyNames.get(trait.familyId) ?? trait.familyId;
-      if (trait.before && !trait.after) put(`− ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${trait.beforeSourceLabels.join(' • ') || 'None'}`, '#fbbf24');
-      else if (trait.before && trait.after && trait.sourceChanged) put(`↔ ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${(trait.afterSourceLabels.length ? trait.afterSourceLabels : trait.beforeSourceLabels).join(' • ') || 'None'}`);
-    }
-    if (setLosses.length) {
+    if (groups.itemLosses.length || !groups.setLosses.length) put('ITEM LOSS', '#fbbf24');
+    if (!groups.itemLosses.length && !groups.setLosses.length) put('None');
+    for (const row of groups.itemLosses) put(row, '#fbbf24');
+    if (groups.setLosses.length) {
       put('SET BONUS LOSS', '#fbbf24');
-      for (const delta of setLosses) put(this.modifierDeltaCopy('−', delta, comparison), '#fbbf24');
+      for (const row of groups.setLosses) put(row, '#fbbf24');
     }
     return y;
   }
@@ -342,49 +448,27 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     }
     if (!comparison.setChanges.length) setRows.push({ text: 'None', color: '#d6f7ff' });
 
-    const effects = presentLoadoutRunTruthComparison(comparison.before.runTruth, comparison.after.runTruth);
-    const gains = effects.modifiers.filter((delta) => delta.state === 'added' || delta.state === 'changed');
-    const losses = effects.modifiers.filter((delta) => delta.state === 'removed' || delta.state === 'changed');
-    const itemGains = gains.filter((delta) => this.modifierSourceCopy(delta, comparison).kind !== 'set');
-    const setGains = gains.filter((delta) => this.modifierSourceCopy(delta, comparison).kind === 'set');
-    const itemLosses = losses.filter((delta) => this.modifierSourceCopy(delta, comparison).kind !== 'set');
-    const setLosses = losses.filter((delta) => this.modifierSourceCopy(delta, comparison).kind === 'set');
-    const projectileGains = effects.projectileEffects.filter((delta) => delta.after.length > delta.before.length);
-    const projectileLosses = effects.projectileEffects.filter((delta) => delta.before.length > delta.after.length);
-    const projectileCopy = (rows: readonly { readonly kind: string }[]): string => rows.map((effect) => effect.kind).join(', ') || 'None';
-    const traitGains = effects.traits.some((trait) => !trait.before && trait.after);
+    const groups = this.comparisonEffectGroups(comparison, familyNames);
     const gainRows: ComparisonRow[] = [];
-    if (itemGains.length || projectileGains.length || traitGains || !setGains.length) {
+    if (groups.itemGains.length || !groups.setGains.length) {
       gainRows.push({ text: 'ITEM GAIN', color: '#86efac', heading: true });
-      if (!itemGains.length && !projectileGains.length && !traitGains && !setGains.length) gainRows.push({ text: 'None', color: '#d6f7ff' });
-      for (const delta of itemGains) gainRows.push({ text: this.modifierDeltaCopy('+', delta, comparison), color: '#86efac' });
+      if (!groups.itemGains.length && !groups.setGains.length) gainRows.push({ text: 'None', color: '#d6f7ff' });
+      for (const row of groups.itemGains) gainRows.push({ text: row, color: '#86efac' });
     }
-    for (const delta of projectileGains) gainRows.push({ text: `+ ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.after)}`, color: '#86efac' });
-    for (const trait of effects.traits) {
-      const family = familyNames.get(trait.familyId) ?? trait.familyId;
-      if (!trait.before && trait.after) gainRows.push({ text: `+ ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${trait.afterSourceLabels.join(' • ') || 'None'}`, color: '#86efac' });
-    }
-    if (setGains.length) {
+    if (groups.setGains.length) {
       gainRows.push({ text: 'SET BONUS GAIN', color: '#86efac', heading: true });
-      for (const delta of setGains) gainRows.push({ text: this.modifierDeltaCopy('+', delta, comparison), color: '#86efac' });
+      for (const row of groups.setGains) gainRows.push({ text: row, color: '#86efac' });
     }
 
-    const traitLosses = effects.traits.some((trait) => trait.before && !trait.after);
     const lossRows: ComparisonRow[] = [];
-    if (itemLosses.length || projectileLosses.length || traitLosses || !setLosses.length) {
+    if (groups.itemLosses.length || !groups.setLosses.length) {
       lossRows.push({ text: 'ITEM LOSS', color: '#fbbf24', heading: true });
-      if (!itemLosses.length && !projectileLosses.length && !traitLosses && !setLosses.length) lossRows.push({ text: 'None', color: '#d6f7ff' });
-      for (const delta of itemLosses) lossRows.push({ text: this.modifierDeltaCopy('−', delta, comparison), color: '#fbbf24' });
+      if (!groups.itemLosses.length && !groups.setLosses.length) lossRows.push({ text: 'None', color: '#d6f7ff' });
+      for (const row of groups.itemLosses) lossRows.push({ text: row, color: '#fbbf24' });
     }
-    for (const delta of projectileLosses) lossRows.push({ text: `− ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effects [All Weapons]: ${projectileCopy(delta.before)}`, color: '#fbbf24' });
-    for (const trait of effects.traits) {
-      const family = familyNames.get(trait.familyId) ?? trait.familyId;
-      if (trait.before && !trait.after) lossRows.push({ text: `− ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${trait.beforeSourceLabels.join(' • ') || 'None'}`, color: '#fbbf24' });
-      else if (trait.before && trait.after && trait.sourceChanged) lossRows.push({ text: `↔ ${family} • ${trait.trait} [${trait.target.label}]\nSources: ${(trait.afterSourceLabels.length ? trait.afterSourceLabels : trait.beforeSourceLabels).join(' • ') || 'None'}`, color: '#d6f7ff' });
-    }
-    if (setLosses.length) {
+    if (groups.setLosses.length) {
       lossRows.push({ text: 'SET BONUS LOSS', color: '#fbbf24', heading: true });
-      for (const delta of setLosses) lossRows.push({ text: this.modifierDeltaCopy('−', delta, comparison), color: '#fbbf24' });
+      for (const row of groups.setLosses) lossRows.push({ text: row, color: '#fbbf24' });
     }
 
     const columns = [setRows, gainRows, lossRows];

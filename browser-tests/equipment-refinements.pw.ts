@@ -148,6 +148,17 @@ function filteredBrowseSeed() {
   };
 }
 
+function pyroThresholdSeed() {
+  const save = filteredBrowseSeed();
+  return { ...save,
+    equipmentLoadout: {
+      helmet: 'owned:equipment:pyro-helmet',
+      armour: 'owned:equipment:commando-armour',
+      gloves: 'owned:equipment:commando-gloves',
+    },
+  };
+}
+
 test('Equipment review keeps equip non-mutating and surfaces committed feedback', async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), seed());
@@ -202,6 +213,16 @@ test('Equipment review keeps equip non-mutating and surfaces committed feedback'
   expect(saved.progression.scrap).toBe(0);
   expect(state.copy.join('\n')).toContain('Equipment upgraded');
   expect(state.copy.join('\n')).toContain('LOCKED • Defeat Scrap Crusher');
+  expect(state.copy.join('\n')).toContain(longName);
+  expect((await diagnostic(reviewPage)).buttons.some((button) => button.text === `Equip ${longName}`)).toBe(true);
+  const committedActions = (await diagnostic(reviewPage)).buttons
+    .filter((button) => button.key?.startsWith('equipment-equip:') || button.key?.startsWith('equipment-upgrade:'))
+    .sort((left, right) => left.bounds.y - right.bounds.y);
+  for (let index = 1; index < committedActions.length; index += 1) {
+    const previous = committedActions[index - 1]!;
+    const current = committedActions[index]!;
+    expect(current.bounds.y).toBeGreaterThanOrEqual(previous.bounds.y + previous.bounds.height);
+  }
   await capture(reviewPage, testInfo.outputPath('equipment-upgrade-committed.png'));
 
   // The review gate is cleared after commit, so a second confirmation cannot
@@ -253,4 +274,33 @@ test('filtered Equipment browse returns from detail with query, filter, and scro
   expect(returned.equipment?.selectedInstanceId).toBe('owned:equipment:recon-helmet');
   expect(returned.scroll?.offset).toBe(browseOffset);
   await capture(page, testInfo.outputPath('equipment-filtered-return.png'));
+});
+
+test('Pyro threshold comparison attributes trait and projectile effects to the Set', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), pyroThresholdSeed());
+  await page.goto('/?visual-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  await settle(page);
+  await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
+  await settle(page);
+
+  await clickButton(page, 'equipment-slot:armour');
+  await clickButton(page, 'equipment-candidate:owned:equipment:pyro-armour');
+  await clickButton(page, 'View details');
+  const state = await diagnostic(page);
+  const copy = state.copy.join('\n');
+  const setGain = copy.indexOf('SET BONUS GAIN');
+  const itemGain = copy.indexOf('ITEM GAIN');
+  expect(setGain).toBeGreaterThan(itemGain);
+  expect(copy).toContain('Source: Pyro 2-piece bonus');
+  expect(copy).toContain('FIRE');
+  expect(copy).toContain('burn');
+  const fireSource = copy.indexOf('FIRE', setGain);
+  const burnSource = copy.indexOf('burn', setGain);
+  expect(fireSource).toBeGreaterThan(setGain);
+  expect(burnSource).toBeGreaterThan(setGain);
+  await page.mouse.wheel(0, 900);
+  await settle(page);
+  await capture(page, testInfo.outputPath('equipment-pyro-threshold.png'));
 });

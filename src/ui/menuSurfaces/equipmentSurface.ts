@@ -1092,26 +1092,40 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     return this.upgradeReviewHeight(selected, upgrade, afterItem, scrap, this.loadoutContentWidth());
   }
 
-  private detailActionCount(snapshot: MainMenuSnapshot): number {
+  private detailActionLabels(snapshot: MainMenuSnapshot): readonly string[] {
     const equipment = snapshot.equipment;
     const selectedSlot = equipment.presentation.slots.find(slot => slot.slot === equipment.selectedSlot);
     const selected = selectedSlot?.candidates.find(item => item.instanceId === equipment.selectedInstanceId);
     if (!selected) {
       this.upgradeReview = undefined;
-      return 0;
+      return [];
     }
     const upgrade = equipment.owned.find(item => item.instanceId === selected.instanceId);
     const hasUpgrade = upgrade?.upgradePreview?.cost !== undefined;
     const review = hasUpgrade && this.upgradeReviewMatches(selected, upgrade);
-    return 1 + (hasUpgrade ? review ? 2 : 1 : 0);
+    const labels = [review
+      ? `Cancel review to ${selected.state === 'EQUIPPED' ? 'unequip' : 'equip'}`
+      : selected.state === 'EQUIPPED' ? `Unequip ${selected.name}` : `Equip ${selected.name}`];
+    if (upgrade?.upgradePreview) {
+      const cost = upgrade.upgradePreview.cost;
+      if (cost !== undefined) {
+        if (review) labels.push(`Confirm Upgrade • ${cost} Scrap`, 'Cancel Upgrade');
+        else labels.push(upgrade.upgradeLockReason ? `LOCKED • ${upgrade.upgradeLockReason}` : 'Review upgrade');
+      }
+    }
+    return labels;
+  }
+
+  private detailActionHeights(snapshot: MainMenuSnapshot): readonly number[] {
+    return this.detailActionLabels(snapshot).map((label) => this.measureLoadoutActionHeight(label, this.loadoutContentWidth()));
   }
 
   private detailScrollableBottom(snapshot: MainMenuSnapshot, scrap: number): number {
-    const count = this.detailActionCount(snapshot);
-    if (count === 0) return this.layout.scrollBottom;
+    const actionHeights = this.detailActionHeights(snapshot);
+    if (!actionHeights.length) return this.layout.scrollBottom;
     const actionGap = 8;
     const footerTop = snapshot.equipment.selectedBlueprintId === undefined ? this.layout.scrollBottom : this.footerTop();
-    const fixedActionsTop = footerTop - count * (this.layout.hitTarget + actionGap);
+    const fixedActionsTop = footerTop - actionHeights.reduce((height, actionHeight) => height + actionHeight + actionGap, 0);
     const previewHeight = this.detailDecisionPreviewHeight(snapshot);
     const reviewHeight = this.detailUpgradeReviewHeight(snapshot, scrap);
     return Math.min(this.layout.scrollBottom, fixedActionsTop - actionGap
@@ -1121,7 +1135,8 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
 
   private detailFixedActionTop(snapshot: MainMenuSnapshot): number {
     const footerTop = snapshot.equipment.selectedBlueprintId === undefined ? this.layout.scrollBottom : this.footerTop();
-    return footerTop - this.detailActionCount(snapshot) * (this.layout.hitTarget + 8);
+    const actionHeights = this.detailActionHeights(snapshot);
+    return footerTop - actionHeights.reduce((height, actionHeight) => height + actionHeight + 8, 0);
   }
 
   /** Narrow detail keeps the commit actions fixed, but gives the player a
@@ -1570,7 +1585,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         'ui:confirm', contentWidth);
       this.rememberLoadoutFocus(action, detailAction.key);
       if (detailAction.disabled) this.environment.controls.disableButton(action);
-      fixedActionY += hitTarget + 8;
+      fixedActionY += action.height + 8;
     }
     if (selectedBlueprint) {
       this.loadoutFooter(fixedRoot, left, contentWidth, hitTarget,
