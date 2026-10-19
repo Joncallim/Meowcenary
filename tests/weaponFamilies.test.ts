@@ -13,6 +13,7 @@ describe('Weapon Families', () => {
     const pistol = getWeaponFamily('pistol');
     expect(pistol).toBeDefined();
     expect(pistol?.name).toBe('Pistol');
+    expect(pistol?.gunsmithBaseArtId).toBe('gun-build-base:pistol');
     expect(pistol?.gunsmithSlots).toContain('barrel');
   });
 

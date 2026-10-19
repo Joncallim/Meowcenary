@@ -74,7 +74,7 @@ describe('StageSelectionController (Epic 20)', () => {
       chapterIconArtId: 'chapter-icon:junkyard',
       locationName: 'Junkyard Lot',
       menuBackdropArtId: 'arena-backdrop:junkyard',
-      objective: { kind: 'kill', copy: 'Eliminate 25 threats', artId: 'objective-icon:kill' },
+      objective: { kind: 'kill', copy: 'Eliminate 25 enemies', artId: 'objective-icon:kill' },
       reward: { firstClearScrap: 35 },
       boss: false,
     });

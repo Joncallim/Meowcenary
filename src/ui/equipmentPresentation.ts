@@ -5,11 +5,9 @@ import { resolveBuildTraits, type OwnedPart } from '../gameplay/gunsmith';
 import { resolvePersistentRunLoadout } from '../gameplay/persistentLoadout';
 import { getAllFamilyIds, isValidFamily } from '../gameplay/weaponFamilies';
 import type { BehaviorTrait } from '../gameplay/weaponTraits';
-import type { Modifier } from '../gameplay/stats';
-import type { ProjectileEffect } from '../gameplay/projectileEffects';
 import type { SaveDataV4 } from '../systems/save';
 import type { GameData } from '../systems/types';
-import { presentLoadoutModifier, presentLoadoutTrait, type LoadoutEffectPresentation } from './loadoutPresentation';
+import { presentLoadoutModifier, presentLoadoutTrait, type LoadoutEffectPresentation, type LoadoutRunTruth } from './loadoutPresentation';
 
 type Catalog = Pick<GameData, 'equipment' | 'equipmentSets' | 'gunParts'> & Partial<Pick<GameData, 'equipmentVisuals' | 'visualArt'>>;
 /** Presentation-only slot silhouettes reuse registered art. They identify an
@@ -57,19 +55,7 @@ export interface EquipmentLoadoutPresentation {
   readonly sets: readonly EquipmentSetProgressPresentation[];
   /** Arrays preserve immutable snapshots: Object.freeze(Map) would still
    * allow .set(), and renderer mutations must never alter preview truth. */
-  readonly runTruth: {
-    readonly modifiers: readonly Modifier[];
-    readonly families: readonly {
-      readonly familyId: string;
-      readonly projectileEffects: readonly ProjectileEffect[];
-      readonly traits: readonly {
-        readonly trait: BehaviorTrait;
-        readonly sourceIds: readonly string[];
-        readonly sourceLabels: readonly string[];
-        readonly deduplicated: boolean;
-      }[];
-    }[];
-  };
+  readonly runTruth: LoadoutRunTruth;
 }
 
 export function resolveEquipmentLoadoutPresentation(save: SaveDataV4, catalog: Catalog): EquipmentLoadoutPresentation {

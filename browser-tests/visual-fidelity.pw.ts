@@ -30,6 +30,7 @@ type VisualTestSeam = {
   isSceneActive(key: string): boolean;
   isMenuPresentationSettled(): boolean;
   menuFocusedKey(): string | undefined;
+  menuLoadoutDiagnostics(): { copyBounds: Array<{ text: string; bounds: { x: number; y: number; width: number; height: number } }> };
   waitForMenuPresentation(): Promise<boolean>;
   focusFirstEnemy(bossOnly?: boolean): boolean;
   focusPlayer(): boolean;
@@ -319,6 +320,14 @@ test('stocked Gunsmith showcases assembled weapons, Parts, traits, and Workshop 
     await expectMenuPresentationSettled(page);
   });
   await test.step('capture the assembled build', async () => {
+    const traitCopy = await page.evaluate(() => (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__: VisualTestSeam;
+    }).__MEOWCENARY_VISUAL_TEST__.menuLoadoutDiagnostics().copyBounds);
+    const core = traitCopy.find(copy => copy.text.startsWith('Trait Core •'));
+    const fire = traitCopy.find(copy => copy.text === 'FIRE');
+    expect(core).toBeDefined();
+    expect(fire).toBeDefined();
+    expect(fire!.bounds.y).toBeGreaterThanOrEqual(core!.bounds.y + core!.bounds.height + 8);
     await freezeAtStableFrame(page);
     await expect(page).toHaveScreenshot('gunsmith-assembled.png', illustratedScreenshot);
   });

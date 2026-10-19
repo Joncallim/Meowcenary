@@ -322,8 +322,10 @@ export class PhaserHudView implements HudView {
     this.setContainedText(this.timeText, snapshot.durationMs === undefined ? formatTime(snapshot.timeMs) : `${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`, this.headerTextWidth, this.headerFontSize);
     this.setContainedText(this.healthText, `HP ${formatNumber(Math.ceil(safeHealth))}/${formatNumber(Math.ceil(safeMaxHealth))}`, this.meterTextWidth, this.labelFontSize);
     this.setContainedText(this.levelText, `LV ${snapshot.level}  ${formatNumber(Math.floor(safeXp))}/${formatNumber(safeXpToNext)}`, this.meterTextWidth, this.labelFontSize);
-    this.setContainedText(this.killsText, `K ${formatNumber(snapshot.kills)}`, this.headerTextWidth, this.labelFontSize);
-    this.setContainedText(this.scrapText, `S ${formatNumber(Math.floor(snapshot.currency))}`, this.headerTextWidth, this.labelFontSize);
+    // Spell out the compact metrics. The adjacent glyphs are decorative
+    // support, not the only explanation of what the values mean.
+    this.setContainedText(this.killsText, `Kills ${formatNumber(snapshot.kills)}`, this.headerTextWidth, this.labelFontSize);
+    this.setContainedText(this.scrapText, `Scrap ${formatNumber(Math.floor(snapshot.currency))}`, this.headerTextWidth, this.labelFontSize);
     // Ability state belongs to the dedicated semantic ability card. Keeping
     // it out of this arbitration means a normal contract objective can never
     // hide the player's active ability identity/cooldown.
@@ -520,7 +522,6 @@ export class PhaserHudView implements HudView {
     const icons = [
       this.uiVisuals?.addIcon(scene, layout.margin + physicalToLogical(11, viewport), layout.barTop + layout.barHeight / 2, 'hud-icon:health', { size: iconSize, depth: ThemeDepth.hud + 1 }),
       this.uiVisuals?.addIcon(scene, layout.margin + physicalToLogical(11, viewport), layout.xpTop + layout.barHeight / 2, 'stat-icon:xp-gain', { size: iconSize, depth: ThemeDepth.hud + 1 }),
-      this.uiVisuals?.addIcon(scene, layout.rightHudX - physicalToLogical(54, viewport), layout.topMargin + layout.labelSize / 2, 'hud-icon:timer', { size: iconSize, depth: ThemeDepth.hud + 1 }),
       this.uiVisuals?.addIcon(scene, layout.rightHudX - physicalToLogical(42, viewport), layout.statsTop + layout.labelSize / 2, 'hud-icon:kills', { size: iconSize, depth: ThemeDepth.hud + 1 }),
       this.uiVisuals?.addIcon(scene, layout.rightHudX - physicalToLogical(42, viewport), layout.statsTop + layout.labelSize * 1.65, 'stat-icon:currency-gain', { size: iconSize, depth: ThemeDepth.hud + 1 }),
     ].filter((icon): icon is Phaser.GameObjects.Image => icon !== undefined);

@@ -40,6 +40,8 @@ export interface ControlsViewOptions {
 export interface AbilityControlDefinition {
   readonly name: string;
   readonly description: string;
+  /** Player-facing recharge copy, supplied from the authoritative ability definition. */
+  readonly cooldownLabel?: string;
   readonly icon?: {
     readonly textureKey: string;
     readonly frameKey?: string;
@@ -252,10 +254,14 @@ export class ControlsView {
       fontSize: `${physicalToLogical(12, viewport)}px`, fontStyle: '700', align: 'center',
     });
     this.abilityNameText.setOrigin(0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
-    this.abilityStateText = createUiText(scene, copyX, y + height * 0.20, abilityStateCopy(this.abilityUiState.phase, this.abilityVisibleSeconds), {
+    const hasRechargeCopy = Boolean(this.ability?.cooldownLabel);
+    const stateX = this.abilityIcon && hasRechargeCopy ? x + width * 0.16 : copyX;
+    const stateY = hasRechargeCopy ? y + height * 0.18 : y + height * 0.20;
+    this.abilityStateText = createUiText(scene, stateX, stateY, abilityStateCopy(this.abilityUiState.phase, this.abilityVisibleSeconds, this.ability?.cooldownLabel), {
       color: '#f7f1d5', fontFamily: ThemeFont.family,
       fontSize: `${physicalToLogical(11, viewport)}px`, fontStyle: '700', align: 'center',
     });
+    if (hasRechargeCopy) this.abilityStateText.setLineSpacing(physicalToLogical(-2, viewport));
     this.abilityStateText.setOrigin(0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
     this.abilityStateGlyph = createUiText(scene, x + width / 2 - physicalToLogical(9, viewport), y - height / 2 + physicalToLogical(8, viewport), '○', {
       color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${physicalToLogical(12, viewport)}px`, fontStyle: '700',
@@ -293,7 +299,7 @@ export class ControlsView {
     const cooling = phase === 'cooling';
     this.abilityButton.setFillStyle(ThemeColor.primary, cooling ? 0.38 : 0.78);
     this.abilityButton.setStrokeStyle(physicalToLogical(phase === 'ready' ? 2 : 1, this.viewport), ThemeColor.cream, phase === 'ready' ? 1 : 0.65);
-    this.abilityStateText.setText(abilityStateCopy(phase, this.abilityVisibleSeconds));
+    this.abilityStateText.setText(abilityStateCopy(phase, this.abilityVisibleSeconds, this.ability?.cooldownLabel));
     this.abilityStateText.setAlpha(cooling ? 0.76 : 1);
     this.abilityStateGlyph?.setText(phase === 'ready' ? '○' : phase === 'active' ? '◆' : '▰');
     this.abilityActiveBand?.setVisible(phase === 'active').setScale(this.abilityUiState.activeProgress, 1);
@@ -630,10 +636,12 @@ function abilityTeachingCopy(ability: AbilityControlDefinition): string {
   return `${containedAbilityName(ability.name).toUpperCase()} — ${ability.description}`;
 }
 
-function abilityStateCopy(phase: AbilityUiState['phase'], remainingSeconds: number): string {
+function abilityStateCopy(phase: AbilityUiState['phase'], remainingSeconds: number, cooldownLabel?: string): string {
   if (phase === 'active') return `ACTIVE ${remainingSeconds}s`;
   if (phase === 'cooling') return `WAIT ${remainingSeconds}s`;
-  return 'READY';
+  if (!cooldownLabel) return 'READY';
+  const recharge = cooldownLabel.replace(/^Cooldown\s+/i, '').replace(/\.$/, '');
+  return `READY\n${recharge} recharge`;
 }
 
 function containedAbilityName(name: string): string {

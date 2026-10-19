@@ -75,6 +75,72 @@ describe('EquipmentController authoritative commands', () => {
     expect(snapshot.presentation.slots[3]!.candidates[0]!.state).toBe('STORED');
     expect(snapshot.equipped.boots).toBeUndefined();
   });
+
+  it('clears a hidden selection when browse search changes without mutating durable equipment', () => {
+    const { context, controller } = setup();
+    controller.selectSlot('helmet');
+    expect(controller.selectCandidate('owned:helmet')).toBe(true);
+    const before = context.saveData;
+
+    expect(controller.setBrowseSearch('recon')).toBe(true);
+    const snapshot = controller.snapshot();
+    expect(snapshot.selectedInstanceId).toBeUndefined();
+    expect(snapshot.selectedBlueprintId).toBeUndefined();
+    expect(snapshot.filteredCatalog.every((item) => item.searchText.toLocaleLowerCase().includes('recon'))).toBe(true);
+    expect(context.saveData).toBe(before);
+    expect(snapshot.browse.filters.query).toBe('recon');
+  });
+
+  it('keeps facet toggles removable and does not write while filtering', () => {
+    const { context, controller } = setup();
+    const before = context.saveData;
+    expect(controller.toggleBrowseFilter('ownership', 'stored')).toBe(false);
+    expect(controller.snapshot().browse.filters.ownership).toEqual(['stored']);
+    expect(controller.toggleBrowseFilter('ownership', 'stored')).toBe(false);
+    expect(controller.snapshot().browse.filters.ownership).toEqual([]);
+    expect(controller.clearBrowseFilters()).toBe(false);
+    expect(context.saveData).toBe(before);
+  });
+  it('preserves an All-slots browse intent when selecting an owned candidate', () => {
+    const { controller } = setup();
+    expect(controller.clearBrowseFilters()).toBe(false);
+    expect(controller.snapshot().browse.filters.slots).toEqual([]);
+    expect(controller.selectCandidate('owned:helmet')).toBe(true);
+    expect(controller.snapshot().browse.filters.slots).toEqual([]);
+  });
+  it('preserves a multi-slot browse intent when selecting a blueprint', () => {
+    const { controller } = setup();
+    expect(controller.clearBrowseFilters()).toBe(false);
+    expect(controller.toggleBrowseFilter('slot', 'helmet')).toBe(false);
+    expect(controller.toggleBrowseFilter('slot', 'boots')).toBe(false);
+    const before = controller.snapshot().browse.filters.slots;
+    expect(controller.selectBlueprint('equipment:commando-boots')).toBe(true);
+    expect(controller.snapshot().browse.filters.slots).toEqual(before);
+  });
+  it('clears a selected item when a committed upgrade moves it out of the active grade filter', () => {
+    const { context, controller } = setup();
+    context.updateMeta((progression) => ({
+      ...progression, scrap: 500, unlocks: [...progression.unlocks, 'capability:equipment-tier-2'],
+    }));
+    controller.selectSlot('helmet');
+    expect(controller.selectCandidate('owned:helmet')).toBe(true);
+    expect(controller.toggleBrowseFilter('grade', '1')).toBe(false);
+
+    expect(controller.upgrade('owned:helmet', 1)).toBe(true);
+    const snapshot = controller.snapshot();
+    expect(snapshot.selectedInstanceId).toBeUndefined();
+    expect(snapshot.filteredCatalog.some((entry) => entry.id === 'owned:helmet')).toBe(false);
+    expect(context.saveData.equipment['owned:helmet']?.tier).toBe(2);
+  });
+  it('clears a selected item when equipping it violates a stored-only filter', () => {
+    const { controller } = setup();
+    controller.selectSlot('helmet');
+    expect(controller.selectCandidate('owned:helmet')).toBe(true);
+    expect(controller.toggleBrowseFilter('ownership', 'stored')).toBe(false);
+
+    expect(controller.equip('owned:helmet')).toBe(true);
+    expect(controller.snapshot().selectedInstanceId).toBeUndefined();
+  });
   it('equips against current ownership/loadout without overwriting a newer other-slot change', () => {
     const { context, storage, controller } = setup();
     let update: GameContext['updateEquipment'];

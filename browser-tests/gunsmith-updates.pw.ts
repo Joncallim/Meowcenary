@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { waitForMenuInput } from './menuInputReceipt';
 
-type Diagnostic = { panel: string; focusedKey?: string; scroll?: { top: number; bottom: number }; buttons: Array<{ key?: string;
+type Diagnostic = { panel: string; focusedKey?: string; copy: string[]; scroll?: { top: number; bottom: number }; buttons: Array<{ key?: string;
   text: string; focused: boolean; visible: boolean; interactive: boolean;
   bounds: { x: number; y: number; width: number; height: number } }> };
 type PerformanceState = { events: Array<{ owner: string; facts: Record<string, unknown> }>;
@@ -137,7 +137,11 @@ async function replaceCompact(page: Page, rebuildCount: unknown, hasTouch: boole
   const preview = await assertLocalCommit(page, rebuildCount);
   expect(preview.saved).toEqual(before.saved);
   expect(preview.diagnostic.focusedKey).toBe('gunsmith-commit');
-  expect(preview.diagnostic.buttons.find(row => row.key === 'gunsmith-commit')!.text).toContain('REPLACE HEAVY RECEIVER T2');
+  expect(preview.diagnostic.buttons.find(row => row.key === 'gunsmith-commit')!.text).toContain('REPLACE HEAVY RECEIVER Uncommon • Upgrade Rank 2');
+  expect(preview.diagnostic.copy.join('\n')).toContain('DECISION SUMMARY');
+  expect(preview.diagnostic.copy.join('\n')).toContain('Incoming: Compact Receiver Common • Upgrade Rank 1');
+  expect(preview.diagnostic.copy.join('\n')).toContain('Destination: Pistol Build • Receiver');
+  expect(preview.diagnostic.copy.join('\n')).toContain('Outgoing: Heavy Receiver Uncommon • Upgrade Rank 2 to STORED');
   await reset(page);
   await press(page, 'Enter');
   const replacement = await assertLocalCommit(page, rebuildCount);

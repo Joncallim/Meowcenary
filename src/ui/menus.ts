@@ -274,7 +274,13 @@ export class MainMenuController {
   }
 
   selectEquipmentSlot(slot: EquipmentSlot): MainMenuSnapshot {
-    this.notice = this.equipmentController.selectSlot(slot) ? undefined : 'Equipment: slot unavailable';
+    const before = this.equipmentController.snapshot();
+    const selectedBefore = before.selectedInstanceId ?? before.selectedBlueprintId;
+    const ok = this.equipmentController.selectSlot(slot);
+    const after = this.equipmentController.snapshot();
+    this.notice = !ok ? 'Equipment: slot unavailable'
+      : selectedBefore !== undefined && after.selectedInstanceId === undefined && after.selectedBlueprintId === undefined
+        ? 'Equipment: selected item hidden by filters' : undefined;
     return this.snapshot();
   }
 
@@ -287,28 +293,65 @@ export class MainMenuController {
     this.notice = this.equipmentController.selectBlueprint(equipmentId) ? undefined : 'Equipment: blueprint unavailable';
     return this.snapshot();
   }
+  setEquipmentSearch(query: string): MainMenuSnapshot {
+    this.notice = this.equipmentController.setBrowseSearch(query) ? 'Equipment: selected item hidden by filters' : undefined;
+    return this.snapshot();
+  }
+  toggleEquipmentFilter(facet: Parameters<EquipmentController['toggleBrowseFilter']>[0], value: string): MainMenuSnapshot {
+    this.notice = this.equipmentController.toggleBrowseFilter(facet, value) ? 'Equipment: selected item hidden by filters' : undefined;
+    return this.snapshot();
+  }
+  clearEquipmentFilters(): MainMenuSnapshot {
+    this.notice = this.equipmentController.clearBrowseFilters() ? 'Equipment: selected item hidden by filters' : undefined;
+    return this.snapshot();
+  }
+  cycleEquipmentSort(): MainMenuSnapshot {
+    this.equipmentController.cycleBrowseSort();
+    this.notice = undefined;
+    return this.snapshot();
+  }
 
   equipmentPreview(command: EquipmentPreviewCommand): EquipmentComparison | undefined {
     return this.equipmentController.preview(command);
   }
 
   equipEquipment(instanceId: string): MainMenuSnapshot {
-    this.notice = this.equipmentController.equip(instanceId) ? undefined : 'Equipment: cannot equip that item';
+    const before = this.equipmentController.snapshot();
+    const ok = this.equipmentController.equip(instanceId);
+    const after = this.equipmentController.snapshot();
+    this.notice = !ok ? 'Equipment: cannot equip that item'
+      : before.selectedInstanceId !== undefined && after.selectedInstanceId === undefined
+        ? 'Equipment equipped • selected item hidden by filters' : 'Equipment equipped';
     return this.snapshot();
   }
 
   unequipEquipment(slot: 'helmet' | 'armour' | 'gloves' | 'boots'): MainMenuSnapshot {
-    this.notice = this.equipmentController.unequip(slot) ? undefined : 'Equipment: slot is empty';
+    const before = this.equipmentController.snapshot();
+    const ok = this.equipmentController.unequip(slot);
+    const after = this.equipmentController.snapshot();
+    this.notice = !ok ? 'Equipment: slot is empty'
+      : before.selectedInstanceId !== undefined && after.selectedInstanceId === undefined
+        ? 'Equipment unequipped • selected item hidden by filters' : 'Equipment unequipped';
     return this.snapshot();
   }
 
   upgradeEquipment(instanceId: string, expectedTier?: number): MainMenuSnapshot {
-    this.notice = this.equipmentController.upgrade(instanceId, expectedTier) ? undefined : 'Equipment: upgrade unavailable';
+    const before = this.equipmentController.snapshot();
+    const ok = this.equipmentController.upgrade(instanceId, expectedTier);
+    const after = this.equipmentController.snapshot();
+    this.notice = !ok ? 'Equipment upgrade did not complete • No Scrap was spent'
+      : before.selectedInstanceId !== undefined && after.selectedInstanceId === undefined
+        ? 'Equipment upgraded • selected item hidden by filters' : 'Equipment upgraded';
     return this.snapshot();
   }
 
   fabricateEquipment(equipmentId: string): MainMenuSnapshot {
-    this.notice = this.equipmentController.fabricate(equipmentId) ? undefined : 'Equipment: fabrication unavailable';
+    const before = this.equipmentController.snapshot();
+    const ok = this.equipmentController.fabricate(equipmentId);
+    const after = this.equipmentController.snapshot();
+    this.notice = !ok ? 'Equipment: fabrication unavailable'
+      : before.selectedBlueprintId !== undefined && after.selectedInstanceId === undefined && after.selectedBlueprintId === undefined
+        ? 'Equipment fabricated • selected item hidden by filters' : 'Equipment fabricated';
     return this.snapshot();
   }
 
@@ -333,7 +376,7 @@ export class MainMenuController {
       case 'slot-full': return 'That slot is occupied — unequip the current part first';
       case 'slot-incompatible': return 'That part does not fit this weapon build';
       case 'trait-cap-reached': return 'Trait capacity is full — unequip a trait first';
-      case 'fabrication-unavailable': return 'That blueprint is not available or needs more Scrap';
+      case 'fabrication-unavailable': return 'Part fabrication did not complete • No Scrap was spent';
       case 'save-failed': return 'Could not save that Gunsmith change';
       case 'no-pending-confirmation': return 'Choose a Workshop operation first';
       case 'workshop-operation-unavailable': return 'That Workshop operation is no longer available';

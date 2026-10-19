@@ -94,9 +94,13 @@ function menuGestureSampleHarness(homeSettled = true) {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },
   }).outputText, { __MEOWCENARY_VISUAL_TEST__: seam,
     document: { querySelector: () => ({ dataset: {} }) }, localStorage: { getItem: () => 'same durable save' } }) as
-    (page: unknown, prepare: boolean) => Promise<{ homeSettled: boolean; shown?: boolean; equipmentSettled?: boolean }>;
+    (page: unknown, prepare: boolean, settle?: boolean, frameCount?: number) =>
+      Promise<{ homeSettled: boolean; shown?: boolean; equipmentSettled?: boolean }>;
   const evaluate = vi.fn(async (callback: (prepare: boolean) => unknown, prepare: boolean) => callback(prepare));
-  return { run: () => run({ evaluate }, true), evaluate, calls };
+  // The production browser journey uses the one-frame default for each
+  // observation; this transport regression explicitly owns the older
+  // two-frame contract named by the test.
+  return { run: () => run({ evaluate }, true, false, 2), evaluate, calls };
 }
 
 it('joins Home readiness, Equipment hydration and both real owner frames in one gesture-setup transport', async () => {

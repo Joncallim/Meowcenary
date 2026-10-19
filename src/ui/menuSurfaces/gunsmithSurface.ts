@@ -1,17 +1,18 @@
 import type Phaser from 'phaser';
 import type { MainMenuSnapshot } from '../menus';
 import type { PartSlot } from '../../gameplay/gunsmith';
-import type { GunsmithAssembledPreview, GunsmithPartView } from '../gunsmithController';
+import type { GunsmithAssembledPreview, GunsmithPartView, GunsmithWorkshopBuildImpact } from '../gunsmithController';
 import { edgeMargin } from '../layout';
 import { createUiText } from '../text';
 import { ThemeFont } from '../theme';
 import { MenuPanelSurface, type MenuSurfaceLayout, type GunsmithSurfaceCommands, type MenuSurfaceEnvironment, type MenuSurfaceControls } from './surface';
 import { assemblyArtIds, assemblyMediaHeight, collectGunsmithArtIds, renderAssembledWeapon } from './weaponPresentation';
-import { presentLoadoutModifier } from '../loadoutPresentation';
+import { presentLoadoutRunTruthComparison, type LoadoutRunTruthComparison } from '../loadoutPresentation';
 import type { EquipmentLoadoutPresentation } from '../equipmentPresentation';
+import { gunsmithTierLabel } from '../gunsmithPresentation';
 
 type RunTruth = EquipmentLoadoutPresentation['runTruth'];
-type ArtPart = Pick<GunsmithPartView, 'instanceId' | 'name' | 'tier' | 'iconArtId' | 'traitIcons' | 'statChips' | 'stateLabel' | 'effectScope'>;
+type ArtPart = Pick<GunsmithPartView, 'instanceId' | 'name' | 'tier' | 'rarity' | 'iconArtId' | 'traitIcons' | 'statChips' | 'stateLabel' | 'effectScope'>;
 
 export class GunsmithSurface extends MenuPanelSurface {
   readonly panel = 'gunsmith' as const;
@@ -63,7 +64,7 @@ export class GunsmithSurface extends MenuPanelSurface {
       if (copy.text !== status) copy.setText(status);
       copy.setStyle({ color: family.selected ? '#24cec7' : '#adc1c7' });
     });
-    this.drawBody(scrollRoot, this.root!, snapshot);
+    this.drawBody(scrollRoot, this.root!, snapshot, scrap);
   }
   override unmount(): void {
     this.bodyGeneration += 1;
@@ -88,13 +89,15 @@ export class GunsmithSurface extends MenuPanelSurface {
   constructor(environment: MenuSurfaceEnvironment, private readonly commands: GunsmithSurfaceCommands) { super(environment); }
   private get laneWidth(): number { return this.layout.width - this.layout.margin - this.layout.rightMargin; }
   private get wide(): boolean { return this.layout.width >= 1000 && this.laneWidth >= 700; }
-  private get mediaSize(): number { return this.wide ? 240 : this.layout.width < 380 ? 128 : 144; }
+  private get compactPhone(): boolean { return this.layout.width < 380; }
+  private get mediaSize(): number { return this.wide ? 240 : this.compactPhone ? 104 : 144; }
   private copy(root: Phaser.GameObjects.Container, x: number, y: number, value: string,
-    width = this.laneWidth, color = '#adc1c7', size: number = ThemeFont.bodyMin): Phaser.GameObjects.Text {
+    width = this.laneWidth, color = '#adc1c7', size: number = ThemeFont.bodyMin,
+    registerScroll = true): Phaser.GameObjects.Text {
     const text = this.own(root, createUiText(this.environment.scene, x, y, value, {
       color, fontFamily: ThemeFont.family, fontSize: `${size}px`, wordWrap: { width },
     })).setScrollFactor(0);
-    this.environment.controls.registerScrollObject(text);
+    if (registerScroll) this.environment.controls.registerScrollObject(text);
     return text;
   }
   private backdrop(root: Phaser.GameObjects.Container, x: number, y: number, width: number, height: number): void {
@@ -103,7 +106,10 @@ export class GunsmithSurface extends MenuPanelSurface {
   }
   private action(root: Phaser.GameObjects.Container, x: number, y: number, label: string, key: string,
     callback: () => void, width = this.laneWidth, enabled = true): Phaser.GameObjects.Text {
-    const button = this.button(root, x, y, label, this.layout.hitTarget, callback, 'ui:confirm', width);
+    // Keep a small clearance band around every Gunsmith action's native Text
+    // bounds. Short replacement labels otherwise round to a 3px inset at the
+    // phone hit target, which lets the focus stroke sit against the card edge.
+    const button = this.button(root, x, y, label, this.layout.hitTarget + 4, callback, 'ui:confirm', width);
     this.environment.controls.rememberFocus(button, key);
     if (!enabled) this.environment.controls.disableButton(button);
     return button;
@@ -142,9 +148,10 @@ export class GunsmithSurface extends MenuPanelSurface {
     });
     this.bodyTop = y + rowHeight + 12;
     this.prefixInvariant = this.prefixFacts(snapshot, scrap);
-    this.drawBody(root, root, snapshot);
+    this.drawBody(root, root, snapshot, scrap);
   }
-  private drawBody(root: Phaser.GameObjects.Container, fixedRoot: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot): void {
+  private drawBody(root: Phaser.GameObjects.Container, fixedRoot: Phaser.GameObjects.Container,
+    snapshot: MainMenuSnapshot, scrap: number): void {
     const before = new Set([...root.list, ...fixedRoot.list]);
     this.drawingBody = true;
     try {
@@ -164,8 +171,8 @@ export class GunsmithSurface extends MenuPanelSurface {
       y += tabsHeight + 12;
       switch (snapshot.gunsmith.surface) {
         case 'build': this.drawBuild(root, snapshot, y); break;
-        case 'workshop': this.drawWorkshop(root, snapshot, y); break;
-        case 'parts': this.drawParts(root, snapshot, y); break;
+        case 'workshop': this.drawWorkshop(root, snapshot, y, scrap); break;
+        case 'parts': this.drawParts(root, snapshot, y, scrap); break;
       }
       this.environment.controls.endScrollableRegion();
       this.environment.resources.panel('gunsmith', []);
@@ -184,25 +191,87 @@ export class GunsmithSurface extends MenuPanelSurface {
     }
   }
   private assembly(root: Phaser.GameObjects.Container, y: number, title: string, preview: GunsmithAssembledPreview,
-    framing: readonly string[], caption: string): number {
-    const width = Math.min(700, this.laneWidth - 32);
-    const artHeight = assemblyMediaHeight(framing, width);
-    const header = this.copy(root, this.layout.margin + 16, y + 16, title, this.laneWidth - 32);
-    const captionY = y + 16 + header.height + 12 + artHeight + 12;
-    const summary = this.copy(root, this.layout.margin + 16, captionY, caption, this.laneWidth - 32, '#f7f1d5', 13);
-    const height = captionY - y + summary.height + 16;
-    this.backdrop(root, this.layout.margin, y, this.laneWidth, height);
-    renderAssembledWeapon(this.environment.controls, root, preview, this.layout.centerX,
-      y + 16 + header.height + 12 + artHeight / 2, width, artHeight, framing);
-    let traitsY = y + height;
-    const traits = [...preview.traitCores.map(core => ({ iconArtId: core.iconArtId, trait: `Trait Core T${core.tier}` })), ...preview.traitEmblems];
+    framing: readonly string[], caption: string, decisionDetails = '',
+    sidePanel?: (root: Phaser.GameObjects.Container, left: number, top: number, width: number) => number): number {
+    const wideComposition = this.wide;
+    const mediaWidth = wideComposition
+      ? Math.min(480, Math.max(360, Math.floor(this.laneWidth * 0.44)))
+      : Math.min(700, this.laneWidth - 32);
+    const artHeight = assemblyMediaHeight(framing, mediaWidth);
+    const traits = [...preview.traitCores.map(core => ({ iconArtId: core.iconArtId, trait: `Trait Core • ${gunsmithTierLabel(core.rarity, core.tier)}` })), ...preview.traitEmblems];
+    if (!wideComposition) {
+      const header = this.copy(root, this.layout.margin + 16, y + 16, title, this.laneWidth - 32);
+      const captionY = y + 16 + header.height + 12 + artHeight + 12;
+      const summary = this.copy(root, this.layout.margin + 16, captionY, caption, this.laneWidth - 32, '#f7f1d5', 13);
+      const height = captionY - y + summary.height + 16;
+      this.backdrop(root, this.layout.margin, y, this.laneWidth, height);
+      renderAssembledWeapon(this.environment.controls, root, preview, this.layout.centerX,
+        y + 16 + header.height + 12 + artHeight / 2, mediaWidth, artHeight, framing);
+      let traitsY = y + height;
+      let traitRowHeight = 0;
+      traits.forEach((trait, index) => {
+        const column = index % 2;
+        if (column === 0 && index > 0) { traitsY += traitRowHeight; traitRowHeight = 0; }
+        this.environment.controls.addCatalogIcon(root, this.layout.margin + 18 + column * (this.laneWidth / 2), traitsY + 18, trait.iconArtId, 32);
+        const label = this.copy(root, this.layout.margin + 42 + column * (this.laneWidth / 2), traitsY + 8, trait.trait, this.laneWidth / 2 - 48, '#24cec7', 13);
+        traitRowHeight = Math.max(traitRowHeight, 40, label.height + 16);
+      });
+      return traitsY + traitRowHeight + 12;
+    }
+
+    // On foldable/desktop widths, keep the weapon recognizable while placing
+    // its family summary and traits beside it. This brings the engineering
+    // decision back into the first view without increasing card height.
+    const textLeft = this.layout.margin + mediaWidth + 32;
+    const textWidth = this.laneWidth - mediaWidth - 48;
+    const header = this.copy(root, textLeft, y + 16, title, textWidth);
+    let textY = y + 16 + header.height + 12;
+    const wideCaption = decisionDetails ? `${caption}\n${decisionDetails}` : caption;
+    const summary = this.copy(root, textLeft, textY, wideCaption, textWidth, '#f7f1d5', 13);
+    textY += summary.height + 16;
+    if (sidePanel) textY = Math.max(textY, sidePanel(root, textLeft, textY, textWidth) + 8);
+    const traitsPerRow = textWidth >= 300 ? 2 : 1;
+    let traitRowHeight = 0;
     traits.forEach((trait, index) => {
-      const column = index % 2;
-      if (column === 0 && index > 0) traitsY += 40;
-      this.environment.controls.addCatalogIcon(root, this.layout.margin + 18 + column * (this.laneWidth / 2), traitsY + 18, trait.iconArtId, 32);
-      this.copy(root, this.layout.margin + 42 + column * (this.laneWidth / 2), traitsY + 8, trait.trait, this.laneWidth / 2 - 48, '#24cec7', 13);
+      const column = index % traitsPerRow;
+      if (column === 0 && index > 0) { textY += traitRowHeight; traitRowHeight = 0; }
+      const x = textLeft + column * (textWidth / traitsPerRow);
+      this.environment.controls.addCatalogIcon(root, x + 16, textY + 18, trait.iconArtId, 32);
+      const label = this.copy(root, x + 40, textY + 8, trait.trait, textWidth / traitsPerRow - 48, '#24cec7', 13);
+      traitRowHeight = Math.max(traitRowHeight, 42, label.height + 16);
     });
-    return traitsY + (traits.length ? 40 : 0) + 12;
+    const height = Math.max(artHeight + 32, textY - y + traitRowHeight + 8);
+    this.backdrop(root, this.layout.margin, y, this.laneWidth, height);
+    renderAssembledWeapon(this.environment.controls, root, preview, this.layout.margin + 16 + mediaWidth / 2,
+      y + 16 + artHeight / 2, mediaWidth, artHeight, framing);
+    return y + height + 12;
+  }
+  private buildSlotPanel(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot,
+    left: number, top: number, width: number): number {
+    const state = snapshot.gunsmith;
+    let y = top;
+    y += this.copy(root, left, y, 'ENGINEERING SLOTS', width, '#24cec7').height + 6;
+    const columns = width >= 560 ? 3 : 2;
+    const gap = 8;
+    const slotWidth = (width - gap * (columns - 1)) / columns;
+    let rowHeight = 0;
+    state.slots.forEach((slot, index) => {
+      if (index > 0 && index % columns === 0) { y += rowHeight + gap; rowHeight = 0; }
+      const x = left + index % columns * (slotWidth + gap);
+      const fitted = slot.slot === 'trait' ? slot.traitFitted ?? [] : slot.fitted ? [slot.fitted] : [];
+      const status = slot.unavailableFitted ? 'UNAVAILABLE' : slot.slot === 'trait'
+        ? `${fitted.length}/2 EQUIPPED` : fitted.length ? 'EQUIPPED' : 'EMPTY';
+      const fittedCopy = fitted.length ? `\n${fitted.map(part => `${part.name} ${gunsmithTierLabel(part.rarity, part.tier)}`).join(' • ')}` : '';
+      const label = `${state.selectedSlot === slot.slot ? '• ' : ''}${slot.label}\n${status}${fittedCopy}`;
+      const button = this.button(root, x, y, label, 64, () => {
+        this.inspectedInstanceId = undefined;
+        this.redraw(this.commands.selectGunsmithSlot(slot.slot as PartSlot), `gunsmith-slot:${slot.slot}`);
+      }, 'ui:confirm', slotWidth, undefined, 34, 32, true, 'left', 'card');
+      this.environment.controls.rememberFocus(button, `gunsmith-slot:${slot.slot}`);
+      this.environment.controls.addCatalogIcon(root, x + 18, y + 32, slot.iconArtId, 26, this.environment.controls.buttonIndex(button));
+      rowHeight = Math.max(rowHeight, button.height);
+    });
+    return y + rowHeight;
   }
   private drawBuild(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, start: number): void {
     const state = snapshot.gunsmith;
@@ -213,7 +282,19 @@ export class GunsmithSurface extends MenuPanelSurface {
       ? `${selected.title.toUpperCase()} • ACTIVE\n${selected.activation} • changes ${state.families.find(family => family.id === selected.familyId)?.name ?? selected.familyId}`
       : `${state.unconfiguredBuild?.title ?? 'Stock weapon'} • NO ENGINEERED BUILD\nChoose a family to create its active build.`, this.laneWidth, '#24cec7').height + 12;
     const framing = [...new Set([...(current ? assemblyArtIds(current) : []), ...(state.candidatePreview ? assemblyArtIds(state.candidatePreview) : [])])];
-    if (current) y = this.assembly(root, y, 'Your assembled weapon', current, framing, selected?.summary ?? 'Stock weapon • no persistent engineering fitted');
+    const fittedDetails = selected
+      ? state.slots.flatMap(slot => slot.slot === 'trait'
+        ? (slot.traitFitted ?? []).map(part => `${part.name} ${gunsmithTierLabel(part.rarity, part.tier)} • ${part.effectLines.slice(0, 2).join(' • ')}`)
+        : slot.fitted ? [`${slot.fitted.name} ${gunsmithTierLabel(slot.fitted.rarity, slot.fitted.tier)} • ${slot.fitted.effectLines.slice(0, 2).join(' • ')}`] : [])
+        .join('\n')
+      : '';
+    if (current && selected && this.compactPhone && !state.candidatePreview && !this.inspectedInstanceId) {
+      y = this.drawMobileSlotGrid(root, state, y);
+    }
+    if (current) y = this.assembly(root, y, 'Your assembled weapon', current, framing,
+      selected?.summary ?? 'Stock weapon • no persistent engineering fitted',
+      fittedDetails && !this.wide ? `FITTED PARTS\n${fittedDetails}` : '',
+      selected && this.wide ? (panelRoot, panelLeft, panelTop, panelWidth) => this.buildSlotPanel(panelRoot, snapshot, panelLeft, panelTop, panelWidth) : undefined);
     if (!selected) return;
     const inspected = state.parts.find(part => part.instanceId === this.inspectedInstanceId);
     if (inspected) { this.drawInspection(root, snapshot, inspected, y); return; }
@@ -221,39 +302,42 @@ export class GunsmithSurface extends MenuPanelSurface {
       const candidate = state.parts.find(part => part.instanceId === state.selectedCandidateInstanceId);
       y = this.assembly(root, y, 'Preview • after this change', state.candidatePreview, framing, candidate?.actionLabel ?? 'Candidate build');
       if (candidate) {
-        y += this.copy(root, this.layout.margin, y, `${candidate.name} T${candidate.tier} • ${candidate.stateLabel}
+        y += this.copy(root, this.layout.margin, y, `${candidate.name} ${gunsmithTierLabel(candidate.rarity, candidate.tier)} • ${candidate.stateLabel}
 ${candidate.effectScope}
 ${candidate.effectLines.join(' • ')}
 ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       }
-      if (state.candidateComparison) y = this.comparison(root, snapshot, y, state.candidateComparison.before, state.candidateComparison.after, state.candidateComparison.stats);
+      if (state.candidateComparison) y = this.comparison(root, snapshot, y, state.candidateComparison.before, state.candidateComparison.after, state.candidateComparison.stats, state.candidateComparison.effects, undefined, snapshot.gunsmith.selectedBuild?.familyId);
       if (candidate) {
-        if (candidate.displacementSummary) y += this.copy(root, this.layout.margin, y, candidate.displacementSummary, this.laneWidth, '#f7d774').height + 8;
-        if (candidate.assignedBuildName && candidate.state === 'fitted-elsewhere') y += this.copy(root, this.layout.margin, y, `Moves from ${candidate.assignedBuildName}. Its source slot becomes empty.`, this.laneWidth, '#f7d774').height + 8;
+        const reviewCopies: Phaser.GameObjects.Text[] = [];
+        const addReviewCopy = (value: string): void => {
+          const text = this.copy(root, this.layout.margin, y, value, this.laneWidth, '#f7d774', ThemeFont.bodyMin, false);
+          reviewCopies.push(text);
+          y += text.height + 8;
+        };
+        if (state.candidateComparison?.decisionSummary) {
+          addReviewCopy(state.candidateComparison.decisionSummary.join('\n'));
+        } else {
+          if (candidate.displacementSummary) addReviewCopy(candidate.displacementSummary);
+          if (candidate.assignedBuildName && candidate.state === 'fitted-elsewhere') addReviewCopy(`Moves from ${candidate.assignedBuildName}. Its source slot becomes empty.`);
+        }
         const commit = this.action(root, this.layout.margin, y, candidate.actionLabel, 'gunsmith-commit', () => this.redraw(this.commands.commitGunPartPreview(), `gunsmith-inspect:${candidate.instanceId}`));
         y += commit.height + 8;
         const cancel = this.action(root, this.layout.margin, y, 'Cancel preview', 'gunsmith-preview-cancel', () => this.redraw(this.commands.cancelGunPartPreview(), `gunsmith-part:${candidate.instanceId}`));
         y += cancel.height + 12;
+        const commitIndex = this.environment.controls.buttonIndex(commit);
+        const cancelIndex = this.environment.controls.buttonIndex(cancel);
+        const reviewBounds = [
+          ...reviewCopies.map(copy => copy.getBounds()),
+          commit.getBounds(), cancel.getBounds(),
+        ].reduce((bounds, next) => ({ top: Math.min(bounds.top, next.top), bottom: Math.max(bounds.bottom, next.bottom) }),
+          { top: Number.POSITIVE_INFINITY, bottom: Number.NEGATIVE_INFINITY });
+        reviewCopies.forEach(copy => this.environment.controls.registerScrollObject(copy, commitIndex));
+        this.environment.controls.includeScrollBounds?.(commitIndex, reviewBounds);
+        this.environment.controls.includeScrollBounds?.(cancelIndex, reviewBounds);
       }
     }
-    y += this.copy(root, this.layout.margin, y, 'ENGINEERING SLOTS', this.laneWidth, '#24cec7').height + 8;
-    const columns = this.wide ? 4 : 2;
-    const slotWidth = (this.laneWidth - (columns - 1) * 8) / columns;
-    let rowHeight = 0;
-    state.slots.forEach((slot, index) => {
-      if (index > 0 && index % columns === 0) { y += rowHeight + 8; rowHeight = 0; }
-      const x = this.layout.margin + index % columns * (slotWidth + 8);
-      const fittedCount = slot.slot === 'trait' ? slot.traitFitted?.length ?? 0 : slot.fitted ? 1 : 0;
-      const label = `${state.selectedSlot === slot.slot ? '• ' : ''}${slot.label}\n${slot.unavailableFitted ? 'UNAVAILABLE' : slot.slot === 'trait' ? `${fittedCount}/2 EQUIPPED` : fittedCount ? 'EQUIPPED' : 'EMPTY'}`;
-      const button = this.button(root, x, y, label, 76, () => {
-        this.inspectedInstanceId = undefined;
-        this.redraw(this.commands.selectGunsmithSlot(slot.slot as PartSlot), `gunsmith-slot:${slot.slot}`);
-      }, 'ui:confirm', slotWidth, undefined, 0, 42, true);
-      this.environment.controls.rememberFocus(button, `gunsmith-slot:${slot.slot}`);
-      this.environment.controls.addCatalogIcon(root, x + 22, y + 30, slot.iconArtId, 32, this.environment.controls.buttonIndex(button));
-      rowHeight = Math.max(rowHeight, button.height);
-    });
-    y += rowHeight + 12;
+    if ((!this.compactPhone && !this.wide) || state.candidatePreview) y = this.drawMobileSlotGrid(root, state, y);
     const slot = state.slots.find(slot => slot.slot === state.selectedSlot);
     if (!slot) return;
     if (slot.unavailableFitted) {
@@ -283,11 +367,31 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       part.state === 'fitted-elsewhere' ? `EQUIPPED • ${part.assignedBuildName}` : 'STORED', `gunsmith-part:${part.instanceId}`,
       () => this.redraw(this.commands.previewGunPart(part.instanceId), 'gunsmith-commit'), this.mediaSize, 'Preview change');
   }
+  private drawMobileSlotGrid(root: Phaser.GameObjects.Container, state: MainMenuSnapshot['gunsmith'], start: number): number {
+    let y = start + this.copy(root, this.layout.margin, start, 'ENGINEERING SLOTS', this.laneWidth, '#24cec7').height + 8;
+    const columns = 2;
+    const slotWidth = (this.laneWidth - (columns - 1) * 8) / columns;
+    let rowHeight = 0;
+    state.slots.forEach((slot, index) => {
+      if (index > 0 && index % columns === 0) { y += rowHeight + 8; rowHeight = 0; }
+      const x = this.layout.margin + index % columns * (slotWidth + 8);
+      const fittedCount = slot.slot === 'trait' ? slot.traitFitted?.length ?? 0 : slot.fitted ? 1 : 0;
+      const label = `${state.selectedSlot === slot.slot ? '• ' : ''}${slot.label}\n${slot.unavailableFitted ? 'UNAVAILABLE' : slot.slot === 'trait' ? `${fittedCount}/2 EQUIPPED` : fittedCount ? 'EQUIPPED' : 'EMPTY'}`;
+      const button = this.button(root, x, y, label, 76, () => {
+        this.inspectedInstanceId = undefined;
+        this.redraw(this.commands.selectGunsmithSlot(slot.slot as PartSlot), `gunsmith-slot:${slot.slot}`);
+      }, 'ui:confirm', slotWidth, undefined, 0, 42, true);
+      this.environment.controls.rememberFocus(button, `gunsmith-slot:${slot.slot}`);
+      this.environment.controls.addCatalogIcon(root, x + 22, y + 30, slot.iconArtId, 32, this.environment.controls.buttonIndex(button));
+      rowHeight = Math.max(rowHeight, button.height);
+    });
+    return y + rowHeight + 12;
+  }
   private partCard(root: Phaser.GameObjects.Container, y: number, part: ArtPart, status: string,
     key: string, callback: () => void, size = this.mediaSize, actionLabel = 'Inspect this part'): number {
     const stacked = !this.wide;
     const height = stacked ? size + 128 : Math.max(size + 32, 160);
-    const label = `${part.name} T${part.tier}\n${status}\n${part.effectScope} • ${part.statChips.slice(0, 2).join(' • ') || 'Trait engineering'}\n${actionLabel}`;
+    const label = `${part.name} ${gunsmithTierLabel(part.rarity, part.tier)}\n${status}\n${part.effectScope} • ${part.statChips.slice(0, 2).join(' • ') || 'Trait engineering'}\n${actionLabel}`;
     const row = this.button(root, this.layout.margin, y, label, height, callback, 'ui:confirm', this.laneWidth,
       undefined, part.traitIcons.length * 38, stacked ? 12 : size + 32, true, 'left', 'card', stacked ? size + 24 : 12);
     this.environment.controls.rememberFocus(row, key);
@@ -301,7 +405,7 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
   private drawInspection(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, part: GunsmithPartView, start: number): void {
     let y = start;
     const size = this.wide ? 400 : Math.min(264, this.laneWidth - 32);
-    y += this.copy(root, this.layout.margin, y, `${part.name.toUpperCase()}\n${part.stateLabel} • T${part.tier}`, this.laneWidth, '#24cec7', 20).height + 12;
+    y += this.copy(root, this.layout.margin, y, `${part.name.toUpperCase()}\n${part.stateLabel} • ${gunsmithTierLabel(part.rarity, part.tier)}`, this.laneWidth, '#24cec7', 20).height + 12;
     this.backdrop(root, this.layout.margin, y, this.laneWidth, size + 32);
     this.environment.controls.addLoadoutArt(root, this.layout.centerX, y + 16 + size / 2, part.iconArtId, size, size);
     y += size + 44;
@@ -311,63 +415,80 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
     });
   }
   private comparison(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, start: number, before: RunTruth, after: RunTruth,
-    stats: readonly import('../loadoutPresentation').LoadoutWeaponStatDelta[] = []): number {
+    stats: readonly import('../loadoutPresentation').LoadoutWeaponStatDelta[] = [], effects?: LoadoutRunTruthComparison,
+    noChangeReason?: string, familyId?: string, scenario?: string): number {
     let y = start;
-    y += this.copy(root, this.layout.margin, y, 'CURRENT / PREVIEW • RUN EFFECTS', this.laneWidth, '#24cec7').height + 8;
+    const familyName = familyId === undefined ? undefined : snapshot.gunsmith.families.find((family) => family.id === familyId)?.name;
+    const header = familyName === undefined ? 'CURRENT / PREVIEW • RUN EFFECTS'
+      : `CURRENT / PREVIEW • ${scenario ?? `If fitted to ${familyName}`} • RUN EFFECTS`;
+    y += this.copy(root, this.layout.margin, y, header, this.laneWidth, '#24cec7').height + 8;
     for (const stat of stats) {
       const color = stat.direction === 'better' ? '#86efac' : stat.direction === 'worse' ? '#fca5a5' : '#adc1c7';
       y += this.copy(root, this.layout.margin, y, `${stat.label} • ${stat.displayBefore} to ${stat.displayAfter}`, this.laneWidth, color).height + 6;
     }
-    const group = (truth: RunTruth) => {
-      const duplicates = new Map<string, number>();
-      return new Map(truth.modifiers.map(modifier => {
-        const base = JSON.stringify([modifier.sourceId, modifier.stat, modifier.op, modifier.scope]);
-        const index = duplicates.get(base) ?? 0; duplicates.set(base, index + 1);
-        return [`${base}:${index}`, modifier] as const;
-      }));
-    };
-    const beforeMods = group(before); const afterMods = group(after);
-    let changes = 0;
-    for (const key of new Set([...beforeMods.keys(), ...afterMods.keys()])) {
-      const a = beforeMods.get(key); const b = afterMods.get(key);
-      if (a?.value === b?.value) continue;
-      changes += 1;
-      const sample = b ?? a!;
-      const presentation = presentLoadoutModifier(sample);
-      const display = (modifier: typeof sample | undefined) => modifier ? presentLoadoutModifier(modifier).value : '—';
-      y += this.copy(root, this.layout.margin, y, `${presentation.target.label} • ${presentation.label}\n${display(a)} to ${display(b)}`, this.laneWidth, '#f7f1d5').height + 8;
+    const resolvedEffects = effects ?? presentLoadoutRunTruthComparison(before, after);
+    for (const delta of resolvedEffects.modifiers) {
+      y += this.copy(root, this.layout.margin, y, `${delta.target.label} • ${delta.label}\n${delta.beforeValue ?? '—'} to ${delta.afterValue ?? '—'}`, this.laneWidth, '#f7f1d5').height + 8;
     }
-    for (const family of after.families) {
-      const previous = before.families.find(row => row.familyId === family.familyId);
-      const name = snapshot.gunsmith.families.find(row => row.id === family.familyId)?.name ?? family.familyId;
-      for (const trait of new Set([...(previous?.traits.map(row => row.trait) ?? []), ...family.traits.map(row => row.trait)])) {
-        const a = previous?.traits.find(row => row.trait === trait); const b = family.traits.find(row => row.trait === trait);
-        if (a && b && JSON.stringify(a) === JSON.stringify(b)) continue;
-        changes += 1;
-        const icon = snapshot.gunsmith.parts.flatMap(row => row.traitIcons).find(row => row.trait === trait)
-          ?? snapshot.gunsmith.catalog.flatMap(row => row.traitIcons).find(row => row.trait === trait);
+    for (const delta of resolvedEffects.traits) {
+        const name = snapshot.gunsmith.families.find(row => row.id === delta.familyId)?.name ?? delta.familyId;
+        const icon = snapshot.gunsmith.parts.flatMap(row => row.traitIcons).find(row => row.trait === delta.trait)
+          ?? snapshot.gunsmith.catalog.flatMap(row => row.traitIcons).find(row => row.trait === delta.trait);
         if (icon) this.environment.controls.addCatalogIcon(root, this.layout.margin + 18, y + 18, icon.iconArtId, 32);
-        y += this.copy(root, this.layout.margin + 42, y, `${name} • ${trait}\n${a ? 'ACTIVE' : '—'} to ${b ? b.deduplicated ? 'ACTIVE • SHARED, APPLIED ONCE' : 'ACTIVE' : 'REMOVED'}`, this.laneWidth - 42, '#24cec7').height + 8;
-      }
-      if (JSON.stringify(previous?.projectileEffects ?? []) !== JSON.stringify(family.projectileEffects)) {
-        changes += 1;
-        const effects = (truth: readonly RunTruth['families'][number]['projectileEffects'][number][]) => truth.map(effect => effect.kind === 'burn'
+        y += this.copy(root, this.layout.margin + 42, y, `${name} • ${delta.trait}\n${delta.before ? 'ACTIVE' : '—'} to ${delta.after ? delta.afterDeduplicated ? 'ACTIVE • SHARED, APPLIED ONCE' : 'ACTIVE' : 'REMOVED'}`, this.laneWidth - 42, '#24cec7').height + 8;
+    }
+    for (const delta of resolvedEffects.projectileEffects) {
+        const formatEffects = (truth: readonly RunTruth['families'][number]['projectileEffects'][number][]) => truth.map(effect => effect.kind === 'burn'
           ? `Burn ${effect.damageMultiplier * 100}% • ${effect.durationMs}ms • every ${effect.tickIntervalMs}ms`
           : `Explosion ${effect.radius} radius • ${effect.damageMultiplier * 100}% splash`).join(' • ') || '—';
-        y += this.copy(root, this.layout.margin, y, `${name} • projectile effects\n${effects(previous?.projectileEffects ?? [])} to ${effects(family.projectileEffects)}`, this.laneWidth, '#f7f1d5').height + 8;
-      }
+        const name = snapshot.gunsmith.families.find(row => row.id === delta.familyId)?.name ?? delta.familyId;
+        y += this.copy(root, this.layout.margin, y, `${name} • projectile effects\n${formatEffects(delta.before)} to ${formatEffects(delta.after)}`, this.laneWidth, '#f7f1d5').height + 8;
     }
-    const mechanicsChanged = stats.some(stat => stat.before !== stat.after) || after.families.some(family => {
-      const previous = before.families.find(row => row.familyId === family.familyId);
-      return JSON.stringify(previous?.projectileEffects ?? []) !== JSON.stringify(family.projectileEffects)
-        || JSON.stringify(previous?.traits.map(row => row.trait).sort() ?? []) !== JSON.stringify(family.traits.map(row => row.trait).sort());
-    });
-    if ((stats.length > 0 && !mechanicsChanged) || (!stats.length && !changes)) {
-      y += this.copy(root, this.layout.margin, y, 'No mechanical change • effects already shared or clamped.').height + 8;
-    }
+    const effectiveMechanicsChanged = stats.some(stat => stat.before !== stat.after)
+      || resolvedEffects.modifiers.length > 0
+      || resolvedEffects.projectileEffects.length > 0
+      || resolvedEffects.traits.some((trait) => trait.before !== trait.after);
+    if (!effectiveMechanicsChanged && noChangeReason) y += this.copy(root, this.layout.margin, y, noChangeReason).height + 8;
     return y;
   }
-  private drawWorkshop(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, start: number): void {
+
+  private workshopImpact(root: Phaser.GameObjects.Container, impact: GunsmithWorkshopBuildImpact, start: number): number {
+    let y = start;
+    y += this.copy(root, this.layout.margin, y,
+      `AFFECTED BUILD • ${impact.buildName} • ${impact.familyId.toUpperCase()} • ${impact.slot.toUpperCase()}`,
+      this.laneWidth, '#f7d774').height + 6;
+    const part = impact.updatedPart ?? impact.removedPart;
+    if (part) y += this.copy(root, this.layout.margin, y,
+      `${impact.change === 'updated' ? 'UPDATES FITTED' : 'REMOVES'} ${part.name} ${gunsmithTierLabel(part.rarity, part.tier)}`,
+      this.laneWidth, '#f7d774').height + 4;
+    const losses = impact.comparison.effects.modifiers
+      .filter((delta) => delta.after === undefined)
+      .map((delta) => `Loses ${delta.target.label} • ${delta.before?.text ?? delta.beforeValue ?? '—'} (removed)`);
+    const traits = impact.comparison.effects.traits
+      .filter((delta) => delta.before && !delta.after)
+      .map((delta) => `Loses ${delta.target.label} • ${delta.trait}`);
+    const gains = impact.comparison.effects.modifiers.filter((delta) => delta.after !== undefined)
+      .map((delta) => `${delta.before === undefined ? 'Gains' : 'Changes'} ${delta.target.label} • ${delta.before?.text ?? delta.beforeValue ?? '—'} to ${delta.after?.text ?? delta.afterValue ?? '—'}`);
+    const gainedTraits = impact.comparison.effects.traits.filter((delta) => !delta.before && delta.after)
+      .map((delta) => `Gains ${delta.target.label} • ${delta.trait}`);
+    const projectileChanges = impact.comparison.effects.projectileEffects.map((delta) =>
+      `${delta.after.length > delta.before.length ? 'Gains' : 'Changes'} ${delta.familyId.toUpperCase()} • projectile effects`);
+    const details = [...losses, ...traits, ...gains, ...gainedTraits, ...projectileChanges];
+    y += this.copy(root, this.layout.margin, y,
+      details.length ? details.join('\n') : 'Fitting changed; no resolved modifier or trait change.',
+      this.laneWidth, '#f7f1d5').height + 8;
+    return y;
+  }
+
+  private actionPair(root: Phaser.GameObjects.Container, y: number, confirmLabel: string, confirmKey: string,
+    confirmCallback: () => void, cancelKey: string, cancelCallback: () => void, confirmEnabled = true): number {
+    const gap = 8;
+    const width = (this.laneWidth - gap) / 2;
+    const confirm = this.action(root, this.layout.margin, y, confirmLabel, confirmKey, confirmCallback, width, confirmEnabled);
+    const cancel = this.action(root, this.layout.margin + width + gap, y, 'Cancel', cancelKey, cancelCallback, width);
+    return y + Math.max(confirm.height, cancel.height) + 12;
+  }
+  private drawWorkshop(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, start: number, scrap: number): void {
     const state = snapshot.gunsmith;
     let y = start;
     const kind = state.confirmation?.kind ?? (state.mergeSelection ? 'merge' : this.workshopKind);
@@ -400,7 +521,7 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
         const artY = y + 16 + caption.height + 8;
         this.environment.controls.addLoadoutArt(root, x + cardWidth / 2, artY + size / 2, part.iconArtId, size, size);
         y = artY + size + 12;
-        y += this.copy(root, x + 16, y, `${part.name} T${part.tier}\n${part.stateLabel} • ${part.effectScope}\n${part.statChips.join(' • ') || 'Trait engineering'}`, cardWidth - 32, '#f7f1d5').height + 8;
+        y += this.copy(root, x + 16, y, `${part.name} ${gunsmithTierLabel(part.rarity, part.tier)}\n${part.stateLabel} • ${part.effectScope}\n${part.statChips.join(' • ') || 'Trait engineering'}`, cardWidth - 32, '#f7f1d5').height + 8;
         for (const trait of part.traitIcons) {
           this.environment.controls.addCatalogIcon(root, x + 30, y + 16, trait.iconArtId, 32);
           y += this.copy(root, x + 54, y + 4, trait.trait, cardWidth - 70, '#24cec7').height + 12;
@@ -416,11 +537,19 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
         ...confirmation.consumedInstanceIds.map(id => `CONSUMES ${confirmation.inputs.find(part => part.instanceId === id)?.name ?? id}.`),
         ...confirmation.preservedInstanceIds.map(id => `PRESERVES ${confirmation.inputs.find(part => part.instanceId === id)?.name ?? id}.`)];
       y += this.copy(root, this.layout.margin, y, consequences.join('\n'), this.laneWidth, '#f7d774').height + 12;
+      for (const impact of confirmation.buildImpacts ?? []) y = this.workshopImpact(root, impact, y);
       y += this.copy(root, this.layout.margin, y, confirmation.mechanicalDelta.join('\n'), this.laneWidth, '#f7f1d5').height + 8;
-      y = this.comparison(root, snapshot, y, confirmation.comparison.before, confirmation.comparison.after, confirmation.comparison.stats);
-      const confirm = this.action(root, this.layout.margin, y, confirmation.confirmLabel, 'gunsmith-confirm', () => this.redraw(this.commands.confirmGunWorkshop()));
-      y += confirm.height + 8;
-      this.action(root, this.layout.margin, y, 'Cancel', 'gunsmith-cancel', () => this.redraw(this.commands.cancelGunWorkshop()));
+      const noChangeReason = confirmation.output.stateLabel === 'STORED'
+        ? 'No active-build change • output remains STORED until you fit it.' : undefined;
+      y = this.comparison(root, snapshot, y, confirmation.comparison.before, confirmation.comparison.after,
+        confirmation.comparison.stats, confirmation.comparison.effects, noChangeReason);
+      const affectedBuildSlots = [...new Set((confirmation.buildImpacts ?? []).map((impact) => `${impact.buildName} • ${impact.slot.toUpperCase()}`))];
+      y += this.copy(root, this.layout.margin, y,
+        `FINAL CHECK\nInputs: ${confirmation.inputs.map((part) => `${part.name} ${gunsmithTierLabel(part.rarity, part.tier)} • ${part.stateLabel}`).join(' + ')}\nOutput: ${confirmation.output.name} ${gunsmithTierLabel(confirmation.output.rarity, confirmation.output.tier)} • ${confirmation.output.stateLabel}\nOutput destination: ${confirmation.output.stateLabel} • ${confirmation.output.effectScope}\nAffected build/slot: ${affectedBuildSlots.join(' + ') || 'None'}\nCost: 0 Scrap • Balance after: ${scrap} Scrap`,
+        this.laneWidth, '#f7d774').height + 8;
+      this.actionPair(root, y, confirmation.confirmLabel, 'gunsmith-confirm',
+        () => this.redraw(this.commands.confirmGunWorkshop()), 'gunsmith-cancel',
+        () => this.redraw(this.commands.cancelGunWorkshop()));
       return;
     }
     if (state.mergeSelection) {
@@ -447,12 +576,12 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
         const target = state.parts.find(part => part.instanceId === recipe.targetInstanceId);
         const core = state.parts.find(part => part.instanceId === recipe.traitInstanceId);
         if (!target || !core) continue;
-        y = this.partCard(root, y, target, `TARGET • ${target.stateLabel} + ${core.name} T${core.tier}`, `gunsmith-workshop:infuse:${recipe.targetInstanceId}:${recipe.traitInstanceId}`,
+        y = this.partCard(root, y, target, `TARGET • ${target.stateLabel} + ${core.name} ${gunsmithTierLabel(core.rarity, core.tier)}`, `gunsmith-workshop:infuse:${recipe.targetInstanceId}:${recipe.traitInstanceId}`,
           () => this.redraw(this.commands.requestGunWorkshop({ kind: 'infuse', targetInstanceId: recipe.targetInstanceId, traitInstanceId: recipe.traitInstanceId }), 'gunsmith-confirm'), this.mediaSize, 'Preview infusion');
       }
     }
   }
-  private drawParts(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, start: number): void {
+  private drawParts(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, start: number, scrap: number): void {
     const catalog = snapshot.gunsmith.catalog;
     let y = start;
     const selected = catalog.find(part => part.partId === this.selectedCatalogPartId);
@@ -462,23 +591,40 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       this.environment.controls.addLoadoutArt(root, this.layout.centerX, y + size / 2, selected.iconArtId, size, size);
       y += size + 12;
       y += this.copy(root, this.layout.margin, y, `${selected.name.toUpperCase()}\n${selected.stateLabel} • ${selected.slot} • ${selected.effectScope}`, this.laneWidth, '#24cec7', 20).height + 12;
-      y += this.copy(root, this.layout.margin, y, [...selected.effectLines, selected.comparisonSummary, selected.sourceLabel, selected.lockReason, selected.affordable === false ? 'Insufficient Scrap for fabrication.' : undefined].filter(Boolean).join('\n'), this.laneWidth, '#f7f1d5').height + 12;
+      y += this.copy(root, this.layout.margin, y, [selected.representativeLabel,
+        ...selected.effectLines, selected.comparisonSummary, selected.fabricationOutputLabel, selected.sourceLabel, selected.lockReason,
+        selected.affordable === false ? 'Insufficient Scrap for fabrication.' : undefined].filter(Boolean).join('\n'), this.laneWidth, '#f7f1d5').height + 12;
+      if (selected.comparison) {
+        y = this.comparison(root, snapshot, y, selected.comparison.before, selected.comparison.after, selected.comparison.stats, selected.comparison.effects,
+          undefined, snapshot.gunsmith.selectedBuild?.familyId, selected.comparisonScopeLabel);
+      }
       for (const trait of selected.traitIcons) {
         this.environment.controls.addCatalogIcon(root, this.layout.margin + 18, y + 16, trait.iconArtId, 32);
         y += this.copy(root, this.layout.margin + 42, y, trait.trait, this.laneWidth - 42, '#24cec7').height + 12;
       }
       if (this.fabricationConfirmation?.partId === selected.partId && this.fabricationConfirmation.cost !== selected.fabricationCost) this.fabricationConfirmation = undefined;
       if (this.fabricationConfirmation?.partId === selected.partId) {
-        y += this.copy(root, this.layout.margin, y, `Spend ${this.fabricationConfirmation.cost} Scrap?\nFabricates one T1 ${selected.name} into STORED inventory.`, this.laneWidth, '#f7d774').height + 8;
-        const confirm = this.action(root, this.layout.margin, y, `Confirm fabrication • ${this.fabricationConfirmation.cost} Scrap`, `gunsmith-fabricate-confirm:${selected.partId}`, () => {
+        const confirmation = this.fabricationConfirmation;
+        const remaining = scrap >= this.fabricationConfirmation.cost ? `${scrap - this.fabricationConfirmation.cost} Scrap` : `${scrap} Scrap (insufficient)`;
+        y += this.copy(root, this.layout.margin, y,
+          `FINAL CHECK\n${selected.name} ${gunsmithTierLabel(selected.rarity, 1)}\nAdds one STORED copy only; build remains unchanged.\nOutput destination: STORED inventory\nCost: ${this.fabricationConfirmation.cost} Scrap • Balance after: ${remaining}`,
+          this.laneWidth, '#f7d774').height + 8;
+        y = this.actionPair(root, y, 'Confirm fabrication', `gunsmith-fabricate-confirm:${selected.partId}`, () => {
+          if (this.fabricationConfirmation !== confirmation) return;
           this.fabricationConfirmation = undefined;
-          this.redraw(this.commands.fabricateGunPart(selected.partId), `gunsmith-catalog:${selected.partId}`);
-        }, this.laneWidth, selected.canFabricate);
-        y += confirm.height + 8;
-        const cancel = this.action(root, this.layout.margin, y, 'Cancel fabrication', `gunsmith-fabricate-cancel:${selected.partId}`, () => {
+          const next = this.commands.fabricateGunPart(selected.partId);
+          const current = next.gunsmith.catalog.find(part => part.partId === selected.partId);
+          const unchanged = next.panel === 'gunsmith' && next.gunsmith.surface === 'parts'
+            && this.selectedCatalogPartId === selected.partId && current?.ownedCount === selected.ownedCount
+            && current.fabricationCost === confirmation.cost;
+          // A successful fabrication adds one owned copy. An unchanged result
+          // keeps the review, with a fresh identity that revokes this callback.
+          if (unchanged) this.fabricationConfirmation = { ...confirmation };
+          this.redraw(next, unchanged ? `gunsmith-fabricate-confirm:${selected.partId}` : `gunsmith-catalog:${selected.partId}`);
+        }, `gunsmith-fabricate-cancel:${selected.partId}`, () => {
           this.fabricationConfirmation = undefined; this.redraw(snapshot, `gunsmith-fabricate-request:${selected.partId}`);
-        });
-        y += cancel.height + 12;
+        }, selected.canFabricate);
+        return;
       } else if (selected.fabricationCost !== undefined) {
         const request = this.action(root, this.layout.margin, y, selected.fabricationActionLabel ?? `Fabricate • ${selected.fabricationCost} Scrap`, `gunsmith-fabricate-request:${selected.partId}`, () => {
           this.fabricationConfirmation = { partId: selected.partId, cost: selected.fabricationCost! };
@@ -493,7 +639,7 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
     }
     y += this.copy(root, this.layout.margin, y, 'PARTS • OWNERSHIP / SOURCE / FABRICATION', this.laneWidth, '#24cec7').height + 12;
     const filters = ['All', ...new Set(catalog.map(part => part.slot))];
-    const columns = this.wide ? 4 : 2;
+    const columns = this.wide ? Math.min(6, filters.length) : this.compactPhone ? 3 : 2;
     const filterWidth = (this.laneWidth - (columns - 1) * 8) / columns;
     let rowHeight = 0;
     filters.forEach((slot, index) => {
@@ -506,21 +652,61 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       rowHeight = Math.max(rowHeight, filter.height);
     });
     y += rowHeight + 12;
-    for (const part of catalog.filter(part => !this.catalogSlot || part.slot === this.catalogSlot)) {
-      const size = this.mediaSize;
-      const stacked = !this.wide;
-      const label = `${part.name}\n${part.slot.toUpperCase()} • ${part.stateLabel} • ${part.effectScope}\n${part.statChips.slice(0, 2).join(' • ') || 'Trait engineering'}${part.fabricationCost === undefined ? '' : `\n${part.fabricationCost} Scrap`}`;
-      const row = this.button(root, this.layout.margin, y, label, stacked ? size + 144 : size + 32, () => {
-        this.selectedCatalogPartId = part.partId; this.fabricationConfirmation = undefined;
-        this.redraw(snapshot, `gunsmith-catalog-close:${part.partId}`);
-      }, 'ui:confirm', this.laneWidth, undefined, part.traitIcons.length * 38, stacked ? 12 : size + 32, true, 'left', 'card', stacked ? size + 24 : 12);
-      this.environment.controls.rememberFocus(row, `gunsmith-catalog:${part.partId}`);
-      const owner = this.environment.controls.buttonIndex(row);
-      this.environment.controls.addLoadoutArt(root, stacked ? this.layout.centerX : this.layout.margin + size / 2 + 16,
-        y + size / 2 + 16, part.iconArtId, size, size, owner);
-      part.traitIcons.forEach((trait, index) => this.environment.controls.addCatalogIcon(root,
-        this.layout.margin + this.laneWidth - 24 - index * 38, y + size + 16, trait.iconArtId, 32, owner));
-      y += row.height + 12;
+    const filteredCatalog = catalog.filter(part => !this.catalogSlot || part.slot === this.catalogSlot);
+    if (!this.wide) {
+      for (const part of filteredCatalog) {
+        const size = this.mediaSize;
+        const compactCard = this.compactPhone;
+        const label = `${part.name}\n${part.slot.toUpperCase()} • ${part.stateLabel} • ${part.effectScope}\n${part.statChips.slice(0, 2).join(' • ') || 'Trait engineering'}${part.fabricationCost === undefined ? '' : `\n${part.fabricationCost} Scrap`}`;
+        const row = this.button(root, this.layout.margin, y, label, compactCard ? size + 32 : size + 144, () => {
+          this.selectedCatalogPartId = part.partId; this.fabricationConfirmation = undefined;
+          this.redraw(snapshot, `gunsmith-catalog-close:${part.partId}`);
+        }, 'ui:confirm', this.laneWidth, undefined, part.traitIcons.length * 38,
+          compactCard ? size + 32 : 12, true, 'left', 'card', compactCard ? 12 : size + 24);
+        this.environment.controls.rememberFocus(row, `gunsmith-catalog:${part.partId}`);
+        const owner = this.environment.controls.buttonIndex(row);
+        this.environment.controls.addLoadoutArt(root, compactCard ? this.layout.margin + size / 2 + 16 : this.layout.centerX,
+          y + size / 2 + 16, part.iconArtId, size, size, owner);
+        part.traitIcons.forEach((trait, index) => this.environment.controls.addCatalogIcon(root,
+          this.layout.margin + this.laneWidth - 24 - index * 38, y + size + 16, trait.iconArtId, 32, owner));
+        y += row.height + 12;
+      }
+      return;
+    }
+
+    // Desktop/foldable catalog cards become a comparison grid: multiple
+    // parts remain visible with their name, state, scope and stat chips beside
+    // a bounded icon. Selection still opens the existing detailed inspector.
+    const cardColumns = this.layout.width >= 1280 ? 3 : 2;
+    const cardGap = 12;
+    const cardWidth = (this.laneWidth - cardGap * (cardColumns - 1)) / cardColumns;
+    // The icon is a side anchor, not a second vertical column. A smaller
+    // bounded extent leaves the name/effect copy readable beside it and
+    // removes the blank middle band in the former art-heavy cards.
+    const size = Math.min(116, cardWidth - 24);
+    for (let index = 0; index < filteredCatalog.length; index += cardColumns) {
+      const rowParts = filteredCatalog.slice(index, index + cardColumns);
+      let rowHeight = Math.max(this.layout.hitTarget, size + 28);
+      const rows = rowParts.map((part, column) => {
+        const x = this.layout.margin + column * (cardWidth + cardGap);
+        const label = `${part.name}\n${part.slot.toUpperCase()} • ${part.stateLabel}\n${part.effectScope}\n${part.statChips.slice(0, 2).join(' • ') || 'Trait engineering'}${part.fabricationCost === undefined ? '' : ` • ${part.fabricationCost} Scrap`}`;
+        const row = this.button(root, x, y, label, rowHeight, () => {
+          this.selectedCatalogPartId = part.partId; this.fabricationConfirmation = undefined;
+          this.redraw(snapshot, `gunsmith-catalog-close:${part.partId}`);
+        }, 'ui:confirm', cardWidth, undefined, part.traitIcons.length * 30, size + 30, true, 'left', 'card', size + 24);
+        this.environment.controls.rememberFocus(row, `gunsmith-catalog:${part.partId}`);
+        rowHeight = Math.max(rowHeight, row.height);
+        return { part, row, x };
+      });
+      for (const { part, row, x } of rows) {
+        row.setFixedSize(cardWidth, rowHeight);
+        const owner = this.environment.controls.buttonIndex(row);
+        this.environment.controls.addLoadoutArt(root, x + 16 + size / 2, y + rowHeight / 2,
+          part.iconArtId, size, size, owner);
+        part.traitIcons.forEach((trait, traitIndex) => this.environment.controls.addCatalogIcon(root,
+          x + cardWidth - 20 - traitIndex * 30, y + rowHeight - 22, trait.iconArtId, 26, owner));
+      }
+      y += rowHeight + cardGap;
     }
   }
 }

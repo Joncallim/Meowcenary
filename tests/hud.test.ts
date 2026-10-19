@@ -530,8 +530,8 @@ describe('PhaserHudView', () => {
 
     const textAt = (label: string) => unique.find((object) => object.state.text === label)!.state;
     const time = textAt('0:01 / 1:00');
-    const kills = textAt('K 3');
-    const scrap = textAt('S 12');
+    const kills = textAt('Kills 3');
+    const scrap = textAt('Scrap 12');
     expect(time.y).toBeLessThan(kills.y as number);
     expect(kills.y).toBeLessThan(scrap.y as number);
     expect((scrap.y as number) - (kills.y as number)).toBeGreaterThan(0);

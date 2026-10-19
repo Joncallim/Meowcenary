@@ -249,7 +249,7 @@ describe('MainMenuController', () => {
 
     const fabricated = controller.fabricateEquipment('equipment:commando-helmet');
 
-    expect(fabricated.notice).toBeUndefined();
+    expect(fabricated.notice).toBe('Equipment fabricated');
     expect(fabricated.equipment.blueprints).not.toContainEqual(
       expect.objectContaining({ equipmentId: 'equipment:commando-helmet' }),
     );

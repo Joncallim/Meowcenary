@@ -12,13 +12,13 @@ describe('one shared mechanical explanation', () => {
       const explanation = resolveAbilityEffectPresentation(definition);
       return [explanation.headline, explanation.detail, explanation.cooldownLabel, explanation.durationLabel ?? null];
     })).toEqual([
-      ['Scrap Burst', 'Knock back enemies within 90 range.', 'Cooldown 9s.', null],
+      ['Scrap Burst', 'Knock back nearby enemies.', 'Cooldown 9s.', null],
       ['Overclock', 'Gain 50% fire rate and 25% movement speed for 3.5s.', 'Cooldown 12s.', 'Active 3.5s'],
       ['Shield Flicker', 'Become invulnerable for 1.2s.', 'Cooldown 15s.', 'Active 1.2s'],
       ['Giga Chomp', 'Restore up to 40 HP.', 'Cooldown 18s.', null],
       ['Adrenaline', 'Move 40% faster for 2.5s.', 'Cooldown 10s.', 'Active 2.5s'],
-      ['Heat Vent', 'Deal 90 damage to enemies within 110 range.', 'Cooldown 11s.', null],
-      ['Scavenge Pulse', 'Collect nearby Scrap and XP within 160 range.', 'Cooldown 8s.', null],
+      ['Heat Vent', 'Deal 90 damage to nearby enemies.', 'Cooldown 11s.', null],
+      ['Scavenge Pulse', 'Collect nearby Scrap and XP.', 'Cooldown 8s.', null],
       ['Precision Mark', 'Gain 30% damage and +1 pierce for 4s.', 'Cooldown 14s.', 'Active 4s'],
     ]);
   });
@@ -33,7 +33,7 @@ describe('one shared mechanical explanation', () => {
     const fixture: AbilityDefinition = {...ability('heat-vent'), id: 'ability:proof-burst', name: 'Proof Burst', description: 'incorrect flavour numbers', cooldownMs: 12500,
       effect: {kind:'elemental-burst',radius:75,power:33}, presentation:{cue:'heat-ring',color:'#ffffff',iconArtId:'ability-icon:proof-burst'}};
     expect(checkAbility(fixture, 0)).toEqual([]);
-    expect(resolveAbilityEffectPresentation(fixture)).toEqual({headline:'Proof Burst',detail:'Deal 33 damage to enemies within 75 range.',cooldownLabel:'Cooldown 12.5s.',targetKind:'self-area',radius:75,statChips:[]});
+    expect(resolveAbilityEffectPresentation(fixture)).toEqual({headline:'Proof Burst',detail:'Deal 33 damage to nearby enemies.',cooldownLabel:'Cooldown 12.5s.',targetKind:'self-area',radius:75,statChips:[]});
   });
   it('preserves negative modifiers and scope instead of falsely claiming every change is a gain', () => {
     const fixture: AbilityDefinition = {...ability('overclock'), effect:{kind:'stat-burst',modifiers:[

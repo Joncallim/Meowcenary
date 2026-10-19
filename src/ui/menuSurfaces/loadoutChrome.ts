@@ -2,11 +2,22 @@ import type Phaser from 'phaser';
 import { edgeMargin } from '../layout';
 import { loadoutFooterPadding } from './layout';
 import { createUiText } from '../text';
-import { ThemeFont } from '../theme';
+import { ThemeColor, ThemeFont } from '../theme';
 import type { MainMenuSnapshot } from '../menus';
-import { presentLoadoutModifier, type LoadoutEffectPresentation } from '../loadoutPresentation';
-import type { EquipmentComparison, EquipmentLoadoutPresentation, EquipmentSetProgressPresentation } from '../equipmentPresentation';
+import { presentLoadoutRunTruthComparison, type LoadoutEffectPresentation, type LoadoutModifierDelta } from '../loadoutPresentation';
+import type { EquipmentComparison, EquipmentSetProgressPresentation } from '../equipmentPresentation';
+import { equipmentGradeCopy } from '../equipmentCatalog';
+import { TRAIT_BEHAVIORS, type BehaviorTrait } from '../../gameplay/weaponTraits';
 import { MenuPanelSurface, type MenuSurfaceEnvironment, type LoadoutSurfaceCommands } from './surface';
+
+type LoadoutSourceKind = 'item' | 'set' | 'other';
+type LoadoutSourceCopy = { readonly kind: LoadoutSourceKind; readonly label: string };
+type ComparisonEffectGroups = {
+  readonly itemGains: readonly string[];
+  readonly setGains: readonly string[];
+  readonly itemLosses: readonly string[];
+  readonly setLosses: readonly string[];
+};
 
 /** Shared presentation language for Loadout and Equipment, consuming domain
  * read models without moving Set/modifier/equip truth into presentation. */
@@ -15,6 +26,132 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
 
   protected loadoutEffectCopy(effects: readonly LoadoutEffectPresentation[]): string {
     return effects.map((effect) => `${effect.kind === 'modifier' ? effect.text : effect.label} [${effect.target.label}]`).join(' • ');
+  }
+
+  protected signedValue(sign: '+' | '−', value: string): string {
+    return `${sign} ${value.trim().replace(/^[+−]\s*/, '')}`;
+  }
+
+  protected signedEffectCopy(sign: '+' | '−', effects: readonly LoadoutEffectPresentation[]): string {
+    return this.signedValue(sign, this.loadoutEffectCopy(effects) || 'None');
+  }
+
+  private sourceLabelForId(sourceId: string, fallback: string | undefined, comparison: EquipmentComparison): string {
+    const setMatch = /^(?:set-bonus:)?(set:[a-z0-9-]+):(2|4)$/.exec(sourceId);
+    if (setMatch) {
+      const set = [...comparison.before.sets, ...comparison.after.sets].find((row) => row.setId === setMatch[1]);
+      return `${set?.name ?? setMatch[1]} ${setMatch[2]}-piece bonus`;
+    }
+    const item = [...comparison.before.slots, ...comparison.after.slots]
+      .flatMap((slot) => slot.candidates)
+      .find((candidate) => candidate.instanceId === sourceId);
+    return item?.name ?? fallback ?? (sourceId.startsWith('build:') ? 'Gunsmith build' : 'Loadout source');
+  }
+
+  private sourceCopy(sourceIds: readonly string[], sourceLabels: readonly string[], comparison: EquipmentComparison): LoadoutSourceCopy {
+    const ids = [...new Set(sourceIds)];
+    const labels = ids.length
+      ? ids.map((sourceId) => this.sourceLabelForId(sourceId, sourceLabels[sourceIds.indexOf(sourceId)], comparison))
+      : [...new Set(sourceLabels)];
+    const setIds = ids.filter((sourceId) => /^(?:set-bonus:)?(set:[a-z0-9-]+):(2|4)$/.test(sourceId));
+    const itemIds = ids.filter((sourceId) => [...comparison.before.slots, ...comparison.after.slots]
+      .flatMap((slot) => slot.candidates).some((candidate) => candidate.instanceId === sourceId));
+    return {
+      kind: setIds.length ? 'set' : itemIds.length ? 'item' : 'other',
+      label: labels.join(' • ') || 'Loadout source',
+    };
+  }
+
+  private traitSourceCopy(familyId: string, trait: BehaviorTrait, sourceIds: readonly string[], sourceLabels: readonly string[], comparison: EquipmentComparison): LoadoutSourceCopy {
+    const truth = [...comparison.before.runTruth.families, ...comparison.after.runTruth.families]
+      .filter((family) => family.familyId === familyId);
+    const records = truth.flatMap((family) => family.traits.filter((row) => row.trait === trait));
+    return this.sourceCopy(
+      sourceIds.length ? sourceIds : records.flatMap((row) => row.sourceIds),
+      sourceLabels.length ? sourceLabels : records.flatMap((row) => row.sourceLabels),
+      comparison,
+    );
+  }
+
+  private modifierSourceCopy(delta: LoadoutModifierDelta, comparison: EquipmentComparison,
+    side: 'before' | 'after' = delta.state === 'removed' ? 'before' : 'after'): LoadoutSourceCopy {
+    const sourceId = delta.after?.modifier.sourceId ?? delta.before?.modifier.sourceId;
+    if (!sourceId) return { kind: 'other', label: 'Loadout source' };
+    const traitMatch = /^trait:([^:]+):([^:]+):(add|mult)$/.exec(sourceId);
+    if (traitMatch) {
+      const truth = side === 'after' ? comparison.after.runTruth : comparison.before.runTruth;
+      const family = truth.families.find((row) => row.familyId === traitMatch[1]);
+      const trait = family?.traits.find((row) => {
+        const modifier = TRAIT_BEHAVIORS[row.trait].modifier;
+        return modifier?.stat === traitMatch[2] && modifier.op === traitMatch[3];
+      });
+      if (trait) return this.sourceCopy(trait.sourceIds, trait.sourceLabels, comparison);
+    }
+    return this.sourceCopy([sourceId], [], comparison);
+  }
+
+  private projectileSourceCopy(familyId: string, effectKind: string, comparison: EquipmentComparison): LoadoutSourceCopy {
+    const records = [...comparison.before.runTruth.families, ...comparison.after.runTruth.families]
+      .filter((family) => family.familyId === familyId)
+      .flatMap((family) => family.traits.filter((row) => TRAIT_BEHAVIORS[row.trait].projectileEffect?.kind === effectKind));
+    return this.sourceCopy(records.flatMap((row) => row.sourceIds), records.flatMap((row) => row.sourceLabels), comparison);
+  }
+
+  private traitDeltaCopy(sign: '+' | '−' | '↔', delta: { readonly familyId: string; readonly trait: BehaviorTrait; readonly target: { readonly label: string }; readonly before: boolean; readonly after: boolean; readonly beforeSourceIds: readonly string[]; readonly afterSourceIds: readonly string[]; readonly beforeSourceLabels: readonly string[]; readonly afterSourceLabels: readonly string[] }, comparison: EquipmentComparison, familyNames: ReadonlyMap<string, string>): { kind: LoadoutSourceKind; text: string } {
+    const sourceIds = delta.after ? delta.afterSourceIds : delta.beforeSourceIds;
+    const sourceLabels = delta.after ? delta.afterSourceLabels : delta.beforeSourceLabels;
+    const source = this.traitSourceCopy(delta.familyId, delta.trait, sourceIds, sourceLabels, comparison);
+    const family = familyNames.get(delta.familyId) ?? delta.familyId;
+    return { kind: source.kind, text: `${sign} ${family} • ${delta.trait} [${delta.target.label}]\nSource: ${source.label}` };
+  }
+
+  private projectileDeltaCopies(sign: '+' | '−', delta: { readonly familyId: string; readonly before: readonly { readonly kind: string }[]; readonly after: readonly { readonly kind: string }[] }, comparison: EquipmentComparison, familyNames: ReadonlyMap<string, string>): { kind: LoadoutSourceKind; text: string }[] {
+    const beforeKinds = new Set(delta.before.map((effect) => effect.kind));
+    const afterKinds = new Set(delta.after.map((effect) => effect.kind));
+    const effects = sign === '+'
+      ? delta.after.filter((effect) => !beforeKinds.has(effect.kind))
+      : delta.before.filter((effect) => !afterKinds.has(effect.kind));
+    return effects.map((effect) => {
+      const source = this.projectileSourceCopy(delta.familyId, effect.kind, comparison);
+      return { kind: source.kind, text: `${sign} ${familyNames.get(delta.familyId) ?? delta.familyId} projectile effect [All Weapons]: ${effect.kind} • Source: ${source.label}` };
+    });
+  }
+
+  private comparisonEffectGroups(comparison: EquipmentComparison, familyNames: ReadonlyMap<string, string>): ComparisonEffectGroups {
+    const effects = presentLoadoutRunTruthComparison(comparison.before.runTruth, comparison.after.runTruth);
+    const itemGains: string[] = [];
+    const setGains: string[] = [];
+    const itemLosses: string[] = [];
+    const setLosses: string[] = [];
+    const add = (group: LoadoutSourceKind, direction: 'gain' | 'loss', text: string): void => {
+      if (direction === 'gain') (group === 'set' ? setGains : itemGains).push(text);
+      else (group === 'set' ? setLosses : itemLosses).push(text);
+    };
+    for (const delta of effects.modifiers) {
+      if (delta.state === 'added' || delta.state === 'changed') add(this.modifierSourceCopy(delta, comparison, 'after').kind, 'gain', this.modifierDeltaCopy('+', delta, comparison));
+      if (delta.state === 'removed' || delta.state === 'changed') add(this.modifierSourceCopy(delta, comparison, 'before').kind, 'loss', this.modifierDeltaCopy('−', delta, comparison));
+    }
+    for (const delta of effects.projectileEffects) {
+      for (const row of this.projectileDeltaCopies('+', delta, comparison, familyNames)) add(row.kind, 'gain', row.text);
+      for (const row of this.projectileDeltaCopies('−', delta, comparison, familyNames)) add(row.kind, 'loss', row.text);
+    }
+    for (const delta of effects.traits) {
+      if ((!delta.before && delta.after) || (delta.before && delta.after && delta.sourceChanged)) {
+        const row = this.traitDeltaCopy(delta.before && delta.after ? '↔' : '+', delta, comparison, familyNames);
+        add(row.kind, 'gain', row.text);
+      }
+      if (delta.before && !delta.after) {
+        const row = this.traitDeltaCopy('−', delta, comparison, familyNames);
+        add(row.kind, 'loss', row.text);
+      }
+    }
+    return { itemGains, setGains, itemLosses, setLosses };
+  }
+
+  protected modifierDeltaCopy(sign: '+' | '−', delta: LoadoutModifierDelta, comparison: EquipmentComparison): string {
+    const source = this.modifierSourceCopy(delta, comparison, sign === '−' ? 'before' : 'after');
+    const value = sign === '−' ? delta.beforeValue ?? delta.afterValue : delta.afterValue ?? delta.beforeValue;
+    return `${this.signedValue(sign, value ?? '—')} ${delta.label} [${delta.target.label}] • Source: ${source.label}`;
   }
 
   protected renderScopedLoadoutEffects(root: Phaser.GameObjects.Container, effects: readonly LoadoutEffectPresentation[], left: number, top: number, width: number, fontSize: number = ThemeFont.bodyMin): number {
@@ -28,13 +165,55 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
     return y;
   }
 
-  protected loadoutCopy(root: Phaser.GameObjects.Container, x: number, y: number, text: string, width: number, color = '#d6f7ff'): Phaser.GameObjects.Text {
+  protected loadoutCopy(root: Phaser.GameObjects.Container, x: number, y: number, text: string, width: number,
+    color = '#d6f7ff', registerScroll = true): Phaser.GameObjects.Text {
     const copy = this.own(root, createUiText(this.environment.scene, x, y, text, {
       color, fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, lineSpacing: 4,
       wordWrap: { width },
     }));
-    this.environment.controls.registerScrollObject(copy);
+    if (registerScroll) this.environment.controls.registerScrollObject(copy);
     return copy;
+  }
+
+  /** Measure with the same Phaser text object used by the rendered copy. This
+   * keeps fixed decision bands honest when a narrow viewport wraps a long
+   * effect line; callers must not advance by a guessed line height. */
+  protected measureLoadoutCopyHeight(text: string, width: number, fontSize: number = ThemeFont.bodyMin,
+    lineSpacing = 4, fontStyle: string = '600'): number {
+    // Reuse the production copy path so the centralized UI-text constructor
+    // remains the sole creation site and the measured style matches render.
+    const holder = this.environment.scene.add.container(0, 0);
+    const measured = this.loadoutCopy(holder, 0, 0, text, width, '#d6f7ff', false);
+    measured.setStyle({ fontSize: `${fontSize}px`, lineSpacing, fontStyle });
+    const height = measured.height;
+    holder.destroy(true);
+    return height;
+  }
+
+  /** Match MenuScene.addButton's wrapped label geometry before a fixed action
+   * stack is positioned. This keeps a long identity label's actual button,
+   * chrome, hit target, and following action on one measured cadence. */
+  protected measureLoadoutActionHeight(label: string, width: number, minHeight = this.layout.hitTarget): number {
+    const leftInset = 12;
+    const rightInset = 12;
+    const fontSize = width < 110 ? 10 : width < 190 ? ThemeFont.bodyMin : ThemeFont.labelMin;
+    const text = createUiText(this.environment.scene, 0, 0, label, {
+      color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${fontSize}px`, fontStyle: '600',
+      align: 'center', padding: { left: leftInset, right: rightInset, top: 0, bottom: 0 },
+      wordWrap: { width: Math.max(1, width - leftInset - rightInset) },
+    });
+    const bounds = text.getBounds();
+    // Preserve a real inner text cushion even when wrapping makes the label
+    // taller than the nominal hit target. The fixed action stack measures this
+    // same height before rendering, so the chrome and the following control
+    // remain aligned while the final glyphs stay clear of the border.
+    const targetHeight = Math.max(minHeight, bounds.height + 12);
+    const verticalPadding = Math.max(0, Math.round((targetHeight - bounds.height) / 2));
+    text.setPadding(leftInset, verticalPadding, rightInset, verticalPadding);
+    const measured = text.getBounds();
+    const height = Math.max(targetHeight, measured.height);
+    text.destroy();
+    return height;
   }
 
   protected rememberLoadoutFocus(button: Phaser.GameObjects.Text, key: string): Phaser.GameObjects.Text {
@@ -85,18 +264,23 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
 
   protected loadoutFooterPadding(): number { return loadoutFooterPadding(this.layout.height); }
 
-  protected loadoutFooter(root: Phaser.GameObjects.Container, left: number, width: number, hitTarget: number, label: string, action: () => void): Phaser.GameObjects.Text {
+  protected loadoutFooter(root: Phaser.GameObjects.Container, left: number, width: number, hitTarget: number,
+    label: string, action: () => void, disabled = false): Phaser.GameObjects.Text {
     const y = this.layout.height - edgeMargin(this.layout.viewport, 'bottom', 16) - hitTarget - this.loadoutFooterPadding();
+    const accent = disabled ? ThemeColor.disabled : 0x2ec4b6;
+    const accentAlpha = disabled ? 0.72 : 1;
     this.own(root, this.environment.scene.add.rectangle(left + width / 2, y + hitTarget / 2, width, hitTarget + 16, 0x101b22)).setScrollFactor(0);
     const button = this.button(root, left, y, label, hitTarget, action, 'ui:confirm', width, undefined, 52, 12, false, 'left');
     button.setStyle({ fontSize: `${ThemeFont.bodyMin}px` });
     const bounds = button.getBounds();
     const chrome = this.environment.visuals?.addPanel(this.environment.scene, bounds.centerX, bounds.centerY, bounds.width, bounds.height, 'figma-card');
-    this.own(root, this.environment.scene.add.rectangle(bounds.centerX, bounds.centerY, bounds.width, bounds.height, 0x2ec4b6, 0)).setStrokeStyle(1, 0x2ec4b6);
-    this.own(root, this.environment.scene.add.rectangle(left + 4, y + hitTarget / 2, 4, 24, 0x2ec4b6));
-    this.own(root, this.environment.scene.add.rectangle(left + width - 22, y + hitTarget / 2, 40, hitTarget - 4, 0x2ec4b6));
+    const border = this.own(root, this.environment.scene.add.rectangle(bounds.centerX, bounds.centerY, bounds.width, bounds.height, accent, 0));
+    border.setStrokeStyle(1, accent, accentAlpha);
+    this.own(root, this.environment.scene.add.rectangle(left + 4, y + hitTarget / 2, 4, 24, accent, accentAlpha));
+    this.own(root, this.environment.scene.add.rectangle(left + width - 22, y + hitTarget / 2, 40, hitTarget - 4, accent, accentAlpha));
     this.environment.controls.addCatalogIcon(root, left + width - 22, y + hitTarget / 2, 'ui-chrome:figma-arrow', 18);
     if (chrome) { this.own(root, chrome); root.moveTo(chrome, Math.max(0, root.list.indexOf(button))); }
+    if (disabled) this.environment.controls.disableButton(button);
     return button;
   }
 
@@ -105,39 +289,103 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
   }
 
   protected equipmentMediaExtent(): number {
-    return this.layout.width < 375 ? 128 : this.layout.width < 600 ? 144 : 264;
+    if (this.layout.height <= 480) return 128;
+    // Equipment is a decision surface, not an art gallery: on desktop the
+    // four equipped cards must leave room for set counts and the chooser in
+    // the first viewport while retaining a clearly readable item silhouette.
+    return this.layout.width < 375 ? 128 : this.layout.width < 600 ? 144 : 176;
   }
 
   protected equipmentInspectionExtent(contentWidth: number): number {
-    return Math.min(this.layout.width < 600 ? 264 : 400, contentWidth - 24);
+    const maxExtent = this.layout.height <= 480 ? 128 : this.layout.width <= 375 ? 80 : this.layout.width < 600 ? 136 : 184;
+    return Math.min(maxExtent, contentWidth - 24);
   }
 
   /** The media inset is supplied before button chrome/focus/hit geometry is
    * built. All subsequent art belongs to that same shared scroll owner. */
   protected equipmentInspection(root: Phaser.GameObjects.Container, left: number, top: number,
-    width: number, label: string, artId: string): Phaser.GameObjects.Text {
-    const extent = this.equipmentInspectionExtent(width);
-    const button = this.button(root, left, top, label, extent + 110, () => undefined,
-      'ui:confirm', width, undefined, 0, 12, true, 'left', 'card', extent + 24);
-    this.environment.controls.disableButton(button);
+    width: number, label: string, artId: string, requestedExtent?: number): Phaser.GameObjects.Text {
+    const extent = Math.min(requestedExtent ?? this.equipmentInspectionExtent(width), width - 24);
+    const wideDecisionLayout = this.layout.width >= 1040 && width >= 560;
+    if (wideDecisionLayout) {
+      // Desktop has room for the preview and the decision copy to be assessed
+      // together. Keep the art recognizable, but keep the identity band
+      // compact enough that the comparison remains in the first viewport.
+      const artColumn = Math.min(196, Math.max(172, Math.floor(width * 0.2)));
+      const artExtent = Math.min(156, Math.max(132, artColumn - 28));
+      const textWidth = width - artColumn - 16;
+      const bodyHeight = artExtent + 32;
+      this.loadoutMaterial(root, left, top, artColumn, bodyHeight);
+      this.environment.controls.addLoadoutArt(root, left + artColumn / 2,
+        top + 12 + artExtent / 2, artId, artExtent, artExtent,
+        undefined, [artId]);
+      return this.button(root, left + artColumn + 16, top, label, bodyHeight, undefined,
+        undefined, textWidth, undefined, 0, 12, true, 'left', 'card', 12);
+    }
+    // Detail opens with one genuine reading/focus target. It is deliberately
+    // not a command: no save callback, action sound, or pointer activation.
+    // Keyboard/controller focus can still page the masked body through the
+    // Scene-owned navigation boundary.
+    const detailReserve = this.layout.width <= 375 ? 64 : 110;
+    const button = this.button(root, left, top, label, extent + detailReserve, undefined,
+      undefined, width, undefined, 0, 12, true, 'left', 'card', extent + 24);
     this.environment.controls.addLoadoutArt(root, left + width / 2, top + 12 + extent / 2,
       artId, extent, extent, this.environment.controls.buttonIndex(button));
     return button;
   }
 
-  protected renderEquipmentSlots(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, left: number, top: number, contentWidth: number, hitTarget: number, overview = false): number {
-    const columns = overview ? 4 : contentWidth >= 1080 ? 4 : 2;
+  protected renderEquipmentSlots(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, left: number, top: number, contentWidth: number, hitTarget: number, overview = false, compactTabs = false): number {
+    if (compactTabs) {
+      const columns = this.layout.width >= 1040
+        || (compactTabs && this.layout.height <= 500 && this.layout.width >= 600) ? 4 : 2;
+      const gap = 8;
+      const slotWidth = (contentWidth - gap * (columns - 1)) / columns;
+      // The 360px portrait treatment wraps the equipped-state copy to three
+      // lines once the leading art reserve is applied. Give that narrow
+      // header a little more vertical room so the last line does not crowd
+      // the card border; short landscape still keeps its 48px touch row.
+      const rowHeight = Math.max(hitTarget, compactTabs && this.layout.width <= 375 ? 64 : 48);
+      this.environment.controls.equipmentSlotColumns(columns);
+      let y = top;
+      for (let row = 0; row < Math.ceil(4 / columns); row += 1) {
+        snapshot.equipment.presentation.slots.slice(row * columns, (row + 1) * columns).forEach((slot, column) => {
+          const item = slot.equipped;
+          const label = `${slot.label.toUpperCase()}\n${item ? `${equipmentGradeCopy(item.tier)} • EQUIPPED` : 'Empty'}`;
+          const x = left + column * (slotWidth + gap);
+          const button = this.button(root, x, y, label, rowHeight, () => {
+            const next = this.commands.selectEquipmentSlot(slot.slot);
+            this.environment.controls.focusNext(`equipment-slot:${slot.slot}`);
+            this.environment.onSnapshot(next);
+          }, 'ui:confirm', slotWidth, undefined, 0, item ? 48 : 4, false, item ? 'left' : 'center', 'card');
+          this.rememberLoadoutFocus(button, `equipment-slot:${slot.slot}`);
+          if (item) {
+            const artExtent = Math.min(32, Math.max(24, rowHeight - 16));
+            const index = this.environment.controls.buttonIndex(button);
+            this.environment.controls.addLoadoutArt(root, x + 8 + artExtent / 2,
+              y + rowHeight / 2, item.iconArtId, artExtent, artExtent, index);
+          } else {
+            const artExtent = Math.min(32, Math.max(24, rowHeight - 16));
+            const index = this.environment.controls.buttonIndex(button);
+            this.environment.controls.addPanelArt(root, x + 8 + artExtent / 2,
+              y + rowHeight / 2, slot.placeholderArtId, artExtent, true, false, index);
+          }
+        });
+        y += rowHeight + gap;
+      }
+      return y + 6;
+    }
+    const columns = overview || this.layout.width >= 1040 ? 4 : 2;
     this.environment.controls.equipmentSlotColumns(columns);
     const gap = overview || columns === 4 ? 8 : 12;
     const slotWidth = (contentWidth - gap * (columns - 1)) / columns;
     const media = Math.min(overview ? 48 : this.equipmentMediaExtent(), slotWidth - (overview ? 12 : 24));
     let y = top;
     for (let row = 0; row < 4 / columns; row += 1) {
-      let rowHeight = Math.max(hitTarget, overview ? 98 : media + 120);
+      let rowHeight = Math.max(hitTarget, overview ? 98 : media + 72);
       snapshot.equipment.presentation.slots.slice(row * columns, (row + 1) * columns).forEach((slot, column) => {
         const x = left + column * (slotWidth + gap);
         const item = slot.equipped;
-        const label = `${slot.label.toUpperCase()}\n${item ? overview ? `T${item.tier} • EQUIPPED` : `${item.name}\nT${item.tier} • EQUIPPED` : 'Empty'}`;
+        const label = `${slot.label.toUpperCase()}\n${item ? overview ? `${equipmentGradeCopy(item.tier)} • EQUIPPED` : `${item.name}\n${equipmentGradeCopy(item.tier)} • EQUIPPED` : 'Empty'}`;
         const button = this.button(root, x, y, label, rowHeight, () => {
           const next = this.commands.selectEquipmentSlot(slot.slot);
           this.environment.controls.focusNext(`equipment-slot:${slot.slot}`);
@@ -157,24 +405,101 @@ export abstract class LoadoutPanelSurface<C extends LoadoutSurfaceCommands> exte
   }
 
   protected renderEquipmentComparison(root: Phaser.GameObjects.Container, comparison: EquipmentComparison, left: number, top: number, contentWidth: number, familyNames: ReadonlyMap<string, string>): number {
+    if (this.layout.width >= 1040 && contentWidth >= 800) {
+      return this.renderWideEquipmentComparison(root, comparison, left, top, contentWidth, familyNames);
+    }
     let y = top;
     const put = (text: string, color?: string) => { const copy = this.loadoutCopy(root, left, y, text, contentWidth, color); y += copy.height + 8; };
+    put('SET CHANGES', '#f78003');
+    if (!comparison.setChanges.length) put('None');
     for (const change of comparison.setChanges) {
       const set = comparison.after.sets.find((row) => row.setId === change.setId)!;
       put(`${set.name} ${change.before}/4 → ${change.after}/4`);
-      for (const count of change.lost) put(`LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#fbbf24');
-      for (const count of change.gained) put(`GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#86efac');
+      for (const count of change.lost) put(`− SET LOSS • ${set.name} • LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#fbbf24');
+      for (const count of change.gained) put(`+ NEW ${set.name.toUpperCase()} BONUS • GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`, '#86efac');
     }
-    const effectCopy = (model: EquipmentLoadoutPresentation) => this.loadoutEffectCopy(model.runTruth.modifiers.map((modifier) => presentLoadoutModifier(modifier))) || 'No persistent stat modifiers';
-    put(`CURRENT LOADOUT\n${effectCopy(comparison.before)}\nAFTER CHANGE\n${effectCopy(comparison.after)}`);
-    for (const after of comparison.after.runTruth.families) {
-      const before = comparison.before.runTruth.families.find((family) => family.familyId === after.familyId)!;
-      if (before.traits.length || after.traits.length) {
-        put(`${familyNames.get(after.familyId) ?? after.familyId} traits\n${before.traits.map((entry) => entry.trait).join(' • ') || 'None'} → ${after.traits.map((entry) => entry.trait).join(' • ') || 'None'}`);
-        for (const trait of after.traits) put(`${trait.trait} [${familyNames.get(after.familyId) ?? after.familyId}]${trait.deduplicated ? ' • Does not stack' : ''}\nSources: ${trait.sourceLabels.join(' • ')}`);
-      }
+    const groups = this.comparisonEffectGroups(comparison, familyNames);
+    if (groups.itemGains.length || !groups.setGains.length) put('ITEM GAIN', '#86efac');
+    if (!groups.itemGains.length && !groups.setGains.length) put('None');
+    for (const row of groups.itemGains) put(row, '#86efac');
+    if (groups.setGains.length) {
+      put('SET BONUS GAIN', '#86efac');
+      for (const row of groups.setGains) put(row, '#86efac');
+    }
+    if (groups.itemLosses.length || !groups.setLosses.length) put('ITEM LOSS', '#fbbf24');
+    if (!groups.itemLosses.length && !groups.setLosses.length) put('None');
+    for (const row of groups.itemLosses) put(row, '#fbbf24');
+    if (groups.setLosses.length) {
+      put('SET BONUS LOSS', '#fbbf24');
+      for (const row of groups.setLosses) put(row, '#fbbf24');
     }
     return y;
+  }
+
+  private renderWideEquipmentComparison(root: Phaser.GameObjects.Container, comparison: EquipmentComparison,
+    left: number, top: number, contentWidth: number, familyNames: ReadonlyMap<string, string>): number {
+    type ComparisonRow = { readonly text: string; readonly color: string; readonly heading?: boolean };
+    const setRows: ComparisonRow[] = [{ text: 'SET CHANGES', color: '#f78003', heading: true }];
+    for (const change of comparison.setChanges) {
+      const set = comparison.after.sets.find((row) => row.setId === change.setId)!;
+      setRows.push({ text: `${set.name} ${change.before}/4 → ${change.after}/4`, color: '#d6f7ff' });
+      for (const count of change.lost) setRows.push({
+        text: `− SET LOSS • ${set.name} • LOSE ${count}-piece: ${this.loadoutEffectCopy(comparison.before.sets.find((row) => row.setId === change.setId)!.thresholds.find((threshold) => threshold.count === count)!.effects)}`,
+        color: '#fbbf24',
+      });
+      for (const count of change.gained) setRows.push({
+        text: `+ NEW ${set.name.toUpperCase()} BONUS • GAIN ${count}-piece: ${this.loadoutEffectCopy(set.thresholds.find((threshold) => threshold.count === count)!.effects)}`,
+        color: '#86efac',
+      });
+    }
+    if (!comparison.setChanges.length) setRows.push({ text: 'None', color: '#d6f7ff' });
+
+    const groups = this.comparisonEffectGroups(comparison, familyNames);
+    const gainRows: ComparisonRow[] = [];
+    if (groups.itemGains.length || !groups.setGains.length) {
+      gainRows.push({ text: 'ITEM GAIN', color: '#86efac', heading: true });
+      if (!groups.itemGains.length && !groups.setGains.length) gainRows.push({ text: 'None', color: '#d6f7ff' });
+      for (const row of groups.itemGains) gainRows.push({ text: row, color: '#86efac' });
+    }
+    if (groups.setGains.length) {
+      gainRows.push({ text: 'SET BONUS GAIN', color: '#86efac', heading: true });
+      for (const row of groups.setGains) gainRows.push({ text: row, color: '#86efac' });
+    }
+
+    const lossRows: ComparisonRow[] = [];
+    if (groups.itemLosses.length || !groups.setLosses.length) {
+      lossRows.push({ text: 'ITEM LOSS', color: '#fbbf24', heading: true });
+      if (!groups.itemLosses.length && !groups.setLosses.length) lossRows.push({ text: 'None', color: '#d6f7ff' });
+      for (const row of groups.itemLosses) lossRows.push({ text: row, color: '#fbbf24' });
+    }
+    if (groups.setLosses.length) {
+      lossRows.push({ text: 'SET BONUS LOSS', color: '#fbbf24', heading: true });
+      for (const row of groups.setLosses) lossRows.push({ text: row, color: '#fbbf24' });
+    }
+
+    const columns = [setRows, gainRows, lossRows];
+    const gap = 12;
+    const columnWidth = (contentWidth - gap * (columns.length - 1)) / columns.length;
+    const lineCapacity = Math.max(18, Math.floor(columnWidth / 9));
+    const estimate = (row: ComparisonRow): number => Math.max(18, row.text.split('\n').reduce((height, line) => height + Math.max(1, Math.ceil(line.length / lineCapacity)) * 18, 0)) + (row.heading ? 4 : 2);
+    const heights = columns.map((rows) => 20 + rows.reduce((height, row) => height + estimate(row), 0) + 12);
+    const columnHeight = Math.max(...heights);
+    columns.forEach((rows, column) => {
+      const x = left + column * (columnWidth + gap);
+      const panel = this.environment.visuals?.addPanel(this.environment.scene, x + columnWidth / 2, top + columnHeight / 2,
+        columnWidth, columnHeight, 'figma-card');
+      if (panel) {
+        this.own(root, panel);
+        this.environment.controls.registerScrollObject(panel);
+      }
+      let y = top + 12;
+      rows.forEach((row) => {
+        const copy = this.loadoutCopy(root, x + 12, y, row.text, columnWidth - 24, row.color);
+        if (row.heading) copy.setStyle({ fontStyle: '700' });
+        y += copy.height + (row.heading ? 6 : 4);
+      });
+    });
+    return top + columnHeight + 12;
   }
 
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatGunsmithEffect, GUNSMITH_SLOT_ORDER, gunsmithSlotLabel } from '../src/ui/gunsmithPresentation';
+import { formatGunsmithEffect, GUNSMITH_SLOT_ORDER, gunsmithSlotLabel, gunsmithTierLabel } from '../src/ui/gunsmithPresentation';
 
 describe('Gunsmith player-facing presentation', () => {
   it('uses canonical slots rather than alphabetical implementation ordering', () => {
@@ -19,5 +19,11 @@ describe('Gunsmith player-facing presentation', () => {
   it('uses percentage accuracy for multiplicative spread and shares Equipment vocabulary', () => {
     expect(formatGunsmithEffect({ stat: 'spreadDeg', op: 'mult', value: 0.85 }, 2)).toBe('+30% Accuracy');
     expect(formatGunsmithEffect({ stat: 'pickupRadius', op: 'add', value: 10 }, 2)).toBe('+20 Pickup Radius');
+  });
+
+  it('labels catalog rarity separately from the mutable upgrade rank', () => {
+    expect(gunsmithTierLabel('common', 1)).toBe('Common • Upgrade Rank 1');
+    expect(gunsmithTierLabel('legendary', 5)).toBe('Legendary • Upgrade Rank 5');
+    expect(gunsmithTierLabel('equipment-grade', 2)).toBe('Part • Upgrade Rank 2');
   });
 });

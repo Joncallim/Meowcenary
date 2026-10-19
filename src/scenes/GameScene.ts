@@ -446,6 +446,8 @@ export class GameScene extends Phaser.Scene {
         visualArt,
       }),
     );
+    const abilityExplanation = this.abilityDefinition === undefined
+      ? undefined : resolveAbilityEffectPresentation(this.abilityDefinition);
     this.controlsView = new ControlsView({
       scene: this,
       input: this.inputController,
@@ -457,7 +459,8 @@ export class GameScene extends Phaser.Scene {
       visualArt,
       ability: this.abilityDefinition === undefined ? undefined : {
         name: this.abilityDefinition.name,
-        description: resolveAbilityEffectPresentation(this.abilityDefinition).detail,
+        description: abilityExplanation!.detail,
+        cooldownLabel: abilityExplanation!.cooldownLabel,
         icon: (() => {
           const binding = visualArt.bindingById(this.abilityDefinition!.presentation.iconArtId);
           return binding === undefined ? undefined : {

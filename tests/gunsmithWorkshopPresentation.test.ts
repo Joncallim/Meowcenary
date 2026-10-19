@@ -133,7 +133,33 @@ describe('Workshop structured consequence presentation', () => {
     const traitModifiers = confirmation.comparison.after.modifiers.filter((modifier) => modifier.sourceId.startsWith('trait:pistol:'));
     expect(traitModifiers).toHaveLength(1);
     expect(confirmation.comparison.lines).toContain('Pistol traits FIRE to FIRE (shared; applied once)');
+    expect(confirmation.comparison.effects?.traits).toMatchObject([{ familyId: 'pistol', trait: 'FIRE', before: true, after: true, afterDeduplicated: true }]);
+    expect(confirmation.comparison.effects?.projectileEffects).toHaveLength(0);
     expectDeepFrozen(confirmation.comparison);
+  });
+
+  it('shows the retained target build and its gained FIRE when infusion affects a nonselected build', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: { target: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+        core: { partId: 'part:trait-fire', tier: 1, infusedTraits: [] } },
+      builds: [
+        { id: 'build:pistol', name: 'Pistol', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] },
+        { id: 'build:smg', name: 'Infusion SMG', baseWeaponFamily: 'smg', fitted: { receiver: 'target' }, traitParts: [] },
+      ], selectedBuildId: 'build:pistol',
+    }));
+    expect(controller.requestWorkshop({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'core' })).toMatchObject({ ok: true });
+    const confirmation = controller.snapshot().confirmation!;
+    expect(confirmation.clearedFittings).toEqual([]);
+    expect(confirmation.preservedFittings).toEqual([{ buildId: 'build:smg', buildName: 'Infusion SMG', familyId: 'smg', slot: 'receiver', instanceId: 'target' }]);
+    expect(confirmation.buildImpacts).toHaveLength(1);
+    expect(confirmation.buildImpacts?.[0]).toMatchObject({ buildId: 'build:smg', slot: 'receiver', change: 'updated' });
+    expect(confirmation.buildImpacts?.[0].comparison.effects.traits).toEqual(expect.arrayContaining([
+      expect.objectContaining({ familyId: 'smg', trait: 'FIRE', before: false, after: true }),
+    ]));
+    expect(controller.confirmWorkshop()).toMatchObject({ ok: true, persisted: true });
+    expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.receiver).toBe('target');
+    expect(context.saveData.gunsmith.parts.target.infusedTraits).toEqual(['FIRE']);
   });
 
   for (const kind of ['merge', 'infuse'] as const) {

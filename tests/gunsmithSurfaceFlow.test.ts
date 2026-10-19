@@ -29,7 +29,7 @@ class ObjectView {
 }
 
 const part = (id: string, slot: string) => ({ instanceId: id, partId: `part:${id}`, name: `${id} Part`, slot,
-  tier: 1, traits: [], compatible: true, fitted: false, stateLabel: 'STORED' as const,
+  tier: 1, rarity: 'common', traits: [], compatible: true, fitted: false, stateLabel: 'STORED' as const,
   effectScope: 'Pistol', comparisonSummary: 'Detailed comparison', actionLabel: 'FIT',
   iconArtId: `icon:${id}`, traitIcons: [], state: 'owned-unfitted' as const,
   effectLines: ['+10 Range'], statChips: ['+10 Range'], sourceLabel: 'Fabricate 30 Scrap', traitLines: [] });
@@ -48,13 +48,13 @@ const snapshot = (changes: Partial<GunsmithSnapshot> = {}): MainMenuSnapshot => 
       statChips: receiver.statChips, comparisonSummary: 'Detailed catalog comparison', sourceLabel: 'Fabricate 30 Scrap', fabricationCost: 30, affordable: true, canFabricate: true, fabricationActionLabel: 'Fabricate • 30 Scrap' }],
     workshop: [{ kind: 'merge', groupId: 'merge:receiver', ownedCount: 2, label: 'Merge receiver' }], ...changes } } as unknown as MainMenuSnapshot);
 
-function harness(width = 390, height = 844) {
+function harness(width = 390, height = 844, wrappedTraitHeight?: number) {
   const objects: ObjectView[] = [];
   const buttons: Array<{ view: ObjectView; action?: () => void; key?: string }> = [];
   const art: Array<{ id: string; width: number; height: number; framing?: readonly string[] }> = [];
   const scene = { scale: { width, height }, add: {
     container: () => new ObjectView(),
-    text: (x: number, y: number, text: string, style: unknown) => { const object = new ObjectView(x, y); object.text = text; object.style = style; object.height = 24 * text.split('\n').length; objects.push(object); return object; },
+    text: (x: number, y: number, text: string, style: unknown) => { const object = new ObjectView(x, y); object.text = text; object.style = style; object.height = text.startsWith('Trait Core •') && wrappedTraitHeight !== undefined ? wrappedTraitHeight : 24 * text.split('\n').length; objects.push(object); return object; },
   } } as unknown as Phaser.Scene;
   const controls = { addButton: (root: ObjectView, x: number, y: number, label: string, minHeight: number, action?: () => void) => {
     const view = new ObjectView(x, y); view.text = label; view.height = Math.max(minHeight, label.split('\n').length * 24); objects.push(view); root.add(view); buttons.push({ view, action }); return view; },
@@ -78,10 +78,23 @@ function harness(width = 390, height = 844) {
   const present = (state = snapshot()) => surface.present(parent as unknown as Phaser.GameObjects.Container, state, layout, 100);
   const visibleCopy = () => objects.filter(object => !object.destroyed).map(object => object.text).join('\n');
   const press = (key: string) => { const button = [...buttons].reverse().find(button => !button.view.destroyed && button.key === key); expect(button, key).toBeDefined(); button!.action!(); };
-  return { surface, present, visibleCopy, press, controls, commands, art, buttons, parent, onSnapshot, panelResources };
+  return { surface, present, visibleCopy, press, controls, commands, art, buttons, objects, parent, onSnapshot, panelResources };
 }
 
 describe('Gunsmith native flow surface', () => {
+  it.each([390, 1114, 1280])('keeps wrapped trait ranks clear of the next trait row at %ipx', (width) => {
+    const h = harness(width, 844, 64);
+    const state = snapshot();
+    h.present(snapshot({ selectedBuild: { ...state.gunsmith.selectedBuild!, preview: {
+      baseArtId: 'base:pistol', layers: [],
+      traitCores: [{ instanceId: 'core', tier: 2, rarity: 'uncommon', iconArtId: 'core:t2' }],
+      traitEmblems: [{ trait: 'PIERCING', iconArtId: 'trait:piercing' }, { trait: 'FIRE', iconArtId: 'trait:fire' }],
+    } } }));
+    const core = h.objects.find(object => object.text.startsWith('Trait Core •'))!;
+    const fire = h.objects.find(object => object.text === 'FIRE')!;
+    expect(core.height).toBe(64);
+    expect(fire.y).toBeGreaterThanOrEqual(core.y + core.height + 8);
+  });
   it('keeps compact landscape Back clear of the left-aligned screen title', () => {
     const h = harness(844, 390); h.present();
     const back = h.buttons.find(button => button.key === 'gunsmith-back')!;
@@ -107,11 +120,33 @@ describe('Gunsmith native flow surface', () => {
     expect(h.commands.fabricateGunPart).not.toHaveBeenCalled();
     h.press('gunsmith-fabricate-request:part:receiver');
     expect(h.commands.fabricateGunPart).not.toHaveBeenCalled();
+    expect(h.visibleCopy()).toContain('Output destination: STORED inventory');
     const confirm = h.buttons.find(button => button.key === 'gunsmith-fabricate-confirm:part:receiver')!.action!;
     h.press('gunsmith-fabricate-confirm:part:receiver');
     confirm();
     expect(h.commands.fabricateGunPart).toHaveBeenCalledWith('part:receiver');
     expect(h.commands.fabricateGunPart).toHaveBeenCalledTimes(1);
+  });
+  it('labels an owned infused example separately from the rank-one stored fabrication output', () => {
+    const h = harness();
+    const catalog = { ...snapshot().gunsmith.catalog[0], state: 'fitted' as const,
+      stateLabel: 'EQUIPPED • Common • Upgrade Rank 3',
+      representativeLabel: 'OWNED EXAMPLE • EQUIPPED in Pistol Build • Common • Upgrade Rank 3 • FIRE',
+      fabricationOutputLabel: 'FABRICATION OUTPUT • Common • Upgrade Rank 1 • no infusion • STORED until fitted',
+      comparisonSummary: 'Already fitted to Pistol: no change.', comparisonScopeLabel: 'Already fitted to Pistol',
+      traitIcons: [{ trait: 'FIRE', iconArtId: 'trait:fire' }],
+      comparison: { before: { modifiers: [], families: [] }, after: { modifiers: [], families: [] },
+        lines: ['No mechanical change'], stats: [], effects: { modifiers: [], traits: [], projectileEffects: [] } },
+    };
+    h.present(snapshot({ surface: 'parts', catalog: [catalog] }));
+    h.press('gunsmith-catalog:part:receiver');
+    expect(h.visibleCopy()).toContain(catalog.representativeLabel);
+    expect(h.visibleCopy()).toContain(catalog.fabricationOutputLabel);
+    expect(h.visibleCopy().indexOf(catalog.representativeLabel)).toBeLessThan(h.visibleCopy().indexOf(catalog.comparisonSummary));
+    expect(h.visibleCopy().indexOf(catalog.comparisonSummary)).toBeLessThan(h.visibleCopy().indexOf(catalog.fabricationOutputLabel));
+    expect(h.visibleCopy()).toContain('CURRENT / PREVIEW • Already fitted to Pistol • RUN EFFECTS');
+    expect(h.visibleCopy()).not.toContain('If fitted to Pistol • RUN EFFECTS');
+    expect(h.art.map((entry) => entry.id)).toContain('trait:fire');
   });
   it('uses one common assembly framing with phone-visible 326px width', () => {
     const h = harness(); h.present(snapshot({ selectedCandidateInstanceId: 'receiver', candidatePreview: {
@@ -121,13 +156,25 @@ describe('Gunsmith native flow surface', () => {
     expect(assemblies.every(entry => entry.width === 326)).toBe(true);
     expect(assemblies.every(entry => JSON.stringify(entry.framing) === JSON.stringify(['base:pistol', 'layer:t2']))).toBe(true);
   });
+  it('puts compact-phone engineering activation ahead of the assembled weapon art', () => {
+    const h = harness(360, 640); h.present();
+    const copy = h.visibleCopy();
+    expect(copy.indexOf('ENGINEERING SLOTS')).toBeGreaterThanOrEqual(0);
+    expect(copy.indexOf('ENGINEERING SLOTS')).toBeLessThan(copy.indexOf('Your assembled weapon'));
+  });
+  it('keeps compact-phone Parts identity and fabrication art in a horizontal card', () => {
+    const h = harness(360, 640); h.present(snapshot({ surface: 'parts' }));
+    expect(h.buttons.find(button => button.key === 'gunsmith-catalog:part:receiver')!.view.height).toBe(136);
+    expect(h.art.find(entry => entry.id === 'icon:receiver')!.width).toBe(104);
+  });
   it('renders controller-owned clamped stat rows and commits only through the preview action', () => {
     const h = harness();
     h.present(snapshot({ selectedCandidateInstanceId: 'receiver', candidatePreview: { baseArtId: 'base:pistol', layers: [], traitCores: [], traitEmblems: [] },
-      candidateComparison: { lines: ['PROSE MUST NOT DRIVE STATS'], before: { modifiers: [], families: [] }, after: { modifiers: [], families: [] },
+      candidateComparison: { lines: ['PROSE MUST NOT DRIVE STATS'], decisionSummary: ['DECISION SUMMARY', 'Incoming: Receiver Part', 'Destination: Pistol Build • Receiver', 'Outgoing: Heavy Receiver Common • Upgrade Rank 1 to STORED'], before: { modifiers: [], families: [] }, after: { modifiers: [], families: [] },
         stats: [{ key: 'spreadDeg', label: 'Accuracy', before: 10, after: 0, displayBefore: '10° spread', displayAfter: '0° spread', direction: 'better' }] } }));
     expect(h.visibleCopy()).toContain('Accuracy • 10° spread to 0° spread');
     expect(h.visibleCopy()).not.toContain('PROSE MUST NOT DRIVE STATS');
+    expect(h.visibleCopy().indexOf('DECISION SUMMARY')).toBeGreaterThan(h.visibleCopy().indexOf('Accuracy'));
     const statCopy = h.visibleCopy().split('\n').find(line => line.startsWith('Accuracy •'))!;
     expect(statCopy).not.toContain('→');
     h.press('gunsmith-commit');
@@ -145,25 +192,61 @@ describe('Gunsmith native flow surface', () => {
   });
   it('Workshop shows exact input/output art, traits and destructive fitting consequences before confirm', () => {
     const h = harness();
-    const first = { ...receiver, slot: 'receiver' as const, fittingLocations: [{ buildId: 'build:pistol', buildName: 'Sidearm', familyId: 'pistol', slot: 'receiver' as const, instanceId: 'receiver' }], traitLines: [], traitIcons: [] };
-    const second = { ...first, instanceId: 'second', fittingLocations: [] };
-    const output = { ...first, instanceId: 'merged', name: 'Output Part', tier: 2, iconArtId: 'icon:receiver:t2', fittingLocations: [],
+    const first = { ...receiver, slot: 'receiver' as const, fitted: true, stateLabel: 'EQUIPPED' as const, fittingLocations: [{ buildId: 'build:pistol', buildName: 'Sidearm', familyId: 'pistol', slot: 'receiver' as const, instanceId: 'receiver' }], traitLines: [], traitIcons: [] };
+    const second = { ...first, instanceId: 'second', fitted: false, stateLabel: 'STORED' as const, fittingLocations: [] };
+    const output = { ...first, instanceId: 'merged', name: 'Output Part', tier: 2, fitted: false, stateLabel: 'STORED' as const, iconArtId: 'icon:receiver:t2', fittingLocations: [],
       traitLines: ['FIRE' as const], traitIcons: [{ trait: 'FIRE' as const, iconArtId: 'trait:fire' }] };
     const state = snapshot({ surface: 'workshop', confirmation: { kind: 'merge', title: 'Merge receivers', confirmLabel: 'Confirm Merge',
       inputLines: [], outputLine: 'Output', mechanicalDelta: ['+20 Range'], inputs: [first, second], output,
       consumedInstanceIds: ['receiver', 'second'], preservedInstanceIds: [], clearedFittings: first.fittingLocations, preservedFittings: [],
+      buildImpacts: [{ buildId: 'build:smg', buildName: 'Sprayer', familyId: 'smg', slot: 'receiver', removedPart: first,
+        comparison: { before: { modifiers: [], families: [] }, after: { modifiers: [], families: [] }, lines: [], stats: [], effects: {
+          modifiers: [{ stat: 'range', label: 'Range', target: { kind: 'weapon-family', familyId: 'smg', label: 'SMG' }, beforeValue: '+10 Range', state: 'removed' }],
+          traits: [], projectileEffects: [],
+        } } }],
       sideEffectLines: ['Output remains STORED. Fit it separately.'],
       comparison: { before: { modifiers: [], families: [] }, after: { modifiers: [], families: [] }, lines: [], stats: [] } } });
     h.present(state);
     expect(h.visibleCopy()).toContain('INPUT A'); expect(h.visibleCopy()).toContain('INPUT B'); expect(h.visibleCopy()).toContain('OUTPUT');
-    expect(h.visibleCopy()).toContain('Output Part T2'); expect(h.visibleCopy()).toContain('FIRE');
+    expect(h.visibleCopy()).toContain('Output Part Common • Upgrade Rank 2'); expect(h.visibleCopy()).toContain('FIRE');
     expect(h.visibleCopy()).toContain('EMPTIES Sidearm • receiver.');
     expect(h.visibleCopy()).toContain('Output remains STORED. Fit it separately.');
     expect(h.visibleCopy()).toContain('CONSUMES receiver Part.');
+    expect(h.visibleCopy()).toContain('AFFECTED BUILD • Sprayer • SMG • RECEIVER');
+    expect(h.visibleCopy()).toContain('REMOVES receiver Part Common • Upgrade Rank 1');
+    expect(h.visibleCopy()).toContain('Loses SMG • +10 Range (removed)');
+    expect(h.visibleCopy()).toContain('Affected build/slot: Sprayer • RECEIVER');
+    expect(h.visibleCopy()).toContain('FINAL CHECK');
+    expect(h.visibleCopy()).toContain('Inputs: receiver Part Common • Upgrade Rank 1 • EQUIPPED + receiver Part Common • Upgrade Rank 1 • STORED');
+    expect(h.visibleCopy()).toContain('Output destination: STORED • Pistol');
+    expect(h.visibleCopy()).toContain('Cost: 0 Scrap • Balance after: 100 Scrap');
+    expect(h.visibleCopy()).not.toContain('shared or clamped');
     expect(h.art.map(entry => entry.id)).toEqual(expect.arrayContaining(['icon:receiver', 'icon:receiver:t2', 'trait:fire']));
     expect(collectGunsmithArtIds(state)).toEqual(expect.arrayContaining(['icon:receiver:t2', 'trait:fire']));
     expect(h.commands.confirmGunWorkshop).not.toHaveBeenCalled();
     h.press('gunsmith-confirm'); expect(h.commands.confirmGunWorkshop).toHaveBeenCalledTimes(1);
+  });
+  it('shows a preserved infusion target as affected with its gained trait', () => {
+    const h = harness();
+    const fitting = { buildId: 'build:smg', buildName: 'Infusion SMG', familyId: 'smg', slot: 'receiver' as const, instanceId: 'receiver' };
+    const target = { ...receiver, slot: 'receiver' as const, fittingLocations: [fitting], stateLabel: 'EQUIPPED' as const, traitLines: [], traitIcons: [] };
+    const core = { ...receiver, instanceId: 'core', name: 'Fire Core', slot: 'trait' as const, fittingLocations: [], stateLabel: 'STORED' as const, traitLines: ['FIRE' as const], traitIcons: [{ trait: 'FIRE' as const, iconArtId: 'trait:fire' }] };
+    const output = { ...target, traitLines: ['FIRE' as const], traitIcons: [{ trait: 'FIRE' as const, iconArtId: 'trait:fire' }] };
+    const empty = { modifiers: [], families: [] };
+    const effects = { modifiers: [], projectileEffects: [], traits: [{ familyId: 'smg', trait: 'FIRE' as const,
+      target: { kind: 'weapon-family' as const, familyId: 'smg', label: 'SMG' }, before: false, after: true,
+      beforeDeduplicated: false, afterDeduplicated: false, beforeSourceIds: [], afterSourceIds: ['build:smg'],
+      beforeSourceLabels: [], afterSourceLabels: ['Infusion SMG'], sourceChanged: true }] };
+    h.present(snapshot({ surface: 'workshop', confirmation: { kind: 'infuse', title: 'Confirm infusion', confirmLabel: 'Infuse part',
+      inputLines: [], outputLine: '', mechanicalDelta: ['Traits None → FIRE'], inputs: [target, core], output,
+      consumedInstanceIds: ['core'], preservedInstanceIds: ['receiver'], clearedFittings: [], preservedFittings: [fitting],
+      buildImpacts: [{ buildId: 'build:smg', buildName: 'Infusion SMG', familyId: 'smg', slot: 'receiver', change: 'updated',
+        updatedPart: output, comparison: { before: empty, after: empty, lines: [], stats: [], effects } }],
+      sideEffectLines: [], comparison: { before: empty, after: empty, lines: [], stats: [] } } }));
+    expect(h.visibleCopy()).toContain('AFFECTED BUILD • Infusion SMG • SMG • RECEIVER');
+    expect(h.visibleCopy()).toContain('UPDATES FITTED receiver Part Common • Upgrade Rank 1');
+    expect(h.visibleCopy()).toContain('Gains SMG • FIRE');
+    expect(h.visibleCopy()).toContain('Affected build/slot: Infusion SMG • RECEIVER');
   });
   it('uses only rule-owned legal second merge choices and keeps duplicate instance identities distinct', () => {
     const h = harness();

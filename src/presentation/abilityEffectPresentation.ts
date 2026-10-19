@@ -72,11 +72,15 @@ export function resolveAbilityEffectPresentation(definition: AbilityDefinition):
   const noChips: readonly AbilityStatChip[] = Object.freeze([]);
   switch (effect.kind) {
     case 'knockback':
-      return Object.freeze({ ...common, detail: `Knock back enemies within ${number(effect.radius)} range.`, targetKind: 'self-area', radius: effect.radius, statChips: noChips });
+      number(effect.radius); // Keep the authoritative radius validated for the visual area ring.
+      return Object.freeze({ ...common, detail: 'Knock back nearby enemies.', targetKind: 'self-area', radius: effect.radius, statChips: noChips });
     case 'elemental-burst':
-      return Object.freeze({ ...common, detail: `Deal ${number(effect.power)} damage to enemies within ${number(effect.radius)} range.`, targetKind: 'self-area', radius: effect.radius, statChips: noChips });
+      number(effect.radius);
+      number(effect.power);
+      return Object.freeze({ ...common, detail: `Deal ${number(effect.power)} damage to nearby enemies.`, targetKind: 'self-area', radius: effect.radius, statChips: noChips });
     case 'loot-pulse':
-      return Object.freeze({ ...common, detail: `Collect nearby Scrap and XP within ${number(effect.radius)} range.`, targetKind: 'nearby-loot', radius: effect.radius, statChips: noChips });
+      number(effect.radius);
+      return Object.freeze({ ...common, detail: 'Collect nearby Scrap and XP.', targetKind: 'nearby-loot', radius: effect.radius, statChips: noChips });
     case 'heal':
       return Object.freeze({ ...common, detail: `Restore up to ${number(effect.amount)} HP.`, targetKind: 'self', statChips: noChips });
     case 'invulnerable':
