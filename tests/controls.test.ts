@@ -9,7 +9,7 @@ import { ControlsView, type AbilityControlDefinition } from '../src/ui/controls'
 import { resolveAbilityControlLayout, type AbilityButtonSide } from '../src/presentation/abilityControlLayout';
 import type { AbilityUiState } from '../src/gameplay/abilities';
 import type { TouchStickConfig } from '../src/engine/config';
-import { logicalCanvasViewport, responsiveGameUiViewport, GAMEPLAY_ZOOM, responsiveUiViewport, type UiViewport } from '../src/ui/layout';
+import { logicalCanvasViewport, physicalToLogical, responsiveGameUiViewport, GAMEPLAY_ZOOM, responsiveUiViewport, type UiViewport } from '../src/ui/layout';
 import { ThemeColor, ThemeDepth } from '../src/ui/theme';
 import * as visualChrome from '../src/ui/visualChrome';
 import type { VisualArtLookup } from '../src/systems/visualArt';
@@ -34,6 +34,7 @@ function createFakeScene() {
       height,
       radius: 0,
       fontSize: 0,
+      lineSpacing: 0,
       wordWrapWidth: 0,
       originX: 0.5, originY: 0.5,
       scaleX: 1,
@@ -73,14 +74,17 @@ function createFakeScene() {
       setText(text: string) {
         state.text = text;
         if (Number(state.fontSize) > 0) {
-          const naturalWidth = text.length * Number(state.fontSize) * 0.55;
+          const lineWidths = text.split('\n').map(line => line.length * Number(state.fontSize) * 0.55);
+          const naturalWidth = Math.max(...lineWidths);
           const wrap = Number(state.wordWrapWidth);
           state.width = wrap > 0 ? Math.min(naturalWidth, wrap) : naturalWidth;
-          state.height = Number(state.fontSize) * 1.2 * (wrap > 0 ? Math.max(1, Math.ceil(naturalWidth / wrap)) : 1);
+          const lineCount = lineWidths.reduce((count, lineWidth) => count + (wrap > 0 ? Math.max(1, Math.ceil(lineWidth / wrap)) : 1), 0);
+          state.height = Number(state.fontSize) * 1.2 * lineCount + Number(state.lineSpacing) * (lineCount - 1);
         }
         return api;
       },
       setFontSize(size: number) { state.fontSize = size; return api; },
+      setLineSpacing(spacing: number) { state.lineSpacing = spacing; return api.setText(String(state.text)); },
       setWordWrapWidth(width: number) { state.wordWrapWidth = width; return api.setText(String(state.text)); },
       setOrigin(x = 0.5, y = x) { state.originX = x; state.originY = y; return api; },
       setScrollFactor(x: number, y: number = x) {
@@ -697,8 +701,28 @@ describe('ControlsView ability button', () => {
 
   it('keeps the authoritative recharge visible in the READY state when supplied', () => {
     const { scene, view } = createHarness({ ability: { ...scrapBurst, cooldownLabel: 'Cooldown 9s.' } });
-    expect(scene.objects.some((object) => object.state.text === 'READY • 9s recharge')).toBe(true);
+    expect(scene.objects.some((object) => object.state.text === 'READY\n9s recharge')).toBe(true);
     view.destroy();
+  });
+
+  it.each(['left', 'right'] as const)('fits the two-line recharge within the %s phone card beside its icon', side => {
+    const viewport = responsiveGameUiViewport(390, 844);
+    const { scene, view, controller } = createHarness({
+      zoomed: true, viewport, abilityButtonSide: side,
+      ability: { ...scrapBurst, cooldownLabel: 'Cooldown 9s.', icon: { textureKey: 'fixture-icon', frameKey: 'ability' } },
+    });
+    try {
+      const card = liveAbility(scene).getBounds();
+      const icon = scene.objects.find(object => object.state.text === 'image:fixture-icon:ability')!.getBounds();
+      const name = scene.objects.find(object => object.state.text === scrapBurst.name)!.getBounds();
+      const state = scene.objects.find(object => object.state.text === 'READY\n9s recharge')!.getBounds();
+      expect(state.x).toBeGreaterThan(icon.x + icon.width);
+      expect(state.x).toBeGreaterThan(card.x);
+      expect(state.x + state.width).toBeLessThan(card.x + card.width);
+      expect(state.y).toBeGreaterThan(name.y + name.height);
+      // The bottom progress bar starts 5.5 physical pixels above the card edge.
+      expect(state.y + state.height).toBeLessThan(card.y + card.height - physicalToLogical(5.5, viewport));
+    } finally { view.destroy(); controller.destroy(); }
   });
 
   it.each([

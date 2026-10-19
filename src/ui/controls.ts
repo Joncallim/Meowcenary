@@ -254,10 +254,14 @@ export class ControlsView {
       fontSize: `${physicalToLogical(12, viewport)}px`, fontStyle: '700', align: 'center',
     });
     this.abilityNameText.setOrigin(0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
-    this.abilityStateText = createUiText(scene, copyX, y + height * 0.20, abilityStateCopy(this.abilityUiState.phase, this.abilityVisibleSeconds, this.ability?.cooldownLabel), {
+    const hasRechargeCopy = Boolean(this.ability?.cooldownLabel);
+    const stateX = this.abilityIcon && hasRechargeCopy ? x + width * 0.16 : copyX;
+    const stateY = hasRechargeCopy ? y + height * 0.18 : y + height * 0.20;
+    this.abilityStateText = createUiText(scene, stateX, stateY, abilityStateCopy(this.abilityUiState.phase, this.abilityVisibleSeconds, this.ability?.cooldownLabel), {
       color: '#f7f1d5', fontFamily: ThemeFont.family,
       fontSize: `${physicalToLogical(11, viewport)}px`, fontStyle: '700', align: 'center',
     });
+    if (hasRechargeCopy) this.abilityStateText.setLineSpacing(physicalToLogical(-2, viewport));
     this.abilityStateText.setOrigin(0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
     this.abilityStateGlyph = createUiText(scene, x + width / 2 - physicalToLogical(9, viewport), y - height / 2 + physicalToLogical(8, viewport), '○', {
       color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${physicalToLogical(12, viewport)}px`, fontStyle: '700',
@@ -637,7 +641,7 @@ function abilityStateCopy(phase: AbilityUiState['phase'], remainingSeconds: numb
   if (phase === 'cooling') return `WAIT ${remainingSeconds}s`;
   if (!cooldownLabel) return 'READY';
   const recharge = cooldownLabel.replace(/^Cooldown\s+/i, '').replace(/\.$/, '');
-  return `READY • ${recharge} recharge`;
+  return `READY\n${recharge} recharge`;
 }
 
 function containedAbilityName(name: string): string {
