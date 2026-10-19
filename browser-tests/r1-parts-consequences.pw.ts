@@ -1,9 +1,5 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { pressMenuKey } from './menuInputReceipt';
-import { visualAuthorityLaunchOptions } from '../scripts/browserSoftwareRenderer';
-
-test.use({ launchOptions: visualAuthorityLaunchOptions(process.platform,
-  process.env.MEOWCENARY_BROWSER_RENDERER, process.env) });
 
 type Diagnostic = { focusedKey?: string; copy: string[];
   copyBounds: Array<{ text: string; visible: boolean; bounds: { x: number; y: number; width: number; height: number } }>;
@@ -176,43 +172,4 @@ test('merge and fit keep their review and focus through failed saves, then commi
   await failThenRetry(page, 'gunsmith-commit', 'DECISION SUMMARY', testInfo, 'fit-failed-save.png');
   committed = JSON.parse((await saved(page))!);
   expect(committed.gunsmith.builds[0].fitted.receiver).toBe('compact');
-});
-
-// Temporary read-only target capture. Remove after preserving pixels outside test-results.
-test.describe('R1 direct legacy snapshot capture', () => {
-  test('Equipment menu target', async ({ page }, testInfo) => {
-    test.skip(!['phone-390x844', 'foldable-1114x720', 'desktop-1280x720'].includes(testInfo.project.name));
-    await page.goto('/?visual-test=1');
-    await expect(page.locator('#game-root canvas')).toBeVisible();
-    await settle(page);
-    expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('equipment'))).toBe(true);
-    await settle(page);
-    await page.waitForTimeout(200);
-    await capture(page, testInfo, 'menu-equipment-actual.png');
-  });
-  test('Contract selection target', async ({ page }, testInfo) => {
-    test.skip(!['phone-390x844', 'foldable-1114x720', 'desktop-1280x720'].includes(testInfo.project.name));
-    await page.goto('/?visual-test=1');
-    await expect(page.locator('#game-root canvas')).toBeVisible();
-    await settle(page);
-    expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('stage'))).toBe(true);
-    await page.waitForTimeout(250);
-    await settle(page);
-    await page.waitForTimeout(350);
-    await capture(page, testInfo, 'contract-selection-actual.png');
-  });
-  test('Compact Loadout target', async ({ browser }, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop-1280x720');
-    const context = await browser.newContext({ viewport: { width: 844, height: 390 }, colorScheme: 'dark' });
-    try {
-      const page = await context.newPage();
-      await page.goto('/?visual-test=1');
-      await settle(page);
-      await page.waitForTimeout(150);
-      expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.showMenu('loadout'))).toBe(true);
-      await settle(page);
-      await page.waitForTimeout(150);
-      await capture(page, testInfo, 'compact-loadout-actual.png');
-    } finally { await context.close(); }
-  });
 });
