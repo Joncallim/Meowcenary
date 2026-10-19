@@ -26,12 +26,12 @@ type Seam = {
 };
 type Globals = { __MEOWCENARY_VISUAL_TEST__?: Seam; __ABILITY_PAD__?: (button: number, pressed: boolean) => void };
 const CATALOG = [
-  ['scrap-tabby', 'Scrap Burst', 'Knock back enemies within 90 range.', 'Cooldown 9s.', 'knockback', 'cooling'],
+  ['scrap-tabby', 'Scrap Burst', 'Knock back nearby enemies.', 'Cooldown 9s.', 'knockback', 'cooling'],
   ['bolt-hound', 'Giga Chomp', 'Restore up to 40 HP.', 'Cooldown 18s.', 'heal', 'cooling'],
   ['volt-lynx', 'Adrenaline', 'Move 40% faster for 2.5s.', 'Cooldown 10s.', 'stat-burst', 'active'],
   ['brass-boar', 'Shield Flicker', 'Become invulnerable for 1.2s.', 'Cooldown 15s.', 'invulnerable', 'active'],
-  ['ember-cougar', 'Heat Vent', 'Deal 90 damage to enemies within 110 range.', 'Cooldown 11s.', 'elemental-burst', 'cooling'],
-  ['scrap-weasel', 'Scavenge Pulse', 'Collect nearby Scrap and XP within 160 range.', 'Cooldown 8s.', 'loot-pulse', 'cooling'],
+  ['ember-cougar', 'Heat Vent', 'Deal 90 damage to nearby enemies.', 'Cooldown 11s.', 'elemental-burst', 'cooling'],
+  ['scrap-weasel', 'Scavenge Pulse', 'Collect nearby Scrap and XP.', 'Cooldown 8s.', 'loot-pulse', 'cooling'],
   ['rattle-raptor', 'Precision Mark', 'Gain 30% damage and +1 pierce for 4s.', 'Cooldown 14s.', 'stat-burst', 'active'],
   ['piston-ram', 'Overclock', 'Gain 50% fire rate and 25% movement speed for 3.5s.', 'Cooldown 12s.', 'stat-burst', 'active'],
 ] as const;
@@ -182,6 +182,12 @@ for (const [character, name, detail, cooldown, kind, phase] of CATALOG) {
     await seed(page, true); await openMenu(page); const brief = await launch(page, character);
     expect(brief.characterId).toBe(character); assertBriefFits(brief, page.viewportSize()!);
     expect(brief.model!.ability!.effect).toMatchObject({ headline: name, detail, cooldownLabel: cooldown });
+    const expectedRadius = kind === 'knockback' ? 90 : kind === 'elemental-burst' ? 110 : kind === 'loot-pulse' ? 160 : undefined;
+    if (expectedRadius !== undefined) {
+      expect(brief.abilityDefinition.effect.kind).toBe(kind);
+      expect(brief.abilityDefinition.effect.radius).toBe(expectedRadius);
+      expect(brief.model!.ability!.effect.radius).toBe(expectedRadius);
+    }
     expect(brief.model!.ability!.iconArtId).toMatch(/^ability-icon:/); expect(brief.model!.mercenary.portraitArtId).toBe(`character-portrait:${character}`);
     const beforeSave = await save(page); await frame(page, 4);
     expect((await read(page)).timeMs).toBe(0); expect(await save(page)).toBe(beforeSave);

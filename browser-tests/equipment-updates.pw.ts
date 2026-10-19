@@ -5,6 +5,7 @@ import equipmentCatalog from '../src/data/equipment.json' with { type: 'json' };
 type Button = { key?: string; text: string; focused: boolean; visible: boolean; interactive: boolean;
   bounds: { x: number; y: number; width: number; height: number } };
 type Diagnostic = { panel: string; focusedKey?: string; buttons: Button[]; copy: string[];
+  scroll?: { top: number; bottom: number; contentHeight: number };
   equipment?: { selectedSlot: string; selectedInstanceId?: string; equipped: Record<string, string> } };
 type Event = { owner: string; facts: Record<string, string | number | boolean | readonly string[]> };
 type Snapshot = { events: Event[]; presentedMenu?: { panel: string; rebuildCount: number; revision: number; atMs: number } };
@@ -72,16 +73,22 @@ async function focus(page: Page, key: string): Promise<void> {
   expect(targetIndex, `Missing semantic focus ${key}`).toBeGreaterThanOrEqual(0);
   const started = Date.now();
   let steps = 0;
+  // A 360px detail reader can require several real Down page turns before
+  // the fixed action enters focus. Bound the walk by its measured pages.
+  const detailPages = observed.scroll
+    ? Math.ceil(observed.scroll.contentHeight / (observed.scroll.bottom - observed.scroll.top)) : 0;
   try {
-    for (; steps < observed.buttons.length + 4; steps += 1) {
+    for (; steps < observed.buttons.length + detailPages + 4; steps += 1) {
       if (focusedKey === key) return;
       const currentIndex = observed.buttons.findIndex(button => button.key === focusedKey);
       expect(currentIndex, `Unknown semantic focus ${focusedKey}`).toBeGreaterThanOrEqual(0);
       // Slots use spatial vertical navigation. The body is linear in both axes;
       // horizontal keys avoid the vertical endpoint's scroll-only first press.
-      focusedKey = await press(page, currentIndex < 4
-        ? currentIndex < targetIndex ? 'ArrowDown' : 'ArrowUp'
-        : currentIndex < targetIndex ? 'ArrowRight' : 'ArrowLeft');
+      focusedKey = await press(page, focusedKey?.startsWith('equipment-detail:')
+        ? 'ArrowDown' // The detail reader pages vertically before its fixed Equip action.
+        : currentIndex < 4
+          ? currentIndex < targetIndex ? 'ArrowDown' : 'ArrowUp'
+          : currentIndex < targetIndex ? 'ArrowRight' : 'ArrowLeft');
     }
   } finally {
     phase(page, `focus ${key}: steps=${steps} focused=${focusedKey} elapsed=${Date.now() - started}ms`);
@@ -111,6 +118,10 @@ test('Equipment candidate updates preserve committed menu state and selection th
   await settle(page);
   await expect.poll(() => page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.showMenu('equipment'))).toBe(true);
   await settle(page);
+  const unfiltered = await diagnostic(page);
+  expect(unfiltered.buttons.filter(button => button.key?.startsWith('equipment-candidate:'))).toHaveLength(ownedPieces.size);
+  await focus(page, 'equipment-slot:helmet');
+  await press(page, 'Enter'); await settle(page);
   const mounted = await diagnostic(page);
   expect(mounted.panel).toBe('equipment');
   const stored = mounted.buttons.filter(button => button.key?.startsWith('equipment-candidate:'));
@@ -169,17 +180,19 @@ test('Equipment candidate updates preserve committed menu state and selection th
   const inspected = await checkpoint(page);
   expect(inspected.diagnostic.focusedKey).toBe(`equipment-detail:${candidate}`);
   const comparison = inspected.diagnostic.copy.join('\n');
-  expect(comparison).toContain('Replaces Commando Helmet');
+  expect(comparison).toContain('REPLACES: Commando Helmet');
   expect(comparison).toContain('LOSE 2-piece');
   expect(comparison).toContain('GAIN 2-piece');
   expect(comparison).toContain('[All Weapons]');
   const updateEvents = selected.measurement.events;
   if (wideInspector) {
-    const selectionRender = updateEvents.find(event => event.owner === 'menu.render');
-    expect(selectionRender).toBeDefined();
-    expect(updateEvents.filter(event => event.owner === 'menu.update')).toHaveLength(0);
-    expect(selectionRender?.facts).toMatchObject({ reason: 'same-panel-state-mutation', rebuildCount: rebuildCount as number + 1 });
-    expect(selected.measurement.presentedMenu?.revision).toBe(selectionRender?.facts.revision);
+    // The selected equipped helmet already mounted the wide inspector when
+    // the slot was chosen; changing its item retains the current mount.
+    expect(updateEvents.filter(event => event.owner === 'menu.render')).toHaveLength(0);
+    const selectionUpdate = updateEvents.find(event => event.owner === 'menu.update');
+    expect(selectionUpdate?.facts).toMatchObject({ reason: 'same-panel-state-mutation',
+      section: 'equipment-selection', rebuildCount, committed: true });
+    expect(selected.measurement.presentedMenu?.revision).toBe(selectionUpdate?.facts.revision);
   } else {
     expect(updateEvents.filter(event => event.owner === 'menu.render')).toHaveLength(0);
     expect(updateEvents.filter(event => event.owner === 'menu.update')).toHaveLength(1);

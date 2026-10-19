@@ -2181,6 +2181,14 @@ describe('MenuScene', () => {
     expect(harness.textContents().join('\n')).toContain('UPGRADE REVIEW • Commando Helmet');
     expect(harness.buttonByLabel('Confirm Upgrade • 100 Scrap')).toBeDefined();
     expect(harness.buttonByLabel('Cancel Upgrade')).toBeDefined();
+    const scene = harness.menuScene as unknown as {
+      focusedButtonKey?: string;
+      focusables: FakeObject[];
+      focusKeyByButton: Map<FakeObject, string>;
+      navigator: { index: number };
+    };
+    expect(scene.focusedButtonKey).toBe('equipment-upgrade-confirm:helmet');
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-upgrade-confirm:helmet');
 
     harness.buttonByLabel('Confirm Upgrade • 100 Scrap')!.state.handlers.pointerup!();
     expect(harness.context.saveData.equipment.helmet?.tier).toBe(2);

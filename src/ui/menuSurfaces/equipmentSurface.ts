@@ -1512,7 +1512,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
                 expectedTier: selected.tier,
                 expectedState: selected.state,
               };
-              this.environment.controls.focusNext(`equipment-detail:${selected.instanceId}`, true);
+              this.environment.controls.focusNext(`equipment-upgrade-confirm:${selected.instanceId}`);
               this.environment.onSnapshot(this.commands.snapshot());
             }, 'ui:confirm', width);
           this.rememberLoadoutFocus(upgradeAction, `equipment-upgrade:${selected.instanceId}`);

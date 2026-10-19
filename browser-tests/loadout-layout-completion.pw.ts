@@ -74,6 +74,20 @@ async function focus(page: Page, key: string) {
   }
   throw new Error(`Focus did not reach ${key}: ${JSON.stringify((await read(page)).diagnostic)}`);
 }
+async function focusReviewConfirm(page: Page, key: string): Promise<void> {
+  await waitForMenuInput(page, true);
+  for (let step = 0; step < 6; step += 1) {
+    const { diagnostic } = await read(page);
+    const current = diagnostic.buttons.findIndex(button => button.key === diagnostic.focusedKey);
+    const target = diagnostic.buttons.findIndex(button => button.key === key);
+    expect(current, 'review must retain a semantic keyboard focus').toBeGreaterThanOrEqual(0);
+    expect(target, 'review must expose the explicit Confirm action').toBeGreaterThanOrEqual(0);
+    if (current === target) return;
+    await pulse(page, current > target ? 'ArrowUp' : 'ArrowDown');
+    await waitForMenuInput(page, true);
+  }
+  throw new Error(`Review focus did not reach ${key}: ${JSON.stringify((await read(page)).diagnostic)}`);
+}
 async function activate(page: Page, key: string, testInfo: TestInfo): Promise<void> {
   return activateByPointerScroll(page, key, testInfo);
 }
@@ -102,17 +116,35 @@ async function physicalDrag(page: Page, testInfo: TestInfo, start: Point, end: P
   }
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
 }
+const checkedWideBrowseDrag = new WeakSet<Page>();
 async function assertBrowseSetsDoesNotScroll(page: Page, testInfo: TestInfo, diagnostic: Diagnostic): Promise<void> {
   const browse = diagnostic.buttons.find(button => button.key === 'equipment:browse-sets');
-  expect(browse, 'Equipment journey must expose Browse Sets for the fixed-control negative test').toBeDefined();
+  expect(browse, 'Equipment journey must expose Browse Sets for the scroll ownership test').toBeDefined();
   expect(diagnostic.scroll, 'Equipment journey must expose its collection scroll region').toBeDefined();
   if (!browse || !diagnostic.scroll) throw new Error('Browse Sets diagnostic geometry is unavailable');
   const point = { x: browse.bounds.x + browse.bounds.width / 2, y: browse.bounds.y + browse.bounds.height / 2 };
   const before = diagnostic.scroll.offset;
+  const rectangle = diagnostic.scroll.rectangle;
+  const top = rectangle?.y ?? diagnostic.scroll.top;
+  const bottom = rectangle ? rectangle.y + rectangle.height : diagnostic.scroll.bottom;
+  const maxOffset = Math.max(0, diagnostic.scroll.contentHeight - (bottom - top));
+  // A repeated Sets round trip may leave this row clipped or at the scroll
+  // end. Skip only after this page has already proved the real drag contract.
+  if (page.viewportSize()!.width >= 1040) {
+    const draggable = point.y >= top && point.y <= bottom && before < maxOffset - 1;
+    if (!draggable && checkedWideBrowseDrag.has(page)) return;
+    expect(draggable, 'initial desktop Browse Sets must be visible and scrollable').toBe(true);
+  }
   await physicalDrag(page, testInfo, point, { ...point, y: point.y - 40 });
   const after = await read(page);
   expect(after.diagnostic.panel).toBe('equipment');
-  expect(after.diagnostic.scroll?.offset, 'Browse Sets must not initiate collection drag').toBe(before);
+  if (page.viewportSize()!.width >= 1040) {
+    // On desktop the section control now shares the collection lane. Its
+    // drag must scroll that lane without activating the Sets chooser.
+    expect(after.diagnostic.scroll?.offset, 'desktop Browse Sets owns collection drag').toBeGreaterThan(before);
+    expect(after.diagnostic.buttons.find(button => button.key === 'equipment:browse-sets')?.text).toBe('BROWSE SETS');
+    checkedWideBrowseDrag.add(page);
+  } else expect(after.diagnostic.scroll?.offset, 'fixed Browse Sets must not initiate collection drag').toBe(before);
 }
 async function activateByPointerScroll(page: Page, key: string, testInfo: TestInfo, hover = false): Promise<void> {
   // Pointer/touch journeys reveal with their own real wheel/drag gestures.
@@ -217,19 +249,16 @@ test('Equipment renders the equipped native helmet at the approved visible size'
     bounds.x >= slot.x && bounds.x + bounds.width <= slot.x + slot.width
     && bounds.y >= slot.y && bounds.y + bounds.height <= slot.y + slot.height);
   expect(visible.length, 'visible native artwork belongs to the equipped slot').toBeGreaterThan(0);
-  // The narrow phone uses the compact slot grid: its equipped art is an
-  // intentionally small touch-safe leading mark, while the larger profiles
-  // retain the authored visible-size contracts for their media cards.
-  const target = page.viewportSize()!.width < 380 ? 32 : page.viewportSize()!.width < 600 ? 144 : 264;
+  // Equipment browse uses a compact equipped-slot mark on every viewport;
+  // the larger inspection image belongs to the explicit local detail view.
   // Normalize sub-picometre IEEE754 multiplication noise, not pixel tolerance.
   const extent = Number(Math.max(...visible.map(bounds => Math.max(bounds.width, bounds.height))).toFixed(9));
+  expect(extent).toBeCloseTo(32, 1);
   if (page.viewportSize()!.width >= 1000 && page.viewportSize()!.width < 1200) {
-    expect(extent).toBeGreaterThanOrEqual(240);
-    expect(extent).toBeLessThanOrEqual(264);
     const slots = state.diagnostic.buttons.filter(button => button.key?.startsWith('equipment-slot:'));
     expect(slots).toHaveLength(4);
-    expect(slots[0]!.text).toContain('Scavenger Helmet');
-    expect(slots[1]!.text).toContain('Scavenger Armour');
+    expect(slots[0]!.text).toContain('HELMET\nStandard');
+    expect(slots[1]!.text).toContain('ARMOUR\nStandard');
     for (const button of slots) {
       expect(button.visible && button.interactive).toBe(true);
       expect(button.bounds.y).toBeGreaterThanOrEqual(state.diagnostic.scroll!.top);
@@ -239,18 +268,22 @@ test('Equipment renders the equipped native helmet at the approved visible size'
     const candidate = state.diagnostic.buttons.find(button => button.key === 'equipment-candidate:helmet')!;
     expect(browse.bounds.y).toBeGreaterThanOrEqual(Math.max(...slots.map(button => button.bounds.y + button.bounds.height)));
     expect(candidate.bounds.y).toBeGreaterThanOrEqual(browse.bounds.y + browse.bounds.height);
-    const mask = state.diagnostic.scroll!.rectangle!;
+    await assertBrowseSetsDoesNotScroll(page, testInfo, state.diagnostic);
+    await activate(page, 'equipment:browse-sets', testInfo);
+    const browsing = await read(page);
+    const mask = browsing.diagnostic.scroll!.rectangle!;
     const setNames = ['Commando', 'Scavenger', 'Juggernaut', 'Pyro', 'Recon', 'Medic', 'Technician', 'Demolition'];
-    const setLabels = (state.diagnostic.copyBounds ?? []).filter(copy =>
-      setNames.some(name => copy.text.startsWith(`${name}\n`)
-        && /^\d\/4 EQUIPPED$/.test(copy.text.slice(name.length + 1))));
-    expect(setLabels.map(copy => copy.text.split('\n')[0])).toEqual(expect.arrayContaining(setNames));
+    const setLabels = (browsing.diagnostic.copyBounds ?? []).filter(copy =>
+      setNames.some(name => copy.text.startsWith(`${name}  `)
+        && /^\d\/4 equipped/.test(copy.text.slice(name.length + 2))));
+    expect(setLabels.map(copy => copy.text.split('  ')[0])).toEqual(expect.arrayContaining(setNames));
     const visibleSetLabels = setLabels.filter(copy => copy.visible
       && copy.bounds.x >= mask.x && copy.bounds.x + copy.bounds.width <= mask.x + mask.width
       && copy.bounds.y >= mask.y && copy.bounds.y + copy.bounds.height <= mask.y + mask.height);
-    expect(visibleSetLabels.map(copy => copy.text.split('\n')[0])).toEqual(expect.arrayContaining(setNames.slice(0, 4)));
-    expect(state.diagnostic.scroll!.contentHeight).toBeGreaterThan(mask.height);
-  } else expect(extent).toBeCloseTo(target, 1);
+    expect(visibleSetLabels.map(copy => copy.text.split('  ')[0])).toEqual(expect.arrayContaining(setNames.slice(0, 4)));
+    expect(browsing.diagnostic.scroll!.contentHeight).toBeGreaterThan(mask.height);
+    await activate(page, 'equipment:browse-sets', testInfo);
+  }
   const browse = state.diagnostic.buttons.find(button => button.key === 'equipment:browse-sets');
   const candidate = state.diagnostic.buttons.find(button => button.key === 'equipment-candidate:helmet');
   expect(browse).toBeDefined();
@@ -260,6 +293,33 @@ test('Equipment renders the equipped native helmet at the approved visible size'
     expect(compactSlots.every(button => button.bounds.height >= 64)).toBe(true);
     expect(candidate!.bounds.y).toBeGreaterThanOrEqual(browse!.bounds.y + browse!.bounds.height);
   }
+  await activate(page, 'equipment-candidate:helmet', testInfo);
+  const selected = await read(page);
+  const details = selected.diagnostic.buttons.find(button => button.text === 'View details');
+  expect(details, 'native inspection must be available from the selected card').toBeDefined();
+  const detailPoint = { x: details!.bounds.x + details!.bounds.width / 2, y: details!.bounds.y + details!.bounds.height / 2 };
+  if (page.viewportSize()!.width >= 1040) {
+    const scrollBefore = selected.diagnostic.scroll?.offset;
+    await physicalDrag(page, testInfo, detailPoint, { ...detailPoint, y: detailPoint.y - 40 });
+    const afterFixedDrag = await read(page);
+    expect(afterFixedDrag.diagnostic.scroll?.offset, 'fixed inspector must not scroll the collection').toBe(scrollBefore);
+    expect(afterFixedDrag.saved).toBe(selected.saved);
+    expect(afterFixedDrag.diagnostic.buttons.find(button => button.key === details!.key)?.text).toBe('View details');
+  }
+  if (testInfo.project.use.hasTouch) await page.touchscreen.tap(detailPoint.x, detailPoint.y);
+  else await page.mouse.click(detailPoint.x, detailPoint.y);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
+  const inspected = await read(page);
+  expect(inspected.diagnostic.focusedKey).toBe('equipment-detail:helmet');
+  const inspectedArt = inspected.art.filter(row => row.frame === 'equipment-icon:scavenger-helmet' && row.alpha === 1 && row.visible)
+    .map(row => alpha(row, 96, 96, 10, 10, 76, 75));
+  const inspectionExtent = Number(Math.max(...inspectedArt.map(bounds => Math.max(bounds.width, bounds.height))).toFixed(9));
+  const expectedInspection = page.viewportSize()!.width <= 375 ? 80 : page.viewportSize()!.width < 600 ? 136 : 184;
+  // Compact/tablet detail includes the singly framed T1 art at its full
+  // media extent. Wide detail keeps a smaller identity mark, so its largest
+  // T1 artwork is the upgrade pair: 76 opaque pixels in a 77-pixel union.
+  expect(inspectionExtent).toBeCloseTo(page.viewportSize()!.width >= 1040
+    ? expectedInspection * 76 / 77 : expectedInspection, 1);
   expect(JSON.parse(state.saved).equipmentLoadout.helmet).toBe('helmet');
 });
 test('Gunsmith Pistol chassis and receiver use one native assembly transform at the approved visible width', async ({ page }, testInfo) => {
@@ -280,7 +340,9 @@ test('Gunsmith Pistol chassis and receiver use one native assembly transform at 
   const b = alpha(receiver, 358, 196, 105, 65, 70, 55);
   const unionWidth = Math.max(a.x + a.width, b.x + b.width) - Math.min(a.x, b.x);
   const width = page.viewportSize()!.width;
-  expect(unionWidth).toBeCloseTo(Math.min(700, width - 64), 1);
+  // Wide composition reserves a decision lane beside the weapon. Its native
+  // 170px opaque span should fill the 480px media frame independently of art.
+  expect(unionWidth).toBeCloseTo(width >= 1040 ? (width < 1200 ? 476 : 480) : Math.min(700, width - 64), 1);
   expect(JSON.parse(state.saved).gunsmith.builds[0].fitted.receiver).toBe('heavy');
 });
 test('Gunsmith candidate touch or pointer previews replacement before a separate commit', async ({ page }, testInfo) => {
@@ -291,8 +353,9 @@ test('Gunsmith candidate touch or pointer previews replacement before a separate
   const preview = await read(page);
   expect(preview.saved).toBe(before.saved);
   expect(preview.diagnostic.focusedKey).toBe('gunsmith-commit');
-  expect(preview.diagnostic.buttons.find(button => button.key === 'gunsmith-commit')!.text).toContain('REPLACE HEAVY RECEIVER T2');
-  expect(preview.diagnostic.copy.join('\n')).toContain('Heavy Receiver T2 returns to STORED.');
+  expect(preview.diagnostic.buttons.find(button => button.key === 'gunsmith-commit')!.text).toContain('REPLACE HEAVY RECEIVER');
+  expect(preview.diagnostic.copy.join('\n')).toContain('Heavy Receiver');
+  expect(preview.diagnostic.copy.join('\n')).toContain('Outgoing: Heavy Receiver Uncommon • Upgrade Rank 2 to STORED');
   expect(preview.diagnostic.copy.join('\n')).toContain('Damage • 9.92 to 8');
   expect(preview.diagnostic.copy.join('\n')).toContain('Fire Rate • 1.35/s to 1.66/s');
   const chassis = preview.art.filter(row => row.frame === 'gun-build-base:pistol' && row.alpha === 1);
@@ -406,7 +469,9 @@ test('Gunsmith Parts selection and fabrication cancellation spend nothing before
   await activate(page, 'gunsmith-catalog:part:receiver-compact', testInfo);
   expect((await read(page)).saved).toBe(initial.saved);
   await activate(page, 'gunsmith-fabricate-request:part:receiver-compact', testInfo);
-  expect((await read(page)).diagnostic.buttons.find(row => row.key === 'gunsmith-fabricate-confirm:part:receiver-compact')!.text).toContain('60 Scrap');
+  const finalCheck = await read(page);
+  expect(finalCheck.diagnostic.buttons.find(row => row.key === 'gunsmith-fabricate-confirm:part:receiver-compact')!.text).toBe('Confirm fabrication');
+  expect(finalCheck.diagnostic.copy.join('\n')).toContain('Cost: 60 Scrap • Balance after: 580 Scrap');
   await evidence(page, testInfo, 'parts-fabrication-confirmation');
   await activate(page, 'gunsmith-fabricate-cancel:part:receiver-compact', testInfo);
   expect((await read(page)).saved).toBe(initial.saved);
@@ -439,18 +504,26 @@ test('Equipment equipped upgrade shows exact values and keeps its instance and s
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
   }
   const before = await read(page);
-  expect(before.diagnostic.copy.join('\n')).toContain('100 Scrap');
   expect(before.diagnostic.copy.join('\n')).toContain('12');
   expect(before.diagnostic.copy.join('\n')).toContain('24');
   if (testInfo.project.use.hasTouch) await focus(page, 'equipment-upgrade:helmet');
   else await activateByPointerScroll(page, 'equipment-upgrade:helmet', testInfo, true);
   await evidence(page, testInfo, 'equipment-equipped-upgrade-preview');
+  await pulse(page, 'Enter');
+  const review = await read(page);
+  expect(review.saved).toBe(before.saved);
+  expect(review.diagnostic.copy.join('\n')).toContain('100 Scrap');
+  expect(review.diagnostic.copy.join('\n')).toContain('540 Scrap');
+  expect(review.diagnostic.buttons.some(button => button.key === 'equipment-upgrade-confirm:helmet')).toBe(true);
+  expect(await storage(page)).toMatchObject({ attempts: 0, writes: 0 });
+  await focusReviewConfirm(page, 'equipment-upgrade-confirm:helmet');
+  const confirm = (await read(page)).diagnostic.buttons.find(button => button.key === 'equipment-upgrade-confirm:helmet')!;
+  expect(confirm.visible && confirm.interactive).toBe(true);
   await resetStorage(page, true); await pulse(page, 'Enter');
   expect((await read(page)).saved).toBe(before.saved);
   expect(await storage(page)).toMatchObject({ attempts: 1, writes: 0 });
   await resetStorage(page, false);
-  if (testInfo.project.use.hasTouch) await focus(page, 'equipment-upgrade:helmet');
-  else await activateByPointerScroll(page, 'equipment-upgrade:helmet', testInfo, true);
+  await focusReviewConfirm(page, 'equipment-upgrade-confirm:helmet');
   await pulse(page, 'Enter');
   await expect.poll(async () => JSON.parse((await read(page)).saved).equipment.helmet.tier).toBe(2);
   const committed = JSON.parse((await read(page)).saved);
@@ -516,7 +589,8 @@ for (const family of ['smg', 'shotgun'] as const) {
     expect(frames).toHaveLength(1);
     const bounds = family === 'smg' ? alpha(frames[0]!, 358, 196, 83, 68, 170, 99)
       : alpha(frames[0]!, 358, 196, 80, 74, 170, 75);
-    expect(bounds.width).toBeCloseTo(Math.min(700, page.viewportSize()!.width - 64), 1);
+    const width = page.viewportSize()!.width;
+    expect(bounds.width).toBeCloseTo(width >= 1040 ? (width < 1200 ? 476 : 480) : Math.min(700, width - 64), 1);
     expect(JSON.parse(state.saved).gunsmith).toEqual({ ...initial.gunsmith, selectedBuildId: `build:${family}` });
     expect(state.diagnostic.copy.join('\n')).toContain(family === 'smg' ? 'SMG' : 'Shotgun');
   });

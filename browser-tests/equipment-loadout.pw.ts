@@ -147,7 +147,13 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
     await press(page, direction!);
     expect((await diagnostic(page)).focusedKey).toBe(`equipment-slot:${slot}`);
   }
-  expect(state.buttons.filter((button) => button.key?.startsWith('equipment-candidate:'))).toHaveLength(8);
+  // Entry exposes the full inventory; choosing a physical slot applies the
+  // explicit Helmet scope before comparing candidates.
+  expect(state.buttons.filter((button) => button.key?.startsWith('equipment-candidate:'))).toHaveLength(equipmentCatalog.length);
+  await press(page, 'Enter'); await settle(page);
+  state = await diagnostic(page);
+  expect(state.equipment?.selectedSlot).toBe('helmet');
+  expect(state.buttons.filter((button) => button.key?.startsWith('equipment-candidate:'))).toHaveLength(equipmentCatalog.filter(piece => piece.slot === 'helmet').length);
   expect(state.buttons.filter((button) => button.key?.startsWith('equipment-candidate:')).every((button) => button.text.includes('Helmet'))).toBe(true);
   const candidate = id('equipment:recon-helmet');
   await focus(page, `equipment-candidate:${candidate}`);
@@ -192,21 +198,14 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   const local = await measurement(page);
   const renders = local.events.filter(event => event.owner === 'menu.render');
   const updates = local.events.filter(event => event.owner === 'menu.update');
-  if (page.viewportSize()!.width >= 1040) {
-    // Wide selection adds the fixed inspector, so this is the intentional
-    // structural render described by the contract; details remain explicit.
-    expect(renders).toHaveLength(1);
-    expect(updates).toHaveLength(0);
-    expect(renders[0]!.facts).toMatchObject({ reason: 'same-panel-state-mutation', rebuildCount: (mounted.facts.rebuildCount as number) + 1 });
-    await expect.poll(async () => (await measurement(page)).presentedMenu?.revision).toBe(renders[0]!.facts.revision);
-  } else {
-    // Compact selection replaces only the owned summary tail in place.
-    expect(renders).toHaveLength(0);
-    expect(updates).toHaveLength(1);
-    expect(updates[0]!.facts).toMatchObject({ section: 'equipment-selection',
-      reason: 'same-panel-state-mutation', rebuildCount: mounted.facts.rebuildCount, committed: true });
-    await expect.poll(async () => (await measurement(page)).presentedMenu?.revision).toBe(updates[0]!.facts.revision);
-  }
+  // Explicit slot selection already mounted the desktop inspector around the
+  // equipped helmet. Replacing that selection updates its owned suffix in
+  // place on both widths, preserving the browse scroll and render generation.
+  expect(renders).toHaveLength(0);
+  expect(updates).toHaveLength(1);
+  expect(updates[0]!.facts).toMatchObject({ section: 'equipment-selection',
+    reason: 'same-panel-state-mutation', rebuildCount: mounted.facts.rebuildCount, committed: true });
+  await expect.poll(async () => (await measurement(page)).presentedMenu?.revision).toBe(updates[0]!.facts.revision);
   const details = state.buttons.find((button) => button.text === 'View details')!;
   expect(details).toBeDefined();
   if (testInfo.project.use.hasTouch) await page.touchscreen.tap(details.bounds.x + details.bounds.width / 2, details.bounds.y + details.bounds.height / 2);
@@ -218,7 +217,7 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   // Shared scrolling clamps at the real content end on tall displays.
   expect(selectedDetail.bounds.y).toBeGreaterThanOrEqual(state.scroll!.top);
   expect(selectedDetail.bounds.y).toBeLessThan(state.scroll!.top + (state.scroll!.bottom - state.scroll!.top) / 2);
-  expect(state.copy.join('\n')).toContain('Replaces Commando Helmet');
+  expect(state.copy.join('\n')).toContain('REPLACES: Commando Helmet');
   expect(state.copy.join('\n')).toContain('LOSE 2-piece');
   expect(state.copy.join('\n')).toContain('GAIN 2-piece');
   expect(state.copy.join('\n')).toContain('[All Weapons]');
@@ -267,6 +266,7 @@ test('keeps the selected desktop slot grid inside the inspector mask through Bac
   await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam }).__MEOWCENARY_VISUAL_TEST__.showMenu('loadout'))).toBe(true);
   await settle(page);
   await focus(page, 'loadout:equipment'); await press(page, 'Enter'); await settle(page);
+  await focus(page, 'equipment-slot:helmet'); await press(page, 'Enter'); await settle(page);
   const candidate = id('equipment:recon-helmet');
   await focus(page, `equipment-candidate:${candidate}`); await press(page, 'Enter'); await settle(page);
 
