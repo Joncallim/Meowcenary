@@ -99,4 +99,29 @@ describe('Workshop confirmation persistence boundary', () => {
     expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.stock).toBe('unrelated');
     expect(Object.values(context.saveData.gunsmith.parts)).toHaveLength(3);
   });
+
+  it('rejects infusion when a nonselected retained target gains a newly effective trait after review', () => {
+    const { context, storage, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: { ...state.parts, other: { partId: 'part:trait-fire', tier: 1, infusedTraits: [] } },
+      builds: [
+        { id: 'build:pistol', name: 'Sidearm', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] },
+        { id: 'build:smg', name: 'Infusion SMG', baseWeaponFamily: 'smg', fitted: { receiver: 'target' }, traitParts: ['other'] },
+      ], selectedBuildId: 'build:pistol',
+    }));
+    expect(controller.requestWorkshop({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'core' })).toMatchObject({ ok: true });
+    const write = vi.spyOn(storage, 'setItem');
+    const update = context.updateGunsmith.bind(context);
+    context.updateGunsmith = (transform) => {
+      update((state) => ({ ...state,
+        parts: Object.fromEntries(Object.entries(state.parts).filter(([id]) => id !== 'other')),
+        builds: state.builds.map((build) => build.id === 'build:smg' ? { ...build, traitParts: [] } : build),
+      }));
+      return update(transform);
+    };
+    expect(controller.confirmWorkshop()).toEqual({ ok: false, reason: 'workshop-operation-unavailable' });
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(context.saveData.gunsmith.parts.target.infusedTraits).toEqual([]);
+    expect(context.saveData.gunsmith.parts.core).toBeDefined();
+  });
 });

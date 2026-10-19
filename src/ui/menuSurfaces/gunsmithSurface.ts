@@ -415,11 +415,11 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
   }
   private comparison(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, start: number, before: RunTruth, after: RunTruth,
     stats: readonly import('../loadoutPresentation').LoadoutWeaponStatDelta[] = [], effects?: LoadoutRunTruthComparison,
-    noChangeReason?: string, familyId?: string): number {
+    noChangeReason?: string, familyId?: string, scenario?: string): number {
     let y = start;
     const familyName = familyId === undefined ? undefined : snapshot.gunsmith.families.find((family) => family.id === familyId)?.name;
     const header = familyName === undefined ? 'CURRENT / PREVIEW • RUN EFFECTS'
-      : `CURRENT / PREVIEW • If fitted to ${familyName} • RUN EFFECTS`;
+      : `CURRENT / PREVIEW • ${scenario ?? `If fitted to ${familyName}`} • RUN EFFECTS`;
     y += this.copy(root, this.layout.margin, y, header, this.laneWidth, '#24cec7').height + 8;
     for (const stat of stats) {
       const color = stat.direction === 'better' ? '#86efac' : stat.direction === 'worse' ? '#fca5a5' : '#adc1c7';
@@ -456,8 +456,9 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
     y += this.copy(root, this.layout.margin, y,
       `AFFECTED BUILD • ${impact.buildName} • ${impact.familyId.toUpperCase()} • ${impact.slot.toUpperCase()}`,
       this.laneWidth, '#f7d774').height + 6;
-    y += this.copy(root, this.layout.margin, y,
-      `REMOVES ${impact.removedPart.name} ${gunsmithTierLabel(impact.removedPart.rarity, impact.removedPart.tier)}`,
+    const part = impact.updatedPart ?? impact.removedPart;
+    if (part) y += this.copy(root, this.layout.margin, y,
+      `${impact.change === 'updated' ? 'UPDATES FITTED' : 'REMOVES'} ${part.name} ${gunsmithTierLabel(part.rarity, part.tier)}`,
       this.laneWidth, '#f7d774').height + 4;
     const losses = impact.comparison.effects.modifiers
       .filter((delta) => delta.after === undefined)
@@ -465,9 +466,15 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
     const traits = impact.comparison.effects.traits
       .filter((delta) => delta.before && !delta.after)
       .map((delta) => `Loses ${delta.target.label} • ${delta.trait}`);
-    const details = [...losses, ...traits];
+    const gains = impact.comparison.effects.modifiers.filter((delta) => delta.after !== undefined)
+      .map((delta) => `${delta.before === undefined ? 'Gains' : 'Changes'} ${delta.target.label} • ${delta.before?.text ?? delta.beforeValue ?? '—'} to ${delta.after?.text ?? delta.afterValue ?? '—'}`);
+    const gainedTraits = impact.comparison.effects.traits.filter((delta) => !delta.before && delta.after)
+      .map((delta) => `Gains ${delta.target.label} • ${delta.trait}`);
+    const projectileChanges = impact.comparison.effects.projectileEffects.map((delta) =>
+      `${delta.after.length > delta.before.length ? 'Gains' : 'Changes'} ${delta.familyId.toUpperCase()} • projectile effects`);
+    const details = [...losses, ...traits, ...gains, ...gainedTraits, ...projectileChanges];
     y += this.copy(root, this.layout.margin, y,
-      details.length ? details.join('\n') : 'Removed from this build; no resolved modifier or trait loss.',
+      details.length ? details.join('\n') : 'Fitting changed; no resolved modifier or trait change.',
       this.laneWidth, '#f7f1d5').height + 8;
     return y;
   }
@@ -583,9 +590,12 @@ ${candidate.sourceLabel}`, this.laneWidth, '#f7f1d5').height + 12;
       this.environment.controls.addLoadoutArt(root, this.layout.centerX, y + size / 2, selected.iconArtId, size, size);
       y += size + 12;
       y += this.copy(root, this.layout.margin, y, `${selected.name.toUpperCase()}\n${selected.stateLabel} • ${selected.slot} • ${selected.effectScope}`, this.laneWidth, '#24cec7', 20).height + 12;
-      y += this.copy(root, this.layout.margin, y, [...selected.effectLines, selected.comparisonSummary, selected.sourceLabel, selected.lockReason, selected.affordable === false ? 'Insufficient Scrap for fabrication.' : undefined].filter(Boolean).join('\n'), this.laneWidth, '#f7f1d5').height + 12;
+      y += this.copy(root, this.layout.margin, y, [selected.representativeLabel,
+        ...selected.effectLines, selected.comparisonSummary, selected.fabricationOutputLabel, selected.sourceLabel, selected.lockReason,
+        selected.affordable === false ? 'Insufficient Scrap for fabrication.' : undefined].filter(Boolean).join('\n'), this.laneWidth, '#f7f1d5').height + 12;
       if (selected.comparison) {
-        y = this.comparison(root, snapshot, y, selected.comparison.before, selected.comparison.after, selected.comparison.stats, selected.comparison.effects, undefined, snapshot.gunsmith.selectedBuild?.familyId);
+        y = this.comparison(root, snapshot, y, selected.comparison.before, selected.comparison.after, selected.comparison.stats, selected.comparison.effects,
+          undefined, snapshot.gunsmith.selectedBuild?.familyId, selected.comparisonScopeLabel);
       }
       for (const trait of selected.traitIcons) {
         this.environment.controls.addCatalogIcon(root, this.layout.margin + 18, y + 16, trait.iconArtId, 32);

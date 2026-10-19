@@ -533,6 +533,7 @@ export class MenuScene extends Phaser.Scene {
         lockup.setDisplaySize(lockupWidth, lockupWidth * lockupBinding.display.height / lockupBinding.display.width);
       }
 
+      let noticeBottom: number | undefined;
       if (snapshot.notice) {
         const successNotice = /^Equipment (equipped|unequipped|upgraded|fabricated)/.test(snapshot.notice);
         const notice = this.own(root, createUiText(this,this.safeCenterX, 58 + topMargin, snapshot.notice, {
@@ -543,11 +544,14 @@ export class MenuScene extends Phaser.Scene {
           wordWrap: { width: width - leftMargin - this.safeRightMargin },
         }));
         notice.setOrigin(0.5, 0).setScrollFactor(0);
+        noticeBottom = notice.y + notice.height;
       }
 
-      const contentTop = this.loadoutSurface
+      const defaultContentTop = this.loadoutSurface
         ? (snapshot.notice ? 96 : 58) + topMargin - 12
         : (snapshot.notice ? 96 : 76) + topMargin;
+      const contentTop = noticeBottom === undefined
+        ? defaultContentTop : Math.max(defaultContentTop, noticeBottom + 8);
       const contentPanel = this.loadoutSurface ? undefined : this.uiVisuals?.addPanel(
         this,
         this.safeCenterX,

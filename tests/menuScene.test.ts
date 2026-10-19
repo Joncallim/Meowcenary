@@ -3095,6 +3095,37 @@ describe('MenuScene', () => {
     }
   });
 
+  it('keeps a wrapped Parts save notice clear of the scroll viewport without moving a short notice', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    activateKey(harness, 'gunsmith-surface:parts');
+    const notice = 'Could not save that Gunsmith change';
+    let noticeHeight = 18;
+    const originalText = harness.menuScene.add.text.bind(harness.menuScene.add);
+    const textSpy = vi.spyOn(harness.menuScene.add, 'text').mockImplementation((x, y, value, style) => {
+      const text = originalText(x, y, value, style);
+      if (value === notice) (text as unknown as FakeObject).setFixedSize(text.width, noticeHeight);
+      return text;
+    });
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      scrollViewportTop: number;
+    };
+    const snapshot = { ...scene.controller.snapshot(), notice };
+
+    scene.render(snapshot);
+    expect(scene.scrollViewportTop).toBe(96);
+
+    noticeHeight = 48; // A rendered two-line notice at phone width.
+    scene.render(snapshot);
+    const banner = harness.objects.find(object => !object.state.destroyed && object.state.text === notice)!;
+    expect(banner).toBeDefined();
+    expect(scene.scrollViewportTop).toBeGreaterThanOrEqual(banner.getBounds().bottom + 8);
+    textSpy.mockRestore();
+  });
+
   it('discloses the displaced Part and mechanical comparison before a one-command replacement', () => {
     const harness = createHarness();
     harness.context.updateGunsmith((state) => ({

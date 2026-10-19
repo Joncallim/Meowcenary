@@ -111,6 +111,10 @@ export interface GunsmithCatalogPartView {
   readonly traitIcons: readonly { readonly trait: string; readonly iconArtId: string }[];
   readonly state: 'fitted' | 'owned' | 'fabricable' | 'locked' | 'reward-only';
   readonly stateLabel: string;
+  /** A real owned example can differ from a newly fabricated copy. */
+  readonly representativeLabel?: string;
+  readonly fabricationOutputLabel?: string;
+  readonly comparisonScopeLabel?: string;
   readonly ownedCount: number;
   readonly effectLines: readonly string[];
   readonly statChips: readonly string[];
@@ -185,7 +189,9 @@ export interface GunsmithWorkshopBuildImpact {
   readonly buildName: string;
   readonly familyId: string;
   readonly slot: PartSlot;
-  readonly removedPart: GunsmithWorkshopPartView;
+  readonly change?: 'removed' | 'updated';
+  readonly removedPart?: GunsmithWorkshopPartView;
+  readonly updatedPart?: GunsmithWorkshopPartView;
   readonly comparison: GunsmithComparisonPresentation;
 }
 
@@ -499,32 +505,43 @@ export class GunsmithController {
       const representativeInfusedTraits = representative?.instanceId === undefined
         ? [] as readonly BehaviorTrait[]
         : (state.parts[representative.instanceId]?.infusedTraits ?? []) as readonly BehaviorTrait[];
-      // A representative is a real owned instance, not a catalog-only
-      // placeholder. Reuse its complete selected-build comparison (including
-      // infused traits and cross-build movement) so the detailed comparison
-      // cannot disagree with the row's action summary. Only an unowned row
-      // needs the synthetic catalog preview.
+      // Parts browsing describes an owned example, not the editor's toggle.
+      // In particular, a part already fitted here stays fitted in the
+      // comparison; the editor's click would unequip it.
+      const fittedHere = representative?.state === 'fitted-here';
       const catalogComparison = selected === undefined ? undefined
-        : representative?.comparison ?? catalogCandidateComparisonPresentation(selected, definition, displayTier, representativeInfusedTraits,
+        : fittedHere ? persistentBuildComparisonPresentation(selected, selected, state, state,
+          save, this.context.data, this.registry, representativeWeapon)
+          : representative?.comparison ?? catalogCandidateComparisonPresentation(selected, definition, displayTier, representativeInfusedTraits,
           state, this.registry, representativeWeapon, save, this.context.data);
-      const rawComparisonSummary = representative?.comparisonSummary ?? (catalogComparison === undefined
+      const rawComparisonSummary = fittedHere ? `Already fitted to ${familyName(selected!.baseWeaponFamily)}: no change.`
+        : representative?.comparisonSummary ?? (catalogComparison === undefined
         ? catalogCandidateComparison(selected, definition, catalogState, displayTier, representativeInfusedTraits,
           state, this.registry, representativeWeapon, save, this.context.data)
         : formatBuildComparisonSummary(catalogComparison));
+      const comparisonScopeLabel = selected === undefined ? undefined : fittedHere
+        ? `Already fitted to ${familyName(selected.baseWeaponFamily)}`
+        : representative?.assignedBuildName ? `If moved from ${representative.assignedBuildName} to ${familyName(selected.baseWeaponFamily)}`
+          : `If fitted to ${familyName(selected.baseWeaponFamily)}`;
       return Object.freeze({
         partId: definition.id, name: definition.name, slot: definition.slot, rarity: definition.rarity,
         effectScope: compatibleFamilyScope(definition.slot),
         iconArtId: resolveGunsmithPartVisual(definition, displayTier).iconArtId,
-        traitIcons: Object.freeze(Object.entries(definition.presentation.traitIconArtIds).flatMap(([trait, iconArtId]) => iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })])),
+        traitIcons: representative?.traitIcons ?? Object.freeze(Object.entries(definition.presentation.traitIconArtIds).flatMap(([trait, iconArtId]) => iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })])),
         state: catalogState, stateLabel, ownedCount: owned.length,
+        ...(representative === undefined ? {} : { representativeLabel: `OWNED EXAMPLE • ${representative.stateLabel}${representative.assignedBuildName ? ` in ${representative.assignedBuildName}` : ''} • ${gunsmithTierLabel(definition.rarity, representative.tier)}${representative.traits.length ? ` • ${representative.traits.join(' / ')}` : ''}` }),
+        ...(fabricationCost === undefined ? {} : { fabricationOutputLabel: `FABRICATION OUTPUT • ${gunsmithTierLabel(definition.rarity, 1)} • no infusion • STORED until fitted` }),
+        ...(comparisonScopeLabel === undefined ? {} : { comparisonScopeLabel }),
         effectLines: statChips, statChips,
         ...(catalogComparison === undefined ? {} : { comparison: catalogComparison }),
         // The comparison object above is sourced from the representative
         // actual instance whenever one exists. Keep its action summary too,
         // so a cross-build move/unequip disclosure cannot disagree with the
         // detailed before/after mechanics shown when the row opens.
-        comparisonSummary: selected === undefined ? rawComparisonSummary
-          : formatCatalogComparisonSummary(rawComparisonSummary, selected.baseWeaponFamily),
+        comparisonSummary: selected === undefined || fittedHere ? rawComparisonSummary
+          : representative?.assignedBuildName
+            ? `${comparisonScopeLabel}: ${rawComparisonSummary.replace(/^Move from [^.]+\.\s*/, '').replace(/^Current build:\s*/, '')}`
+            : formatCatalogComparisonSummary(rawComparisonSummary, selected.baseWeaponFamily),
         sourceLabel,
         canFabricate,
         ...(fabricationCost === undefined ? {} : {
@@ -787,13 +804,17 @@ export class GunsmithController {
       && afterState.parts[part.instanceId] !== undefined).map((part) => part.instanceId);
     const preservedFittings = fittingFacts(beforeState).filter((fact) => preservedInstanceIds.includes(fact.instanceId)
       && afterReferences.has(fittingKey(fact)));
-    const buildImpacts = clearedFittings.flatMap((fact) => {
+    const affectedFittings = [...clearedFittings.map((fact) => ({ fact, change: 'removed' as const })),
+      ...preservedFittings.filter((fact) => fact.instanceId === output.instanceId)
+        .map((fact) => ({ fact, change: 'updated' as const }))];
+    const buildImpacts = affectedFittings.flatMap(({ fact, change }) => {
       const beforeBuild = beforeState.builds.find((build) => build.id === fact.buildId);
       const afterBuild = afterState.builds.find((build) => build.id === fact.buildId);
-      const removedPart = inputViews.find((part) => part.instanceId === fact.instanceId);
-      if (!beforeBuild || !afterBuild || !removedPart) return [];
+      const part = inputViews.find((input) => input.instanceId === fact.instanceId);
+      if (!beforeBuild || !afterBuild || !part) return [];
       const weapon = this.context.data.weapons.find((row) => row.family === fact.familyId && row.mergeTier === 1);
-      return [{ buildId: fact.buildId, buildName: fact.buildName, familyId: fact.familyId, slot: fact.slot, removedPart,
+      return [{ buildId: fact.buildId, buildName: fact.buildName, familyId: fact.familyId, slot: fact.slot, change,
+        ...(change === 'removed' ? { removedPart: part } : { updatedPart: outputView }),
         comparison: buildComparisonPresentationAcrossStates(beforeBuild, afterBuild, beforeState, afterState, this.registry, weapon) }];
     });
     const beforeSave = { ...this.context.saveData, gunsmith: beforeState };

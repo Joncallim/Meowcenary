@@ -288,7 +288,7 @@ describe('GunsmithController durable commands', () => {
     expect(context.saveData).toBe(before);
   });
 
-  it('keeps an Equipment Set FIRE source in Gunsmith row comparisons when the build FIRE part is removed', () => {
+  it('keeps Equipment Set FIRE in editor removal and a no-op fitted catalog example', () => {
     const { context, controller } = setup();
     context.updateEquipment(() => ({ equipment: {
       helmet: { equipmentId: 'equipment:pyro-helmet', tier: 1 },
@@ -306,8 +306,9 @@ describe('GunsmithController durable commands', () => {
     expect(fire).toMatchObject({ before: true, after: true });
     expect(row.comparison?.before.families.find((family) => family.familyId === 'pistol')?.traits.map((trait) => trait.trait)).toEqual(['FIRE']);
     expect(row.comparison?.after.families.find((family) => family.familyId === 'pistol')?.traits.map((trait) => trait.trait)).toEqual(['FIRE']);
-    expect(controller.snapshot().catalog.find((part) => part.partId === 'part:trait-fire')?.comparison?.effects.traits)
-      .toEqual(expect.arrayContaining([expect.objectContaining({ familyId: 'pistol', trait: 'FIRE', before: true, after: true })]));
+    const catalog = controller.snapshot().catalog.find((part) => part.partId === 'part:trait-fire')!;
+    expect(catalog.comparison?.effects.traits).toEqual([]);
+    expect(catalog.comparison?.after.families.find((family) => family.familyId === 'pistol')?.traits.map((trait) => trait.trait)).toEqual(['FIRE']);
   });
 
   it('fabricates one paid physical instance with a monotonic serial and publishes nothing on save failure', () => {
@@ -627,7 +628,7 @@ describe('GunsmithController durable commands', () => {
     expect(catalog).toHaveLength(context.data.gunParts!.length);
     expect(catalog.find((part) => part.partId === 'part:barrel-standard')).toMatchObject({
       state: 'fitted', stateLabel: 'EQUIPPED • Common • Upgrade Rank 2', ownedCount: 1, fabricationCost: 60,
-      effectLines: ['+20 Range'], comparisonSummary: 'If fitted to Pistol: Range 220 to 200',
+      effectLines: ['+20 Range'], comparisonSummary: 'Already fitted to Pistol: no change.',
     });
     expect(catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
       state: 'fabricable', stateLabel: 'FABRICABLE • Common • Upgrade Rank 1 • 60 Scrap', fabricationCost: 60,
@@ -658,8 +659,26 @@ describe('GunsmithController durable commands', () => {
 
     expect(controller.snapshot().catalog.find((part) => part.partId === 'part:barrel-standard')).toMatchObject({
       state: 'fitted', stateLabel: 'EQUIPPED • Common • Upgrade Rank 5', ownedCount: 2,
-      effectLines: ['+50 Range'], comparisonSummary: 'If fitted to Pistol: Move from Scattergun. Current build: Range 200 to 250',
+      effectLines: ['+50 Range'], comparisonSummary: 'If moved from Scattergun to Pistol: Range 200 to 250',
     });
+  });
+
+  it('compares a stored owned example as a hypothetical fit without claiming it is active', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: { stored: { partId: 'part:barrel-standard', tier: 2, infusedTraits: [] } },
+      builds: [{ id: 'build:pistol', name: 'Main', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    const catalog = controller.snapshot().catalog.find((part) => part.partId === 'part:barrel-standard')!;
+    expect(catalog).toMatchObject({ state: 'owned', comparisonScopeLabel: 'If fitted to Pistol',
+      representativeLabel: 'OWNED EXAMPLE • STORED • Common • Upgrade Rank 2',
+      fabricationOutputLabel: 'FABRICATION OUTPUT • Common • Upgrade Rank 1 • no infusion • STORED until fitted',
+      comparisonSummary: 'If fitted to Pistol: Range 200 to 220' });
+    expect(catalog.comparison?.effects.modifiers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ state: 'added', target: expect.objectContaining({ familyId: 'pistol' }) }),
+    ]));
+    expect(context.saveData.gunsmith.builds[0].fitted.barrel).toBeUndefined();
   });
 
   it('uses the fitted representative tier and preserves its infused traits in catalog comparisons', () => {
@@ -700,6 +719,30 @@ describe('GunsmithController durable commands', () => {
     });
     expect(controller.fabricate('part:receiver-compact')).toMatchObject({ ok: true, persisted: true });
     expect(Object.values(context.saveData.gunsmith.parts).filter((part) => part.partId === 'part:receiver-compact')).toHaveLength(2);
+  });
+
+  it('separates a fitted upgraded infused example from a new rank-one fabrication', () => {
+    const { context, controller } = setup();
+    context.commitProgression((progression) => ({ ...progression, scrap: 120 }));
+    context.updateGunsmith((state) => ({ ...state,
+      parts: { receiver: { partId: 'part:receiver-compact', tier: 3, infusedTraits: ['FIRE'] } },
+      builds: [{ id: 'build:pistol', name: 'Main', baseWeaponFamily: 'pistol', fitted: { receiver: 'receiver' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    const catalog = controller.snapshot().catalog.find((part) => part.partId === 'part:receiver-compact')!;
+    expect(catalog.representativeLabel).toContain('Main');
+    expect(catalog.representativeLabel).toContain('Upgrade Rank 3');
+    expect(catalog.fabricationOutputLabel).toContain('Upgrade Rank 1');
+    expect(catalog.fabricationOutputLabel).toContain('STORED');
+    expect(catalog.traitIcons).toEqual(expect.arrayContaining([expect.objectContaining({ trait: 'FIRE' })]));
+    expect(catalog.comparisonSummary).toContain('Already fitted to Pistol');
+    expect(catalog.comparison?.lines).toEqual(['Current build: No mechanical change']);
+    expect(catalog.comparison?.after.families.find((family) => family.familyId === 'pistol')?.traits)
+      .toEqual(expect.arrayContaining([expect.objectContaining({ trait: 'FIRE' })]));
+    expect(controller.fabricate(catalog.partId)).toMatchObject({ ok: true, persisted: true });
+    const fabricated = Object.entries(context.saveData.gunsmith.parts).find(([id]) => id !== 'receiver')?.[1];
+    expect(fabricated).toMatchObject({ partId: catalog.partId, tier: 1, infusedTraits: [] });
+    expect(context.saveData.gunsmith.builds[0].fitted.receiver).toBe('receiver');
   });
 
   it('keeps an unmet data-owned fabrication condition visible with player-facing lock copy', () => {

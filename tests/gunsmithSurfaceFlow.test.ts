@@ -114,6 +114,27 @@ describe('Gunsmith native flow surface', () => {
     expect(h.commands.fabricateGunPart).toHaveBeenCalledWith('part:receiver');
     expect(h.commands.fabricateGunPart).toHaveBeenCalledTimes(1);
   });
+  it('labels an owned infused example separately from the rank-one stored fabrication output', () => {
+    const h = harness();
+    const catalog = { ...snapshot().gunsmith.catalog[0], state: 'fitted' as const,
+      stateLabel: 'EQUIPPED • Common • Upgrade Rank 3',
+      representativeLabel: 'OWNED EXAMPLE • EQUIPPED in Pistol Build • Common • Upgrade Rank 3 • FIRE',
+      fabricationOutputLabel: 'FABRICATION OUTPUT • Common • Upgrade Rank 1 • no infusion • STORED until fitted',
+      comparisonSummary: 'Already fitted to Pistol: no change.', comparisonScopeLabel: 'Already fitted to Pistol',
+      traitIcons: [{ trait: 'FIRE', iconArtId: 'trait:fire' }],
+      comparison: { before: { modifiers: [], families: [] }, after: { modifiers: [], families: [] },
+        lines: ['No mechanical change'], stats: [], effects: { modifiers: [], traits: [], projectileEffects: [] } },
+    };
+    h.present(snapshot({ surface: 'parts', catalog: [catalog] }));
+    h.press('gunsmith-catalog:part:receiver');
+    expect(h.visibleCopy()).toContain(catalog.representativeLabel);
+    expect(h.visibleCopy()).toContain(catalog.fabricationOutputLabel);
+    expect(h.visibleCopy().indexOf(catalog.representativeLabel)).toBeLessThan(h.visibleCopy().indexOf(catalog.comparisonSummary));
+    expect(h.visibleCopy().indexOf(catalog.comparisonSummary)).toBeLessThan(h.visibleCopy().indexOf(catalog.fabricationOutputLabel));
+    expect(h.visibleCopy()).toContain('CURRENT / PREVIEW • Already fitted to Pistol • RUN EFFECTS');
+    expect(h.visibleCopy()).not.toContain('If fitted to Pistol • RUN EFFECTS');
+    expect(h.art.map((entry) => entry.id)).toContain('trait:fire');
+  });
   it('uses one common assembly framing with phone-visible 326px width', () => {
     const h = harness(); h.present(snapshot({ selectedCandidateInstanceId: 'receiver', candidatePreview: {
       baseArtId: 'base:pistol', layers: [{ instanceId: 'receiver', slot: 'receiver', tier: 2, artId: 'layer:t2' }], traitCores: [], traitEmblems: [] } }));
@@ -191,6 +212,28 @@ describe('Gunsmith native flow surface', () => {
     expect(collectGunsmithArtIds(state)).toEqual(expect.arrayContaining(['icon:receiver:t2', 'trait:fire']));
     expect(h.commands.confirmGunWorkshop).not.toHaveBeenCalled();
     h.press('gunsmith-confirm'); expect(h.commands.confirmGunWorkshop).toHaveBeenCalledTimes(1);
+  });
+  it('shows a preserved infusion target as affected with its gained trait', () => {
+    const h = harness();
+    const fitting = { buildId: 'build:smg', buildName: 'Infusion SMG', familyId: 'smg', slot: 'receiver' as const, instanceId: 'receiver' };
+    const target = { ...receiver, slot: 'receiver' as const, fittingLocations: [fitting], stateLabel: 'EQUIPPED' as const, traitLines: [], traitIcons: [] };
+    const core = { ...receiver, instanceId: 'core', name: 'Fire Core', slot: 'trait' as const, fittingLocations: [], stateLabel: 'STORED' as const, traitLines: ['FIRE' as const], traitIcons: [{ trait: 'FIRE' as const, iconArtId: 'trait:fire' }] };
+    const output = { ...target, traitLines: ['FIRE' as const], traitIcons: [{ trait: 'FIRE' as const, iconArtId: 'trait:fire' }] };
+    const empty = { modifiers: [], families: [] };
+    const effects = { modifiers: [], projectileEffects: [], traits: [{ familyId: 'smg', trait: 'FIRE' as const,
+      target: { kind: 'weapon-family' as const, familyId: 'smg', label: 'SMG' }, before: false, after: true,
+      beforeDeduplicated: false, afterDeduplicated: false, beforeSourceIds: [], afterSourceIds: ['build:smg'],
+      beforeSourceLabels: [], afterSourceLabels: ['Infusion SMG'], sourceChanged: true }] };
+    h.present(snapshot({ surface: 'workshop', confirmation: { kind: 'infuse', title: 'Confirm infusion', confirmLabel: 'Infuse part',
+      inputLines: [], outputLine: '', mechanicalDelta: ['Traits None → FIRE'], inputs: [target, core], output,
+      consumedInstanceIds: ['core'], preservedInstanceIds: ['receiver'], clearedFittings: [], preservedFittings: [fitting],
+      buildImpacts: [{ buildId: 'build:smg', buildName: 'Infusion SMG', familyId: 'smg', slot: 'receiver', change: 'updated',
+        updatedPart: output, comparison: { before: empty, after: empty, lines: [], stats: [], effects } }],
+      sideEffectLines: [], comparison: { before: empty, after: empty, lines: [], stats: [] } } }));
+    expect(h.visibleCopy()).toContain('AFFECTED BUILD • Infusion SMG • SMG • RECEIVER');
+    expect(h.visibleCopy()).toContain('UPDATES FITTED receiver Part Common • Upgrade Rank 1');
+    expect(h.visibleCopy()).toContain('Gains SMG • FIRE');
+    expect(h.visibleCopy()).toContain('Affected build/slot: Infusion SMG • RECEIVER');
   });
   it('uses only rule-owned legal second merge choices and keeps duplicate instance identities distinct', () => {
     const h = harness();
