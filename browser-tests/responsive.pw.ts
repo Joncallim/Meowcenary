@@ -3,6 +3,8 @@ import { expect, test } from '@playwright/test';
 
 useVisualAuthority();
 import { completeRunStartIntro } from './run-start-helpers';
+import { pressMenuKey } from './menuInputReceipt';
+import { writeFile } from 'node:fs/promises';
 
 type ArenaFramingDiagnostics = {
   window: { innerWidth: number; innerHeight: number; devicePixelRatio: number };
@@ -610,11 +612,39 @@ test('fine-pointer compact landscape keeps every sparse menu action visible', as
     }, panel)).toBe(true);
     await settled();
   };
+  const readMenu = () => page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__: { menuLoadoutDiagnostics(): {
+      panel: string;
+      focusedKey?: string;
+      scroll?: { top: number; bottom: number; offset: number };
+      buttons: Array<{ key?: string; text: string; visible: boolean; interactive: boolean;
+        bounds: { x: number; y: number; width: number; height: number } }>;
+    } };
+  }).__MEOWCENARY_VISUAL_TEST__.menuLoadoutDiagnostics());
+  const assertLoadoutActions = async () => {
+    const state = await readMenu();
+    expect(state.panel).toBe('loadout');
+    expect(state.scroll).toBeDefined();
+    for (const key of ['loadout:equipment', 'loadout:gunsmith']) {
+      const action = state.buttons.find(button => button.key === key);
+      expect(action, `${key} is mounted`).toBeDefined();
+      expect(action!.visible && action!.interactive, `${key} is immediately actionable`).toBe(true);
+      expect(action!.bounds.y).toBeGreaterThanOrEqual(state.scroll!.top);
+      expect(action!.bounds.y + action!.bounds.height).toBeLessThanOrEqual(state.scroll!.bottom);
+    }
+    return state;
+  };
 
   await settled();
   await expect(page).toHaveScreenshot('compact-home.png', { animations: 'disabled' });
   await show('loadout');
+  const loadout = await assertLoadoutActions();
+  const factsPath = testInfo.outputPath('compact-loadout-facts.json');
+  await writeFile(factsPath, JSON.stringify(loadout, null, 2));
+  await testInfo.attach('compact-loadout-facts', { path: factsPath, contentType: 'application/json' });
   await expect(page).toHaveScreenshot('compact-loadout.png', { animations: 'disabled' });
+  await page.screenshot({ path: testInfo.outputPath('compact-loadout-verified.png') });
+
 
   await show('career');
   await expect(page).toHaveScreenshot('compact-career.png', { animations: 'disabled' });
@@ -623,6 +653,28 @@ test('fine-pointer compact landscape keeps every sparse menu action visible', as
 
   await show('settings');
   await expect(page).toHaveScreenshot('compact-settings.png', { animations: 'disabled' });
+  await show('loadout');
+  await assertLoadoutActions();
+  // Exercise both real input routes; screenshots alone can hide clipped or
+  // noninteractive navigation under the collection mask.
+  const equipment = loadout.buttons.find(button => button.key === 'loadout:equipment')!;
+  await page.mouse.click(equipment.bounds.x + equipment.bounds.width / 2, equipment.bounds.y + equipment.bounds.height / 2);
+  await expect.poll(async () => (await readMenu()).panel).toBe('equipment');
+  await settled();
+  await pressMenuKey(page, 'Escape');
+  await expect.poll(async () => (await readMenu()).panel).toBe('loadout');
+  await settled();
+  await assertLoadoutActions();
+  await page.mouse.move(0, 0);
+  for (let step = 0; step < loadout.buttons.length + 2; step += 1) {
+    if ((await readMenu()).focusedKey === 'loadout:gunsmith') break;
+    await pressMenuKey(page, 'ArrowDown');
+  }
+  expect((await readMenu()).focusedKey).toBe('loadout:gunsmith');
+  await pressMenuKey(page, 'Enter');
+  await expect.poll(async () => (await readMenu()).panel).toBe('gunsmith');
+  await settled();
+
   await assertVisualAuthority(page, testInfo);
   await compact.close();
 });

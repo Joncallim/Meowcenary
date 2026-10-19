@@ -700,6 +700,43 @@ describe('MenuScene', () => {
     expect(queued).toHaveLength(2);
   });
 
+  it('keeps compact landscape Loadout routes visible through a same-panel repaint', () => {
+    const harness = createHarness({ create: false });
+    Object.assign(harness.menuScene.scale, { width: 844, height: 390,
+      displaySize: { width: 844, height: 390 } });
+    harness.menuScene.create();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot, reason?: 'lazy-art-hydration'): void;
+      scrollRegion: { scrollOffset: number; setScrollOffset(offset: number): void };
+      scrollViewportTop: number; scrollViewportBottom: number;
+      focusedButtonKey?: string;
+      applyScrollViewport(): void;
+    };
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const verifyRoutes = () => {
+      expect(scene.focusedButtonKey).toBe('equipment-slot:helmet');
+      for (const key of ['loadout:equipment', 'loadout:gunsmith']) {
+        const button = buttonByKey(harness, key);
+        const bounds = button.getBounds();
+        expect(bounds.top).toBeGreaterThanOrEqual(scene.scrollViewportTop);
+        expect(bounds.bottom).toBeLessThanOrEqual(scene.scrollViewportBottom);
+        expect(button.state.interactive).toBe(true);
+      }
+    };
+    verifyRoutes();
+    const offset = scene.scrollRegion.scrollOffset;
+    scene.render(scene.controller.snapshot(), 'lazy-art-hydration');
+    expect(scene.scrollRegion.scrollOffset).toBe(offset);
+    verifyRoutes();
+    const playerOffset = offset - 80;
+    scene.scrollRegion.setScrollOffset(playerOffset);
+    scene.applyScrollViewport();
+    scene.render(scene.controller.snapshot(), 'lazy-art-hydration');
+    expect(scene.scrollRegion.scrollOffset).toBe(playerOffset);
+    expect(scene.focusedButtonKey).toBe('equipment-slot:helmet');
+  });
+
   it.each(['current mount', 'returned and resized mount', 'authoritative save changed', 'scene shutdown', 'cached-only queued save change', 'loaded atlas missing expected frame'] as const)('handles late Loadout equipment art at the current mount boundary: %s', async scenario => {
     const harness = createHarness();
     harness.context.updateEquipment(() => ({ equipment: {

@@ -625,6 +625,27 @@ export class MenuScene extends Phaser.Scene {
       if (this.focusIndexAfterRender !== undefined) this.navigator.setIndex(this.focusIndexAfterRender);
       this.finishScrollableRegion(this.panelContentRoot ?? root);
       const rebuiltRegion = this.scrollRegion as ScrollableFocusRegion | undefined;
+      // On a short, wide first visit the four slots and both routes form one
+      // small decision group. A minimal reveal of the focused helmet row
+      // leaves its routes below the mask; frame the whole group on entry.
+      // Same-panel repaints retain their signed scroll bookmark instead.
+      if (snapshot.panel === 'loadout' && this.scale.width >= 700 && this.scale.height < 500
+        && (renderReason === 'initial-mount' || renderReason === 'panel-transition')
+        && !preserveFocusKey && !alignFocusedStart && rebuiltRegion
+        && this.focusKeyByButton.get(this.focusables[this.navigator.index]!) === 'equipment-slot:helmet') {
+        const boundsFor = (key: string) => {
+          const index = this.focusables.findIndex(button => this.focusKeyByButton.get(button) === key);
+          return this.scrollItemBounds.get(index);
+        };
+        const slot = boundsFor('equipment-slot:helmet');
+        const equipmentRoute = boundsFor('loadout:equipment');
+        const gunsmithRoute = boundsFor('loadout:gunsmith');
+        if (slot && equipmentRoute && gunsmithRoute
+          && Math.max(equipmentRoute.bottom, gunsmithRoute.bottom) - slot.top <= rebuiltRegion.viewportHeight) {
+          rebuiltRegion.setScrollOffset(slot.top - this.scrollViewportTop);
+          this.applyScrollViewport();
+        }
+      }
       const restoredBookmark = !alignFocusedStart && retainedScrollBookmark
         ? this.restoreScrollBookmark(retainedScrollBookmark)
         : false;
