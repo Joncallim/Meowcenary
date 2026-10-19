@@ -2668,7 +2668,10 @@ export class MenuScene extends Phaser.Scene {
       .sort((a, b) => (this.scrollItemBounds.get(a)!.top - this.scrollItemBounds.get(b)!.top) || (a - b))
       .map(index => this.focusKeyByButton.get(this.focusables[index]!))
       .filter((value): value is string => value !== undefined);
-    return { anchorKey: key, intraRowOffset: Math.max(0, visibleTop - first[1].top), orderedKeys };
+    // The first surviving focusable row can begin below the viewport top
+    // after a heading or filter chip. Keep that signed gap: clamping it to
+    // zero shifts an unchanged browse surface when returning from detail.
+    return { anchorKey: key, intraRowOffset: visibleTop - first[1].top, orderedKeys };
   }
 
   private restoreScrollBookmark(bookmark: MenuScrollBookmark): boolean {
@@ -2693,7 +2696,10 @@ export class MenuScene extends Phaser.Scene {
       return false;
     }
     const rowHeight = Math.max(1, bounds.bottom - bounds.top);
-    const intra = Math.max(0, Math.min(bookmark.intraRowOffset, rowHeight));
+    // A changed layout may make the old gap larger than the new viewport.
+    // Keep the repaired row at least partly reachable while the region clamps
+    // the resulting absolute offset to its current scroll range.
+    const intra = Math.max(1 - this.scrollRegion.viewportHeight, Math.min(bookmark.intraRowOffset, rowHeight));
     this.scrollRegion.setScrollOffset(bounds.top + intra - this.scrollViewportTop);
     this.applyScrollViewport();
     return true;

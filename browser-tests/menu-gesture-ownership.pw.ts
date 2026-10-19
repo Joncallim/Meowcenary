@@ -176,19 +176,27 @@ test('current Menu rectangle owns wheel, drag, cancellation and physical release
       const candidate = fresh.diagnostic.buttons.find(button => button.key?.startsWith('equipment-candidate:') && button.interactive)!;
       expect(candidate).toBeDefined();
       if (touch || page.viewportSize()!.width < 1600) {
-        // The physical gesture assertions above leave focus on the authored
-        // slot header. Use its two-edge wide route on touch profiles; this
-        // avoids synthesizing a mouse click after a native touch session.
-        expect(fresh.diagnostic.focusedKey).toBe('equipment-slot:helmet');
+        // Pointer admission may leave focus on Browse Sets or a slot header.
+        // Traverse from the observed semantic owner to a real candidate;
+        // this also preserves the native touch session through inspection.
+        expect(fresh.diagnostic.focusedKey).toBeDefined();
         // Keep the physical key held through a real input sample. Chromium's
         // headless Ozone backend can otherwise deliver page.keyboard.press()
         // down/up before Phaser observes either edge.
-        for (const key of ['ArrowDown', 'ArrowDown', 'Enter']) {
+        const pressOwnedKey = async (key: string) => {
           await page.keyboard.down(key);
           expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
           await page.keyboard.up(key);
           expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
+        };
+        for (let step = 0; fresh.diagnostic.focusedKey !== candidate.key
+          && step < fresh.diagnostic.buttons.length; step += 1) {
+          await pressOwnedKey('ArrowDown');
+          fresh = await observe(`wide-candidate-focus-${step}`);
         }
+        expect(fresh.diagnostic.focusedKey).toBe(candidate.key);
+        expect(fresh.diagnostic.buttons.find(button => button.key === candidate.key)?.interactive).toBe(true);
+        await pressOwnedKey('Enter');
       } else {
         const candidatePoint = { x: candidate.bounds.x + candidate.bounds.width / 2,
           y: candidate.bounds.y + candidate.bounds.height / 2 };

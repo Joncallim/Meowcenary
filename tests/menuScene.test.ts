@@ -4108,6 +4108,59 @@ describe('MenuScene', () => {
     expect(target.state.interactive).toBe(false);
   });
 
+  it('restores a scroll bookmark when the viewport top is in the gap before its first row', () => {
+    const harness = createHarness({ create: false });
+    harness.context.updateEquipment(() => ({
+      equipment: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [
+        `helmet:${index}`, { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      ])),
+      loadout: {},
+    }));
+    Object.assign(harness.menuScene.scale, { width: 390, height: 844, displaySize: { width: 390, height: 844 } });
+    harness.menuScene.create();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      currentScrollBookmark(): import('../src/ui/menuSurfaces/surface').MenuScrollBookmark | undefined;
+      restoreScrollBookmark(bookmark: import('../src/ui/menuSurfaces/surface').MenuScrollBookmark): boolean;
+      scrollViewportTop: number;
+      focusables: FakeObject[];
+      focusKeyByButton: Map<FakeObject, string>;
+      scrollItemBounds: Map<number, { top: number; bottom: number }>;
+      scrollRegion: { scrollOffset: number; contentHeight: number; viewportHeight: number; setScrollOffset(offset: number): void };
+    };
+    const indexes = [...scene.scrollItemBounds.keys()]
+      .filter(index => scene.focusKeyByButton.has(scene.focusables[index]!)).slice(0, 3);
+    expect(indexes).toHaveLength(3);
+    const [first, second, third] = indexes as [number, number, number];
+    const top = scene.scrollViewportTop;
+    scene.scrollItemBounds.clear();
+    scene.scrollItemBounds.set(first, { top: top + 127, bottom: top + 187 });
+    scene.scrollItemBounds.set(second, { top: top + 207, bottom: top + 267 });
+    scene.scrollItemBounds.set(third, { top: top + 287, bottom: top + 347 });
+    scene.scrollRegion.setScrollOffset(100);
+    expect(scene.scrollRegion.scrollOffset).toBe(100);
+    const bookmark = scene.currentScrollBookmark()!;
+    expect(bookmark.intraRowOffset).toBe(-27);
+
+    scene.scrollRegion.setScrollOffset(0);
+    expect(scene.restoreScrollBookmark(bookmark)).toBe(true);
+    expect(scene.scrollRegion.scrollOffset).toBe(100);
+
+    // A reflow moves the surviving anchor; its viewport gap remains 27px.
+    scene.scrollItemBounds.set(first, { top: top + 177, bottom: top + 237 });
+    expect(scene.restoreScrollBookmark(bookmark)).toBe(true);
+    expect(scene.scrollRegion.scrollOffset).toBe(150);
+
+    // Removed content repairs to the next semantic row and remains bounded.
+    scene.scrollItemBounds.delete(first);
+    expect(scene.restoreScrollBookmark(bookmark)).toBe(true);
+    expect(scene.scrollRegion.scrollOffset).toBe(180);
+    expect(scene.scrollRegion.scrollOffset).toBeLessThanOrEqual(
+      scene.scrollRegion.contentHeight - scene.scrollRegion.viewportHeight,
+    );
+  });
+
   it('rebuilds the Achievement focus grid across portrait and wide resize without losing its selected card', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {

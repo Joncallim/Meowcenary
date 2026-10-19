@@ -48,13 +48,13 @@ const snapshot = (changes: Partial<GunsmithSnapshot> = {}): MainMenuSnapshot => 
       statChips: receiver.statChips, comparisonSummary: 'Detailed catalog comparison', sourceLabel: 'Fabricate 30 Scrap', fabricationCost: 30, affordable: true, canFabricate: true, fabricationActionLabel: 'Fabricate • 30 Scrap' }],
     workshop: [{ kind: 'merge', groupId: 'merge:receiver', ownedCount: 2, label: 'Merge receiver' }], ...changes } } as unknown as MainMenuSnapshot);
 
-function harness(width = 390, height = 844) {
+function harness(width = 390, height = 844, wrappedTraitHeight?: number) {
   const objects: ObjectView[] = [];
   const buttons: Array<{ view: ObjectView; action?: () => void; key?: string }> = [];
   const art: Array<{ id: string; width: number; height: number; framing?: readonly string[] }> = [];
   const scene = { scale: { width, height }, add: {
     container: () => new ObjectView(),
-    text: (x: number, y: number, text: string, style: unknown) => { const object = new ObjectView(x, y); object.text = text; object.style = style; object.height = 24 * text.split('\n').length; objects.push(object); return object; },
+    text: (x: number, y: number, text: string, style: unknown) => { const object = new ObjectView(x, y); object.text = text; object.style = style; object.height = text.startsWith('Trait Core •') && wrappedTraitHeight !== undefined ? wrappedTraitHeight : 24 * text.split('\n').length; objects.push(object); return object; },
   } } as unknown as Phaser.Scene;
   const controls = { addButton: (root: ObjectView, x: number, y: number, label: string, minHeight: number, action?: () => void) => {
     const view = new ObjectView(x, y); view.text = label; view.height = Math.max(minHeight, label.split('\n').length * 24); objects.push(view); root.add(view); buttons.push({ view, action }); return view; },
@@ -78,10 +78,23 @@ function harness(width = 390, height = 844) {
   const present = (state = snapshot()) => surface.present(parent as unknown as Phaser.GameObjects.Container, state, layout, 100);
   const visibleCopy = () => objects.filter(object => !object.destroyed).map(object => object.text).join('\n');
   const press = (key: string) => { const button = [...buttons].reverse().find(button => !button.view.destroyed && button.key === key); expect(button, key).toBeDefined(); button!.action!(); };
-  return { surface, present, visibleCopy, press, controls, commands, art, buttons, parent, onSnapshot, panelResources };
+  return { surface, present, visibleCopy, press, controls, commands, art, buttons, objects, parent, onSnapshot, panelResources };
 }
 
 describe('Gunsmith native flow surface', () => {
+  it.each([390, 1114, 1280])('keeps wrapped trait ranks clear of the next trait row at %ipx', (width) => {
+    const h = harness(width, 844, 64);
+    const state = snapshot();
+    h.present(snapshot({ selectedBuild: { ...state.gunsmith.selectedBuild!, preview: {
+      baseArtId: 'base:pistol', layers: [],
+      traitCores: [{ instanceId: 'core', tier: 2, rarity: 'uncommon', iconArtId: 'core:t2' }],
+      traitEmblems: [{ trait: 'PIERCING', iconArtId: 'trait:piercing' }, { trait: 'FIRE', iconArtId: 'trait:fire' }],
+    } } }));
+    const core = h.objects.find(object => object.text.startsWith('Trait Core •'))!;
+    const fire = h.objects.find(object => object.text === 'FIRE')!;
+    expect(core.height).toBe(64);
+    expect(fire.y).toBeGreaterThanOrEqual(core.y + core.height + 8);
+  });
   it('keeps compact landscape Back clear of the left-aligned screen title', () => {
     const h = harness(844, 390); h.present();
     const back = h.buttons.find(button => button.key === 'gunsmith-back')!;

@@ -825,6 +825,15 @@ test('filtered Equipment browse returns from detail with query, filter, and scro
   expect(returned.copy.join('\n')).toContain('× Search “helmet”');
   expect(returned.copy.join('\n')).toContain('× Slot: helmet');
   expect(returned.equipment?.selectedInstanceId).toBe('owned:equipment:recon-helmet');
+  await testInfo.attach('equipment-filtered-scroll-return-facts', {
+    body: JSON.stringify({ beforeDetail: beforeDetail.scroll, returned: returned.scroll }),
+    contentType: 'application/json',
+  });
+  expect(returned.scroll).toMatchObject({
+    top: beforeDetail.scroll!.top,
+    bottom: beforeDetail.scroll!.bottom,
+    contentHeight: beforeDetail.scroll!.contentHeight,
+  });
   expect(returned.scroll?.offset).toBe(browseOffset);
   await capture(page, testInfo.outputPath('equipment-filtered-return.png'));
 });

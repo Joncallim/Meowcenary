@@ -25,6 +25,7 @@ export interface MenuSurfaceLayout {
 }
 export interface MenuScrollBookmark {
   readonly anchorKey: string;
+  /** Signed distance from the anchor row's top to the viewport's content top. */
   readonly intraRowOffset: number;
   /** The old rendered order lets MenuScene repair a removed anchor by
    * successor, then predecessor, before falling back to the new first row. */

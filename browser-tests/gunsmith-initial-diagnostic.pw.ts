@@ -13,6 +13,7 @@ type Diagnostic = {
 type Seam = {
   showMenu(panel: string): boolean;
   waitForMenuPresentation(): Promise<boolean>;
+  waitForInputFrame(): Promise<boolean>;
   menuLoadoutDiagnostics(): Diagnostic;
   freeze(): Promise<void>;
   resume(): void;
@@ -130,10 +131,15 @@ test('preserves the Gunsmith prefix across held late art hydration and nonzero s
 
     const scroll = hydrated.diagnostic.scroll!;
     await page.mouse.move(page.viewportSize()!.width / 2, (scroll.top + scroll.bottom) / 2);
+    // Entering the collection can legitimately admit pointer hover on a
+    // focusable row. Wheel ownership begins from that observed focus.
+    expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.waitForInputFrame())).toBe(true);
+    const hovered = await checkpoint(page);
+    expect(hovered.diagnostic.focusedKey).toBeDefined();
     await page.mouse.wheel(0, 9000);
     await expect.poll(async () => (await checkpoint(page)).diagnostic.scroll!.offset).toBeGreaterThan(0);
     const scrolled = await checkpoint(page);
-    expect(scrolled.diagnostic.focusedKey).toBe(hydrated.diagnostic.focusedKey);
+    expect(scrolled.diagnostic.focusedKey).toBe(hovered.diagnostic.focusedKey);
     expect(scrolled.diagnostic.scroll!.offset).toBeGreaterThan(0);
     await capture('gunsmith-nonzero-scroll');
 

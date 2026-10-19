@@ -208,13 +208,15 @@ export class GunsmithSurface extends MenuPanelSurface {
       renderAssembledWeapon(this.environment.controls, root, preview, this.layout.centerX,
         y + 16 + header.height + 12 + artHeight / 2, mediaWidth, artHeight, framing);
       let traitsY = y + height;
+      let traitRowHeight = 0;
       traits.forEach((trait, index) => {
         const column = index % 2;
-        if (column === 0 && index > 0) traitsY += 40;
+        if (column === 0 && index > 0) { traitsY += traitRowHeight; traitRowHeight = 0; }
         this.environment.controls.addCatalogIcon(root, this.layout.margin + 18 + column * (this.laneWidth / 2), traitsY + 18, trait.iconArtId, 32);
-        this.copy(root, this.layout.margin + 42 + column * (this.laneWidth / 2), traitsY + 8, trait.trait, this.laneWidth / 2 - 48, '#24cec7', 13);
+        const label = this.copy(root, this.layout.margin + 42 + column * (this.laneWidth / 2), traitsY + 8, trait.trait, this.laneWidth / 2 - 48, '#24cec7', 13);
+        traitRowHeight = Math.max(traitRowHeight, 40, label.height + 16);
       });
-      return traitsY + (traits.length ? 40 : 0) + 12;
+      return traitsY + traitRowHeight + 12;
     }
 
     // On foldable/desktop widths, keep the weapon recognizable while placing
@@ -229,20 +231,19 @@ export class GunsmithSurface extends MenuPanelSurface {
     textY += summary.height + 16;
     if (sidePanel) textY = Math.max(textY, sidePanel(root, textLeft, textY, textWidth) + 8);
     const traitsPerRow = textWidth >= 300 ? 2 : 1;
-    const traitRowHeight = 42;
-    const traitRows = Math.ceil(traits.length / traitsPerRow);
-    const height = Math.max(artHeight + 32, textY - y + traitRows * traitRowHeight + 8);
+    let traitRowHeight = 0;
+    traits.forEach((trait, index) => {
+      const column = index % traitsPerRow;
+      if (column === 0 && index > 0) { textY += traitRowHeight; traitRowHeight = 0; }
+      const x = textLeft + column * (textWidth / traitsPerRow);
+      this.environment.controls.addCatalogIcon(root, x + 16, textY + 18, trait.iconArtId, 32);
+      const label = this.copy(root, x + 40, textY + 8, trait.trait, textWidth / traitsPerRow - 48, '#24cec7', 13);
+      traitRowHeight = Math.max(traitRowHeight, 42, label.height + 16);
+    });
+    const height = Math.max(artHeight + 32, textY - y + traitRowHeight + 8);
     this.backdrop(root, this.layout.margin, y, this.laneWidth, height);
     renderAssembledWeapon(this.environment.controls, root, preview, this.layout.margin + 16 + mediaWidth / 2,
       y + 16 + artHeight / 2, mediaWidth, artHeight, framing);
-    traits.forEach((trait, index) => {
-      const column = index % traitsPerRow;
-      const row = Math.floor(index / traitsPerRow);
-      const x = textLeft + column * (textWidth / traitsPerRow);
-      const traitY = textY + row * traitRowHeight;
-      this.environment.controls.addCatalogIcon(root, x + 16, traitY + 18, trait.iconArtId, 32);
-      this.copy(root, x + 40, traitY + 8, trait.trait, textWidth / traitsPerRow - 48, '#24cec7', 13);
-    });
     return y + height + 12;
   }
   private buildSlotPanel(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot,
