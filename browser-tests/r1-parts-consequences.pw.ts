@@ -47,15 +47,20 @@ async function capture(page: Page, testInfo: TestInfo, name: string): Promise<vo
   finally { await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_VISUAL_TEST__.resume()); }
   await testInfo.attach(name, { path, contentType: 'image/png' });
 }
-async function scrollReviewToTop(page: Page, visibleText: string): Promise<void> {
-  const rectangle = (await diagnostic(page)).scroll?.rectangle;
-  expect(rectangle, 'Review must expose a scroll rectangle').toBeDefined();
-  await page.mouse.move(rectangle!.x + rectangle!.width / 2, rectangle!.y + rectangle!.height / 2);
-  await page.mouse.wheel(0, -9000);
-  await settle(page);
-  const review = await diagnostic(page);
-  expect(review.scroll?.offset).toBe(0);
-  expect(review.copyBounds.some(entry => entry.text.includes(visibleText) && entry.visible)).toBe(true);
+async function scrollReviewToText(page: Page, visibleText: string): Promise<void> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const review = await diagnostic(page);
+    const scroll = review.scroll;
+    const entry = review.copyBounds.find(item => item.text.includes(visibleText));
+    expect(scroll?.rectangle, 'Review must expose a scroll rectangle').toBeDefined();
+    expect(entry, `Review must contain ${visibleText}`).toBeDefined();
+    if (entry!.visible && entry!.bounds.y >= scroll!.top + 4 && entry!.bounds.y < scroll!.bottom - 24) return;
+    const rectangle = scroll!.rectangle!;
+    await page.mouse.move(rectangle.x + rectangle.width / 2, rectangle.y + rectangle.height / 2);
+    await page.mouse.wheel(0, entry!.bounds.y - scroll!.top - 48);
+    await settle(page);
+  }
+  throw new Error(`Could not bring ${visibleText} inside the review viewport`);
 }
 async function setup(page: Page, gunsmith: object): Promise<void> {
   await page.addInitScript(({ key, state }) => {
@@ -134,7 +139,7 @@ test('nonselected SMG infusion shows the retained target and gained FIRE through
   expect(copy).toContain('Gains SMG • FIRE');
   expect(copy).toContain('Affected build/slot: Infusion SMG • RECEIVER');
   await capture(page, testInfo, 'infusion-retained-target-truth.png');
-  await scrollReviewToTop(page, 'AFFECTED BUILD');
+  await scrollReviewToText(page, 'AFFECTED BUILD');
   await capture(page, testInfo, 'infusion-retained-target-overview.png');
   const before = JSON.parse((await saved(page))!);
   await failThenRetry(page, 'gunsmith-confirm', 'Affected build/slot: Infusion SMG • RECEIVER', testInfo, 'infusion-failed-save.png');
