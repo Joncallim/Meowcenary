@@ -6,6 +6,7 @@ import {
   operationCanSettle,
   selectHumanAutoTarget,
   validateIntegratedFixture,
+  fixtureRangeDamage,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -40,4 +41,9 @@ describe('INT-FB integrated browser-slice fixture', () => {
     expect(selectHumanAutoTarget({ candidates, ownedDesignationId: 'hidden-near', retainedTargetId: 'enemy-b' })?.actorId).toBe('enemy-b');
     expect(selectHumanAutoTarget({ candidates, ownedDesignationId: 'enemy-b', retainedTargetId: 'enemy-a' })?.actorId).toBe('enemy-b');
   });
+});
+
+it('deals no fixture damage outside the pinned TAB maximum range', () => {
+  expect(fixtureRangeDamage(24, 30)).toBe(30);
+  expect(fixtureRangeDamage(24.01, 30)).toBe(0);
 });

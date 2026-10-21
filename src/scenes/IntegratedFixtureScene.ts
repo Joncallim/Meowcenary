@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SceneKey } from '../engine/sceneKeys';
-import { INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, operationCanSettle, type FixtureJobId, validateIntegratedFixture } from '../gameplay/integratedFixture';
+import { fixtureRangeDamage, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, operationCanSettle, type FixtureJobId, validateIntegratedFixture } from '../gameplay/integratedFixture';
 
 const SCALE = 10;
 const SPEED = 12;
@@ -19,6 +19,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private enemyHp = [90, 90];
   private tabbyCadence = 0.1;
   private houndCadence = 0.1;
+  private hound?: Phaser.GameObjects.Arc;
+  private enemies: Phaser.GameObjects.Arc[] = [];
 
   constructor() { super(SceneKey.IntegratedFixture); }
 
@@ -38,6 +40,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       this.add.circle(point.x * SCALE, point.z * SCALE, 5, point.role === 'service' ? 0x3ee8a9 : 0xffd166).setStrokeStyle(1, 0x0b1118);
     }
     this.lead = this.add.circle(8 * SCALE, 11 * SCALE, 7, 0x71d8ff).setStrokeStyle(2, 0xffffff);
+    this.hound = this.add.circle(65, 110, 6, 0x84e6a0).setStrokeStyle(2, 0xffffff);
+    this.enemies = [this.add.circle(350, 380, 7, 0xef6b73), this.add.circle(370, 400, 7, 0xef6b73)];
     this.status = this.add.text(12, 12, '', { fontFamily: 'Nunito, sans-serif', fontSize: '15px', color: '#ffffff', backgroundColor: '#101820dd', padding: { x: 8, y: 6 }, wordWrap: { width: 350 } }).setScrollFactor(0).setDepth(10);
     this.keys = this.input.keyboard?.createCursorKeys();
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => { this.touchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); });
@@ -74,12 +78,14 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     }
     if (this.combatActive) {
       this.tabbyCadence -= delta / 1000; this.houndCadence -= delta / 1000;
-      const hit = (damage: number) => { const index = this.enemyHp.findIndex(hp => hp > 0); if (index >= 0) this.enemyHp[index]! = Math.max(0, this.enemyHp[index]! - damage); };
+      const hit = (damage: number) => { const index = this.enemyHp.findIndex(hp => hp > 0); if (index >= 0) { const enemy = this.enemies[index]!; const distance = Phaser.Math.Distance.Between(this.lead!.x, this.lead!.y, enemy.x, enemy.y) / SCALE; this.enemyHp[index]! = Math.max(0, this.enemyHp[index]! - fixtureRangeDamage(distance, damage)); } };
       while (this.tabbyCadence <= 0 && this.enemyHp.some(hp => hp > 0)) { hit(30); this.tabbyCadence += 0.25; }
       while (this.houndCadence <= 0 && this.enemyHp.some(hp => hp > 0)) { hit(14); this.houndCadence += 0.10; }
       this.groupCleared = this.enemyHp.every(hp => hp === 0);
+      this.enemies.forEach((enemy, index) => enemy.setAlpha(this.enemyHp[index] === 0 ? 0.2 : 1));
       this.refreshStatus();
     }
+    if (this.hound) { this.hound.x += (this.lead.x - 15 - this.hound.x) * Math.min(1, delta / 150); this.hound.y += (this.lead.y - this.hound.y) * Math.min(1, delta / 150); }
   }
 
   private selectJob(jobId: FixtureJobId): void { this.jobId = jobId; this.completed.clear(); this.groupCleared = false; this.extracted = false; this.refreshStatus(); }

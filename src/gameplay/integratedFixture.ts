@@ -158,3 +158,7 @@ export function validateIntegratedFixture(): readonly string[] {
   if (!INTEGRATED_FIXTURE_SURFACES.some(surface => surface.kind === 'bridge') || !INTEGRATED_FIXTURE_SURFACES.some(surface => surface.kind === 'underpass')) errors.push('missing-layered-overlap');
   return Object.freeze(errors);
 }
+
+export function fixtureRangeDamage(distanceMetres: number, rawDamage: number): number {
+  return Number.isFinite(distanceMetres) && distanceMetres >= 0 && distanceMetres <= 24 ? rawDamage : 0;
+}
