@@ -159,6 +159,7 @@ export class BootScene extends Phaser.Scene {
     this.registry.set(AUDIO_MANAGER_REGISTRY_KEY, audio);
 
     if (started !== undefined) performanceProbe?.record('boot.create', started);
-    this.scene.start(SceneKey.Menu);
+    const fixtureRoute = new URLSearchParams(globalThis.location?.search ?? '').get('fixture');
+    this.scene.start(fixtureRoute === 'int-fb' ? SceneKey.IntegratedFixture : SceneKey.Menu);
   }
 }
