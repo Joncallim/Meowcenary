@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { SceneKey } from '../engine/sceneKeys';
-import { commitFixtureWorkshop, createIntegratedFixtureSave, createIntegratedFixtureWorkshopProfile, deserializeIntegratedFixtureSave, fixtureDialogue, INTEGRATED_FIXTURE_SAVE_KEY, IntegratedFixtureCombat, IntegratedFixtureOperation, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, resolveFixtureTakeover, settleFixtureWorkshopMission, settleIntegratedFixtureJob, type FixtureJobId, type FixtureMissionSave, type FixtureWorkshopProfile, validateIntegratedFixture } from '../gameplay/integratedFixture';
+import { createUiText } from '../ui/text';
+import { commitAndPersistFixtureWorkshop, createIntegratedFixtureSave, createIntegratedFixtureWorkshopProfile, deserializeIntegratedFixtureSave, deserializeIntegratedFixtureWorkshopProfile, fixtureDialogue, INTEGRATED_FIXTURE_SAVE_KEY, IntegratedFixtureCombat, IntegratedFixtureOperation, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, resolveFixtureTakeover, settleFixtureWorkshopMission, settleIntegratedFixtureJob, type FixtureJobId, type FixtureMissionSave, type FixtureWorkshopAction, type FixtureWorkshopProfile, validateIntegratedFixture } from '../gameplay/integratedFixture';
 
 const SCALE = 10;
 const SPEED = 12;
@@ -22,7 +23,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private workshopProfile: FixtureWorkshopProfile = createIntegratedFixtureWorkshopProfile();
   private controlledActor: 'tabby' | 'hound' = 'tabby';
   private takeoverPrompt?: Phaser.GameObjects.Text;
-  private buyPreview = false;
+  private workshopPreview?: FixtureWorkshopAction;
+  private workshopModal?: Phaser.GameObjects.Container;
   private combatFeedback = 'No hostile contact.';
   private hound?: Phaser.GameObjects.Arc;
   private enemies: Phaser.GameObjects.Arc[] = [];
@@ -37,7 +39,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       if (envelope) {
         const parsed = JSON.parse(envelope) as { mission?: FixtureMissionSave; workshop?: FixtureWorkshopProfile };
         this.fixtureSave = deserializeIntegratedFixtureSave(JSON.stringify(parsed.mission));
-        if (parsed.workshop?.wallet && Array.isArray(parsed.workshop.owned) && parsed.workshop.gunSlots) this.workshopProfile = parsed.workshop;
+        this.workshopProfile = deserializeIntegratedFixtureWorkshopProfile(parsed.workshop);
       } else this.fixtureSave = deserializeIntegratedFixtureSave(localStorage.getItem(INTEGRATED_FIXTURE_SAVE_KEY));
     } catch { this.fixtureSave = createIntegratedFixtureSave(); this.workshopProfile = createIntegratedFixtureWorkshopProfile(); }
     const width = INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE;
@@ -47,7 +49,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     for (const surface of INTEGRATED_FIXTURE_SURFACES) {
       this.add.rectangle((surface.x + surface.width / 2) * SCALE, (surface.z + surface.depth / 2) * SCALE,
         surface.width * SCALE, surface.depth * SCALE, colors[surface.kind] ?? 0x555555, 0.95).setStrokeStyle(2, 0xb7d5da);
-      this.add.text((surface.x + 0.5) * SCALE, (surface.z + 0.5) * SCALE, surface.id.replace('INT-FB-', ''), { fontFamily: 'Nunito, sans-serif', fontSize: '11px', color: '#e9f3f5' });
+      createUiText(this, (surface.x + 0.5) * SCALE, (surface.z + 0.5) * SCALE, surface.id.replace('INT-FB-', ''), { fontFamily: 'Nunito, sans-serif', fontSize: '11px', color: '#e9f3f5' });
     }
     for (const point of INTEGRATED_FIXTURE_POINTS) {
       this.add.circle(point.x * SCALE, point.z * SCALE, 5, point.role === 'service' ? 0x3ee8a9 : 0xffd166).setStrokeStyle(1, 0x0b1118);
@@ -56,7 +58,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.hound = this.add.circle(65, 110, 6, 0x84e6a0).setStrokeStyle(2, 0xffffff);
     this.enemies = [this.add.circle(350, 380, 7, 0xef6b73), this.add.circle(370, 400, 7, 0xef6b73)];
     this.enemies.forEach(enemy => enemy.setVisible(false));
-    this.status = this.add.text(12, 12, '', { fontFamily: 'Nunito, sans-serif', fontSize: '15px', color: '#ffffff', backgroundColor: '#101820dd', padding: { x: 8, y: 6 }, wordWrap: { width: 350 } }).setScrollFactor(0).setDepth(10);
+    this.status = createUiText(this, 12, 12, '', { fontFamily: 'Nunito, sans-serif', fontSize: '15px', color: '#ffffff', backgroundColor: '#101820dd', padding: { x: 8, y: 6 }, wordWrap: { width: 350 } }).setScrollFactor(0).setDepth(10);
     this.keys = this.input.keyboard?.createCursorKeys();
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => { this.touchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); });
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (pointer.isDown) this.touchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); });
@@ -70,15 +72,22 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-E', () => this.interact());
     this.input.keyboard?.on('keydown-Q', () => this.swapGun());
     this.input.keyboard?.on('keydown-T', () => this.confirmTakeover());
-    this.input.keyboard?.on('keydown-B', () => this.buyF2());
+    this.input.keyboard?.on('keydown-B', () => this.openWorkshopMenu());
+    this.input.keyboard?.on('keydown-F', () => this.openWorkshop('fit-f2-a'));
+    this.input.keyboard?.on('keydown-G', () => this.openWorkshop('build-b3'));
+    this.input.keyboard?.on('keydown-D', () => this.openWorkshop('develop-b2'));
+    this.input.keyboard?.on('keydown-L', () => this.openWorkshop('claim-h2'));
+    this.input.keyboard?.on('keydown-S', () => this.openWorkshop('sell-h2'));
+    this.input.keyboard?.on('keydown-ENTER', () => this.confirmWorkshop());
+    this.input.keyboard?.on('keydown-ESC', () => this.cancelWorkshop());
     this.add.rectangle(76, this.scale.height - 48, 124, 58, 0x7393d8, 0.95).setScrollFactor(0).setDepth(10);
-    this.add.text(76, this.scale.height - 48, 'SWAP\nQ', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
+    createUiText(this, 76, this.scale.height - 48, 'SWAP\nQ', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
     this.add.rectangle(this.scale.width - 76, this.scale.height - 48, 124, 58, 0x24cec7, 0.95).setScrollFactor(0).setDepth(10);
-    this.add.text(this.scale.width - 76, this.scale.height - 48, 'INTERACT\nE', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
-    this.add.rectangle(this.scale.width / 2, this.scale.height - 48, 110, 58, 0xf6c85f, 0.95).setScrollFactor(0).setDepth(10);
-    this.add.text(this.scale.width / 2, this.scale.height - 48, 'BUY F2\nB', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
+    createUiText(this, this.scale.width - 76, this.scale.height - 48, 'INTERACT\nE', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
+    this.add.rectangle(this.scale.width / 2, this.scale.height - 48, 110, 58, 0xf6c85f, 0.95).setScrollFactor(0).setDepth(10).setInteractive().on('pointerup', () => this.openWorkshopMenu());
+    createUiText(this, this.scale.width / 2, this.scale.height - 48, 'WORKSHOP\nB', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
     this.cameras.main.startFollow(this.lead, true, 0.15, 0.15);
-    this.takeoverPrompt = this.add.text(this.scale.width / 2, this.scale.height / 2, '', { fontFamily: 'Nunito, sans-serif', fontSize: '18px', color: '#ffffff', backgroundColor: '#34151bdd', align: 'center', padding: { x: 12, y: 10 } }).setOrigin(0.5).setScrollFactor(0).setDepth(20).setVisible(false);
+    this.takeoverPrompt = createUiText(this, this.scale.width / 2, this.scale.height / 2, '', { fontFamily: 'Nunito, sans-serif', fontSize: '18px', color: '#ffffff', backgroundColor: '#34151bdd', align: 'center', padding: { x: 12, y: 10 } }).setOrigin(0.5).setScrollFactor(0).setDepth(20).setVisible(false);
     this.refreshStatus();
     Object.defineProperty(globalThis, '__MEOWCENARY_INT_FB__', { configurable: true, value: { diagnostics: () => this.diagnostics() } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_INT_FB__; });
@@ -134,13 +143,43 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.combatFeedback = 'Hound has taken control. Squad contract remains active.';
     this.refreshStatus();
   }
-  private buyF2(): void {
-    if (!this.buyPreview) { this.buyPreview = true; this.combatFeedback = 'Preview: TAB-F2 Long Drum · 1650 Credits · sealed factory · press B to confirm.'; this.refreshStatus(); return; }
-    const result = commitFixtureWorkshop(this.workshopProfile, `ui:buy-f2:${this.workshopProfile.receipts.length}`, 'buy-f2');
-    if (!result.applied) { this.buyPreview = false; this.combatFeedback = `Buy rejected: ${result.reason ?? 'invalid'}.`; this.refreshStatus(); return; }
-    try { localStorage.setItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:profile`, JSON.stringify({ version: 'int-fb-profile-v1', mission: this.fixtureSave, workshop: result.profile })); }
-    catch { this.buyPreview = false; this.combatFeedback = 'Buy storage failed; no debit or item applied.'; this.refreshStatus(); return; }
-    this.workshopProfile = result.profile; this.buyPreview = false; this.combatFeedback = 'Bought TAB-F2 Long Drum; 1650 Credits debited.'; this.refreshStatus();
+  private atService(): boolean { return !!this.lead && Math.hypot(this.lead.x - 80, this.lead.y - 80) < 55; }
+  private openWorkshopMenu(): void {
+    if (!this.atService()) { this.combatFeedback = 'Workshop unavailable: move Tabby to safe service.'; this.refreshStatus(); return; }
+    this.workshopPreview = undefined; this.workshopModal?.destroy();
+    const panel = this.add.container(this.scale.width / 2, this.scale.height / 2).setScrollFactor(0).setDepth(30);
+    const actions: readonly [FixtureWorkshopAction, string][] = [['buy-f2', 'BUY F2'], ['fit-f2-a', 'FIT F2'], ['claim-h2', 'CLAIM H2'], ['sell-h2', 'SELL H2'], ['build-b3', 'BUILD B3'], ['fit-b3-a', 'FIT B3'], ['develop-b2', 'DEVELOP B2']];
+    panel.add(this.add.rectangle(0, 0, Math.min(460, this.scale.width - 20), 330, 0x0b1118, .98).setStrokeStyle(2, 0xf6c85f));
+    panel.add(createUiText(this, 0, -135, `SAFE SERVICE WORKSHOP\nCredits ${this.workshopProfile.wallet.credits} · Metal ${this.workshopProfile.wallet.metal} · Circuits ${this.workshopProfile.wallet.circuits}`, { align: 'center', fontSize: '14px', color: '#fff' }).setOrigin(.5));
+    actions.forEach(([action, label], index) => { const x = (index % 2 ? 90 : -90); const y = -65 + Math.floor(index / 2) * 58; const button = this.add.rectangle(x, y, 155, 42, 0x7393d8).setInteractive(); const text = createUiText(this, x, y, label, { fontSize: '13px', color: '#071018' }).setOrigin(.5); button.on('pointerup', () => this.openWorkshop(action)); panel.add([button, text]); });
+    const close = createUiText(this, 0, 135, 'CLOSE / ESC', { fontSize: '13px', color: '#fff' }).setOrigin(.5).setInteractive(); close.on('pointerup', () => this.cancelWorkshop()); panel.add(close); this.workshopModal = panel;
+  }
+  private openWorkshop(action: FixtureWorkshopAction): void {
+    if (!this.atService()) { this.combatFeedback = 'Workshop unavailable: move Tabby to safe service.'; this.refreshStatus(); return; }
+    this.workshopPreview = action;
+    this.workshopModal?.destroy();
+    const labels: Record<FixtureWorkshopAction, string> = { 'buy-f2': 'Buy TAB-F2 — 1650 Credits', 'fit-f2-a': 'Fit owned TAB-F2 to TAB-A — free', 'claim-h2': 'Claim discovered HOU-H2 — free', 'sell-h2': 'Sell unassigned HOU-H2 — +540 Credits', 'build-b3': 'Build TAB-B3 T1 — 1000 Credits / 40 Metal / 8 Circuits', 'fit-b3-a': 'Fit owned TAB-B3 to TAB-A — free', 'develop-b2': 'Develop gift TAB-B2 T1 → T2 — 500 Credits / 20 Metal / 4 Circuits' };
+    const panel = this.add.container(this.scale.width / 2, this.scale.height / 2).setScrollFactor(0).setDepth(30);
+    const background = this.add.rectangle(0, 0, Math.min(500, this.scale.width - 20), 220, 0x0b1118, 0.98).setStrokeStyle(2, 0x24cec7);
+    const text = createUiText(this, 0, -58, `WORKSHOP PREVIEW\n${labels[action]}\nNo wallet, item, claim, or assignment changes until confirmed.`, { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '15px', color: '#ffffff', wordWrap: { width: Math.min(450, this.scale.width - 50) } }).setOrigin(.5);
+    const confirm = this.add.rectangle(-85, 65, 140, 45, 0x3ee8a9).setInteractive();
+    const cancel = this.add.rectangle(85, 65, 140, 45, 0xef6b73).setInteractive();
+    const yes = createUiText(this, -85, 65, 'CONFIRM\nENTER', { align: 'center', fontSize: '13px', color: '#071018' }).setOrigin(.5);
+    const no = createUiText(this, 85, 65, 'CANCEL\nESC', { align: 'center', fontSize: '13px', color: '#071018' }).setOrigin(.5);
+    confirm.on('pointerup', () => this.confirmWorkshop()); cancel.on('pointerup', () => this.cancelWorkshop());
+    panel.add([background, text, confirm, cancel, yes, no]); this.workshopModal = panel;
+    this.combatFeedback = `Preview ready: ${labels[action]}`; this.refreshStatus();
+  }
+  private cancelWorkshop(): void { if (!this.workshopPreview && !this.workshopModal) return; this.workshopPreview = undefined; this.workshopModal?.destroy(); this.workshopModal = undefined; this.combatFeedback = 'Workshop preview cancelled; nothing changed.'; this.refreshStatus(); }
+  private confirmWorkshop(): void {
+    const action = this.workshopPreview;
+    if (!action) return;
+    if (!this.atService()) { this.cancelWorkshop(); this.combatFeedback = 'Workshop confirmation rejected: safe service required.'; this.refreshStatus(); return; }
+    const commandId = `ui:${action}:${this.workshopProfile.revision}`;
+    const result = commitAndPersistFixtureWorkshop(this.workshopProfile, { commandId, expectedRevision: this.workshopProfile.revision, action }, candidate => localStorage.setItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:profile`, JSON.stringify({ version: 'int-fb-envelope-v2', mission: this.fixtureSave, workshop: candidate })));
+    if (!result.applied) { this.cancelWorkshop(); this.combatFeedback = result.reason === 'storage-failed' ? 'Workshop storage failed; no debit, item, or assignment was applied.' : `Workshop rejected: ${result.reason ?? 'invalid'}.`; this.refreshStatus(); return; }
+    this.workshopProfile = result.profile; this.workshopPreview = undefined; this.workshopModal?.destroy(); this.workshopModal = undefined;
+    this.combatFeedback = `Workshop saved: ${action.replaceAll('-', ' ')} (receipt ${result.receipt!.commandId}).`; this.refreshStatus();
   }
   private interact(): void {
     if (!this.lead) return;
@@ -177,9 +216,9 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const phase = this.operation.snapshot().phase;
     this.status?.setText(job ? `INT-FB ${job.id} · ${phase}\n${this.extracted ? 'COMPLETE — isolated receipt saved' : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${hostiles} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nTAB ${this.combat.actorHealth('tabby').toFixed(0)} HP · ${tabbyGun.instanceId.split(':').at(-1)} ${tabbyGun.supply} · HOU ${this.combat.actorHealth('hound').toFixed(0)} HP\n${this.combatFeedback}\nMove to offer/markers/spawn/extraction; tap INTERACT or E; swap TAB gun with Q`}` : `INT-FB proving ground\n${this.fixtureSave.receipts.length} isolated receipt(s) loaded. Choose R01 (1 / left side) or F01 (2 / right side).\nWASD/arrows or touch-hold to move.`);
   }
-  public diagnostics(): Readonly<{ scene: string; x: number; y: number; jobId?: FixtureJobId; phase: string; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGun: string; hostiles: number }> {
+  public diagnostics(): Readonly<{ scene: string; x: number; y: number; jobId?: FixtureJobId; phase: string; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGun: string; hostiles: number; workshopRevision: number; workshopCredits: number; workshopParts: number; workshopPreview?: FixtureWorkshopAction }> {
     return Object.freeze({ scene: this.scene.key, x: this.lead?.x ?? 0, y: this.lead?.y ?? 0, jobId: this.jobId, extracted: this.extracted,
       phase: this.operation.snapshot().phase, combatActive: this.combatActive, groupCleared: this.groupCleared, tabbyHealth: this.combat.actorHealth('tabby'), houndHealth: this.combat.actorHealth('hound'), tabbyGun: this.combat.activeGun('tabby').instanceId,
-      hostiles: this.combat.hostileStates().filter(hostile => hostile.health > 0).length });
+      hostiles: this.combat.hostileStates().filter(hostile => hostile.health > 0).length, workshopRevision: this.workshopProfile.revision, workshopCredits: this.workshopProfile.wallet.credits, workshopParts: this.workshopProfile.parts.length, workshopPreview: this.workshopPreview });
   }
 }

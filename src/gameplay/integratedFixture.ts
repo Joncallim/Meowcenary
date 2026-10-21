@@ -205,35 +205,106 @@ export function resolveFixtureTakeover(tabbyHealth: number, houndHealth: number,
   return confirmed ? 'recovered' : 'takeover-required';
 }
 
-export type FixturePartId = 'TAB-B2-GIFT' | 'TAB-F2' | 'HOU-H2-LOOT' | 'TAB-B3';
+export type FixturePartKind = 'R1' | 'B1' | 'F1' | 'P1' | 'H1' | 'C1' | 'B2' | 'F2' | 'H2' | 'B3';
+export type FixtureGunId = 'TAB-A' | 'TAB-B' | 'HOU-A' | 'HOU-B';
+export type FixtureSlot = 'R' | 'B' | 'F' | 'P' | 'H' | 'C';
+export type FixtureWorkshopAction = 'buy-f2' | 'claim-h2' | 'sell-h2' | 'build-b3' | 'develop-b2' | 'fit-f2-a' | 'fit-b3-a';
 export interface FixtureWallet { readonly credits: number; readonly metal: number; readonly circuits: number; readonly cloth: number; readonly flux: number; }
-export interface FixtureWorkshopProfile { readonly wallet: FixtureWallet; readonly owned: readonly (FixturePartId | string)[]; readonly assigned: Readonly<Record<'TAB-A' | 'TAB-B', FixturePartId | undefined>>; readonly gunSlots: Readonly<Record<'TAB-A' | 'TAB-B' | 'HOU-A' | 'HOU-B', Readonly<Record<'R' | 'B' | 'F' | 'P' | 'H' | 'C', string>>>>; readonly claims: readonly string[]; readonly receipts: readonly string[]; readonly developed: boolean; }
+export interface FixturePart { readonly instanceId: string; readonly kind: FixturePartKind; readonly family: 'TAB' | 'HOU'; readonly slot: FixtureSlot; readonly protectedBaseline: boolean; readonly sealedFactory: boolean; readonly tier: 1 | 2 | null; readonly refinement: 'Balanced' | null; readonly maker: string; readonly provenance: string; readonly version: number; }
+export interface FixtureWorkshopReceipt { readonly commandId: string; readonly action: FixtureWorkshopAction | 'mission'; readonly revision: number; readonly outputIds: readonly string[]; }
+export interface FixtureWorkshopProfile { readonly version: 'int-fb-profile-v2'; readonly revision: number; readonly wallet: FixtureWallet; readonly parts: readonly FixturePart[]; readonly gunSlots: Readonly<Record<FixtureGunId, Readonly<Record<FixtureSlot, string>>>>; readonly claims: readonly string[]; readonly receipts: readonly FixtureWorkshopReceipt[]; }
+export interface FixtureWorkshopCommand { readonly commandId: string; readonly expectedRevision: number; readonly action: FixtureWorkshopAction; }
+type SlotMap = Record<FixtureGunId, Record<FixtureSlot, string>>;
+const fixtureGuns: readonly FixtureGunId[] = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'];
+const fixtureSlots: readonly FixtureSlot[] = ['R', 'B', 'F', 'P', 'H', 'C'];
+const familyForGun = (gun: FixtureGunId): 'TAB' | 'HOU' => gun.slice(0, 3) as 'TAB' | 'HOU';
+const freezeProfile = (profile: Omit<FixtureWorkshopProfile, 'version'>): FixtureWorkshopProfile => Object.freeze({ version: 'int-fb-profile-v2', ...profile, wallet: Object.freeze({ ...profile.wallet }), parts: Object.freeze(profile.parts.map(part => Object.freeze({ ...part }))), gunSlots: Object.freeze(Object.fromEntries(fixtureGuns.map(gun => [gun, Object.freeze({ ...profile.gunSlots[gun] })])) as FixtureWorkshopProfile['gunSlots']), claims: Object.freeze([...profile.claims]), receipts: Object.freeze(profile.receipts.map(receipt => Object.freeze({ ...receipt, outputIds: Object.freeze([...receipt.outputIds]) }))) });
 export function createIntegratedFixtureWorkshopProfile(): FixtureWorkshopProfile {
-  const baseline = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'].flatMap(merc => ['R', 'B', 'F', 'P', 'H', 'C'].map(slot => `INT-B1-${merc}-${slot}-BASE`));
-  const owned: readonly (FixturePartId | string)[] = Object.freeze([...baseline, 'TAB-B2-GIFT']);
-  const slots = Object.freeze(Object.fromEntries(['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'].map(gun => [gun, Object.freeze(Object.fromEntries(['R', 'B', 'F', 'P', 'H', 'C'].map(slot => [slot, `INT-B1-${gun}-${slot}-BASE`])))]))) as FixtureWorkshopProfile['gunSlots'];
-  const gunSlots = Object.freeze({ ...slots, 'TAB-B': Object.freeze({ ...slots['TAB-B'], B: 'TAB-B2-GIFT' }) });
-  return Object.freeze({ wallet: Object.freeze({ credits: 3000, metal: 80, circuits: 16, cloth: 12, flux: 3 }), owned, assigned: Object.freeze({ 'TAB-A': undefined, 'TAB-B': 'TAB-B2-GIFT' }), gunSlots, claims: Object.freeze([]), receipts: Object.freeze([]), developed: false });
+  const parts: FixturePart[] = [];
+  const gunSlots = {} as SlotMap;
+  for (const gun of fixtureGuns) {
+    gunSlots[gun] = {} as Record<FixtureSlot, string>;
+    for (const slot of fixtureSlots) {
+      const kind = `${slot}1` as FixturePartKind;
+      const instanceId = `INT-B1-${gun}-${slot}-BASE`;
+      parts.push({ instanceId, kind, family: familyForGun(gun), slot, protectedBaseline: true, sealedFactory: true, tier: null, refinement: null, maker: slot === 'C' ? 'Needlebank Instruments' : 'Rivetwake Heavy Works', provenance: 'factory baseline', version: 1 });
+      gunSlots[gun][slot] = instanceId;
+    }
+  }
+  const gift: FixturePart = { instanceId: 'INT-B1-TAB-B2-GIFT', kind: 'B2', family: 'TAB', slot: 'B', protectedBaseline: false, sealedFactory: false, tier: 1, refinement: 'Balanced', maker: 'Needlebank Instruments', provenance: 'C01.2 first-barrel fixture grant', version: 1 };
+  parts.push(gift); gunSlots['TAB-B'].B = gift.instanceId;
+  return freezeProfile({ revision: 0, wallet: { credits: 3000, metal: 80, circuits: 16, cloth: 12, flux: 3 }, parts, gunSlots, claims: [], receipts: [] });
 }
-function fixtureProfile(profile: FixtureWorkshopProfile, commandId: string, wallet: FixtureWallet, owned = profile.owned, assigned = profile.assigned, claims = profile.claims, developed = profile.developed, gunSlots = profile.gunSlots): FixtureWorkshopProfile {
-  return Object.freeze({ wallet: Object.freeze(wallet), owned: Object.freeze([...owned]), assigned: Object.freeze({ ...assigned }), gunSlots: Object.freeze(gunSlots), claims: Object.freeze([...claims]), developed, receipts: Object.freeze([...profile.receipts, commandId]) });
+/** Reject malformed/legacy envelopes rather than ever rewriting the normal game save. */
+export function deserializeIntegratedFixtureWorkshopProfile(value: unknown): FixtureWorkshopProfile {
+  if (!value || typeof value !== 'object') return createIntegratedFixtureWorkshopProfile();
+  const raw = value as Partial<FixtureWorkshopProfile>;
+  if (raw.version !== 'int-fb-profile-v2' || !Number.isInteger(raw.revision) || raw.revision! < 0 || !raw.wallet || !Array.isArray(raw.parts) || !raw.gunSlots || !Array.isArray(raw.claims) || !Array.isArray(raw.receipts)) return createIntegratedFixtureWorkshopProfile();
+  const wallet = raw.wallet;
+  if (!['credits', 'metal', 'circuits', 'cloth', 'flux'].every(key => Number.isFinite(wallet[key as keyof FixtureWallet]) && wallet[key as keyof FixtureWallet]! >= 0)) return createIntegratedFixtureWorkshopProfile();
+  const profile = freezeProfile({ revision: raw.revision!, wallet, parts: raw.parts as FixturePart[], gunSlots: raw.gunSlots as FixtureWorkshopProfile['gunSlots'], claims: raw.claims as string[], receipts: raw.receipts as FixtureWorkshopReceipt[] });
+  return legalSlots(profile) && new Set(profile.parts.map(candidate => candidate.instanceId)).size === profile.parts.length ? profile : createIntegratedFixtureWorkshopProfile();
+}
+function part(profile: FixtureWorkshopProfile, instanceId: string): FixturePart | undefined { return profile.parts.find(candidate => candidate.instanceId === instanceId); }
+function assigned(profile: FixtureWorkshopProfile, instanceId: string): boolean { return fixtureGuns.some(gun => fixtureSlots.some(slot => profile.gunSlots[gun][slot] === instanceId)); }
+function legalSlots(profile: FixtureWorkshopProfile): boolean {
+  const seen = new Set<string>();
+  return fixtureGuns.every(gun => fixtureSlots.every(slot => { const candidate = part(profile, profile.gunSlots[gun][slot]); return !!candidate && candidate.family === familyForGun(gun) && candidate.slot === slot && !seen.has(candidate.instanceId) && (seen.add(candidate.instanceId), true); }));
+}
+function finish(profile: FixtureWorkshopProfile, commandId: string, action: FixtureWorkshopReceipt['action'], next: Omit<FixtureWorkshopProfile, 'version' | 'revision' | 'receipts'>, outputIds: readonly string[] = []): FixtureWorkshopProfile {
+  const revision = profile.revision + 1;
+  return freezeProfile({ ...next, revision, receipts: [...profile.receipts, { commandId, action, revision, outputIds }] });
+}
+function reject(profile: FixtureWorkshopProfile, reason: string): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean; reason: string; receipt?: FixtureWorkshopReceipt }> { return Object.freeze({ profile, applied: false, reason }); }
+/** Pure transaction preparation. A caller must persist result.profile before publishing it. */
+export function commitFixtureWorkshop(profile: FixtureWorkshopProfile, command: FixtureWorkshopCommand): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean; reason?: string; receipt?: FixtureWorkshopReceipt }> {
+  const prior = profile.receipts.find(receipt => receipt.commandId === command.commandId);
+  if (prior) return Object.freeze({ profile, applied: false, reason: 'duplicate-command', receipt: prior });
+  if (!command.commandId) return reject(profile, 'missing-command');
+  if (command.expectedRevision !== profile.revision) return reject(profile, 'stale-revision');
+  if (!legalSlots(profile)) return reject(profile, 'invalid-assignments');
+  const wallet = profile.wallet;
+  const next = (patch: Partial<Pick<FixtureWorkshopProfile, 'wallet' | 'parts' | 'gunSlots' | 'claims'>>, outputIds: readonly string[] = []) => {
+    const result = finish(profile, command.commandId, command.action, { wallet: patch.wallet ?? wallet, parts: patch.parts ?? profile.parts, gunSlots: patch.gunSlots ?? profile.gunSlots, claims: patch.claims ?? profile.claims }, outputIds);
+    return Object.freeze({ profile: result, applied: true, receipt: result.receipts.at(-1)! });
+  };
+  if (command.action === 'buy-f2') {
+    if (wallet.credits < 1650) return reject(profile, 'insufficient-credits');
+    const output: FixturePart = { instanceId: `INT-B1-TAB-F2-${command.commandId}`, kind: 'F2', family: 'TAB', slot: 'F', protectedBaseline: false, sealedFactory: true, tier: null, refinement: null, maker: 'Rivetwake Heavy Works', provenance: 'fixture factory offer', version: 1 };
+    return next({ wallet: { ...wallet, credits: wallet.credits - 1650 }, parts: [...profile.parts, output] }, [output.instanceId]);
+  }
+  if (command.action === 'claim-h2') {
+    if (profile.claims.includes('INT-LOOT-01')) return reject(profile, 'already-claimed');
+    const output: FixturePart = { instanceId: 'INT-B1-HOU-H2-LOOT', kind: 'H2', family: 'HOU', slot: 'H', protectedBaseline: false, sealedFactory: false, tier: 1, refinement: 'Balanced', maker: 'Kestrel Cut Assembly', provenance: 'integration loot fixture', version: 1 };
+    return next({ parts: [...profile.parts, output], claims: [...profile.claims, 'INT-LOOT-01'] }, [output.instanceId]);
+  }
+  if (command.action === 'sell-h2') { const target = part(profile, 'INT-B1-HOU-H2-LOOT'); return !target || assigned(profile, target.instanceId) || target.protectedBaseline ? reject(profile, 'not-sellable') : next({ wallet: { ...wallet, credits: wallet.credits + 540 }, parts: profile.parts.filter(candidate => candidate.instanceId !== target.instanceId) }); }
+  if (command.action === 'build-b3') {
+    if (wallet.credits < 1000 || wallet.metal < 40 || wallet.circuits < 8) return reject(profile, 'insufficient-resources');
+    const output: FixturePart = { instanceId: `INT-B1-TAB-B3-${command.commandId}`, kind: 'B3', family: 'TAB', slot: 'B', protectedBaseline: false, sealedFactory: false, tier: 1, refinement: 'Balanced', maker: 'Oddlot Cooperative', provenance: 'INT-FB-SERVICE-01', version: 1 };
+    return next({ wallet: { ...wallet, credits: wallet.credits - 1000, metal: wallet.metal - 40, circuits: wallet.circuits - 8 }, parts: [...profile.parts, output] }, [output.instanceId]);
+  }
+  if (command.action === 'develop-b2') { const target = part(profile, 'INT-B1-TAB-B2-GIFT'); if (!target || target.sealedFactory || target.tier !== 1 || wallet.credits < 500 || wallet.metal < 20 || wallet.circuits < 4) return reject(profile, 'ineligible-develop'); return next({ wallet: { ...wallet, credits: wallet.credits - 500, metal: wallet.metal - 20, circuits: wallet.circuits - 4 }, parts: profile.parts.map(candidate => candidate.instanceId === target.instanceId ? { ...candidate, tier: 2, version: candidate.version + 1 } : candidate) }); }
+  const target = profile.parts.find(candidate => candidate.kind === (command.action === 'fit-f2-a' ? 'F2' : 'B3'));
+  if (!target) return reject(profile, 'not-owned');
+  const gunSlots: SlotMap = structuredClone(profile.gunSlots);
+  gunSlots['TAB-A'][target.slot] = target.instanceId;
+  const candidate = freezeProfile({ ...profile, gunSlots });
+  return !legalSlots(candidate) ? reject(profile, 'invalid-fit') : next({ gunSlots });
+}
+/** Save boundary for UI adapters: callers may publish only the returned profile. */
+export function commitAndPersistFixtureWorkshop(profile: FixtureWorkshopProfile, command: FixtureWorkshopCommand, persist: (candidate: FixtureWorkshopProfile) => void): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean; reason?: string; receipt?: FixtureWorkshopReceipt }> {
+  const result = commitFixtureWorkshop(profile, command);
+  if (!result.applied) return result;
+  try { persist(result.profile); }
+  catch { return Object.freeze({ profile, applied: false, reason: 'storage-failed' }); }
+  return result;
 }
 export function settleFixtureWorkshopMission(profile: FixtureWorkshopProfile, commandId: string): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean }> {
-  if (!commandId || profile.receipts.includes(commandId)) return Object.freeze({ profile, applied: false });
-  const w = profile.wallet;
-  return Object.freeze({ profile: fixtureProfile(profile, commandId, { ...w, credits: w.credits + 1000, metal: w.metal + 20, circuits: w.circuits + 4, cloth: w.cloth + 6 }), applied: true });
-}
-/** One isolated writer for the directed B1 Buy/Claim/Sell/Build/Develop commands. */
-export function commitFixtureWorkshop(profile: FixtureWorkshopProfile, commandId: string, action: 'buy-f2' | 'claim-h2' | 'sell-h2' | 'build-b3' | 'develop-b2' | 'fit-f2-a' | 'fit-b3-a'): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean; reason?: string }> {
-  if (!commandId || profile.receipts.includes(commandId)) return Object.freeze({ profile, applied: false, reason: 'duplicate-command' });
-  const w = profile.wallet;
-  if (action === 'buy-f2') return w.credits < 1650 ? Object.freeze({ profile, applied: false, reason: 'insufficient-credits' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, { ...w, credits: w.credits - 1650 }, [...profile.owned, 'TAB-F2']), applied: true });
-  if (action === 'claim-h2') return profile.claims.includes('INT-LOOT-01') ? Object.freeze({ profile, applied: false, reason: 'already-claimed' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, w, [...profile.owned, 'HOU-H2-LOOT'], profile.assigned, [...profile.claims, 'INT-LOOT-01']), applied: true });
-  if (action === 'sell-h2') return !profile.owned.includes('HOU-H2-LOOT') || Object.values(profile.assigned).includes('HOU-H2-LOOT') ? Object.freeze({ profile, applied: false, reason: 'not-sellable' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, { ...w, credits: w.credits + 540 }, profile.owned.filter(id => id !== 'HOU-H2-LOOT')), applied: true });
-  if (action === 'build-b3') return w.credits < 1000 || w.metal < 40 || w.circuits < 8 ? Object.freeze({ profile, applied: false, reason: 'insufficient-resources' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, { ...w, credits: w.credits - 1000, metal: w.metal - 40, circuits: w.circuits - 8 }, [...profile.owned, 'TAB-B3']), applied: true });
-  if (action === 'develop-b2') return !profile.owned.includes('TAB-B2-GIFT') || profile.developed || w.credits < 500 || w.metal < 20 || w.circuits < 4 ? Object.freeze({ profile, applied: false, reason: 'ineligible-develop' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, { ...w, credits: w.credits - 500, metal: w.metal - 20, circuits: w.circuits - 4 }, profile.owned, profile.assigned, profile.claims, true), applied: true });
-  const part: FixturePartId = action === 'fit-f2-a' ? 'TAB-F2' : 'TAB-B3';
-  return !profile.owned.includes(part) ? Object.freeze({ profile, applied: false, reason: 'not-owned' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, w, profile.owned, { ...profile.assigned, 'TAB-A': part }), applied: true });
+  const prior = profile.receipts.find(receipt => receipt.commandId === commandId);
+  if (prior) return Object.freeze({ profile, applied: false });
+  const result = finish(profile, commandId, 'mission', { wallet: { ...profile.wallet, credits: profile.wallet.credits + 1000, metal: profile.wallet.metal + 20, circuits: profile.wallet.circuits + 4, cloth: profile.wallet.cloth + 6 }, parts: profile.parts, gunSlots: profile.gunSlots, claims: profile.claims });
+  return Object.freeze({ profile: result, applied: true });
 }
 
 /** Input to the human auto-target policy. Selection never searches hidden weak points. */

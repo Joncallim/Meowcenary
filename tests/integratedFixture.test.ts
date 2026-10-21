@@ -18,6 +18,8 @@ import {
   resolveFixtureTakeover,
   createIntegratedFixtureWorkshopProfile,
   commitFixtureWorkshop,
+  commitAndPersistFixtureWorkshop,
+  deserializeIntegratedFixtureWorkshopProfile,
   settleFixtureWorkshopMission,
 } from '../src/gameplay/integratedFixture';
 
@@ -146,23 +148,55 @@ it('projects historical receipts without changing live fixture state and require
   expect(resolveFixtureTakeover(0, 0, true)).toBe('lost');
 });
 
-it('commits the directed B1 workshop ledger once per command', () => {
+it('commits the directed B1 workshop ledger as unique, full-slot transactions', () => {
   let p = createIntegratedFixtureWorkshopProfile();
-  expect(p.owned).toHaveLength(25);
-  expect(p.owned.filter(id => id.includes('-BASE'))).toHaveLength(24);
+  expect(p.parts).toHaveLength(25);
+  expect(p.parts.filter(part => part.instanceId.includes('-BASE'))).toHaveLength(24);
   expect(Object.values(p.gunSlots).flatMap(gun => Object.values(gun))).toHaveLength(24);
-  expect(p.gunSlots['TAB-B'].B).toBe('TAB-B2-GIFT');
+  expect(p.gunSlots['TAB-B'].B).toBe('INT-B1-TAB-B2-GIFT');
   p = settleFixtureWorkshopMission(p, 'job-1').profile;
   expect(p.wallet.credits).toBe(4000);
-  p = commitFixtureWorkshop(p, 'buy-1', 'buy-f2').profile;
+  p = commitFixtureWorkshop(p, { commandId: 'buy-1', expectedRevision: p.revision, action: 'buy-f2' }).profile;
   expect(p.wallet.credits).toBe(2350);
-  p = commitFixtureWorkshop(p, 'fit-1', 'fit-f2-a').profile;
-  expect(p.assigned['TAB-A']).toBe('TAB-F2');
-  p = commitFixtureWorkshop(p, 'claim-1', 'claim-h2').profile;
-  p = commitFixtureWorkshop(p, 'sell-1', 'sell-h2').profile;
+  p = commitFixtureWorkshop(p, { commandId: 'fit-1', expectedRevision: p.revision, action: 'fit-f2-a' }).profile;
+  expect(p.gunSlots['TAB-A'].F).toBe('INT-B1-TAB-F2-buy-1');
+  p = commitFixtureWorkshop(p, { commandId: 'claim-1', expectedRevision: p.revision, action: 'claim-h2' }).profile;
+  p = commitFixtureWorkshop(p, { commandId: 'sell-1', expectedRevision: p.revision, action: 'sell-h2' }).profile;
   expect(p.wallet.credits).toBe(2890);
-  p = commitFixtureWorkshop(p, 'build-1', 'build-b3').profile;
-  p = commitFixtureWorkshop(p, 'develop-1', 'develop-b2').profile;
+  p = commitFixtureWorkshop(p, { commandId: 'build-1', expectedRevision: p.revision, action: 'build-b3' }).profile;
+  p = commitFixtureWorkshop(p, { commandId: 'fit-b3', expectedRevision: p.revision, action: 'fit-b3-a' }).profile;
+  p = commitFixtureWorkshop(p, { commandId: 'develop-1', expectedRevision: p.revision, action: 'develop-b2' }).profile;
   expect(p.wallet).toEqual({ credits: 1390, metal: 40, circuits: 8, cloth: 18, flux: 3 });
-  expect(commitFixtureWorkshop(p, 'develop-1', 'develop-b2').applied).toBe(false);
+  expect(p.parts).toHaveLength(27);
+  expect(p.parts.find(part => part.instanceId === 'INT-B1-TAB-B2-GIFT')).toMatchObject({ tier: 2, version: 2, provenance: 'C01.2 first-barrel fixture grant' });
+  expect(commitFixtureWorkshop(p, { commandId: 'develop-1', expectedRevision: p.revision, action: 'develop-b2' })).toMatchObject({ applied: false, reason: 'duplicate-command' });
+});
+
+it('rejects stale commands without changing the snapshot and replays the original receipt', () => {
+  const p = createIntegratedFixtureWorkshopProfile();
+  const first = commitFixtureWorkshop(p, { commandId: 'buy-once', expectedRevision: 0, action: 'buy-f2' });
+  expect(first.applied).toBe(true);
+  const replay = commitFixtureWorkshop(first.profile, { commandId: 'buy-once', expectedRevision: 1, action: 'buy-f2' });
+  expect(replay).toMatchObject({ applied: false, reason: 'duplicate-command', receipt: { commandId: 'buy-once', outputIds: ['INT-B1-TAB-F2-buy-once'] } });
+  const before = JSON.stringify(first.profile);
+  expect(commitFixtureWorkshop(first.profile, { commandId: 'stale', expectedRevision: 0, action: 'build-b3' })).toMatchObject({ applied: false, reason: 'stale-revision' });
+  expect(JSON.stringify(first.profile)).toBe(before);
+});
+
+it('keeps separate paid outputs distinct and rejects malformed persisted workshop snapshots', () => {
+  let p = createIntegratedFixtureWorkshopProfile();
+  p = settleFixtureWorkshopMission(p, 'mission-funding').profile;
+  const one = commitFixtureWorkshop(p, { commandId: 'buy-one', expectedRevision: p.revision, action: 'buy-f2' }); p = one.profile;
+  const two = commitFixtureWorkshop(p, { commandId: 'buy-two', expectedRevision: p.revision, action: 'buy-f2' });
+  expect(two.receipt!.outputIds[0]).not.toBe(one.receipt!.outputIds[0]);
+  expect(two.profile.parts.filter(part => part.kind === 'F2')).toHaveLength(2);
+  expect(deserializeIntegratedFixtureWorkshopProfile({ version: 'int-fb-profile-v2', revision: 1, wallet: { credits: 1 }, parts: [], gunSlots: {}, claims: [], receipts: [] }).revision).toBe(0);
+});
+
+it('does not publish a paid workshop mutation when the single snapshot write fails', () => {
+  const p = createIntegratedFixtureWorkshopProfile();
+  const before = JSON.stringify(p);
+  const result = commitAndPersistFixtureWorkshop(p, { commandId: 'write-fails', expectedRevision: p.revision, action: 'buy-f2' }, () => { throw new Error('quota'); });
+  expect(result).toMatchObject({ applied: false, reason: 'storage-failed', profile: p });
+  expect(JSON.stringify(p)).toBe(before);
 });
