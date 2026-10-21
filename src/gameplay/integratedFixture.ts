@@ -207,14 +207,21 @@ export function resolveFixtureTakeover(tabbyHealth: number, houndHealth: number,
 
 export type FixturePartId = 'TAB-B2-GIFT' | 'TAB-F2' | 'HOU-H2-LOOT' | 'TAB-B3';
 export interface FixtureWallet { readonly credits: number; readonly metal: number; readonly circuits: number; readonly cloth: number; readonly flux: number; }
-export interface FixtureWorkshopProfile { readonly wallet: FixtureWallet; readonly owned: readonly (FixturePartId | string)[]; readonly assigned: Readonly<Record<'TAB-A' | 'TAB-B', FixturePartId | undefined>>; readonly claims: readonly string[]; readonly receipts: readonly string[]; readonly developed: boolean; }
+export interface FixtureWorkshopProfile { readonly wallet: FixtureWallet; readonly owned: readonly (FixturePartId | string)[]; readonly assigned: Readonly<Record<'TAB-A' | 'TAB-B', FixturePartId | undefined>>; readonly gunSlots: Readonly<Record<'TAB-A' | 'TAB-B' | 'HOU-A' | 'HOU-B', Readonly<Record<'R' | 'B' | 'F' | 'P' | 'H' | 'C', string>>>>; readonly claims: readonly string[]; readonly receipts: readonly string[]; readonly developed: boolean; }
 export function createIntegratedFixtureWorkshopProfile(): FixtureWorkshopProfile {
   const baseline = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'].flatMap(merc => ['R', 'B', 'F', 'P', 'H', 'C'].map(slot => `INT-B1-${merc}-${slot}-BASE`));
   const owned: readonly (FixturePartId | string)[] = Object.freeze([...baseline, 'TAB-B2-GIFT']);
-  return Object.freeze({ wallet: Object.freeze({ credits: 3000, metal: 80, circuits: 16, cloth: 12, flux: 3 }), owned, assigned: Object.freeze({ 'TAB-A': undefined, 'TAB-B': 'TAB-B2-GIFT' }), claims: Object.freeze([]), receipts: Object.freeze([]), developed: false });
+  const slots = Object.freeze(Object.fromEntries(['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'].map(gun => [gun, Object.freeze(Object.fromEntries(['R', 'B', 'F', 'P', 'H', 'C'].map(slot => [slot, `INT-B1-${gun}-${slot}-BASE`])))]))) as FixtureWorkshopProfile['gunSlots'];
+  const gunSlots = Object.freeze({ ...slots, 'TAB-B': Object.freeze({ ...slots['TAB-B'], B: 'TAB-B2-GIFT' }) });
+  return Object.freeze({ wallet: Object.freeze({ credits: 3000, metal: 80, circuits: 16, cloth: 12, flux: 3 }), owned, assigned: Object.freeze({ 'TAB-A': undefined, 'TAB-B': 'TAB-B2-GIFT' }), gunSlots, claims: Object.freeze([]), receipts: Object.freeze([]), developed: false });
 }
-function fixtureProfile(profile: FixtureWorkshopProfile, commandId: string, wallet: FixtureWallet, owned = profile.owned, assigned = profile.assigned, claims = profile.claims, developed = profile.developed): FixtureWorkshopProfile {
-  return Object.freeze({ wallet: Object.freeze(wallet), owned: Object.freeze([...owned]), assigned: Object.freeze({ ...assigned }), claims: Object.freeze([...claims]), developed, receipts: Object.freeze([...profile.receipts, commandId]) });
+function fixtureProfile(profile: FixtureWorkshopProfile, commandId: string, wallet: FixtureWallet, owned = profile.owned, assigned = profile.assigned, claims = profile.claims, developed = profile.developed, gunSlots = profile.gunSlots): FixtureWorkshopProfile {
+  return Object.freeze({ wallet: Object.freeze(wallet), owned: Object.freeze([...owned]), assigned: Object.freeze({ ...assigned }), gunSlots: Object.freeze(gunSlots), claims: Object.freeze([...claims]), developed, receipts: Object.freeze([...profile.receipts, commandId]) });
+}
+export function settleFixtureWorkshopMission(profile: FixtureWorkshopProfile, commandId: string): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean }> {
+  if (!commandId || profile.receipts.includes(commandId)) return Object.freeze({ profile, applied: false });
+  const w = profile.wallet;
+  return Object.freeze({ profile: fixtureProfile(profile, commandId, { ...w, credits: w.credits + 1000, metal: w.metal + 20, circuits: w.circuits + 4, cloth: w.cloth + 6 }), applied: true });
 }
 /** One isolated writer for the directed B1 Buy/Claim/Sell/Build/Develop commands. */
 export function commitFixtureWorkshop(profile: FixtureWorkshopProfile, commandId: string, action: 'buy-f2' | 'claim-h2' | 'sell-h2' | 'build-b3' | 'develop-b2' | 'fit-f2-a' | 'fit-b3-a'): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean; reason?: string }> {

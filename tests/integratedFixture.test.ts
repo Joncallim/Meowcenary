@@ -18,6 +18,7 @@ import {
   resolveFixtureTakeover,
   createIntegratedFixtureWorkshopProfile,
   commitFixtureWorkshop,
+  settleFixtureWorkshopMission,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -149,15 +150,19 @@ it('commits the directed B1 workshop ledger once per command', () => {
   let p = createIntegratedFixtureWorkshopProfile();
   expect(p.owned).toHaveLength(25);
   expect(p.owned.filter(id => id.includes('-BASE'))).toHaveLength(24);
+  expect(Object.values(p.gunSlots).flatMap(gun => Object.values(gun))).toHaveLength(24);
+  expect(p.gunSlots['TAB-B'].B).toBe('TAB-B2-GIFT');
+  p = settleFixtureWorkshopMission(p, 'job-1').profile;
+  expect(p.wallet.credits).toBe(4000);
   p = commitFixtureWorkshop(p, 'buy-1', 'buy-f2').profile;
-  expect(p.wallet.credits).toBe(1350);
+  expect(p.wallet.credits).toBe(2350);
   p = commitFixtureWorkshop(p, 'fit-1', 'fit-f2-a').profile;
   expect(p.assigned['TAB-A']).toBe('TAB-F2');
   p = commitFixtureWorkshop(p, 'claim-1', 'claim-h2').profile;
   p = commitFixtureWorkshop(p, 'sell-1', 'sell-h2').profile;
-  expect(p.wallet.credits).toBe(1890);
+  expect(p.wallet.credits).toBe(2890);
   p = commitFixtureWorkshop(p, 'build-1', 'build-b3').profile;
   p = commitFixtureWorkshop(p, 'develop-1', 'develop-b2').profile;
-  expect(p.wallet).toEqual({ credits: 390, metal: 20, circuits: 4, cloth: 12, flux: 3 });
+  expect(p.wallet).toEqual({ credits: 1390, metal: 40, circuits: 8, cloth: 18, flux: 3 });
   expect(commitFixtureWorkshop(p, 'develop-1', 'develop-b2').applied).toBe(false);
 });
