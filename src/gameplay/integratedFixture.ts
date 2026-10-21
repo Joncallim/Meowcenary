@@ -190,6 +190,21 @@ export function fixtureDialogue(jobId: FixtureJobId, phase: 'offer' | 'accepted'
     : phase === 'accepted' ? 'Hound: Disputed lot. We take the marked cargo and leave.' : 'FRE: Disputed lot received. Receipt recorded.';
 }
 
+/** Read-only history projection; it has no transaction or save mutation path. */
+export function historicalFixtureMissionReplay(save: FixtureMissionSave, receiptId: string): Readonly<{ receipt: FixtureMissionReceipt; text: string }> | undefined {
+  const receipt = save.receipts.find(candidate => candidate.id === receiptId);
+  if (!receipt) return undefined;
+  return Object.freeze({ receipt, text: `${fixtureDialogue(receipt.jobId, 'result')} Historical receipt: ${receipt.id}.` });
+}
+
+export type FixtureRecoveryState = 'active' | 'takeover-required' | 'recovered' | 'lost';
+/** The survivor must explicitly continue after lead KO; recovery never modifies durable gear. */
+export function resolveFixtureTakeover(tabbyHealth: number, houndHealth: number, confirmed: boolean): FixtureRecoveryState {
+  if (tabbyHealth > 0) return 'active';
+  if (houndHealth <= 0) return 'lost';
+  return confirmed ? 'recovered' : 'takeover-required';
+}
+
 /** Input to the human auto-target policy. Selection never searches hidden weak points. */
 export interface AutoTargetCandidate {
   readonly actorId: string;

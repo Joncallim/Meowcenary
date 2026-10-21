@@ -14,6 +14,8 @@ import {
   deserializeIntegratedFixtureSave,
   fixtureDialogue,
   settleIntegratedFixtureJob,
+  historicalFixtureMissionReplay,
+  resolveFixtureTakeover,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -129,4 +131,14 @@ it('persists an isolated, idempotent settlement receipt without accepting malfor
   expect(deserializeIntegratedFixtureSave(JSON.stringify(first.save))).toEqual(first.save);
   expect(deserializeIntegratedFixtureSave('{"version":"wrong"}')).toEqual(createIntegratedFixtureSave());
   expect(fixtureDialogue('MC-OPT-R01-01', 'offer')).toContain('both authorized shipment markers');
+});
+
+it('projects historical receipts without changing live fixture state and requires takeover consent', () => {
+  const settled = settleIntegratedFixtureJob(createIntegratedFixtureSave(), 'MC-OPT-R01-01').save;
+  const before = JSON.stringify(settled);
+  expect(historicalFixtureMissionReplay(settled, 'int-fb:MC-OPT-R01-01:settlement')?.text).toContain('Historical receipt');
+  expect(JSON.stringify(settled)).toBe(before);
+  expect(resolveFixtureTakeover(0, 80, false)).toBe('takeover-required');
+  expect(resolveFixtureTakeover(0, 80, true)).toBe('recovered');
+  expect(resolveFixtureTakeover(0, 0, true)).toBe('lost');
 });
