@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SceneKey } from '../engine/sceneKeys';
-import { createIntegratedFixtureSave, createIntegratedFixtureWorkshopProfile, deserializeIntegratedFixtureSave, fixtureDialogue, INTEGRATED_FIXTURE_SAVE_KEY, IntegratedFixtureCombat, IntegratedFixtureOperation, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, resolveFixtureTakeover, settleFixtureWorkshopMission, settleIntegratedFixtureJob, type FixtureJobId, type FixtureMissionSave, type FixtureWorkshopProfile, validateIntegratedFixture } from '../gameplay/integratedFixture';
+import { commitFixtureWorkshop, createIntegratedFixtureSave, createIntegratedFixtureWorkshopProfile, deserializeIntegratedFixtureSave, fixtureDialogue, INTEGRATED_FIXTURE_SAVE_KEY, IntegratedFixtureCombat, IntegratedFixtureOperation, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, resolveFixtureTakeover, settleFixtureWorkshopMission, settleIntegratedFixtureJob, type FixtureJobId, type FixtureMissionSave, type FixtureWorkshopProfile, validateIntegratedFixture } from '../gameplay/integratedFixture';
 
 const SCALE = 10;
 const SPEED = 12;
@@ -22,6 +22,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private workshopProfile: FixtureWorkshopProfile = createIntegratedFixtureWorkshopProfile();
   private controlledActor: 'tabby' | 'hound' = 'tabby';
   private takeoverPrompt?: Phaser.GameObjects.Text;
+  private buyPreview = false;
   private combatFeedback = 'No hostile contact.';
   private hound?: Phaser.GameObjects.Arc;
   private enemies: Phaser.GameObjects.Arc[] = [];
@@ -69,10 +70,13 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-E', () => this.interact());
     this.input.keyboard?.on('keydown-Q', () => this.swapGun());
     this.input.keyboard?.on('keydown-T', () => this.confirmTakeover());
+    this.input.keyboard?.on('keydown-B', () => this.buyF2());
     this.add.rectangle(76, this.scale.height - 48, 124, 58, 0x7393d8, 0.95).setScrollFactor(0).setDepth(10);
     this.add.text(76, this.scale.height - 48, 'SWAP\nQ', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
     this.add.rectangle(this.scale.width - 76, this.scale.height - 48, 124, 58, 0x24cec7, 0.95).setScrollFactor(0).setDepth(10);
     this.add.text(this.scale.width - 76, this.scale.height - 48, 'INTERACT\nE', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
+    this.add.rectangle(this.scale.width / 2, this.scale.height - 48, 110, 58, 0xf6c85f, 0.95).setScrollFactor(0).setDepth(10);
+    this.add.text(this.scale.width / 2, this.scale.height - 48, 'BUY F2\nB', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
     this.cameras.main.startFollow(this.lead, true, 0.15, 0.15);
     this.takeoverPrompt = this.add.text(this.scale.width / 2, this.scale.height / 2, '', { fontFamily: 'Nunito, sans-serif', fontSize: '18px', color: '#ffffff', backgroundColor: '#34151bdd', align: 'center', padding: { x: 12, y: 10 } }).setOrigin(0.5).setScrollFactor(0).setDepth(20).setVisible(false);
     this.refreshStatus();
@@ -129,6 +133,14 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.takeoverPrompt?.setVisible(false);
     this.combatFeedback = 'Hound has taken control. Squad contract remains active.';
     this.refreshStatus();
+  }
+  private buyF2(): void {
+    if (!this.buyPreview) { this.buyPreview = true; this.combatFeedback = 'Preview: TAB-F2 Long Drum · 1650 Credits · sealed factory · press B to confirm.'; this.refreshStatus(); return; }
+    const result = commitFixtureWorkshop(this.workshopProfile, `ui:buy-f2:${this.workshopProfile.receipts.length}`, 'buy-f2');
+    if (!result.applied) { this.buyPreview = false; this.combatFeedback = `Buy rejected: ${result.reason ?? 'invalid'}.`; this.refreshStatus(); return; }
+    try { localStorage.setItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:profile`, JSON.stringify({ version: 'int-fb-profile-v1', mission: this.fixtureSave, workshop: result.profile })); }
+    catch { this.buyPreview = false; this.combatFeedback = 'Buy storage failed; no debit or item applied.'; this.refreshStatus(); return; }
+    this.workshopProfile = result.profile; this.buyPreview = false; this.combatFeedback = 'Bought TAB-F2 Long Drum; 1650 Credits debited.'; this.refreshStatus();
   }
   private interact(): void {
     if (!this.lead) return;
