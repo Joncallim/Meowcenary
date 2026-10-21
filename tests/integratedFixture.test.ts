@@ -21,6 +21,7 @@ import {
   commitAndPersistFixtureWorkshop,
   deserializeIntegratedFixtureWorkshopProfile,
   settleFixtureWorkshopMission,
+  resolveFixtureGunProfile,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -85,6 +86,16 @@ it('does not clear combat through a blind timer or out-of-range companion suppor
   combat.advance(30);
   expect(combat.isGroupCleared()).toBe(false);
   expect(combat.hostileStates().every(hostile => hostile.health === 90)).toBe(true);
+});
+
+it('resolves baseline and F2 capacities/refill timing from exact fitted instances', () => {
+  let profile = createIntegratedFixtureWorkshopProfile();
+  expect(resolveFixtureGunProfile(profile, 'TAB-A')).toMatchObject({ store: 12, refillSeconds: 1.5 });
+  profile = settleFixtureWorkshopMission(profile, 'fund').profile;
+  profile = commitFixtureWorkshop(profile, { commandId: 'buy', expectedRevision: profile.revision, action: 'buy-f2' }).profile;
+  profile = commitFixtureWorkshop(profile, { commandId: 'fit', expectedRevision: profile.revision, action: 'fit-f2-a', partInstanceId: 'INT-B1-TAB-F2-buy' }).profile;
+  expect(resolveFixtureGunProfile(profile, 'TAB-A')).toMatchObject({ store: 18, refillSeconds: 2.7 });
+  expect(resolveFixtureGunProfile(profile, 'TAB-B')).toMatchObject({ store: 12, refillSeconds: 1.5, fullRangeMetres: 15 });
 });
 
 it('keeps two gun instances distinct and never emits both during a swap', () => {
