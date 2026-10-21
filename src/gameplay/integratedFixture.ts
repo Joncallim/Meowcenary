@@ -399,6 +399,16 @@ interface FixtureWeaponProfile {
   readonly id: string; readonly damage: number; readonly cycleSeconds: number;
   readonly initialSetupSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly store: number;
 }
+export interface FixtureResolvedGunProfile { readonly gunId: FixtureGunId; readonly store: number; readonly refillSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly setupSeconds: number; readonly coneMultiplier: number; readonly contactWidthMetres: number; }
+/** Reads the actual six-slot assignment; no workshop choice may alter damage. */
+export function resolveFixtureGunProfile(profile: FixtureWorkshopProfile, gunId: FixtureGunId): FixtureResolvedGunProfile {
+  const barrel = part(profile, profile.gunSlots[gunId].B)!;
+  const feed = part(profile, profile.gunSlots[gunId].F)!;
+  const b2TierStep = barrel.kind === 'B2' && barrel.tier === 2 ? .03 : 0;
+  return Object.freeze({ gunId, store: feed.kind === 'F2' ? 18 : 12, refillSeconds: feed.kind === 'F2' ? 2.7 : 1.5,
+    fullRangeMetres: 12 * (barrel.kind === 'B2' ? 1.25 + b2TierStep : barrel.kind === 'B3' ? .7 : 1), maxRangeMetres: 24,
+    setupSeconds: .1 * (barrel.kind === 'B2' ? 1.25 : 1), coneMultiplier: barrel.kind === 'B2' ? .65 : barrel.kind === 'B3' ? 1.6 : 1, contactWidthMetres: barrel.kind === 'B2' ? .02 : barrel.kind === 'B3' ? .24 : .1 });
+}
 interface FixtureWeaponState { readonly instanceId: string; readonly profile: FixtureWeaponProfile; supply: number; nextShotSeconds: number; }
 interface FixtureActorState {
   readonly id: FixtureCombatantId; readonly team: 'squad' | 'hostile';
@@ -445,8 +455,11 @@ export class IntegratedFixtureCombat {
   private readonly events: FixtureCombatEvent[] = [];
   private ownedDesignationId?: FixtureCombatantId;
 
-  constructor() {
-    this.add('tabby', 'squad', { x: 8, z: 11 }, 100, 0.4, TABBY_FIXTURE_GUN, 2);
+  constructor(profile = createIntegratedFixtureWorkshopProfile()) {
+    const weaponFor = (gunId: FixtureGunId): FixtureWeaponProfile => { const resolved = resolveFixtureGunProfile(profile, gunId); return { ...TABBY_FIXTURE_GUN, id: `int-fb:${gunId}`, store: resolved.store, initialSetupSeconds: resolved.setupSeconds, fullRangeMetres: resolved.fullRangeMetres, maxRangeMetres: resolved.maxRangeMetres }; };
+    const tabA = weaponFor('TAB-A'); const tabB = weaponFor('TAB-B');
+    this.add('tabby', 'squad', { x: 8, z: 11 }, 100, 0.4, tabA);
+    this.actors.get('tabby')!.weapons.push({ instanceId: 'int-fb:TAB-B', profile: tabB, supply: tabB.store, nextShotSeconds: tabB.initialSetupSeconds });
     this.add('hound', 'squad', { x: 6.5, z: 11 }, 100, 0.4, HOUND_FIXTURE_GUN, 2);
   }
 

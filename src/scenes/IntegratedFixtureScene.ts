@@ -43,6 +43,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
         this.workshopProfile = deserializeIntegratedFixtureWorkshopProfile(parsed.workshop);
       } else this.fixtureSave = deserializeIntegratedFixtureSave(localStorage.getItem(INTEGRATED_FIXTURE_SAVE_KEY));
     } catch { this.fixtureSave = createIntegratedFixtureSave(); this.workshopProfile = createIntegratedFixtureWorkshopProfile(); }
+    this.combat = new IntegratedFixtureCombat(this.workshopProfile);
     const width = INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE;
     const height = INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE;
     this.cameras.main.setBounds(0, 0, width, height).setBackgroundColor('#101820');
