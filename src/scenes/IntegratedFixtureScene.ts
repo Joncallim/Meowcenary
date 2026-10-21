@@ -31,7 +31,14 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   create(): void {
     const errors = validateIntegratedFixture();
     if (errors.length) throw new Error(`INT-FB fixture invalid: ${errors.join(',')}`);
-    try { this.fixtureSave = deserializeIntegratedFixtureSave(localStorage.getItem(INTEGRATED_FIXTURE_SAVE_KEY)); } catch { this.fixtureSave = createIntegratedFixtureSave(); }
+    try {
+      const envelope = localStorage.getItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:profile`);
+      if (envelope) {
+        const parsed = JSON.parse(envelope) as { mission?: FixtureMissionSave; workshop?: FixtureWorkshopProfile };
+        this.fixtureSave = deserializeIntegratedFixtureSave(JSON.stringify(parsed.mission));
+        if (parsed.workshop?.wallet && Array.isArray(parsed.workshop.owned) && parsed.workshop.gunSlots) this.workshopProfile = parsed.workshop;
+      } else this.fixtureSave = deserializeIntegratedFixtureSave(localStorage.getItem(INTEGRATED_FIXTURE_SAVE_KEY));
+    } catch { this.fixtureSave = createIntegratedFixtureSave(); this.workshopProfile = createIntegratedFixtureWorkshopProfile(); }
     const width = INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE;
     const height = INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE;
     this.cameras.main.setBounds(0, 0, width, height).setBackgroundColor('#101820');
@@ -142,7 +149,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
         const workshop = settleFixtureWorkshopMission(this.workshopProfile, `mission:${job.id}:settlement`);
         if (!workshop.applied && !this.fixtureSave.receipts.some(receipt => receipt.jobId === job.id)) { this.extracted = false; this.combatFeedback = 'Settlement could not reconcile; no receipt written.'; this.refreshStatus(); return; }
         const nextWorkshop = workshop.profile;
-        try { localStorage.setItem(INTEGRATED_FIXTURE_SAVE_KEY, JSON.stringify(result.save)); localStorage.setItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:workshop`, JSON.stringify(nextWorkshop)); }
+        try { localStorage.setItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:profile`, JSON.stringify({ version: 'int-fb-profile-v1', mission: result.save, workshop: nextWorkshop })); }
         catch { this.extracted = false; this.combatFeedback = 'Settlement storage failed; no success recorded.'; this.refreshStatus(); return; }
         this.fixtureSave = result.save;
         this.workshopProfile = nextWorkshop;
