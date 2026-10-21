@@ -88,7 +88,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.add.rectangle(this.scale.width / 2, this.scale.height - 48, 110, 58, 0xf6c85f, 0.95).setScrollFactor(0).setDepth(10).setInteractive().on('pointerup', () => this.openWorkshopMenu());
     createUiText(this, this.scale.width / 2, this.scale.height - 48, 'WORKSHOP\nB', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
     this.cameras.main.startFollow(this.lead, true, 0.15, 0.15);
-    this.takeoverPrompt = createUiText(this, this.scale.width / 2, this.scale.height / 2, '', { fontFamily: 'Nunito, sans-serif', fontSize: '18px', color: '#ffffff', backgroundColor: '#34151bdd', align: 'center', padding: { x: 12, y: 10 } }).setOrigin(0.5).setScrollFactor(0).setDepth(20).setVisible(false);
+    this.takeoverPrompt = createUiText(this, this.scale.width / 2, this.scale.height / 2, '', { fontFamily: 'Nunito, sans-serif', fontSize: '18px', color: '#ffffff', backgroundColor: '#34151bdd', align: 'center', padding: { x: 12, y: 10 } }).setOrigin(0.5).setScrollFactor(0).setDepth(20).setVisible(false).setInteractive().on('pointerup', () => this.confirmTakeover());
     this.refreshStatus();
     Object.defineProperty(globalThis, '__MEOWCENARY_INT_FB__', { configurable: true, value: { diagnostics: () => this.diagnostics() } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_INT_FB__; });
@@ -97,6 +97,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (!this.lead || !this.hound) return;
     const controlled = this.controlledActor === 'tabby' ? this.lead : this.hound;
+    if (this.combat.actorHealth(this.controlledActor) <= 0) return;
     let x = 0;
     let y = 0;
     if (this.keys?.left?.isDown || this.input.keyboard?.addKey('A').isDown) x -= 1;
@@ -132,8 +133,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
 
   private selectJob(jobId: FixtureJobId): void { this.jobId = jobId; this.operation.inspect(jobId); this.completed.clear(); this.groupCleared = false; this.extracted = false; this.combatActive = false; this.enemies.forEach(enemy => enemy.setVisible(false)); this.refreshStatus(); }
   private swapGun(): void {
-    const swapped = this.combat.swapActiveGun('tabby');
-    this.combatFeedback = swapped ? `Tabby switched to ${this.combat.activeGun('tabby').instanceId}; 0.30s swap preparation.` : 'Gun swap unavailable.';
+    const swapped = this.combat.swapActiveGun(this.controlledActor);
+    this.combatFeedback = swapped ? `${this.controlledActor === 'tabby' ? 'Tabby' : 'Hound'} switched to ${this.combat.activeGun(this.controlledActor).instanceId}; 0.30s swap preparation.` : 'Gun swap unavailable.';
     this.refreshStatus();
   }
   private confirmTakeover(): void {
@@ -144,7 +145,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.combatFeedback = 'Hound has taken control. Squad contract remains active.';
     this.refreshStatus();
   }
-  private atService(): boolean { return !!this.lead && Math.hypot(this.lead.x - 80, this.lead.y - 80) < 55; }
+  private controlledSprite(): Phaser.GameObjects.Arc | undefined { return this.controlledActor === 'tabby' ? this.lead : this.hound; }
+  private atService(): boolean { const actor = this.controlledSprite(); return !!actor && Math.hypot(actor.x - 80, actor.y - 80) < 55; }
   private openWorkshopMenu(): void {
     if (!this.atService()) { this.combatFeedback = 'Workshop unavailable: move Tabby to safe service.'; this.refreshStatus(); return; }
     this.workshopPreview = undefined; this.workshopPreviewRevision = undefined; this.workshopModal?.destroy();
@@ -203,10 +205,11 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.combatFeedback = `Workshop saved: ${action.replaceAll('-', ' ')} (receipt ${result.receipt!.commandId}).`; this.refreshStatus();
   }
   private interact(): void {
-    if (!this.lead) return;
-    const nearby = INTEGRATED_FIXTURE_POINTS.find(point => Math.hypot(point.x * SCALE - this.lead!.x, point.z * SCALE - this.lead!.y) < 38);
+    const actor = this.controlledSprite();
+    if (!actor || this.combat.actorHealth(this.controlledActor) <= 0) return;
+    const nearby = INTEGRATED_FIXTURE_POINTS.find(point => Math.hypot(point.x * SCALE - actor.x, point.z * SCALE - actor.y) < 38);
     if (nearby?.role === 'discovery' && nearby.id === 'INT-FB-PUBLIC-SPUR') { this.recordLootDiscovery(); return; }
-    if (!this.jobId) { this.selectJob(this.lead.x < 250 ? 'MC-OPT-R01-01' : 'MC-OPT-F01-01'); return; }
+    if (!this.jobId) { this.selectJob(actor.x < 250 ? 'MC-OPT-R01-01' : 'MC-OPT-F01-01'); return; }
     const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)!;
     if (!nearby) return;
     if (nearby.role === 'discovery' && nearby.id === 'INT-FB-PUBLIC-SPUR') { this.recordLootDiscovery(); return; }
