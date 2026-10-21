@@ -191,6 +191,7 @@ it('commits the directed B1 workshop ledger as unique, full-slot transactions', 
 
 it('rejects stale commands without changing the snapshot and replays the original receipt', () => {
   const p = createIntegratedFixtureWorkshopProfile();
+  expect(commitFixtureWorkshop(p, { profileId: 'other-profile', commandId: 'wrong-profile', expectedRevision: 0, action: 'buy-f2' })).toMatchObject({ applied: false, reason: 'wrong-profile' });
   const first = commitFixtureWorkshop(p, { commandId: 'buy-once', expectedRevision: 0, action: 'buy-f2' });
   expect(first.applied).toBe(true);
   const replay = commitFixtureWorkshop(first.profile, { commandId: 'buy-once', expectedRevision: 1, action: 'buy-f2' });

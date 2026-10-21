@@ -192,7 +192,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const fitKind = action === 'fit-f2-a' ? 'F2' : action === 'fit-b3-a' ? 'B3' : undefined;
     const fitCandidates = fitKind ? this.workshopProfile.parts.filter(part => part.kind === fitKind) : [];
     const partInstanceId = fitCandidates.length === 1 ? fitCandidates[0].instanceId : undefined;
-    const result = commitAndPersistFixtureWorkshop(this.workshopProfile, { commandId, expectedRevision: this.workshopPreviewRevision, action, partInstanceId }, candidate => localStorage.setItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:profile`, JSON.stringify({ version: 'int-fb-envelope-v2', mission: this.fixtureSave, workshop: candidate })));
+    const result = commitAndPersistFixtureWorkshop(this.workshopProfile, { profileId: this.workshopProfile.profileId, commandId, expectedRevision: this.workshopPreviewRevision, action, partInstanceId }, candidate => localStorage.setItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:profile`, JSON.stringify({ version: 'int-fb-envelope-v2', mission: this.fixtureSave, workshop: candidate })));
     if (!result.applied) { this.cancelWorkshop(); this.combatFeedback = result.reason === 'storage-failed' ? 'Workshop storage failed; no debit, item, or assignment was applied.' : `Workshop rejected: ${result.reason ?? 'invalid'}.`; this.refreshStatus(); return; }
     this.workshopProfile = result.profile; this.workshopPreview = undefined; this.workshopPreviewRevision = undefined; this.workshopModal?.destroy(); this.workshopModal = undefined;
     this.combatFeedback = `Workshop saved: ${action.replaceAll('-', ' ')} (receipt ${result.receipt!.commandId}).`; this.refreshStatus();
