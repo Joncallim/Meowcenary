@@ -126,6 +126,17 @@ it('settles F01 after the disputed-lot interaction without a total clear', () =>
   expect(operation.extract()).toBe(true);
 });
 
+it('keeps an extraction active until its persistence adapter explicitly publishes settlement', () => {
+  const operation = new IntegratedFixtureOperation();
+  operation.inspect('MC-OPT-F01-01'); operation.accept(); operation.activate(); operation.interact('INT-FB-F01-DISPUTED-LOT');
+  expect(operation.canExtract()).toBe(true);
+  // A failed durable write deliberately does not call extract().
+  expect(operation.snapshot().phase).toBe('active');
+  expect(operation.canExtract()).toBe(true);
+  expect(operation.extract()).toBe(true);
+  expect(operation.snapshot().phase).toBe('settled');
+});
+
 it('persists an isolated, idempotent settlement receipt without accepting malformed state', () => {
   const first = settleIntegratedFixtureJob(createIntegratedFixtureSave(), 'MC-OPT-F01-01');
   expect(first.applied).toBe(true);
@@ -158,17 +169,23 @@ it('commits the directed B1 workshop ledger as unique, full-slot transactions', 
   expect(p.wallet.credits).toBe(4000);
   p = commitFixtureWorkshop(p, { commandId: 'buy-1', expectedRevision: p.revision, action: 'buy-f2' }).profile;
   expect(p.wallet.credits).toBe(2350);
-  p = commitFixtureWorkshop(p, { commandId: 'fit-1', expectedRevision: p.revision, action: 'fit-f2-a' }).profile;
+  p = commitFixtureWorkshop(p, { commandId: 'fit-1', expectedRevision: p.revision, action: 'fit-f2-a', partInstanceId: 'INT-B1-TAB-F2-buy-1' }).profile;
   expect(p.gunSlots['TAB-A'].F).toBe('INT-B1-TAB-F2-buy-1');
   p = commitFixtureWorkshop(p, { commandId: 'claim-1', expectedRevision: p.revision, action: 'claim-h2' }).profile;
   p = commitFixtureWorkshop(p, { commandId: 'sell-1', expectedRevision: p.revision, action: 'sell-h2' }).profile;
   expect(p.wallet.credits).toBe(2890);
   p = commitFixtureWorkshop(p, { commandId: 'build-1', expectedRevision: p.revision, action: 'build-b3' }).profile;
-  p = commitFixtureWorkshop(p, { commandId: 'fit-b3', expectedRevision: p.revision, action: 'fit-b3-a' }).profile;
+  p = commitFixtureWorkshop(p, { commandId: 'fit-b3', expectedRevision: p.revision, action: 'fit-b3-a', partInstanceId: 'INT-B1-TAB-B3-build-1' }).profile;
   p = commitFixtureWorkshop(p, { commandId: 'develop-1', expectedRevision: p.revision, action: 'develop-b2' }).profile;
   expect(p.wallet).toEqual({ credits: 1390, metal: 40, circuits: 8, cloth: 18, flux: 3 });
   expect(p.parts).toHaveLength(27);
+  expect(p.gunSlots['TAB-A']).toMatchObject({ B: 'INT-B1-TAB-B3-build-1', F: 'INT-B1-TAB-F2-buy-1' });
+  expect(p.gunSlots['TAB-B'].B).toBe('INT-B1-TAB-B2-GIFT');
   expect(p.parts.find(part => part.instanceId === 'INT-B1-TAB-B2-GIFT')).toMatchObject({ tier: 2, version: 2, provenance: 'C01.2 first-barrel fixture grant' });
+  expect(Object.values(p.gunSlots).flatMap(gun => Object.values(gun))).toHaveLength(24);
+  expect(new Set(Object.values(p.gunSlots).flatMap(gun => Object.values(gun))).size).toBe(24);
+  expect(p.parts.some(part => part.instanceId === 'INT-B1-TAB-A-B-BASE')).toBe(true);
+  expect(p.parts.some(part => part.instanceId === 'INT-B1-TAB-A-F-BASE')).toBe(true);
   expect(commitFixtureWorkshop(p, { commandId: 'develop-1', expectedRevision: p.revision, action: 'develop-b2' })).toMatchObject({ applied: false, reason: 'duplicate-command' });
 });
 

@@ -134,11 +134,15 @@ export class IntegratedFixtureOperation {
     return true;
   }
   public setFiniteGroupCleared(): void { if (this.phase === 'active') this.groupCleared = true; }
-  public extract(): boolean {
+  /** Read-only extraction gate used by persistence adapters before they publish settlement. */
+  public canExtract(): boolean {
     if (this.phase !== 'active' || !this.jobId) return false;
-    const settled = operationCanSettle({ jobId: this.jobId, completedInteractionIds: [...this.completed], finiteEnemyGroupCleared: this.groupCleared, extractionConfirmed: true });
-    if (settled) this.phase = 'settled';
-    return settled;
+    return operationCanSettle({ jobId: this.jobId, completedInteractionIds: [...this.completed], finiteEnemyGroupCleared: this.groupCleared, extractionConfirmed: true });
+  }
+  public extract(): boolean {
+    if (!this.canExtract()) return false;
+    this.phase = 'settled';
+    return true;
   }
   public snapshot(): Readonly<{ jobId?: FixtureJobId; phase: FixtureOperationPhase; completedInteractionIds: readonly string[]; finiteEnemyGroupCleared: boolean }> {
     return Object.freeze({ jobId: this.jobId, phase: this.phase, completedInteractionIds: Object.freeze([...this.completed]), finiteEnemyGroupCleared: this.groupCleared });
@@ -213,7 +217,7 @@ export interface FixtureWallet { readonly credits: number; readonly metal: numbe
 export interface FixturePart { readonly instanceId: string; readonly kind: FixturePartKind; readonly family: 'TAB' | 'HOU'; readonly slot: FixtureSlot; readonly protectedBaseline: boolean; readonly sealedFactory: boolean; readonly tier: 1 | 2 | null; readonly refinement: 'Balanced' | null; readonly maker: string; readonly provenance: string; readonly version: number; }
 export interface FixtureWorkshopReceipt { readonly commandId: string; readonly action: FixtureWorkshopAction | 'mission'; readonly revision: number; readonly outputIds: readonly string[]; }
 export interface FixtureWorkshopProfile { readonly version: 'int-fb-profile-v2'; readonly revision: number; readonly wallet: FixtureWallet; readonly parts: readonly FixturePart[]; readonly gunSlots: Readonly<Record<FixtureGunId, Readonly<Record<FixtureSlot, string>>>>; readonly claims: readonly string[]; readonly receipts: readonly FixtureWorkshopReceipt[]; }
-export interface FixtureWorkshopCommand { readonly commandId: string; readonly expectedRevision: number; readonly action: FixtureWorkshopAction; }
+export interface FixtureWorkshopCommand { readonly commandId: string; readonly expectedRevision: number; readonly action: FixtureWorkshopAction; readonly partInstanceId?: string; }
 type SlotMap = Record<FixtureGunId, Record<FixtureSlot, string>>;
 const fixtureGuns: readonly FixtureGunId[] = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'];
 const fixtureSlots: readonly FixtureSlot[] = ['R', 'B', 'F', 'P', 'H', 'C'];
@@ -285,8 +289,9 @@ export function commitFixtureWorkshop(profile: FixtureWorkshopProfile, command: 
     return next({ wallet: { ...wallet, credits: wallet.credits - 1000, metal: wallet.metal - 40, circuits: wallet.circuits - 8 }, parts: [...profile.parts, output] }, [output.instanceId]);
   }
   if (command.action === 'develop-b2') { const target = part(profile, 'INT-B1-TAB-B2-GIFT'); if (!target || target.sealedFactory || target.tier !== 1 || wallet.credits < 500 || wallet.metal < 20 || wallet.circuits < 4) return reject(profile, 'ineligible-develop'); return next({ wallet: { ...wallet, credits: wallet.credits - 500, metal: wallet.metal - 20, circuits: wallet.circuits - 4 }, parts: profile.parts.map(candidate => candidate.instanceId === target.instanceId ? { ...candidate, tier: 2, version: candidate.version + 1 } : candidate) }); }
-  const target = profile.parts.find(candidate => candidate.kind === (command.action === 'fit-f2-a' ? 'F2' : 'B3'));
-  if (!target) return reject(profile, 'not-owned');
+  const expectedKind = command.action === 'fit-f2-a' ? 'F2' : 'B3';
+  const target = command.partInstanceId ? part(profile, command.partInstanceId) : undefined;
+  if (!target || target.kind !== expectedKind || target.family !== 'TAB') return reject(profile, 'exact-part-required');
   const gunSlots: SlotMap = structuredClone(profile.gunSlots);
   gunSlots['TAB-A'][target.slot] = target.instanceId;
   const candidate = freezeProfile({ ...profile, gunSlots });
