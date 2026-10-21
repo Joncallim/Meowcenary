@@ -147,6 +147,8 @@ it('projects historical receipts without changing live fixture state and require
 
 it('commits the directed B1 workshop ledger once per command', () => {
   let p = createIntegratedFixtureWorkshopProfile();
+  expect(p.owned).toHaveLength(25);
+  expect(p.owned.filter(id => id.includes('-BASE'))).toHaveLength(24);
   p = commitFixtureWorkshop(p, 'buy-1', 'buy-f2').profile;
   expect(p.wallet.credits).toBe(1350);
   p = commitFixtureWorkshop(p, 'fit-1', 'fit-f2-a').profile;

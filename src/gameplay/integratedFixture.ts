@@ -207,9 +207,10 @@ export function resolveFixtureTakeover(tabbyHealth: number, houndHealth: number,
 
 export type FixturePartId = 'TAB-B2-GIFT' | 'TAB-F2' | 'HOU-H2-LOOT' | 'TAB-B3';
 export interface FixtureWallet { readonly credits: number; readonly metal: number; readonly circuits: number; readonly cloth: number; readonly flux: number; }
-export interface FixtureWorkshopProfile { readonly wallet: FixtureWallet; readonly owned: readonly FixturePartId[]; readonly assigned: Readonly<Record<'TAB-A' | 'TAB-B', FixturePartId | undefined>>; readonly claims: readonly string[]; readonly receipts: readonly string[]; readonly developed: boolean; }
+export interface FixtureWorkshopProfile { readonly wallet: FixtureWallet; readonly owned: readonly (FixturePartId | string)[]; readonly assigned: Readonly<Record<'TAB-A' | 'TAB-B', FixturePartId | undefined>>; readonly claims: readonly string[]; readonly receipts: readonly string[]; readonly developed: boolean; }
 export function createIntegratedFixtureWorkshopProfile(): FixtureWorkshopProfile {
-  const owned: readonly FixturePartId[] = Object.freeze(['TAB-B2-GIFT']);
+  const baseline = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'].flatMap(merc => ['R', 'B', 'F', 'P', 'H', 'C'].map(slot => `INT-B1-${merc}-${slot}-BASE`));
+  const owned: readonly (FixturePartId | string)[] = Object.freeze([...baseline, 'TAB-B2-GIFT']);
   return Object.freeze({ wallet: Object.freeze({ credits: 3000, metal: 80, circuits: 16, cloth: 12, flux: 3 }), owned, assigned: Object.freeze({ 'TAB-A': undefined, 'TAB-B': 'TAB-B2-GIFT' }), claims: Object.freeze([]), receipts: Object.freeze([]), developed: false });
 }
 function fixtureProfile(profile: FixtureWorkshopProfile, commandId: string, wallet: FixtureWallet, owned = profile.owned, assigned = profile.assigned, claims = profile.claims, developed = profile.developed): FixtureWorkshopProfile {
