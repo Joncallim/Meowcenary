@@ -171,6 +171,8 @@ it('commits the directed B1 workshop ledger as unique, full-slot transactions', 
   expect(p.wallet.credits).toBe(2350);
   p = commitFixtureWorkshop(p, { commandId: 'fit-1', expectedRevision: p.revision, action: 'fit-f2-a', partInstanceId: 'INT-B1-TAB-F2-buy-1' }).profile;
   expect(p.gunSlots['TAB-A'].F).toBe('INT-B1-TAB-F2-buy-1');
+  expect(commitFixtureWorkshop(p, { commandId: 'claim-before-discovery', expectedRevision: p.revision, action: 'claim-h2' })).toMatchObject({ applied: false, reason: 'undiscovered-loot' });
+  p = commitFixtureWorkshop(p, { commandId: 'discover-1', expectedRevision: p.revision, action: 'discover-h2' }).profile;
   p = commitFixtureWorkshop(p, { commandId: 'claim-1', expectedRevision: p.revision, action: 'claim-h2' }).profile;
   p = commitFixtureWorkshop(p, { commandId: 'sell-1', expectedRevision: p.revision, action: 'sell-h2' }).profile;
   expect(p.wallet.credits).toBe(2890);

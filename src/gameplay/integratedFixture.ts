@@ -212,7 +212,7 @@ export function resolveFixtureTakeover(tabbyHealth: number, houndHealth: number,
 export type FixturePartKind = 'R1' | 'B1' | 'F1' | 'P1' | 'H1' | 'C1' | 'B2' | 'F2' | 'H2' | 'B3';
 export type FixtureGunId = 'TAB-A' | 'TAB-B' | 'HOU-A' | 'HOU-B';
 export type FixtureSlot = 'R' | 'B' | 'F' | 'P' | 'H' | 'C';
-export type FixtureWorkshopAction = 'buy-f2' | 'claim-h2' | 'sell-h2' | 'build-b3' | 'develop-b2' | 'fit-f2-a' | 'fit-b3-a';
+export type FixtureWorkshopAction = 'discover-h2' | 'buy-f2' | 'claim-h2' | 'sell-h2' | 'build-b3' | 'develop-b2' | 'fit-f2-a' | 'fit-b3-a';
 export interface FixtureWallet { readonly credits: number; readonly metal: number; readonly circuits: number; readonly cloth: number; readonly flux: number; }
 export interface FixturePart { readonly instanceId: string; readonly kind: FixturePartKind; readonly family: 'TAB' | 'HOU'; readonly slot: FixtureSlot; readonly protectedBaseline: boolean; readonly sealedFactory: boolean; readonly tier: 1 | 2 | null; readonly refinement: 'Balanced' | null; readonly maker: string; readonly provenance: string; readonly version: number; }
 export interface FixtureWorkshopReceipt { readonly commandId: string; readonly action: FixtureWorkshopAction | 'mission'; readonly revision: number; readonly outputIds: readonly string[]; }
@@ -269,16 +269,18 @@ export function commitFixtureWorkshop(profile: FixtureWorkshopProfile, command: 
   if (command.expectedRevision !== profile.revision) return reject(profile, 'stale-revision');
   if (!legalSlots(profile)) return reject(profile, 'invalid-assignments');
   const wallet = profile.wallet;
-  const next = (patch: Partial<Pick<FixtureWorkshopProfile, 'wallet' | 'parts' | 'gunSlots' | 'claims'>>, outputIds: readonly string[] = []) => {
-    const result = finish(profile, command.commandId, command.action, { profileId: profile.profileId, definitionVersion: profile.definitionVersion, rulesVersion: profile.rulesVersion, wallet: patch.wallet ?? wallet, parts: patch.parts ?? profile.parts, gunSlots: patch.gunSlots ?? profile.gunSlots, claims: patch.claims ?? profile.claims, discoveries: profile.discoveries, knownSchematics: profile.knownSchematics, capabilities: profile.capabilities }, outputIds);
+  const next = (patch: Partial<Pick<FixtureWorkshopProfile, 'wallet' | 'parts' | 'gunSlots' | 'claims' | 'discoveries'>>, outputIds: readonly string[] = []) => {
+    const result = finish(profile, command.commandId, command.action, { profileId: profile.profileId, definitionVersion: profile.definitionVersion, rulesVersion: profile.rulesVersion, wallet: patch.wallet ?? wallet, parts: patch.parts ?? profile.parts, gunSlots: patch.gunSlots ?? profile.gunSlots, claims: patch.claims ?? profile.claims, discoveries: patch.discoveries ?? profile.discoveries, knownSchematics: profile.knownSchematics, capabilities: profile.capabilities }, outputIds);
     return Object.freeze({ profile: result, applied: true, receipt: result.receipts.at(-1)! });
   };
+  if (command.action === 'discover-h2') return profile.discoveries.includes('INT-LOOT-01') ? reject(profile, 'already-discovered') : next({ discoveries: [...profile.discoveries, 'INT-LOOT-01'] });
   if (command.action === 'buy-f2') {
     if (wallet.credits < 1650) return reject(profile, 'insufficient-credits');
     const output: FixturePart = { instanceId: `INT-B1-TAB-F2-${command.commandId}`, kind: 'F2', family: 'TAB', slot: 'F', protectedBaseline: false, sealedFactory: true, tier: null, refinement: null, maker: 'Rivetwake Heavy Works', provenance: 'fixture factory offer', version: 1 };
     return next({ wallet: { ...wallet, credits: wallet.credits - 1650 }, parts: [...profile.parts, output] }, [output.instanceId]);
   }
   if (command.action === 'claim-h2') {
+    if (!profile.discoveries.includes('INT-LOOT-01')) return reject(profile, 'undiscovered-loot');
     if (profile.claims.includes('INT-LOOT-01')) return reject(profile, 'already-claimed');
     const output: FixturePart = { instanceId: 'INT-B1-HOU-H2-LOOT', kind: 'H2', family: 'HOU', slot: 'H', protectedBaseline: false, sealedFactory: false, tier: 1, refinement: 'Balanced', maker: 'Kestrel Cut Assembly', provenance: 'integration loot fixture', version: 1 };
     return next({ parts: [...profile.parts, output], claims: [...profile.claims, 'INT-LOOT-01'] }, [output.instanceId]);
