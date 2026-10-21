@@ -14,6 +14,7 @@ import {
   deserializeIntegratedFixtureSave,
   fixtureDialogue,
   settleIntegratedFixtureJob,
+  settleIntegratedFixtureEvent,
   historicalFixtureMissionReplay,
   resolveFixtureTakeover,
   createIntegratedFixtureWorkshopProfile,
@@ -23,7 +24,8 @@ import {
   settleFixtureWorkshopMission,
   resolveFixtureGunProfile,
   beginFixtureAttempt, terminalFixtureAttempt, recoverFixtureFailure,
-  failFixtureProfileAttempt, retryFixtureProfileAttempt, settleFixtureProfileAttempt,
+  beginFixtureProfileAttempt, failFixtureProfileAttempt, retryFixtureProfileAttempt, settleFixtureProfileAttempt,
+  createIntegratedFixtureEnvelope, deserializeIntegratedFixtureEnvelope, nextFixtureAttemptId, nextFixtureWorldEventId,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -201,6 +203,65 @@ it('persists one recovery fee then rewards a fresh retry once', () => {
   p = retryFixtureProfileAttempt(p, 'event-1' as any, 'attempt-2' as any).profile;
   p = settleFixtureProfileAttempt(p, 'attempt-2' as any).profile; expect(p.wallet.credits).toBe(2251);
   expect(settleFixtureProfileAttempt(p, 'attempt-2' as any).applied).toBe(false);
+});
+
+it('keeps resources and parts through recovery and applies both requested recovery examples', () => {
+  const initial = createIntegratedFixtureWorkshopProfile();
+  const parts = JSON.stringify(initial.parts);
+  const materials = initial.wallet;
+  let profile = initial;
+  profile = { ...initial, wallet: { ...initial.wallet, credits: 850 }, attempts: [beginFixtureAttempt('event-keep' as any, 'attempt-keep-1' as any)] };
+  const failed = failFixtureProfileAttempt(profile, 'attempt-keep-1' as any);
+  expect(failed).toMatchObject({ applied: true, fee: 85 });
+  expect(failed.profile.wallet).toMatchObject({ credits: 765, metal: materials.metal, circuits: materials.circuits, cloth: materials.cloth, flux: materials.flux });
+  expect(JSON.stringify(failed.profile.parts)).toBe(parts);
+  profile = retryFixtureProfileAttempt(failed.profile, 'event-keep' as any, 'attempt-keep-2' as any).profile;
+  const won = settleFixtureProfileAttempt(profile, 'attempt-keep-2' as any);
+  expect(won.profile.wallet.credits).toBe(1765);
+  expect(JSON.stringify(won.profile.parts)).toBe(parts);
+});
+
+it('allocates durable distinct events, reuses an event only for recovery retry, and keeps repeated callbacks inert', () => {
+  let profile = createIntegratedFixtureWorkshopProfile();
+  const firstEvent = nextFixtureWorldEventId(profile, 'MC-OPT-F01-01');
+  const firstAttempt = nextFixtureAttemptId(profile, firstEvent);
+  profile = beginFixtureProfileAttempt(profile, firstEvent, firstAttempt).profile;
+  expect(beginFixtureProfileAttempt(profile, firstEvent, firstAttempt).applied).toBe(false);
+  profile = failFixtureProfileAttempt(profile, firstAttempt).profile;
+  expect(failFixtureProfileAttempt(profile, firstAttempt).applied).toBe(false);
+  const retry = nextFixtureAttemptId(profile, firstEvent);
+  profile = retryFixtureProfileAttempt(profile, firstEvent, retry).profile;
+  expect(retry).not.toBe(firstAttempt);
+  profile = settleFixtureProfileAttempt(profile, retry).profile;
+  expect(settleFixtureProfileAttempt(profile, retry).applied).toBe(false);
+  expect(failFixtureProfileAttempt(profile, retry).applied).toBe(false);
+  const secondEvent = nextFixtureWorldEventId(profile, 'MC-OPT-F01-01');
+  expect(secondEvent).not.toBe(firstEvent);
+  const receiptOne = settleIntegratedFixtureEvent(createIntegratedFixtureSave(), 'MC-OPT-F01-01', firstEvent, retry);
+  expect(settleIntegratedFixtureEvent(receiptOne.save, 'MC-OPT-F01-01', firstEvent, retry).applied).toBe(false);
+  expect(settleIntegratedFixtureEvent(receiptOne.save, 'MC-OPT-F01-01', secondEvent, 'attempt-new' as any).applied).toBe(true);
+});
+
+it('round-trips the one live envelope without granting a historical receipt a mutation path', () => {
+  const envelope = createIntegratedFixtureEnvelope();
+  const event = nextFixtureWorldEventId(envelope.workshop, 'MC-OPT-R01-01');
+  const attempt = nextFixtureAttemptId(envelope.workshop, event);
+  const begun = beginFixtureProfileAttempt(envelope.workshop, event, attempt).profile;
+  const stored = { ...envelope, workshop: begun, liveMission: { jobId: 'MC-OPT-R01-01' as const, worldEventId: event, attemptId: attempt, completedInteractionIds: ['INT-FB-R01-MARKER-A'], finiteEnemyGroupCleared: false, recoveryRequired: false } };
+  const restored = deserializeIntegratedFixtureEnvelope(JSON.stringify(stored));
+  expect(restored.liveMission).toEqual(stored.liveMission);
+  expect(restored.workshop.attempts).toEqual(begun.attempts);
+  const receipt = settleIntegratedFixtureEvent(restored.mission, 'MC-OPT-R01-01', event, attempt).save;
+  const before = JSON.stringify(receipt);
+  expect(historicalFixtureMissionReplay(receipt, receipt.receipts[0]!.id)).toBeDefined();
+  expect(JSON.stringify(receipt)).toBe(before);
+});
+
+it('keeps a prior isolated receipt readable without importing a normal game save', () => {
+  const oldFixtureSave = JSON.stringify({ version: 'int-fb-v1', seed: 'int-fb-post-chapter-2', receipts: [{ id: 'int-fb:MC-OPT-F01-01:settlement', jobId: 'MC-OPT-F01-01', recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6 }] });
+  const restored = deserializeIntegratedFixtureSave(oldFixtureSave);
+  expect(restored.receipts[0]).toMatchObject({ id: 'int-fb:MC-OPT-F01-01:settlement', worldEventId: 'MC-OPT-F01-01', attemptId: 'legacy-attempt:MC-OPT-F01-01' });
+  expect(historicalFixtureMissionReplay(restored, 'int-fb:MC-OPT-F01-01:settlement')?.text).toContain('Historical receipt');
 });
 
 it('commits the directed B1 workshop ledger as unique, full-slot transactions', () => {

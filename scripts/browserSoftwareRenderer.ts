@@ -6,13 +6,22 @@ export function browserSoftwareRenderer(
   mode: string | undefined,
   environment: Readonly<Record<string, string | undefined>>,
 ): LaunchOptions | undefined {
-  if (mode === undefined) return undefined;
+  const executablePath = environment.MEOWCENARY_BROWSER_EXECUTABLE;
+  const executableEnvironment = executablePath ? {
+    ...Object.fromEntries(Object.entries(environment).filter((entry): entry is [string, string] => typeof entry[1] === 'string')),
+    XDG_CACHE_HOME: '/tmp/meowcenary-browser-cache',
+    XDG_CONFIG_HOME: '/tmp/meowcenary-browser-config',
+  } : undefined;
+  const executableArgs = executablePath ? ['--no-sandbox', '--disable-breakpad', '--disable-crash-reporter'] : [];
+  const executableOptions = executablePath ? { executablePath, args: executableArgs, env: executableEnvironment } : {};
+  if (mode === undefined) return executablePath ? executableOptions : undefined;
   if (mode !== 'mesa') throw new Error(`Unsupported browser renderer: ${mode}`);
   if (platform !== 'linux') throw new Error('Mesa browser acceptance requires Linux');
   return {
-    args: ['--use-gl=angle', '--use-angle=gl-egl', '--ozone-platform=headless', '--ignore-gpu-blocklist'],
+    ...executableOptions,
+    args: [...executableArgs, '--use-gl=angle', '--use-angle=gl-egl', '--ozone-platform=headless', '--ignore-gpu-blocklist'],
     env: {
-      ...Object.fromEntries(Object.entries(environment).filter((entry): entry is [string, string] => typeof entry[1] === 'string')),
+      ...(executableEnvironment ?? Object.fromEntries(Object.entries(environment).filter((entry): entry is [string, string] => typeof entry[1] === 'string'))),
       LIBGL_ALWAYS_SOFTWARE: '1',
       EGL_PLATFORM: 'surfaceless',
     },

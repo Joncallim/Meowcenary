@@ -203,7 +203,9 @@ describe('createUiText', () => {
     // The retired brief used modal helpers, so no direct factory site is removed.
     // Responsive Mercenary cards add two centralized text sites for the
     // compact/wide render block and its content-aware measurement probe.
-    expect(migratedSites).toHaveLength(67);
+    // The INT-FB recovery overlay adds four semantic text owners: its heading,
+    // persistent recovery guidance, and the recover/retry commands.
+    expect(migratedSites).toHaveLength(71);
     const introSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/ui/runStartIntroView.ts'));
     expect(introSites).toHaveLength(4);
 

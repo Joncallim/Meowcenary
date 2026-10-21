@@ -144,15 +144,34 @@ export class IntegratedFixtureOperation {
     this.phase = 'settled';
     return true;
   }
+  /** Rehydrates only durable, unfinished progress; combat state remains scene-owned. */
+  public restoreActive(jobId: FixtureJobId, completedInteractionIds: readonly string[], finiteEnemyGroupCleared: boolean): boolean {
+    const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === jobId);
+    if (!job || !completedInteractionIds.every(id => job.requiredInteractionIds.includes(id))) return false;
+    this.jobId = jobId;
+    this.phase = 'active';
+    this.completed.clear();
+    completedInteractionIds.forEach(id => this.completed.add(id));
+    this.groupCleared = finiteEnemyGroupCleared;
+    return true;
+  }
   public snapshot(): Readonly<{ jobId?: FixtureJobId; phase: FixtureOperationPhase; completedInteractionIds: readonly string[]; finiteEnemyGroupCleared: boolean }> {
     return Object.freeze({ jobId: this.jobId, phase: this.phase, completedInteractionIds: Object.freeze([...this.completed]), finiteEnemyGroupCleared: this.groupCleared });
   }
 }
 
 export const INTEGRATED_FIXTURE_SAVE_KEY = 'meowcenary:int-fb:v1';
+/**
+ * The proving ground deliberately has one isolated browser envelope.  It is
+ * not the game's SaveManager schema and is never written by replay helpers.
+ */
+export const INTEGRATED_FIXTURE_ENVELOPE_KEY = `${INTEGRATED_FIXTURE_SAVE_KEY}:profile`;
+export const INTEGRATED_FIXTURE_ENVELOPE_VERSION = 'int-fb-envelope-v3';
 export interface FixtureMissionReceipt {
   readonly id: string;
   readonly jobId: FixtureJobId;
+  readonly worldEventId: FixtureWorldEventId;
+  readonly attemptId: FixtureAttemptId;
   readonly recipientId: 'rcc-dispatch' | 'fre-broker';
   readonly credits: 1000;
   readonly metal: 20;
@@ -167,23 +186,40 @@ export interface FixtureMissionSave {
 export function createIntegratedFixtureSave(): FixtureMissionSave {
   return Object.freeze({ version: INTEGRATED_FIXTURE_VERSION, seed: 'int-fb-post-chapter-2', receipts: Object.freeze([]) });
 }
-/** A settlement is source-receipt idempotent; it never writes the legacy save schema. */
-export function settleIntegratedFixtureJob(save: FixtureMissionSave, jobId: FixtureJobId): Readonly<{ save: FixtureMissionSave; receipt: FixtureMissionReceipt; applied: boolean }> {
-  const id = `int-fb:${jobId}:settlement`;
+/**
+ * Delivery history is keyed by the durable world event, never by a reusable
+ * job definition.  A new event may pay; a repeat callback for one delivered
+ * event cannot recreate its cargo or receipt.
+ */
+export function settleIntegratedFixtureEvent(save: FixtureMissionSave, jobId: FixtureJobId, worldEventId: FixtureWorldEventId, attemptId: FixtureAttemptId): Readonly<{ save: FixtureMissionSave; receipt: FixtureMissionReceipt; applied: boolean }> {
+  const id = `int-fb:${worldEventId}:settlement`;
   const existing = save.receipts.find(receipt => receipt.id === id);
   if (existing) return Object.freeze({ save, receipt: existing, applied: false });
-  const receipt: FixtureMissionReceipt = Object.freeze({ id, jobId, recipientId: jobId === 'MC-OPT-R01-01' ? 'rcc-dispatch' : 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6 });
+  const receipt: FixtureMissionReceipt = Object.freeze({ id, jobId, worldEventId, attemptId, recipientId: jobId === 'MC-OPT-R01-01' ? 'rcc-dispatch' : 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6 });
   const next = Object.freeze({ version: INTEGRATED_FIXTURE_VERSION, seed: 'int-fb-post-chapter-2' as const, receipts: Object.freeze([...save.receipts, receipt]) });
   return Object.freeze({ save: next, receipt, applied: true });
+}
+/** Compatibility-only source receipt helper. Live scenes must settle by event. */
+export function settleIntegratedFixtureJob(save: FixtureMissionSave, jobId: FixtureJobId): Readonly<{ save: FixtureMissionSave; receipt: FixtureMissionReceipt; applied: boolean }> {
+  const legacyEventId = jobId as FixtureWorldEventId;
+  return settleIntegratedFixtureEvent(save, jobId, legacyEventId, `legacy-attempt:${jobId}` as FixtureAttemptId);
 }
 export function deserializeIntegratedFixtureSave(value: string | null): FixtureMissionSave {
   if (!value) return createIntegratedFixtureSave();
   try {
     const parsed = JSON.parse(value) as Partial<FixtureMissionSave>;
     if (parsed.version !== INTEGRATED_FIXTURE_VERSION || parsed.seed !== 'int-fb-post-chapter-2' || !Array.isArray(parsed.receipts)) return createIntegratedFixtureSave();
-    const receipts = parsed.receipts.filter((receipt): receipt is FixtureMissionReceipt => Boolean(receipt) && typeof receipt.id === 'string'
-      && (receipt.jobId === 'MC-OPT-R01-01' || receipt.jobId === 'MC-OPT-F01-01') && (receipt.recipientId === 'rcc-dispatch' || receipt.recipientId === 'fre-broker')
-      && receipt.credits === 1000 && receipt.metal === 20 && receipt.circuits === 4 && receipt.cloth === 6);
+    const receipts = parsed.receipts.flatMap((receipt): readonly FixtureMissionReceipt[] => {
+      if (!receipt || typeof receipt.id !== 'string' || (receipt.jobId !== 'MC-OPT-R01-01' && receipt.jobId !== 'MC-OPT-F01-01')
+        || (receipt.recipientId !== 'rcc-dispatch' && receipt.recipientId !== 'fre-broker')
+        || receipt.credits !== 1000 || receipt.metal !== 20 || receipt.circuits !== 4 || receipt.cloth !== 6) return [];
+      if (typeof receipt.worldEventId === 'string' && receipt.worldEventId.length > 0 && typeof receipt.attemptId === 'string' && receipt.attemptId.length > 0) return [receipt];
+      // The isolated v1 fixture receipt had no event identity. Keep it readable
+      // and non-destructive by assigning its deterministic old job identity;
+      // this never reads or rewrites the normal game-save schema.
+      if (receipt.id !== `int-fb:${receipt.jobId}:settlement`) return [];
+      return [Object.freeze({ ...receipt, worldEventId: receipt.jobId as FixtureWorldEventId, attemptId: `legacy-attempt:${receipt.jobId}` as FixtureAttemptId })];
+    });
     return Object.freeze({ version: INTEGRATED_FIXTURE_VERSION, seed: 'int-fb-post-chapter-2', receipts: Object.freeze(receipts) });
   } catch { return createIntegratedFixtureSave(); }
 }
@@ -221,7 +257,8 @@ export function recoverFixtureFailure(attempt: FixtureAttemptRecord, settledCred
 }
 export function terminalFixtureAttempt(attempt: FixtureAttemptRecord, terminal: 'victory' | 'failure'): FixtureAttemptRecord { return attempt.terminal === 'active' ? Object.freeze({ ...attempt, terminal }) : attempt; }
 export function retryFixtureAttempt(ledger: FixtureAttemptLedger, worldEventId: FixtureWorldEventId, attemptId: FixtureAttemptId): FixtureAttemptLedger {
-  if (ledger.paidEventIds.includes(worldEventId) || !ledger.attempts.some(attempt => attempt.worldEventId === worldEventId && attempt.terminal === 'failure')) return ledger;
+  if (ledger.paidEventIds.includes(worldEventId) || ledger.attempts.some(attempt => attempt.attemptId === attemptId)
+    || !ledger.attempts.some(attempt => attempt.worldEventId === worldEventId && attempt.terminal === 'failure' && attempt.recoveryClaimed)) return ledger;
   return Object.freeze({ attempts: Object.freeze([...ledger.attempts, beginFixtureAttempt(worldEventId, attemptId)]), paidEventIds: ledger.paidEventIds });
 }
 export function settleFixtureAttempt(ledger: FixtureAttemptLedger, attemptId: FixtureAttemptId): Readonly<{ ledger: FixtureAttemptLedger; applied: boolean }> {
@@ -234,6 +271,11 @@ export function failFixtureProfileAttempt(profile: FixtureWorkshopProfile, attem
   const failed = terminalFixtureAttempt(profile.attempts[index]!, 'failure'); const recovery = recoverFixtureFailure(failed, profile.wallet.credits); if (!recovery.applied) return Object.freeze({ profile, applied: false, fee: 0 });
   return Object.freeze({ profile: freezeProfile({ ...profile, revision: profile.revision + 1, wallet: { ...profile.wallet, credits: profile.wallet.credits - recovery.fee }, attempts: [...profile.attempts.slice(0, index), recovery.attempt, ...profile.attempts.slice(index + 1)] }), applied: true, fee: recovery.fee });
 }
+/** Allocates the first attempt for a newly discovered world event. */
+export function beginFixtureProfileAttempt(profile: FixtureWorkshopProfile, worldEventId: FixtureWorldEventId, attemptId: FixtureAttemptId): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean }> {
+  if (profile.paidEventIds.includes(worldEventId) || profile.attempts.some(attempt => attempt.worldEventId === worldEventId || attempt.attemptId === attemptId)) return Object.freeze({ profile, applied: false });
+  return Object.freeze({ profile: freezeProfile({ ...profile, revision: profile.revision + 1, attempts: [...profile.attempts, beginFixtureAttempt(worldEventId, attemptId)] }), applied: true });
+}
 export function retryFixtureProfileAttempt(profile: FixtureWorkshopProfile, worldEventId: FixtureWorldEventId, attemptId: FixtureAttemptId): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean }> {
   const ledger = retryFixtureAttempt({ attempts: profile.attempts, paidEventIds: profile.paidEventIds }, worldEventId, attemptId);
   if (ledger.attempts === profile.attempts) return Object.freeze({ profile, applied: false });
@@ -243,6 +285,65 @@ export function settleFixtureProfileAttempt(profile: FixtureWorkshopProfile, att
   const settled = settleFixtureAttempt({ attempts: profile.attempts, paidEventIds: profile.paidEventIds }, attemptId);
   if (!settled.applied) return Object.freeze({ profile, applied: false });
   return Object.freeze({ profile: freezeProfile({ ...profile, revision: profile.revision + 1, attempts: settled.ledger.attempts, paidEventIds: settled.ledger.paidEventIds, wallet: { ...profile.wallet, credits: profile.wallet.credits + 1000, metal: profile.wallet.metal + 20, circuits: profile.wallet.circuits + 4, cloth: profile.wallet.cloth + 6 } }), applied: true });
+}
+
+/** Persisted scene progress references the profile ledger; it never owns a second terminal state. */
+export interface FixtureLiveMission {
+  readonly jobId: FixtureJobId;
+  readonly worldEventId: FixtureWorldEventId;
+  readonly attemptId: FixtureAttemptId;
+  readonly completedInteractionIds: readonly string[];
+  readonly finiteEnemyGroupCleared: boolean;
+  readonly recoveryRequired: boolean;
+}
+export interface FixturePersistentEnvelope {
+  readonly version: typeof INTEGRATED_FIXTURE_ENVELOPE_VERSION;
+  readonly mission: FixtureMissionSave;
+  readonly workshop: FixtureWorkshopProfile;
+  readonly liveMission?: FixtureLiveMission;
+}
+export function createIntegratedFixtureEnvelope(): FixturePersistentEnvelope {
+  return Object.freeze({ version: INTEGRATED_FIXTURE_ENVELOPE_VERSION, mission: createIntegratedFixtureSave(), workshop: createIntegratedFixtureWorkshopProfile() });
+}
+function validLiveMission(value: unknown, profile: FixtureWorkshopProfile): value is FixtureLiveMission {
+  if (!value || typeof value !== 'object') return false;
+  const live = value as Partial<FixtureLiveMission>;
+  if ((live.jobId !== 'MC-OPT-R01-01' && live.jobId !== 'MC-OPT-F01-01') || typeof live.worldEventId !== 'string' || !live.worldEventId
+    || typeof live.attemptId !== 'string' || !live.attemptId || !Array.isArray(live.completedInteractionIds)
+    || !live.completedInteractionIds.every(id => typeof id === 'string') || typeof live.finiteEnemyGroupCleared !== 'boolean' || typeof live.recoveryRequired !== 'boolean') return false;
+  const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === live.jobId)!;
+  if (!live.completedInteractionIds.every(id => job.requiredInteractionIds.includes(id))) return false;
+  const attempt = profile.attempts.find(candidate => candidate.attemptId === live.attemptId && candidate.worldEventId === live.worldEventId);
+  return !!attempt && !profile.paidEventIds.includes(live.worldEventId)
+    && (live.recoveryRequired ? attempt.terminal === 'failure' && attempt.recoveryClaimed : attempt.terminal === 'active');
+}
+/**
+ * V2 fixture envelopes are read without touching the browser until their next
+ * ordinary transaction.  The normal game save is deliberately never read.
+ */
+export function deserializeIntegratedFixtureEnvelope(value: string | null): FixturePersistentEnvelope {
+  if (!value) return createIntegratedFixtureEnvelope();
+  try {
+    const raw = JSON.parse(value) as { version?: string; mission?: unknown; workshop?: unknown; liveMission?: unknown };
+    if (raw.version !== INTEGRATED_FIXTURE_ENVELOPE_VERSION && raw.version !== 'int-fb-envelope-v2') return createIntegratedFixtureEnvelope();
+    const mission = deserializeIntegratedFixtureSave(JSON.stringify(raw.mission));
+    const workshop = deserializeIntegratedFixtureWorkshopProfile(raw.workshop);
+    const liveMission = validLiveMission(raw.liveMission, workshop) ? Object.freeze({ ...raw.liveMission, completedInteractionIds: Object.freeze([...raw.liveMission.completedInteractionIds]) }) : undefined;
+    return Object.freeze({ version: INTEGRATED_FIXTURE_ENVELOPE_VERSION, mission, workshop, ...(liveMission ? { liveMission } : {}) });
+  } catch { return createIntegratedFixtureEnvelope(); }
+}
+export function serializeIntegratedFixtureEnvelope(envelope: FixturePersistentEnvelope): string { return JSON.stringify(envelope); }
+export function nextFixtureWorldEventId(profile: FixtureWorkshopProfile, jobId: FixtureJobId): FixtureWorldEventId {
+  const prior = new Set(profile.attempts.filter(attempt => attempt.worldEventId.startsWith(`int-fb:event:${jobId}:`)).map(attempt => attempt.worldEventId));
+  let sequence = 1;
+  while (prior.has(`int-fb:event:${jobId}:${sequence}` as FixtureWorldEventId)) sequence += 1;
+  return `int-fb:event:${jobId}:${sequence}` as FixtureWorldEventId;
+}
+export function nextFixtureAttemptId(profile: FixtureWorkshopProfile, worldEventId: FixtureWorldEventId): FixtureAttemptId {
+  let sequence = profile.attempts.filter(attempt => attempt.worldEventId === worldEventId).length + 1;
+  let id = `int-fb:attempt:${worldEventId}:${sequence}` as FixtureAttemptId;
+  while (profile.attempts.some(attempt => attempt.attemptId === id)) { sequence += 1; id = `int-fb:attempt:${worldEventId}:${sequence}` as FixtureAttemptId; }
+  return id;
 }
 
 export type FixturePartKind = 'R1' | 'B1' | 'F1' | 'P1' | 'H1' | 'C1' | 'B2' | 'F2' | 'H2' | 'B3';
@@ -275,6 +376,17 @@ export function createIntegratedFixtureWorkshopProfile(): FixtureWorkshopProfile
   parts.push(gift); gunSlots['TAB-B'].B = gift.instanceId;
   return freezeProfile({ profileId: 'INT-B1-PROFILE-01', definitionVersion: 'int-fb-definitions-v1', rulesVersion: 'int-fb-rules-v1', revision: 0, wallet: { credits: 3000, metal: 80, circuits: 16, cloth: 12, flux: 3 }, parts, gunSlots, claims: [], discoveries: [], knownSchematics: ['TAB-B2', 'TAB-B3'], capabilities: ['T2'], attempts: [], paidEventIds: [], receipts: [] });
 }
+function legalAttemptLedger(attempts: readonly FixtureAttemptRecord[], paidEventIds: readonly FixtureWorldEventId[]): boolean {
+  const attemptIds = new Set<string>();
+  const paid = new Set<string>();
+  if (!attempts.every(attempt => typeof attempt.worldEventId === 'string' && attempt.worldEventId.length > 0
+    && typeof attempt.attemptId === 'string' && attempt.attemptId.length > 0
+    && (attempt.terminal === 'active' || attempt.terminal === 'victory' || attempt.terminal === 'failure')
+    && typeof attempt.recoveryClaimed === 'boolean' && !attemptIds.has(attempt.attemptId)
+    && (attemptIds.add(attempt.attemptId), true))) return false;
+  if (!paidEventIds.every(eventId => typeof eventId === 'string' && eventId.length > 0 && !paid.has(eventId) && (paid.add(eventId), true))) return false;
+  return paidEventIds.every(eventId => attempts.some(attempt => attempt.worldEventId === eventId && attempt.terminal === 'victory'));
+}
 /** Reject malformed/legacy envelopes rather than ever rewriting the normal game save. */
 export function deserializeIntegratedFixtureWorkshopProfile(value: unknown): FixtureWorkshopProfile {
   if (!value || typeof value !== 'object') return createIntegratedFixtureWorkshopProfile();
@@ -282,7 +394,10 @@ export function deserializeIntegratedFixtureWorkshopProfile(value: unknown): Fix
   if (raw.version !== 'int-fb-profile-v2' || raw.profileId !== 'INT-B1-PROFILE-01' || raw.definitionVersion !== 'int-fb-definitions-v1' || raw.rulesVersion !== 'int-fb-rules-v1' || !Number.isInteger(raw.revision) || raw.revision! < 0 || !raw.wallet || !Array.isArray(raw.parts) || !raw.gunSlots || !Array.isArray(raw.claims) || !Array.isArray(raw.receipts) || !Array.isArray(raw.discoveries) || !Array.isArray(raw.knownSchematics) || !Array.isArray(raw.capabilities)) return createIntegratedFixtureWorkshopProfile();
   const wallet = raw.wallet;
   if (!['credits', 'metal', 'circuits', 'cloth', 'flux'].every(key => Number.isFinite(wallet[key as keyof FixtureWallet]) && wallet[key as keyof FixtureWallet]! >= 0)) return createIntegratedFixtureWorkshopProfile();
-  const profile = freezeProfile({ profileId: raw.profileId, definitionVersion: raw.definitionVersion, rulesVersion: raw.rulesVersion, revision: raw.revision!, wallet, parts: raw.parts as FixturePart[], gunSlots: raw.gunSlots as FixtureWorkshopProfile['gunSlots'], claims: raw.claims as string[], discoveries: raw.discoveries as string[], knownSchematics: raw.knownSchematics as string[], capabilities: raw.capabilities as string[], attempts: Array.isArray(raw.attempts) ? raw.attempts as FixtureAttemptRecord[] : [], paidEventIds: Array.isArray(raw.paidEventIds) ? raw.paidEventIds as FixtureWorldEventId[] : [], receipts: raw.receipts as FixtureWorkshopReceipt[] });
+  const attempts = Array.isArray(raw.attempts) ? raw.attempts as FixtureAttemptRecord[] : [];
+  const paidEventIds = Array.isArray(raw.paidEventIds) ? raw.paidEventIds as FixtureWorldEventId[] : [];
+  if (!legalAttemptLedger(attempts, paidEventIds)) return createIntegratedFixtureWorkshopProfile();
+  const profile = freezeProfile({ profileId: raw.profileId, definitionVersion: raw.definitionVersion, rulesVersion: raw.rulesVersion, revision: raw.revision!, wallet, parts: raw.parts as FixturePart[], gunSlots: raw.gunSlots as FixtureWorkshopProfile['gunSlots'], claims: raw.claims as string[], discoveries: raw.discoveries as string[], knownSchematics: raw.knownSchematics as string[], capabilities: raw.capabilities as string[], attempts, paidEventIds, receipts: raw.receipts as FixtureWorkshopReceipt[] });
   return legalSlots(profile) && new Set(profile.parts.map(candidate => candidate.instanceId)).size === profile.parts.length ? profile : createIntegratedFixtureWorkshopProfile();
 }
 function part(profile: FixtureWorkshopProfile, instanceId: string): FixturePart | undefined { return profile.parts.find(candidate => candidate.instanceId === instanceId); }
@@ -512,6 +627,13 @@ export class IntegratedFixtureCombat {
     this.add(`${prefix}-b` as FixtureCombatantId, 'hostile', locations[1]!, 90, 0.4, HOSTILE_FIXTURE_GUN);
     this.ownedDesignationId = undefined;
   }
+  /** Reload only persists the finite-clear fact, so restore it without reviving
+   * a group that was already durably cleared. */
+  public restoreJob(jobId: FixtureJobId, finiteGroupCleared: boolean): void {
+    this.beginJob(jobId);
+    if (!finiteGroupCleared) return;
+    for (const actor of this.actors.values()) if (actor.team === 'hostile') actor.health = 0;
+  }
 
   public setSquadPositions(tabby: FixturePosition, hound: FixturePosition): void {
     this.actors.get('tabby')!.position = { ...tabby };
@@ -535,6 +657,8 @@ export class IntegratedFixtureCombat {
   public actorHealth(id: FixtureCombatantId): number { return this.actors.get(id)?.health ?? 0; }
   /** Test fixture only: keeps a valid authored hostile contact alive for cadence/refill proofs. */
   public setFixtureHostileHealth(id: FixtureCombatantId, health: number): void { const actor = this.actors.get(id); if (actor?.team === 'hostile' && Number.isFinite(health) && health > 0) actor.health = health; }
+  /** Test fixture only: drives the real scene recovery branch without faking its persistence. */
+  public setFixtureSquadHealth(id: 'tabby' | 'hound', health: number): void { const actor = this.actors.get(id); if (actor && Number.isFinite(health) && health >= 0) actor.health = Math.min(actor.maxHealth, health); }
   public hostileStates(): readonly Readonly<{ id: FixtureCombatantId; position: FixturePosition; health: number }>[] {
     return Object.freeze([...this.actors.values()].filter(actor => actor.team === 'hostile').map(actor => Object.freeze({ id: actor.id, position: { ...actor.position }, health: actor.health })));
   }
