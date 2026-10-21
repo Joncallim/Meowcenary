@@ -145,6 +145,51 @@ export class IntegratedFixtureOperation {
   }
 }
 
+export const INTEGRATED_FIXTURE_SAVE_KEY = 'meowcenary:int-fb:v1';
+export interface FixtureMissionReceipt {
+  readonly id: string;
+  readonly jobId: FixtureJobId;
+  readonly recipientId: 'rcc-dispatch' | 'fre-broker';
+  readonly credits: 1000;
+  readonly metal: 20;
+  readonly circuits: 4;
+  readonly cloth: 6;
+}
+export interface FixtureMissionSave {
+  readonly version: typeof INTEGRATED_FIXTURE_VERSION;
+  readonly seed: 'int-fb-post-chapter-2';
+  readonly receipts: readonly FixtureMissionReceipt[];
+}
+export function createIntegratedFixtureSave(): FixtureMissionSave {
+  return Object.freeze({ version: INTEGRATED_FIXTURE_VERSION, seed: 'int-fb-post-chapter-2', receipts: Object.freeze([]) });
+}
+/** A settlement is source-receipt idempotent; it never writes the legacy save schema. */
+export function settleIntegratedFixtureJob(save: FixtureMissionSave, jobId: FixtureJobId): Readonly<{ save: FixtureMissionSave; receipt: FixtureMissionReceipt; applied: boolean }> {
+  const id = `int-fb:${jobId}:settlement`;
+  const existing = save.receipts.find(receipt => receipt.id === id);
+  if (existing) return Object.freeze({ save, receipt: existing, applied: false });
+  const receipt: FixtureMissionReceipt = Object.freeze({ id, jobId, recipientId: jobId === 'MC-OPT-R01-01' ? 'rcc-dispatch' : 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6 });
+  const next = Object.freeze({ version: INTEGRATED_FIXTURE_VERSION, seed: 'int-fb-post-chapter-2' as const, receipts: Object.freeze([...save.receipts, receipt]) });
+  return Object.freeze({ save: next, receipt, applied: true });
+}
+export function deserializeIntegratedFixtureSave(value: string | null): FixtureMissionSave {
+  if (!value) return createIntegratedFixtureSave();
+  try {
+    const parsed = JSON.parse(value) as Partial<FixtureMissionSave>;
+    if (parsed.version !== INTEGRATED_FIXTURE_VERSION || parsed.seed !== 'int-fb-post-chapter-2' || !Array.isArray(parsed.receipts)) return createIntegratedFixtureSave();
+    const receipts = parsed.receipts.filter((receipt): receipt is FixtureMissionReceipt => Boolean(receipt) && typeof receipt.id === 'string'
+      && (receipt.jobId === 'MC-OPT-R01-01' || receipt.jobId === 'MC-OPT-F01-01') && (receipt.recipientId === 'rcc-dispatch' || receipt.recipientId === 'fre-broker')
+      && receipt.credits === 1000 && receipt.metal === 20 && receipt.circuits === 4 && receipt.cloth === 6);
+    return Object.freeze({ version: INTEGRATED_FIXTURE_VERSION, seed: 'int-fb-post-chapter-2', receipts: Object.freeze(receipts) });
+  } catch { return createIntegratedFixtureSave(); }
+}
+export function fixtureDialogue(jobId: FixtureJobId, phase: 'offer' | 'accepted' | 'result'): string {
+  if (jobId === 'MC-OPT-R01-01') return phase === 'offer' ? 'RCC: Recover both authorized shipment markers, then clear the exit.'
+    : phase === 'accepted' ? 'Tabby: We have the recipient proof. Move.' : 'RCC: Correct recipient confirmed. Receipt recorded.';
+  return phase === 'offer' ? 'FRE: Recover the disputed cargo through disclosed unauthorized access, then extract.'
+    : phase === 'accepted' ? 'Hound: Disputed lot. We take the marked cargo and leave.' : 'FRE: Disputed lot received. Receipt recorded.';
+}
+
 /** Input to the human auto-target policy. Selection never searches hidden weak points. */
 export interface AutoTargetCandidate {
   readonly actorId: string;

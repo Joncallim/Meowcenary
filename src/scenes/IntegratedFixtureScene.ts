@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SceneKey } from '../engine/sceneKeys';
-import { IntegratedFixtureCombat, IntegratedFixtureOperation, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, type FixtureJobId, validateIntegratedFixture } from '../gameplay/integratedFixture';
+import { createIntegratedFixtureSave, deserializeIntegratedFixtureSave, fixtureDialogue, INTEGRATED_FIXTURE_SAVE_KEY, IntegratedFixtureCombat, IntegratedFixtureOperation, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, settleIntegratedFixtureJob, type FixtureJobId, type FixtureMissionSave, validateIntegratedFixture } from '../gameplay/integratedFixture';
 
 const SCALE = 10;
 const SPEED = 12;
@@ -18,6 +18,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private combatActive = false;
   private combat = new IntegratedFixtureCombat();
   private operation = new IntegratedFixtureOperation();
+  private fixtureSave: FixtureMissionSave = createIntegratedFixtureSave();
   private combatFeedback = 'No hostile contact.';
   private hound?: Phaser.GameObjects.Arc;
   private enemies: Phaser.GameObjects.Arc[] = [];
@@ -27,6 +28,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   create(): void {
     const errors = validateIntegratedFixture();
     if (errors.length) throw new Error(`INT-FB fixture invalid: ${errors.join(',')}`);
+    try { this.fixtureSave = deserializeIntegratedFixtureSave(localStorage.getItem(INTEGRATED_FIXTURE_SAVE_KEY)); } catch { this.fixtureSave = createIntegratedFixtureSave(); }
     const width = INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE;
     const height = INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE;
     this.cameras.main.setBounds(0, 0, width, height).setBackgroundColor('#101820');
@@ -110,13 +112,21 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)!;
     const nearby = INTEGRATED_FIXTURE_POINTS.find(point => Math.hypot(point.x * SCALE - this.lead!.x, point.z * SCALE - this.lead!.y) < 38);
     if (!nearby) return;
-    if (nearby.role === 'offer-terminal') this.combatFeedback = this.operation.accept() ? `${job.id} accepted. Reach its entry to activate.` : 'Inspect a job before accepting it.';
+    if (nearby.role === 'offer-terminal') this.combatFeedback = this.operation.accept() ? `${fixtureDialogue(job.id, 'accepted')} Reach its entry to activate.` : 'Inspect a job before accepting it.';
     if (nearby.role === 'interaction' && this.operation.interact(nearby.id)) this.completed.add(nearby.id);
     if (nearby.role === 'spawn') {
       if (this.operation.activate()) { this.combatActive = true; this.combat.beginJob(this.jobId); this.combatFeedback = 'Hostiles activated; auto-fire uses each mercenary position and ballistic LOS.'; }
       else this.combatFeedback = 'Contract must be accepted at the offer terminal before activation.';
     }
-    if (nearby.id === job.extractionPointId) this.extracted = this.operation.extract();
+    if (nearby.id === job.extractionPointId) {
+      this.extracted = this.operation.extract();
+      if (this.extracted) {
+        const result = settleIntegratedFixtureJob(this.fixtureSave, job.id);
+        this.fixtureSave = result.save;
+        try { localStorage.setItem(INTEGRATED_FIXTURE_SAVE_KEY, JSON.stringify(this.fixtureSave)); } catch { /* volatile fixture remains playable if storage is unavailable */ }
+        this.combatFeedback = `${fixtureDialogue(job.id, 'result')} ${result.applied ? 'Settlement saved.' : 'Existing receipt restored.'}`;
+      }
+    }
     this.refreshStatus();
   }
   private refreshStatus(): void {
@@ -124,7 +134,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const hostiles = this.combat.hostileStates().filter(hostile => hostile.health > 0).length;
     const tabbyGun = this.combat.activeGun('tabby');
     const phase = this.operation.snapshot().phase;
-    this.status?.setText(job ? `INT-FB ${job.id} · ${phase}\n${this.extracted ? 'COMPLETE — isolated receipt pending adapter' : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${hostiles} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nTAB ${this.combat.actorHealth('tabby').toFixed(0)} HP · ${tabbyGun.instanceId.split(':').at(-1)} ${tabbyGun.supply} · HOU ${this.combat.actorHealth('hound').toFixed(0)} HP\n${this.combatFeedback}\nMove to offer/markers/spawn/extraction; tap INTERACT or E; swap TAB gun with Q`}` : 'INT-FB proving ground\nChoose R01 (1 / left side) or F01 (2 / right side).\nWASD/arrows or touch-hold to move. No save changes.');
+    this.status?.setText(job ? `INT-FB ${job.id} · ${phase}\n${this.extracted ? 'COMPLETE — isolated receipt saved' : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${hostiles} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nTAB ${this.combat.actorHealth('tabby').toFixed(0)} HP · ${tabbyGun.instanceId.split(':').at(-1)} ${tabbyGun.supply} · HOU ${this.combat.actorHealth('hound').toFixed(0)} HP\n${this.combatFeedback}\nMove to offer/markers/spawn/extraction; tap INTERACT or E; swap TAB gun with Q`}` : `INT-FB proving ground\n${this.fixtureSave.receipts.length} isolated receipt(s) loaded. Choose R01 (1 / left side) or F01 (2 / right side).\nWASD/arrows or touch-hold to move.`);
   }
   public diagnostics(): Readonly<{ scene: string; x: number; y: number; jobId?: FixtureJobId; phase: string; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGun: string; hostiles: number }> {
     return Object.freeze({ scene: this.scene.key, x: this.lead?.x ?? 0, y: this.lead?.y ?? 0, jobId: this.jobId, extracted: this.extracted,

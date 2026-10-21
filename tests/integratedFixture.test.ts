@@ -10,6 +10,10 @@ import {
   hasFixtureBallisticLineOfSight,
   IntegratedFixtureCombat,
   IntegratedFixtureOperation,
+  createIntegratedFixtureSave,
+  deserializeIntegratedFixtureSave,
+  fixtureDialogue,
+  settleIntegratedFixtureJob,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -113,4 +117,16 @@ it('settles F01 after the disputed-lot interaction without a total clear', () =>
   operation.activate();
   expect(operation.interact('INT-FB-F01-DISPUTED-LOT')).toBe(true);
   expect(operation.extract()).toBe(true);
+});
+
+it('persists an isolated, idempotent settlement receipt without accepting malformed state', () => {
+  const first = settleIntegratedFixtureJob(createIntegratedFixtureSave(), 'MC-OPT-F01-01');
+  expect(first.applied).toBe(true);
+  expect(first.receipt).toMatchObject({ recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6 });
+  const replay = settleIntegratedFixtureJob(first.save, 'MC-OPT-F01-01');
+  expect(replay.applied).toBe(false);
+  expect(replay.save.receipts).toHaveLength(1);
+  expect(deserializeIntegratedFixtureSave(JSON.stringify(first.save))).toEqual(first.save);
+  expect(deserializeIntegratedFixtureSave('{"version":"wrong"}')).toEqual(createIntegratedFixtureSave());
+  expect(fixtureDialogue('MC-OPT-R01-01', 'offer')).toContain('both authorized shipment markers');
 });
