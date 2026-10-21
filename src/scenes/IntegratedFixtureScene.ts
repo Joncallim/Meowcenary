@@ -15,6 +15,10 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private groupCleared = false;
   private extracted = false;
   private status?: Phaser.GameObjects.Text;
+  private combatActive = false;
+  private enemyHp = [90, 90];
+  private tabbyCadence = 0.1;
+  private houndCadence = 0.1;
 
   constructor() { super(SceneKey.IntegratedFixture); }
 
@@ -63,10 +67,19 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (this.keys?.down?.isDown || this.input.keyboard?.addKey('S').isDown) y += 1;
     if (x === 0 && y === 0 && this.touchTarget) { x = this.touchTarget.x - this.lead.x; y = this.touchTarget.y - this.lead.y; }
     const length = Math.hypot(x, y);
-    if (length === 0) return;
-    const step = SPEED * SCALE * delta / 1000;
-    this.lead.x = Phaser.Math.Clamp(this.lead.x + x / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE - 7);
-    this.lead.y = Phaser.Math.Clamp(this.lead.y + y / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE - 7);
+    if (length !== 0) {
+      const step = SPEED * SCALE * delta / 1000;
+      this.lead.x = Phaser.Math.Clamp(this.lead.x + x / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE - 7);
+      this.lead.y = Phaser.Math.Clamp(this.lead.y + y / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE - 7);
+    }
+    if (this.combatActive) {
+      this.tabbyCadence -= delta / 1000; this.houndCadence -= delta / 1000;
+      const hit = (damage: number) => { const index = this.enemyHp.findIndex(hp => hp > 0); if (index >= 0) this.enemyHp[index]! = Math.max(0, this.enemyHp[index]! - damage); };
+      while (this.tabbyCadence <= 0 && this.enemyHp.some(hp => hp > 0)) { hit(30); this.tabbyCadence += 0.25; }
+      while (this.houndCadence <= 0 && this.enemyHp.some(hp => hp > 0)) { hit(14); this.houndCadence += 0.10; }
+      this.groupCleared = this.enemyHp.every(hp => hp === 0);
+      this.refreshStatus();
+    }
   }
 
   private selectJob(jobId: FixtureJobId): void { this.jobId = jobId; this.completed.clear(); this.groupCleared = false; this.extracted = false; this.refreshStatus(); }
@@ -77,13 +90,13 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const nearby = INTEGRATED_FIXTURE_POINTS.find(point => Math.hypot(point.x * SCALE - this.lead!.x, point.z * SCALE - this.lead!.y) < 38);
     if (!nearby) return;
     if (nearby.role === 'interaction') this.completed.add(nearby.id);
-    if (nearby.role === 'spawn') this.groupCleared = true;
+    if (nearby.role === 'spawn' && this.jobId === 'MC-OPT-R01-01') { this.combatActive = true; this.enemyHp = [90, 90]; this.tabbyCadence = 0.1; this.houndCadence = 0.1; }
     if (nearby.id === job.extractionPointId) this.extracted = operationCanSettle({ jobId: this.jobId, completedInteractionIds: [...this.completed], finiteEnemyGroupCleared: this.groupCleared, extractionConfirmed: true });
     this.refreshStatus();
   }
   private refreshStatus(): void {
     const job = this.jobId ? INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)! : undefined;
-    this.status?.setText(job ? `INT-FB ${job.id}\n${this.extracted ? 'COMPLETE — test-only receipt pending adapter' : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : 'active'}` : ' · extraction allowed'}\nMove to markers/spawn/extraction; tap INTERACT or E`}` : 'INT-FB proving ground\nChoose R01 (1 / left side) or F01 (2 / right side).\nWASD/arrows or touch-hold to move. No save changes.');
+    this.status?.setText(job ? `INT-FB ${job.id}\n${this.extracted ? 'COMPLETE — test-only receipt pending adapter' : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${this.enemyHp.filter(hp => hp > 0).length} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nMove to markers/spawn/extraction; tap INTERACT or E`}` : 'INT-FB proving ground\nChoose R01 (1 / left side) or F01 (2 / right side).\nWASD/arrows or touch-hold to move. No save changes.');
   }
   public diagnostics(): Readonly<{ scene: string; x: number; y: number; jobId?: FixtureJobId; extracted: boolean }> { return Object.freeze({ scene: this.scene.key, x: this.lead?.x ?? 0, y: this.lead?.y ?? 0, jobId: this.jobId, extracted: this.extracted }); }
 }
