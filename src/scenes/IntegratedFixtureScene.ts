@@ -76,7 +76,6 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-B', () => this.openWorkshopMenu());
     this.input.keyboard?.on('keydown-F', () => this.openWorkshop('fit-f2-a'));
     this.input.keyboard?.on('keydown-G', () => this.openWorkshop('build-b3'));
-    this.input.keyboard?.on('keydown-D', () => this.openWorkshop('develop-b2'));
     this.input.keyboard?.on('keydown-L', () => this.openWorkshop('claim-h2'));
     this.input.keyboard?.on('keydown-S', () => this.openWorkshop('sell-h2'));
     this.input.keyboard?.on('keydown-ENTER', () => this.confirmWorkshop());
