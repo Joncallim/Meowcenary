@@ -397,7 +397,7 @@ export interface FixtureCombatEvent {
 
 interface FixtureWeaponProfile {
   readonly id: string; readonly damage: number; readonly cycleSeconds: number;
-  readonly initialSetupSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly store: number;
+  readonly initialSetupSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly store: number; readonly refillSeconds: number;
 }
 export interface FixtureResolvedGunProfile { readonly gunId: FixtureGunId; readonly store: number; readonly refillSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly setupSeconds: number; readonly coneMultiplier: number; readonly contactWidthMetres: number; }
 /** Reads the actual six-slot assignment; no workshop choice may alter damage. */
@@ -409,7 +409,7 @@ export function resolveFixtureGunProfile(profile: FixtureWorkshopProfile, gunId:
     fullRangeMetres: 12 * (barrel.kind === 'B2' ? 1.25 + b2TierStep : barrel.kind === 'B3' ? .7 : 1), maxRangeMetres: 24,
     setupSeconds: .1 * (barrel.kind === 'B2' ? 1.25 : 1), coneMultiplier: barrel.kind === 'B2' ? .65 : barrel.kind === 'B3' ? 1.6 : 1, contactWidthMetres: barrel.kind === 'B2' ? .02 : barrel.kind === 'B3' ? .24 : .1 });
 }
-interface FixtureWeaponState { readonly instanceId: string; readonly profile: FixtureWeaponProfile; supply: number; nextShotSeconds: number; }
+interface FixtureWeaponState { readonly instanceId: string; readonly profile: FixtureWeaponProfile; supply: number; nextShotSeconds: number; refillRemaining: number; }
 interface FixtureActorState {
   readonly id: FixtureCombatantId; readonly team: 'squad' | 'hostile';
   position: FixturePosition; health: number; readonly maxHealth: number; readonly radius: number;
@@ -417,13 +417,13 @@ interface FixtureActorState {
 }
 
 const TABBY_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
-  id: 'TAB-service-pistol', damage: 30, cycleSeconds: 0.25, initialSetupSeconds: 0.1, fullRangeMetres: 12, maxRangeMetres: 24, store: 12,
+  id: 'TAB-service-pistol', damage: 30, cycleSeconds: 0.25, initialSetupSeconds: 0.1, fullRangeMetres: 12, maxRangeMetres: 24, store: 12, refillSeconds: 1.5,
 });
 const HOUND_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
-  id: 'HOU-service-coil-smg', damage: 14, cycleSeconds: 0.1, initialSetupSeconds: 0.1, fullRangeMetres: 8, maxRangeMetres: 18, store: 30,
+  id: 'HOU-service-coil-smg', damage: 14, cycleSeconds: 0.1, initialSetupSeconds: 0.1, fullRangeMetres: 8, maxRangeMetres: 18, store: 30, refillSeconds: 1.5,
 });
 const HOSTILE_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
-  id: 'fixture-hostile-rifle', damage: 7, cycleSeconds: 1, initialSetupSeconds: 0.5, fullRangeMetres: 10, maxRangeMetres: 16, store: 99,
+  id: 'fixture-hostile-rifle', damage: 7, cycleSeconds: 1, initialSetupSeconds: 0.5, fullRangeMetres: 10, maxRangeMetres: 16, store: 99, refillSeconds: 1.5,
 });
 
 function segmentIntersectsOccluder(from: FixturePosition, to: FixturePosition, box: FixtureOccluder): boolean {
@@ -456,15 +456,15 @@ export class IntegratedFixtureCombat {
   private ownedDesignationId?: FixtureCombatantId;
 
   constructor(profile = createIntegratedFixtureWorkshopProfile()) {
-    const weaponFor = (gunId: FixtureGunId): FixtureWeaponProfile => { const resolved = resolveFixtureGunProfile(profile, gunId); return { ...TABBY_FIXTURE_GUN, id: `int-fb:${gunId}`, store: resolved.store, initialSetupSeconds: resolved.setupSeconds, fullRangeMetres: resolved.fullRangeMetres, maxRangeMetres: resolved.maxRangeMetres }; };
+    const weaponFor = (gunId: FixtureGunId): FixtureWeaponProfile => { const resolved = resolveFixtureGunProfile(profile, gunId); return { ...TABBY_FIXTURE_GUN, id: `int-fb:${gunId}`, store: resolved.store, refillSeconds: resolved.refillSeconds, initialSetupSeconds: resolved.setupSeconds, fullRangeMetres: resolved.fullRangeMetres, maxRangeMetres: resolved.maxRangeMetres }; };
     const tabA = weaponFor('TAB-A'); const tabB = weaponFor('TAB-B');
     this.add('tabby', 'squad', { x: 8, z: 11 }, 100, 0.4, tabA);
-    this.actors.get('tabby')!.weapons.push({ instanceId: 'int-fb:TAB-B', profile: tabB, supply: tabB.store, nextShotSeconds: tabB.initialSetupSeconds });
+    this.actors.get('tabby')!.weapons.push({ instanceId: 'int-fb:TAB-B', profile: tabB, supply: tabB.store, nextShotSeconds: tabB.initialSetupSeconds, refillRemaining: 0 });
     this.add('hound', 'squad', { x: 6.5, z: 11 }, 100, 0.4, HOUND_FIXTURE_GUN, 2);
   }
 
   private add(id: FixtureCombatantId, team: 'squad' | 'hostile', position: FixturePosition, health: number, radius: number, weapon?: FixtureWeaponProfile, gunCount = 1): void {
-    const weapons = weapon ? Array.from({ length: gunCount }, (_, index) => ({ instanceId: `int-fb:${id}:gun-${index + 1}`, profile: weapon, supply: weapon.store, nextShotSeconds: weapon.initialSetupSeconds })) : [];
+    const weapons = weapon ? Array.from({ length: gunCount }, (_, index) => ({ instanceId: `int-fb:${id}:gun-${index + 1}`, profile: weapon, supply: weapon.store, nextShotSeconds: weapon.initialSetupSeconds, refillRemaining: 0 })) : [];
     this.actors.set(id, { id, team, position: { ...position }, health, maxHealth: health, radius, weapons, activeGunIndex: 0 });
   }
 
@@ -507,6 +507,7 @@ export class IntegratedFixtureCombat {
     for (const actor of this.actors.values()) {
       const gun = actor.weapons[actor.activeGunIndex];
       if (!gun || actor.health <= 0) continue;
+      if (gun.refillRemaining > 0) { gun.refillRemaining -= deltaSeconds; if (gun.refillRemaining <= 0) { gun.refillRemaining = 0; gun.supply = gun.profile.store; gun.nextShotSeconds = Math.max(gun.nextShotSeconds, 0); } continue; }
       gun.nextShotSeconds -= deltaSeconds;
       while (gun.nextShotSeconds <= 0 && actor.health > 0) {
         const target = this.chooseTarget(actor);
@@ -539,6 +540,7 @@ export class IntegratedFixtureCombat {
     const damage = fixtureRangeDamage(Math.max(0, anchor - target.radius), gun.profile.damage, gun.profile.fullRangeMetres, gun.profile.maxRangeMetres);
     if (damage <= 0) return;
     gun.supply -= 1;
+    if (gun.supply === 0) gun.refillRemaining = gun.profile.refillSeconds;
     target.health = Math.max(0, target.health - damage);
     this.events.push(Object.freeze({ type: 'weapon-fired', sourceId: source.id, targetId: target.id, damage }), Object.freeze({
       type: target.team === 'hostile' ? 'enemy-damaged' : 'actor-damaged', sourceId: source.id, targetId: target.id, damage, targetHealth: target.health,
