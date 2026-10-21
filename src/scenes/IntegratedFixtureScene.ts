@@ -215,20 +215,21 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       else this.combatFeedback = 'Contract must be accepted at the offer terminal before activation.';
     }
     if (nearby.id === job.extractionPointId) {
-      if (this.operation.canExtract()) {
-        const result = settleIntegratedFixtureJob(this.fixtureSave, job.id);
-        const workshop = settleFixtureWorkshopMission(this.workshopProfile, `mission:${job.id}:settlement`);
-        if (!workshop.applied && !this.fixtureSave.receipts.some(receipt => receipt.jobId === job.id)) { this.combatFeedback = 'Settlement could not reconcile; no receipt written.'; this.refreshStatus(); return; }
-        const nextWorkshop = workshop.profile;
-        try { localStorage.setItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:profile`, JSON.stringify({ version: 'int-fb-profile-v1', mission: result.save, workshop: nextWorkshop })); }
-        catch { this.combatFeedback = 'Settlement storage failed; extraction remains active for retry.'; this.refreshStatus(); return; }
-        this.fixtureSave = result.save;
-        this.workshopProfile = nextWorkshop;
-        this.extracted = this.operation.extract();
-        this.combatFeedback = `${fixtureDialogue(job.id, 'result')} ${result.applied ? 'Settlement saved.' : 'Existing receipt restored.'}`;
-      }
+      if (this.operation.canExtract()) this.settleLocked(job.id);
     }
     this.refreshStatus();
+  }
+  private settleLocked(jobId: FixtureJobId): void {
+    const locks = (navigator as unknown as { locks?: { request(name: string, options: { mode: 'exclusive' }, callback: () => Promise<void>): Promise<void> } }).locks;
+    if (!locks) { this.combatFeedback = 'Settlement writer lock unavailable; extraction remains active.'; this.refreshStatus(); return; }
+    void locks.request(`${INTEGRATED_FIXTURE_SAVE_KEY}:writer`, { mode: 'exclusive' }, async () => {
+      const result = settleIntegratedFixtureJob(this.fixtureSave, jobId);
+      const workshop = settleFixtureWorkshopMission(this.workshopProfile, `mission:${jobId}:settlement`);
+      try { localStorage.setItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:profile`, JSON.stringify({ version: 'int-fb-envelope-v2', mission: result.save, workshop: workshop.profile })); }
+      catch { this.combatFeedback = 'Settlement storage failed; extraction remains active for retry.'; this.refreshStatus(); return; }
+      this.fixtureSave = result.save; this.workshopProfile = workshop.profile; this.extracted = this.operation.extract();
+      this.combatFeedback = `${fixtureDialogue(jobId, 'result')} ${result.applied ? 'Settlement saved.' : 'Existing receipt restored.'}`; this.refreshStatus();
+    });
   }
   private refreshStatus(): void {
     const job = this.jobId ? INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)! : undefined;
