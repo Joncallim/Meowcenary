@@ -29,6 +29,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private combatFeedback = 'No hostile contact.';
   private hound?: Phaser.GameObjects.Arc;
   private enemies: Phaser.GameObjects.Arc[] = [];
+  private activeAttemptId?: string;
 
   constructor() { super(SceneKey.IntegratedFixture); }
 
@@ -216,7 +217,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (nearby.role === 'offer-terminal') this.combatFeedback = this.operation.accept() ? `${fixtureDialogue(job.id, 'accepted')} Reach its entry to activate.` : 'Inspect a job before accepting it.';
     if (nearby.role === 'interaction' && this.operation.interact(nearby.id)) this.completed.add(nearby.id);
     if (nearby.role === 'spawn') {
-      if (this.operation.activate()) { this.combatActive = true; this.combat.beginJob(this.jobId); this.combatFeedback = 'Hostiles activated; auto-fire uses each mercenary position and ballistic LOS.'; }
+      if (this.operation.activate()) { this.activeAttemptId = `attempt:${this.jobId}:${this.workshopProfile.revision}`; this.combatActive = true; this.combat.beginJob(this.jobId); this.combatFeedback = 'Hostiles activated; auto-fire uses each mercenary position and ballistic LOS.'; }
       else this.combatFeedback = 'Contract must be accepted at the offer terminal before activation.';
     }
     if (nearby.id === job.extractionPointId) {
@@ -253,9 +254,9 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const phase = this.operation.snapshot().phase;
     this.status?.setText(job ? `INT-FB ${job.id} · ${phase}\n${this.extracted ? 'COMPLETE — isolated receipt saved' : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${hostiles} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nTAB ${this.combat.actorHealth('tabby').toFixed(0)} HP · ${tabbyGun.instanceId.split(':').at(-1)} ${tabbyGun.supply} · HOU ${this.combat.actorHealth('hound').toFixed(0)} HP\n${this.combatFeedback}\nMove to offer/markers/spawn/extraction; tap INTERACT or E; swap TAB gun with Q`}` : `INT-FB proving ground\n${this.fixtureSave.receipts.length} isolated receipt(s) loaded. Choose R01 (1 / left side) or F01 (2 / right side).\nWASD/arrows or touch-hold to move.`);
   }
-  public diagnostics(): Readonly<{ scene: string; x: number; y: number; jobId?: FixtureJobId; phase: string; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGun: string; hostiles: number; workshopRevision: number; workshopCredits: number; workshopParts: number; workshopPreview?: FixtureWorkshopAction }> {
+  public diagnostics(): Readonly<{ scene: string; x: number; y: number; jobId?: FixtureJobId; phase: string; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGun: string; hostiles: number; workshopRevision: number; workshopCredits: number; workshopParts: number; workshopPreview?: FixtureWorkshopAction; activeAttemptId?: string }> {
     return Object.freeze({ scene: this.scene.key, x: this.lead?.x ?? 0, y: this.lead?.y ?? 0, jobId: this.jobId, extracted: this.extracted,
       phase: this.operation.snapshot().phase, combatActive: this.combatActive, groupCleared: this.groupCleared, tabbyHealth: this.combat.actorHealth('tabby'), houndHealth: this.combat.actorHealth('hound'), tabbyGun: this.combat.activeGun('tabby').instanceId,
-      hostiles: this.combat.hostileStates().filter(hostile => hostile.health > 0).length, workshopRevision: this.workshopProfile.revision, workshopCredits: this.workshopProfile.wallet.credits, workshopParts: this.workshopProfile.parts.length, workshopPreview: this.workshopPreview });
+      hostiles: this.combat.hostileStates().filter(hostile => hostile.health > 0).length, workshopRevision: this.workshopProfile.revision, workshopCredits: this.workshopProfile.wallet.credits, workshopParts: this.workshopProfile.parts.length, workshopPreview: this.workshopPreview, activeAttemptId: this.activeAttemptId });
   }
 }
