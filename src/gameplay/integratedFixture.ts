@@ -287,11 +287,12 @@ export function commitFixtureWorkshop(profile: FixtureWorkshopProfile, command: 
   }
   if (command.action === 'sell-h2') { const target = part(profile, 'INT-B1-HOU-H2-LOOT'); return !target || assigned(profile, target.instanceId) || target.protectedBaseline ? reject(profile, 'not-sellable') : next({ wallet: { ...wallet, credits: wallet.credits + 540 }, parts: profile.parts.filter(candidate => candidate.instanceId !== target.instanceId) }); }
   if (command.action === 'build-b3') {
+    if (!profile.knownSchematics.includes('TAB-B3')) return reject(profile, 'unknown-schematic');
     if (wallet.credits < 1000 || wallet.metal < 40 || wallet.circuits < 8) return reject(profile, 'insufficient-resources');
     const output: FixturePart = { instanceId: `INT-B1-TAB-B3-${command.commandId}`, kind: 'B3', family: 'TAB', slot: 'B', protectedBaseline: false, sealedFactory: false, tier: 1, refinement: 'Balanced', maker: 'Oddlot Cooperative', provenance: 'INT-FB-SERVICE-01', version: 1 };
     return next({ wallet: { ...wallet, credits: wallet.credits - 1000, metal: wallet.metal - 40, circuits: wallet.circuits - 8 }, parts: [...profile.parts, output] }, [output.instanceId]);
   }
-  if (command.action === 'develop-b2') { const target = part(profile, 'INT-B1-TAB-B2-GIFT'); if (!target || target.sealedFactory || target.tier !== 1 || wallet.credits < 500 || wallet.metal < 20 || wallet.circuits < 4) return reject(profile, 'ineligible-develop'); return next({ wallet: { ...wallet, credits: wallet.credits - 500, metal: wallet.metal - 20, circuits: wallet.circuits - 4 }, parts: profile.parts.map(candidate => candidate.instanceId === target.instanceId ? { ...candidate, tier: 2, version: candidate.version + 1 } : candidate) }); }
+  if (command.action === 'develop-b2') { const target = part(profile, 'INT-B1-TAB-B2-GIFT'); if (!profile.knownSchematics.includes('TAB-B2') || !profile.capabilities.includes('T2') || !target || target.sealedFactory || target.protectedBaseline || target.tier !== 1 || wallet.credits < 500 || wallet.metal < 20 || wallet.circuits < 4) return reject(profile, 'ineligible-develop'); return next({ wallet: { ...wallet, credits: wallet.credits - 500, metal: wallet.metal - 20, circuits: wallet.circuits - 4 }, parts: profile.parts.map(candidate => candidate.instanceId === target.instanceId ? { ...candidate, tier: 2, version: candidate.version + 1 } : candidate) }); }
   const expectedKind = command.action === 'fit-f2-a' ? 'F2' : 'B3';
   const target = command.partInstanceId ? part(profile, command.partInstanceId) : undefined;
   if (!target || target.kind !== expectedKind || target.family !== 'TAB') return reject(profile, 'exact-part-required');
