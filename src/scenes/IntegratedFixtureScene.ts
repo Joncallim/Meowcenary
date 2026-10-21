@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SceneKey } from '../engine/sceneKeys';
-import { IntegratedFixtureCombat, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, operationCanSettle, type FixtureJobId, validateIntegratedFixture } from '../gameplay/integratedFixture';
+import { IntegratedFixtureCombat, IntegratedFixtureOperation, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, type FixtureJobId, validateIntegratedFixture } from '../gameplay/integratedFixture';
 
 const SCALE = 10;
 const SPEED = 12;
@@ -17,6 +17,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private status?: Phaser.GameObjects.Text;
   private combatActive = false;
   private combat = new IntegratedFixtureCombat();
+  private operation = new IntegratedFixtureOperation();
   private combatFeedback = 'No hostile contact.';
   private hound?: Phaser.GameObjects.Arc;
   private enemies: Phaser.GameObjects.Arc[] = [];
@@ -49,10 +50,14 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.input.on('pointerup', () => { this.touchTarget = undefined; });
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.y > this.scale.height - 100 && pointer.x > this.scale.width - 150) this.interact();
+      if (pointer.y > this.scale.height - 100 && pointer.x < 150) this.swapGun();
     });
     this.input.keyboard?.on('keydown-ONE', () => this.selectJob('MC-OPT-R01-01'));
     this.input.keyboard?.on('keydown-TWO', () => this.selectJob('MC-OPT-F01-01'));
     this.input.keyboard?.on('keydown-E', () => this.interact());
+    this.input.keyboard?.on('keydown-Q', () => this.swapGun());
+    this.add.rectangle(76, this.scale.height - 48, 124, 58, 0x7393d8, 0.95).setScrollFactor(0).setDepth(10);
+    this.add.text(76, this.scale.height - 48, 'SWAP\nQ', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
     this.add.rectangle(this.scale.width - 76, this.scale.height - 48, 124, 58, 0x24cec7, 0.95).setScrollFactor(0).setDepth(10);
     this.add.text(this.scale.width - 76, this.scale.height - 48, 'INTERACT\nE', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
     this.cameras.main.startFollow(this.lead, true, 0.15, 0.15);
@@ -83,6 +88,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       if (events.length) this.combatFeedback = events.map(event => `${event.type}:${event.sourceId}>${event.targetId}`).join(' · ');
       const hostiles = this.combat.hostileStates();
       this.groupCleared = this.combat.isGroupCleared();
+      if (this.groupCleared) this.operation.setFiniteGroupCleared();
       this.enemies.forEach((enemy, index) => {
         const hostile = hostiles[index];
         if (!hostile) return enemy.setVisible(false);
@@ -92,26 +98,37 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     }
   }
 
-  private selectJob(jobId: FixtureJobId): void { this.jobId = jobId; this.completed.clear(); this.groupCleared = false; this.extracted = false; this.combatActive = false; this.enemies.forEach(enemy => enemy.setVisible(false)); this.refreshStatus(); }
+  private selectJob(jobId: FixtureJobId): void { this.jobId = jobId; this.operation.inspect(jobId); this.completed.clear(); this.groupCleared = false; this.extracted = false; this.combatActive = false; this.enemies.forEach(enemy => enemy.setVisible(false)); this.refreshStatus(); }
+  private swapGun(): void {
+    const swapped = this.combat.swapActiveGun('tabby');
+    this.combatFeedback = swapped ? `Tabby switched to ${this.combat.activeGun('tabby').instanceId}; 0.30s swap preparation.` : 'Gun swap unavailable.';
+    this.refreshStatus();
+  }
   private interact(): void {
     if (!this.lead) return;
     if (!this.jobId) { this.selectJob(this.lead.x < 250 ? 'MC-OPT-R01-01' : 'MC-OPT-F01-01'); return; }
     const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)!;
     const nearby = INTEGRATED_FIXTURE_POINTS.find(point => Math.hypot(point.x * SCALE - this.lead!.x, point.z * SCALE - this.lead!.y) < 38);
     if (!nearby) return;
-    if (nearby.role === 'interaction') this.completed.add(nearby.id);
-    if (nearby.role === 'spawn') { this.combatActive = true; this.combat.beginJob(this.jobId); this.combatFeedback = 'Hostiles activated; auto-fire uses each mercenary position and ballistic LOS.'; }
-    if (nearby.id === job.extractionPointId) this.extracted = operationCanSettle({ jobId: this.jobId, completedInteractionIds: [...this.completed], finiteEnemyGroupCleared: this.groupCleared, extractionConfirmed: true });
+    if (nearby.role === 'offer-terminal') this.combatFeedback = this.operation.accept() ? `${job.id} accepted. Reach its entry to activate.` : 'Inspect a job before accepting it.';
+    if (nearby.role === 'interaction' && this.operation.interact(nearby.id)) this.completed.add(nearby.id);
+    if (nearby.role === 'spawn') {
+      if (this.operation.activate()) { this.combatActive = true; this.combat.beginJob(this.jobId); this.combatFeedback = 'Hostiles activated; auto-fire uses each mercenary position and ballistic LOS.'; }
+      else this.combatFeedback = 'Contract must be accepted at the offer terminal before activation.';
+    }
+    if (nearby.id === job.extractionPointId) this.extracted = this.operation.extract();
     this.refreshStatus();
   }
   private refreshStatus(): void {
     const job = this.jobId ? INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)! : undefined;
     const hostiles = this.combat.hostileStates().filter(hostile => hostile.health > 0).length;
-    this.status?.setText(job ? `INT-FB ${job.id}\n${this.extracted ? 'COMPLETE — isolated receipt pending adapter' : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${hostiles} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nTAB ${this.combat.actorHealth('tabby').toFixed(0)} HP · HOU ${this.combat.actorHealth('hound').toFixed(0)} HP\n${this.combatFeedback}\nMove to markers/spawn/extraction; tap INTERACT or E`}` : 'INT-FB proving ground\nChoose R01 (1 / left side) or F01 (2 / right side).\nWASD/arrows or touch-hold to move. No save changes.');
+    const tabbyGun = this.combat.activeGun('tabby');
+    const phase = this.operation.snapshot().phase;
+    this.status?.setText(job ? `INT-FB ${job.id} · ${phase}\n${this.extracted ? 'COMPLETE — isolated receipt pending adapter' : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${hostiles} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nTAB ${this.combat.actorHealth('tabby').toFixed(0)} HP · ${tabbyGun.instanceId.split(':').at(-1)} ${tabbyGun.supply} · HOU ${this.combat.actorHealth('hound').toFixed(0)} HP\n${this.combatFeedback}\nMove to offer/markers/spawn/extraction; tap INTERACT or E; swap TAB gun with Q`}` : 'INT-FB proving ground\nChoose R01 (1 / left side) or F01 (2 / right side).\nWASD/arrows or touch-hold to move. No save changes.');
   }
-  public diagnostics(): Readonly<{ scene: string; x: number; y: number; jobId?: FixtureJobId; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; hostiles: number }> {
+  public diagnostics(): Readonly<{ scene: string; x: number; y: number; jobId?: FixtureJobId; phase: string; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGun: string; hostiles: number }> {
     return Object.freeze({ scene: this.scene.key, x: this.lead?.x ?? 0, y: this.lead?.y ?? 0, jobId: this.jobId, extracted: this.extracted,
-      combatActive: this.combatActive, groupCleared: this.groupCleared, tabbyHealth: this.combat.actorHealth('tabby'), houndHealth: this.combat.actorHealth('hound'),
+      phase: this.operation.snapshot().phase, combatActive: this.combatActive, groupCleared: this.groupCleared, tabbyHealth: this.combat.actorHealth('tabby'), houndHealth: this.combat.actorHealth('hound'), tabbyGun: this.combat.activeGun('tabby').instanceId,
       hostiles: this.combat.hostileStates().filter(hostile => hostile.health > 0).length });
   }
 }

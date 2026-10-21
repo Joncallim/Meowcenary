@@ -9,6 +9,7 @@ import {
   fixtureRangeDamage,
   hasFixtureBallisticLineOfSight,
   IntegratedFixtureCombat,
+  IntegratedFixtureOperation,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -73,4 +74,43 @@ it('does not clear combat through a blind timer or out-of-range companion suppor
   combat.advance(30);
   expect(combat.isGroupCleared()).toBe(false);
   expect(combat.hostileStates().every(hostile => hostile.health === 90)).toBe(true);
+});
+
+it('keeps two gun instances distinct and never emits both during a swap', () => {
+  const combat = new IntegratedFixtureCombat();
+  combat.beginJob('MC-OPT-R01-01');
+  combat.setSquadPositions({ x: 34, z: 38 }, { x: 6.5, z: 11 });
+  const first = combat.activeGun('tabby');
+  expect(combat.swapActiveGun('tabby')).toBe(true);
+  const second = combat.activeGun('tabby');
+  expect(second.instanceId).not.toBe(first.instanceId);
+  expect(combat.advance(0.29).filter(event => event.type === 'weapon-fired' && event.sourceId === 'tabby')).toHaveLength(0);
+  const shots = combat.advance(0.02).filter(event => event.type === 'weapon-fired' && event.sourceId === 'tabby');
+  expect(shots).toHaveLength(1);
+  expect(combat.activeGun('tabby').supply).toBe(second.supply - 1);
+  expect(first.supply).toBe(12);
+});
+
+it('requires R01 inspection, acceptance, activation, both markers, collection, finite group and extraction', () => {
+  const operation = new IntegratedFixtureOperation();
+  expect(operation.activate()).toBe(false);
+  operation.inspect('MC-OPT-R01-01');
+  expect(operation.accept()).toBe(true);
+  expect(operation.activate()).toBe(true);
+  expect(operation.interact('INT-FB-R01-MARKER-A')).toBe(true);
+  expect(operation.interact('INT-FB-R01-MARKER-B')).toBe(true);
+  expect(operation.interact('INT-FB-R01-COLLECTION')).toBe(true);
+  expect(operation.extract()).toBe(false);
+  operation.setFiniteGroupCleared();
+  expect(operation.extract()).toBe(true);
+  expect(operation.snapshot().phase).toBe('settled');
+});
+
+it('settles F01 after the disputed-lot interaction without a total clear', () => {
+  const operation = new IntegratedFixtureOperation();
+  operation.inspect('MC-OPT-F01-01');
+  operation.accept();
+  operation.activate();
+  expect(operation.interact('INT-FB-F01-DISPUTED-LOT')).toBe(true);
+  expect(operation.extract()).toBe(true);
 });

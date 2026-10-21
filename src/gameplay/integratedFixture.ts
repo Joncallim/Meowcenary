@@ -115,6 +115,36 @@ export function operationCanSettle(state: Readonly<FixtureOperationState>): bool
   return !job.requiresFiniteGroupClear || state.finiteEnemyGroupCleared;
 }
 
+export type FixtureOperationPhase = 'uninspected' | 'inspected' | 'accepted' | 'active' | 'settled';
+/** Authoritative small contract lifecycle used by the scene adapter and tests. */
+export class IntegratedFixtureOperation {
+  private jobId?: FixtureJobId;
+  private phase: FixtureOperationPhase = 'uninspected';
+  private readonly completed = new Set<string>();
+  private groupCleared = false;
+
+  public inspect(jobId: FixtureJobId): void { this.jobId = jobId; this.phase = 'inspected'; this.completed.clear(); this.groupCleared = false; }
+  public accept(): boolean { if (this.phase !== 'inspected') return false; this.phase = 'accepted'; return true; }
+  public activate(): boolean { if (this.phase !== 'accepted') return false; this.phase = 'active'; return true; }
+  public interact(pointId: string): boolean {
+    if (this.phase !== 'active' || !this.jobId) return false;
+    const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)!;
+    if (!job.requiredInteractionIds.includes(pointId)) return false;
+    this.completed.add(pointId);
+    return true;
+  }
+  public setFiniteGroupCleared(): void { if (this.phase === 'active') this.groupCleared = true; }
+  public extract(): boolean {
+    if (this.phase !== 'active' || !this.jobId) return false;
+    const settled = operationCanSettle({ jobId: this.jobId, completedInteractionIds: [...this.completed], finiteEnemyGroupCleared: this.groupCleared, extractionConfirmed: true });
+    if (settled) this.phase = 'settled';
+    return settled;
+  }
+  public snapshot(): Readonly<{ jobId?: FixtureJobId; phase: FixtureOperationPhase; completedInteractionIds: readonly string[]; finiteEnemyGroupCleared: boolean }> {
+    return Object.freeze({ jobId: this.jobId, phase: this.phase, completedInteractionIds: Object.freeze([...this.completed]), finiteEnemyGroupCleared: this.groupCleared });
+  }
+}
+
 /** Input to the human auto-target policy. Selection never searches hidden weak points. */
 export interface AutoTargetCandidate {
   readonly actorId: string;
@@ -196,22 +226,23 @@ export interface FixtureCombatEvent {
 
 interface FixtureWeaponProfile {
   readonly id: string; readonly damage: number; readonly cycleSeconds: number;
-  readonly initialSetupSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number;
+  readonly initialSetupSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly store: number;
 }
+interface FixtureWeaponState { readonly instanceId: string; readonly profile: FixtureWeaponProfile; supply: number; nextShotSeconds: number; }
 interface FixtureActorState {
   readonly id: FixtureCombatantId; readonly team: 'squad' | 'hostile';
   position: FixturePosition; health: number; readonly maxHealth: number; readonly radius: number;
-  retainedTargetId?: FixtureCombatantId; nextShotSeconds: number; readonly weapon?: FixtureWeaponProfile;
+  retainedTargetId?: FixtureCombatantId; readonly weapons: FixtureWeaponState[]; activeGunIndex: number;
 }
 
 const TABBY_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
-  id: 'TAB-service-pistol', damage: 30, cycleSeconds: 0.25, initialSetupSeconds: 0.1, fullRangeMetres: 12, maxRangeMetres: 24,
+  id: 'TAB-service-pistol', damage: 30, cycleSeconds: 0.25, initialSetupSeconds: 0.1, fullRangeMetres: 12, maxRangeMetres: 24, store: 12,
 });
 const HOUND_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
-  id: 'HOU-service-coil-smg', damage: 14, cycleSeconds: 0.1, initialSetupSeconds: 0.1, fullRangeMetres: 8, maxRangeMetres: 18,
+  id: 'HOU-service-coil-smg', damage: 14, cycleSeconds: 0.1, initialSetupSeconds: 0.1, fullRangeMetres: 8, maxRangeMetres: 18, store: 30,
 });
 const HOSTILE_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
-  id: 'fixture-hostile-rifle', damage: 7, cycleSeconds: 1, initialSetupSeconds: 0.5, fullRangeMetres: 10, maxRangeMetres: 16,
+  id: 'fixture-hostile-rifle', damage: 7, cycleSeconds: 1, initialSetupSeconds: 0.5, fullRangeMetres: 10, maxRangeMetres: 16, store: 99,
 });
 
 function segmentIntersectsOccluder(from: FixturePosition, to: FixturePosition, box: FixtureOccluder): boolean {
@@ -244,12 +275,13 @@ export class IntegratedFixtureCombat {
   private ownedDesignationId?: FixtureCombatantId;
 
   constructor() {
-    this.add('tabby', 'squad', { x: 8, z: 11 }, 100, 0.4, TABBY_FIXTURE_GUN);
-    this.add('hound', 'squad', { x: 6.5, z: 11 }, 100, 0.4, HOUND_FIXTURE_GUN);
+    this.add('tabby', 'squad', { x: 8, z: 11 }, 100, 0.4, TABBY_FIXTURE_GUN, 2);
+    this.add('hound', 'squad', { x: 6.5, z: 11 }, 100, 0.4, HOUND_FIXTURE_GUN, 2);
   }
 
-  private add(id: FixtureCombatantId, team: 'squad' | 'hostile', position: FixturePosition, health: number, radius: number, weapon?: FixtureWeaponProfile): void {
-    this.actors.set(id, { id, team, position: { ...position }, health, maxHealth: health, radius, weapon, nextShotSeconds: weapon?.initialSetupSeconds ?? 0 });
+  private add(id: FixtureCombatantId, team: 'squad' | 'hostile', position: FixturePosition, health: number, radius: number, weapon?: FixtureWeaponProfile, gunCount = 1): void {
+    const weapons = weapon ? Array.from({ length: gunCount }, (_, index) => ({ instanceId: `int-fb:${id}:gun-${index + 1}`, profile: weapon, supply: weapon.store, nextShotSeconds: weapon.initialSetupSeconds })) : [];
+    this.actors.set(id, { id, team, position: { ...position }, health, maxHealth: health, radius, weapons, activeGunIndex: 0 });
   }
 
   public beginJob(jobId: FixtureJobId): void {
@@ -266,6 +298,19 @@ export class IntegratedFixtureCombat {
     this.actors.get('hound')!.position = { ...hound };
   }
   public designate(targetId: FixtureCombatantId | undefined): void { this.ownedDesignationId = targetId; }
+  /** Exactly one equipped gun is active. Stored supply and cadence belong to each instance. */
+  public swapActiveGun(id: 'tabby' | 'hound'): boolean {
+    const actor = this.actors.get(id);
+    if (!actor || actor.weapons.length < 2 || actor.health <= 0) return false;
+    actor.activeGunIndex = (actor.activeGunIndex + 1) % actor.weapons.length;
+    const incoming = actor.weapons[actor.activeGunIndex]!;
+    incoming.nextShotSeconds = Math.max(incoming.nextShotSeconds, 0.30);
+    return true;
+  }
+  public activeGun(id: 'tabby' | 'hound'): Readonly<{ instanceId: string; supply: number }> {
+    const gun = this.actors.get(id)!.weapons[this.actors.get(id)!.activeGunIndex]!;
+    return Object.freeze({ instanceId: gun.instanceId, supply: gun.supply });
+  }
   public isGroupCleared(): boolean { return ![...this.actors.values()].some(actor => actor.team === 'hostile' && actor.health > 0); }
   public actorHealth(id: FixtureCombatantId): number { return this.actors.get(id)?.health ?? 0; }
   public hostileStates(): readonly Readonly<{ id: FixtureCombatantId; position: FixturePosition; health: number }>[] {
@@ -276,12 +321,13 @@ export class IntegratedFixtureCombat {
   public advance(deltaSeconds: number): readonly FixtureCombatEvent[] {
     if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return this.drainEvents();
     for (const actor of this.actors.values()) {
-      if (!actor.weapon || actor.health <= 0) continue;
-      actor.nextShotSeconds -= deltaSeconds;
-      while (actor.nextShotSeconds <= 0 && actor.health > 0) {
+      const gun = actor.weapons[actor.activeGunIndex];
+      if (!gun || actor.health <= 0) continue;
+      gun.nextShotSeconds -= deltaSeconds;
+      while (gun.nextShotSeconds <= 0 && actor.health > 0) {
         const target = this.chooseTarget(actor);
-        if (target) this.fire(actor, target);
-        actor.nextShotSeconds += actor.weapon.cycleSeconds;
+        if (target && gun.supply > 0) this.fire(actor, target, gun);
+        gun.nextShotSeconds += gun.profile.cycleSeconds;
       }
     }
     return this.drainEvents();
@@ -292,7 +338,7 @@ export class IntegratedFixtureCombat {
     const candidates = opponents.map(candidate => {
       const anchor = Math.hypot(candidate.position.x - source.position.x, candidate.position.z - source.position.z);
       return { actorId: candidate.id, revealed: true, ballisticLineOfSight: hasFixtureBallisticLineOfSight(source.position, candidate.position),
-        inRange: anchor <= source.weapon!.maxRangeMetres, muzzleToBodyAnchorMetres: anchor, muzzleToFirstContactMetres: Math.max(0, anchor - candidate.radius) };
+        inRange: anchor <= source.weapons[source.activeGunIndex]!.profile.maxRangeMetres, muzzleToBodyAnchorMetres: anchor, muzzleToFirstContactMetres: Math.max(0, anchor - candidate.radius) };
     });
     const selected = selectHumanAutoTarget({
       ownedDesignationId: source.team === 'squad' ? this.ownedDesignationId : undefined,
@@ -304,10 +350,11 @@ export class IntegratedFixtureCombat {
     return this.actors.get(selected.actorId as FixtureCombatantId);
   }
 
-  private fire(source: FixtureActorState, target: FixtureActorState): void {
+  private fire(source: FixtureActorState, target: FixtureActorState, gun: FixtureWeaponState): void {
     const anchor = Math.hypot(target.position.x - source.position.x, target.position.z - source.position.z);
-    const damage = fixtureRangeDamage(Math.max(0, anchor - target.radius), source.weapon!.damage, source.weapon!.fullRangeMetres, source.weapon!.maxRangeMetres);
+    const damage = fixtureRangeDamage(Math.max(0, anchor - target.radius), gun.profile.damage, gun.profile.fullRangeMetres, gun.profile.maxRangeMetres);
     if (damage <= 0) return;
+    gun.supply -= 1;
     target.health = Math.max(0, target.health - damage);
     this.events.push(Object.freeze({ type: 'weapon-fired', sourceId: source.id, targetId: target.id, damage }), Object.freeze({
       type: target.team === 'hostile' ? 'enemy-damaged' : 'actor-damaged', sourceId: source.id, targetId: target.id, damage, targetHealth: target.health,
