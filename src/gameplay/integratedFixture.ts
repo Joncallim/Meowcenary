@@ -100,12 +100,15 @@ export function operationCanSettle(state: Readonly<FixtureOperationState>): bool
   return !job.requiresFiniteGroupClear || state.finiteEnemyGroupCleared;
 }
 
-/** Input to the human auto-target policy. Distance is muzzle-to-first-contact. */
+/** Input to the human auto-target policy. Selection never searches hidden weak points. */
 export interface AutoTargetCandidate {
   readonly actorId: string;
   readonly revealed: boolean;
   readonly ballisticLineOfSight: boolean;
   readonly inRange: boolean;
+  /** Used only to select the nearest lawful body anchor when no target is owned/retained. */
+  readonly muzzleToBodyAnchorMetres: number;
+  /** Carried separately: shot range/falloff uses this actual first-contact distance. */
   readonly muzzleToFirstContactMetres: number;
 }
 
@@ -117,16 +120,18 @@ export interface AutoTargetRequest {
 
 /**
  * A revealed, legal ballistic target is required. A walkable path never makes
- * a candidate eligible. The stable-ID secondary key makes ties reproducible.
+ * a candidate eligible. Selection uses the ordinary body anchor. The actual
+ * first contact is intentionally not consulted here; the combat resolver uses
+ * it later for range/falloff. Stable-ID is the reproducible secondary key.
  */
 export function selectHumanAutoTarget(request: Readonly<AutoTargetRequest>): AutoTargetCandidate | undefined {
   const legal = request.candidates.filter(candidate => candidate.revealed
     && candidate.ballisticLineOfSight && candidate.inRange
-    && Number.isFinite(candidate.muzzleToFirstContactMetres) && candidate.muzzleToFirstContactMetres >= 0);
+    && Number.isFinite(candidate.muzzleToBodyAnchorMetres) && candidate.muzzleToBodyAnchorMetres >= 0);
   const findLegal = (id: string | undefined): AutoTargetCandidate | undefined => legal.find(candidate => candidate.actorId === id);
   return findLegal(request.ownedDesignationId)
     ?? findLegal(request.retainedTargetId)
-    ?? [...legal].sort((left, right) => left.muzzleToFirstContactMetres - right.muzzleToFirstContactMetres
+    ?? [...legal].sort((left, right) => left.muzzleToBodyAnchorMetres - right.muzzleToBodyAnchorMetres
       || (left.actorId < right.actorId ? -1 : left.actorId > right.actorId ? 1 : 0))[0];
 }
 

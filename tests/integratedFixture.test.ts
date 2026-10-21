@@ -28,12 +28,12 @@ describe('INT-FB integrated browser-slice fixture', () => {
     expect(operationCanSettle({ jobId: 'MC-OPT-F01-01', completedInteractionIds: ['INT-FB-F01-DISPUTED-LOT'], finiteEnemyGroupCleared: false, extractionConfirmed: true })).toBe(true);
   });
 
-  it('uses revealed ballistic LOS and stable priority for human auto-targeting', () => {
+  it('uses revealed ballistic LOS and stable body-anchor priority for human auto-targeting', () => {
     const candidates = [
-      { actorId: 'enemy-b', revealed: true, ballisticLineOfSight: true, inRange: true, muzzleToFirstContactMetres: 4 },
-      { actorId: 'enemy-a', revealed: true, ballisticLineOfSight: true, inRange: true, muzzleToFirstContactMetres: 4 },
-      { actorId: 'hidden-near', revealed: false, ballisticLineOfSight: true, inRange: true, muzzleToFirstContactMetres: 1 },
-      { actorId: 'blocked', revealed: true, ballisticLineOfSight: false, inRange: true, muzzleToFirstContactMetres: 1 },
+      { actorId: 'enemy-b', revealed: true, ballisticLineOfSight: true, inRange: true, muzzleToBodyAnchorMetres: 4, muzzleToFirstContactMetres: 2 },
+      { actorId: 'enemy-a', revealed: true, ballisticLineOfSight: true, inRange: true, muzzleToBodyAnchorMetres: 4, muzzleToFirstContactMetres: 3 },
+      { actorId: 'hidden-near', revealed: false, ballisticLineOfSight: true, inRange: true, muzzleToBodyAnchorMetres: 1, muzzleToFirstContactMetres: 1 },
+      { actorId: 'blocked', revealed: true, ballisticLineOfSight: false, inRange: true, muzzleToBodyAnchorMetres: 1, muzzleToFirstContactMetres: 1 },
     ] as const;
     expect(selectHumanAutoTarget({ candidates })?.actorId).toBe('enemy-a');
     expect(selectHumanAutoTarget({ candidates, retainedTargetId: 'enemy-b' })?.actorId).toBe('enemy-b');
