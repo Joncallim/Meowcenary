@@ -208,6 +208,17 @@ export function resolveFixtureTakeover(tabbyHealth: number, houndHealth: number,
   if (houndHealth <= 0) return 'lost';
   return confirmed ? 'recovered' : 'takeover-required';
 }
+export type FixtureWorldEventId = string & { readonly __worldEvent: unique symbol };
+export type FixtureAttemptId = string & { readonly __attempt: unique symbol };
+export type FixtureAttemptTerminal = 'active' | 'victory' | 'failure';
+export interface FixtureAttemptRecord { readonly worldEventId: FixtureWorldEventId; readonly attemptId: FixtureAttemptId; readonly terminal: FixtureAttemptTerminal; readonly recoveryClaimed: boolean; }
+export function beginFixtureAttempt(worldEventId: FixtureWorldEventId, attemptId: FixtureAttemptId): FixtureAttemptRecord { return Object.freeze({ worldEventId, attemptId, terminal: 'active', recoveryClaimed: false }); }
+export function recoverFixtureFailure(attempt: FixtureAttemptRecord, settledCredits: number): Readonly<{ attempt: FixtureAttemptRecord; fee: number; applied: boolean }> {
+  if (attempt.terminal !== 'failure' || attempt.recoveryClaimed) return Object.freeze({ attempt, fee: 0, applied: false });
+  const fee = Math.min(250, Math.floor(Math.max(0, settledCredits) * .10));
+  return Object.freeze({ attempt: Object.freeze({ ...attempt, recoveryClaimed: true }), fee, applied: true });
+}
+export function terminalFixtureAttempt(attempt: FixtureAttemptRecord, terminal: 'victory' | 'failure'): FixtureAttemptRecord { return attempt.terminal === 'active' ? Object.freeze({ ...attempt, terminal }) : attempt; }
 
 export type FixturePartKind = 'R1' | 'B1' | 'F1' | 'P1' | 'H1' | 'C1' | 'B2' | 'F2' | 'H2' | 'B3';
 export type FixtureGunId = 'TAB-A' | 'TAB-B' | 'HOU-A' | 'HOU-B';

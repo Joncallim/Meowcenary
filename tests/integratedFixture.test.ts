@@ -22,6 +22,7 @@ import {
   deserializeIntegratedFixtureWorkshopProfile,
   settleFixtureWorkshopMission,
   resolveFixtureGunProfile,
+  beginFixtureAttempt, terminalFixtureAttempt, recoverFixtureFailure,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -179,6 +180,16 @@ it('projects historical receipts without changing live fixture state and require
   expect(resolveFixtureTakeover(0, 80, false)).toBe('takeover-required');
   expect(resolveFixtureTakeover(0, 80, true)).toBe('recovered');
   expect(resolveFixtureTakeover(0, 0, true)).toBe('lost');
+});
+
+it('normalizes wipe and surrender recovery to one fee per failed attempt', () => {
+  const active = beginFixtureAttempt('event-repeat' as any, 'attempt-1' as any);
+  const failed = terminalFixtureAttempt(active, 'failure');
+  const first = recoverFixtureFailure(failed, 1390);
+  expect(first).toMatchObject({ applied: true, fee: 139 });
+  expect(1390 - first.fee).toBe(1251);
+  expect(recoverFixtureFailure(first.attempt, 1390)).toMatchObject({ applied: false, fee: 0 });
+  expect(terminalFixtureAttempt(terminalFixtureAttempt(active, 'victory'), 'failure').terminal).toBe('victory');
 });
 
 it('commits the directed B1 workshop ledger as unique, full-slot transactions', () => {
