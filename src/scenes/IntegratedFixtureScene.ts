@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SceneKey } from '../engine/sceneKeys';
-import { createIntegratedFixtureSave, deserializeIntegratedFixtureSave, fixtureDialogue, INTEGRATED_FIXTURE_SAVE_KEY, IntegratedFixtureCombat, IntegratedFixtureOperation, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, settleIntegratedFixtureJob, type FixtureJobId, type FixtureMissionSave, validateIntegratedFixture } from '../gameplay/integratedFixture';
+import { createIntegratedFixtureSave, deserializeIntegratedFixtureSave, fixtureDialogue, INTEGRATED_FIXTURE_SAVE_KEY, IntegratedFixtureCombat, IntegratedFixtureOperation, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, resolveFixtureTakeover, settleIntegratedFixtureJob, type FixtureJobId, type FixtureMissionSave, validateIntegratedFixture } from '../gameplay/integratedFixture';
 
 const SCALE = 10;
 const SPEED = 12;
@@ -19,6 +19,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private combat = new IntegratedFixtureCombat();
   private operation = new IntegratedFixtureOperation();
   private fixtureSave: FixtureMissionSave = createIntegratedFixtureSave();
+  private controlledActor: 'tabby' | 'hound' = 'tabby';
+  private takeoverPrompt?: Phaser.GameObjects.Text;
   private combatFeedback = 'No hostile contact.';
   private hound?: Phaser.GameObjects.Arc;
   private enemies: Phaser.GameObjects.Arc[] = [];
@@ -58,32 +60,35 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-TWO', () => this.selectJob('MC-OPT-F01-01'));
     this.input.keyboard?.on('keydown-E', () => this.interact());
     this.input.keyboard?.on('keydown-Q', () => this.swapGun());
+    this.input.keyboard?.on('keydown-T', () => this.confirmTakeover());
     this.add.rectangle(76, this.scale.height - 48, 124, 58, 0x7393d8, 0.95).setScrollFactor(0).setDepth(10);
     this.add.text(76, this.scale.height - 48, 'SWAP\nQ', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
     this.add.rectangle(this.scale.width - 76, this.scale.height - 48, 124, 58, 0x24cec7, 0.95).setScrollFactor(0).setDepth(10);
     this.add.text(this.scale.width - 76, this.scale.height - 48, 'INTERACT\nE', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(0.5).setScrollFactor(0).setDepth(11);
     this.cameras.main.startFollow(this.lead, true, 0.15, 0.15);
+    this.takeoverPrompt = this.add.text(this.scale.width / 2, this.scale.height / 2, '', { fontFamily: 'Nunito, sans-serif', fontSize: '18px', color: '#ffffff', backgroundColor: '#34151bdd', align: 'center', padding: { x: 12, y: 10 } }).setOrigin(0.5).setScrollFactor(0).setDepth(20).setVisible(false);
     this.refreshStatus();
     Object.defineProperty(globalThis, '__MEOWCENARY_INT_FB__', { configurable: true, value: { diagnostics: () => this.diagnostics() } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_INT_FB__; });
   }
 
   update(_time: number, delta: number): void {
-    if (!this.lead) return;
+    if (!this.lead || !this.hound) return;
+    const controlled = this.controlledActor === 'tabby' ? this.lead : this.hound;
     let x = 0;
     let y = 0;
     if (this.keys?.left?.isDown || this.input.keyboard?.addKey('A').isDown) x -= 1;
     if (this.keys?.right?.isDown || this.input.keyboard?.addKey('D').isDown) x += 1;
     if (this.keys?.up?.isDown || this.input.keyboard?.addKey('W').isDown) y -= 1;
     if (this.keys?.down?.isDown || this.input.keyboard?.addKey('S').isDown) y += 1;
-    if (x === 0 && y === 0 && this.touchTarget) { x = this.touchTarget.x - this.lead.x; y = this.touchTarget.y - this.lead.y; }
+    if (x === 0 && y === 0 && this.touchTarget) { x = this.touchTarget.x - controlled.x; y = this.touchTarget.y - controlled.y; }
     const length = Math.hypot(x, y);
     if (length !== 0) {
       const step = SPEED * SCALE * delta / 1000;
-      this.lead.x = Phaser.Math.Clamp(this.lead.x + x / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE - 7);
-      this.lead.y = Phaser.Math.Clamp(this.lead.y + y / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE - 7);
+      controlled.x = Phaser.Math.Clamp(controlled.x + x / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE - 7);
+      controlled.y = Phaser.Math.Clamp(controlled.y + y / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE - 7);
     }
-    if (this.hound) { this.hound.x += (this.lead.x - 15 - this.hound.x) * Math.min(1, delta / 150); this.hound.y += (this.lead.y - this.hound.y) * Math.min(1, delta / 150); }
+    if (this.controlledActor === 'tabby') { this.hound.x += (this.lead.x - 15 - this.hound.x) * Math.min(1, delta / 150); this.hound.y += (this.lead.y - this.hound.y) * Math.min(1, delta / 150); }
     if (this.combatActive && this.hound) {
       this.combat.setSquadPositions({ x: this.lead.x / SCALE, z: this.lead.y / SCALE }, { x: this.hound.x / SCALE, z: this.hound.y / SCALE });
       const events = this.combat.advance(delta / 1000);
@@ -91,6 +96,9 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       const hostiles = this.combat.hostileStates();
       this.groupCleared = this.combat.isGroupCleared();
       if (this.groupCleared) this.operation.setFiniteGroupCleared();
+      const takeover = resolveFixtureTakeover(this.combat.actorHealth('tabby'), this.combat.actorHealth('hound'), this.controlledActor === 'hound');
+      if (takeover === 'takeover-required') this.takeoverPrompt?.setText('Tabby is down.\nContinue as Hound?\nT / TAKE OVER').setVisible(true);
+      if (takeover === 'lost') this.takeoverPrompt?.setText('Squad down.\nReturn to safe service for recovery.').setVisible(true);
       this.enemies.forEach((enemy, index) => {
         const hostile = hostiles[index];
         if (!hostile) return enemy.setVisible(false);
@@ -104,6 +112,14 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private swapGun(): void {
     const swapped = this.combat.swapActiveGun('tabby');
     this.combatFeedback = swapped ? `Tabby switched to ${this.combat.activeGun('tabby').instanceId}; 0.30s swap preparation.` : 'Gun swap unavailable.';
+    this.refreshStatus();
+  }
+  private confirmTakeover(): void {
+    if (!this.lead || !this.hound || resolveFixtureTakeover(this.combat.actorHealth('tabby'), this.combat.actorHealth('hound'), false) !== 'takeover-required') return;
+    this.controlledActor = 'hound';
+    this.cameras.main.startFollow(this.hound, true, 0.15, 0.15);
+    this.takeoverPrompt?.setVisible(false);
+    this.combatFeedback = 'Hound has taken control. Squad contract remains active.';
     this.refreshStatus();
   }
   private interact(): void {

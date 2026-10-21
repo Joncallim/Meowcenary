@@ -205,6 +205,29 @@ export function resolveFixtureTakeover(tabbyHealth: number, houndHealth: number,
   return confirmed ? 'recovered' : 'takeover-required';
 }
 
+export type FixturePartId = 'TAB-B2-GIFT' | 'TAB-F2' | 'HOU-H2-LOOT' | 'TAB-B3';
+export interface FixtureWallet { readonly credits: number; readonly metal: number; readonly circuits: number; readonly cloth: number; readonly flux: number; }
+export interface FixtureWorkshopProfile { readonly wallet: FixtureWallet; readonly owned: readonly FixturePartId[]; readonly assigned: Readonly<Record<'TAB-A' | 'TAB-B', FixturePartId | undefined>>; readonly claims: readonly string[]; readonly receipts: readonly string[]; readonly developed: boolean; }
+export function createIntegratedFixtureWorkshopProfile(): FixtureWorkshopProfile {
+  const owned: readonly FixturePartId[] = Object.freeze(['TAB-B2-GIFT']);
+  return Object.freeze({ wallet: Object.freeze({ credits: 3000, metal: 80, circuits: 16, cloth: 12, flux: 3 }), owned, assigned: Object.freeze({ 'TAB-A': undefined, 'TAB-B': 'TAB-B2-GIFT' }), claims: Object.freeze([]), receipts: Object.freeze([]), developed: false });
+}
+function fixtureProfile(profile: FixtureWorkshopProfile, commandId: string, wallet: FixtureWallet, owned = profile.owned, assigned = profile.assigned, claims = profile.claims, developed = profile.developed): FixtureWorkshopProfile {
+  return Object.freeze({ wallet: Object.freeze(wallet), owned: Object.freeze([...owned]), assigned: Object.freeze({ ...assigned }), claims: Object.freeze([...claims]), developed, receipts: Object.freeze([...profile.receipts, commandId]) });
+}
+/** One isolated writer for the directed B1 Buy/Claim/Sell/Build/Develop commands. */
+export function commitFixtureWorkshop(profile: FixtureWorkshopProfile, commandId: string, action: 'buy-f2' | 'claim-h2' | 'sell-h2' | 'build-b3' | 'develop-b2' | 'fit-f2-a' | 'fit-b3-a'): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean; reason?: string }> {
+  if (!commandId || profile.receipts.includes(commandId)) return Object.freeze({ profile, applied: false, reason: 'duplicate-command' });
+  const w = profile.wallet;
+  if (action === 'buy-f2') return w.credits < 1650 ? Object.freeze({ profile, applied: false, reason: 'insufficient-credits' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, { ...w, credits: w.credits - 1650 }, [...profile.owned, 'TAB-F2']), applied: true });
+  if (action === 'claim-h2') return profile.claims.includes('INT-LOOT-01') ? Object.freeze({ profile, applied: false, reason: 'already-claimed' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, w, [...profile.owned, 'HOU-H2-LOOT'], profile.assigned, [...profile.claims, 'INT-LOOT-01']), applied: true });
+  if (action === 'sell-h2') return !profile.owned.includes('HOU-H2-LOOT') || Object.values(profile.assigned).includes('HOU-H2-LOOT') ? Object.freeze({ profile, applied: false, reason: 'not-sellable' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, { ...w, credits: w.credits + 540 }, profile.owned.filter(id => id !== 'HOU-H2-LOOT')), applied: true });
+  if (action === 'build-b3') return w.credits < 1000 || w.metal < 40 || w.circuits < 8 ? Object.freeze({ profile, applied: false, reason: 'insufficient-resources' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, { ...w, credits: w.credits - 1000, metal: w.metal - 40, circuits: w.circuits - 8 }, [...profile.owned, 'TAB-B3']), applied: true });
+  if (action === 'develop-b2') return !profile.owned.includes('TAB-B2-GIFT') || profile.developed || w.credits < 500 || w.metal < 20 || w.circuits < 4 ? Object.freeze({ profile, applied: false, reason: 'ineligible-develop' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, { ...w, credits: w.credits - 500, metal: w.metal - 20, circuits: w.circuits - 4 }, profile.owned, profile.assigned, profile.claims, true), applied: true });
+  const part: FixturePartId = action === 'fit-f2-a' ? 'TAB-F2' : 'TAB-B3';
+  return !profile.owned.includes(part) ? Object.freeze({ profile, applied: false, reason: 'not-owned' }) : Object.freeze({ profile: fixtureProfile(profile, commandId, w, profile.owned, { ...profile.assigned, 'TAB-A': part }), applied: true });
+}
+
 /** Input to the human auto-target policy. Selection never searches hidden weak points. */
 export interface AutoTargetCandidate {
   readonly actorId: string;

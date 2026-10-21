@@ -16,6 +16,8 @@ import {
   settleIntegratedFixtureJob,
   historicalFixtureMissionReplay,
   resolveFixtureTakeover,
+  createIntegratedFixtureWorkshopProfile,
+  commitFixtureWorkshop,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -141,4 +143,19 @@ it('projects historical receipts without changing live fixture state and require
   expect(resolveFixtureTakeover(0, 80, false)).toBe('takeover-required');
   expect(resolveFixtureTakeover(0, 80, true)).toBe('recovered');
   expect(resolveFixtureTakeover(0, 0, true)).toBe('lost');
+});
+
+it('commits the directed B1 workshop ledger once per command', () => {
+  let p = createIntegratedFixtureWorkshopProfile();
+  p = commitFixtureWorkshop(p, 'buy-1', 'buy-f2').profile;
+  expect(p.wallet.credits).toBe(1350);
+  p = commitFixtureWorkshop(p, 'fit-1', 'fit-f2-a').profile;
+  expect(p.assigned['TAB-A']).toBe('TAB-F2');
+  p = commitFixtureWorkshop(p, 'claim-1', 'claim-h2').profile;
+  p = commitFixtureWorkshop(p, 'sell-1', 'sell-h2').profile;
+  expect(p.wallet.credits).toBe(1890);
+  p = commitFixtureWorkshop(p, 'build-1', 'build-b3').profile;
+  p = commitFixtureWorkshop(p, 'develop-1', 'develop-b2').profile;
+  expect(p.wallet).toEqual({ credits: 390, metal: 20, circuits: 4, cloth: 12, flux: 3 });
+  expect(commitFixtureWorkshop(p, 'develop-1', 'develop-b2').applied).toBe(false);
 });
