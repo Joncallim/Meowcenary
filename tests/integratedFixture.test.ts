@@ -7,6 +7,8 @@ import {
   selectHumanAutoTarget,
   validateIntegratedFixture,
   fixtureRangeDamage,
+  hasFixtureBallisticLineOfSight,
+  IntegratedFixtureCombat,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -44,6 +46,31 @@ describe('INT-FB integrated browser-slice fixture', () => {
 });
 
 it('deals no fixture damage outside the pinned TAB maximum range', () => {
-  expect(fixtureRangeDamage(24, 30)).toBe(30);
+  expect(fixtureRangeDamage(12, 30)).toBe(30);
+  expect(fixtureRangeDamage(24, 30)).toBe(15);
   expect(fixtureRangeDamage(24.01, 30)).toBe(0);
+});
+
+it('uses an occluder for ballistic LOS even though the fixture remains traversable around it', () => {
+  expect(hasFixtureBallisticLineOfSight({ x: 29, z: 40 }, { x: 35, z: 40 })).toBe(false);
+  expect(hasFixtureBallisticLineOfSight({ x: 29, z: 34 }, { x: 35, z: 34 })).toBe(true);
+});
+
+it('fires TAB and HOU from their own positions, records actual combat events, and retains lawful targets', () => {
+  const combat = new IntegratedFixtureCombat();
+  combat.beginJob('MC-OPT-R01-01');
+  combat.setSquadPositions({ x: 34, z: 38 }, { x: 34, z: 42 });
+  const events = combat.advance(0.2);
+  expect(events.some(event => event.type === 'weapon-fired' && event.sourceId === 'tabby')).toBe(true);
+  expect(events.some(event => event.type === 'weapon-fired' && event.sourceId === 'hound')).toBe(true);
+  expect(combat.hostileStates().some(hostile => hostile.health < 90)).toBe(true);
+});
+
+it('does not clear combat through a blind timer or out-of-range companion support', () => {
+  const combat = new IntegratedFixtureCombat();
+  combat.beginJob('MC-OPT-R01-01');
+  combat.setSquadPositions({ x: 8, z: 11 }, { x: 6.5, z: 11 });
+  combat.advance(30);
+  expect(combat.isGroupCleared()).toBe(false);
+  expect(combat.hostileStates().every(hostile => hostile.health === 90)).toBe(true);
 });

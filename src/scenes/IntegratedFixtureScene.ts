@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SceneKey } from '../engine/sceneKeys';
-import { fixtureRangeDamage, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, operationCanSettle, type FixtureJobId, validateIntegratedFixture } from '../gameplay/integratedFixture';
+import { IntegratedFixtureCombat, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, operationCanSettle, type FixtureJobId, validateIntegratedFixture } from '../gameplay/integratedFixture';
 
 const SCALE = 10;
 const SPEED = 12;
@@ -16,9 +16,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private extracted = false;
   private status?: Phaser.GameObjects.Text;
   private combatActive = false;
-  private enemyHp = [90, 90];
-  private tabbyCadence = 0.1;
-  private houndCadence = 0.1;
+  private combat = new IntegratedFixtureCombat();
+  private combatFeedback = 'No hostile contact.';
   private hound?: Phaser.GameObjects.Arc;
   private enemies: Phaser.GameObjects.Arc[] = [];
 
@@ -42,6 +41,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.lead = this.add.circle(8 * SCALE, 11 * SCALE, 7, 0x71d8ff).setStrokeStyle(2, 0xffffff);
     this.hound = this.add.circle(65, 110, 6, 0x84e6a0).setStrokeStyle(2, 0xffffff);
     this.enemies = [this.add.circle(350, 380, 7, 0xef6b73), this.add.circle(370, 400, 7, 0xef6b73)];
+    this.enemies.forEach(enemy => enemy.setVisible(false));
     this.status = this.add.text(12, 12, '', { fontFamily: 'Nunito, sans-serif', fontSize: '15px', color: '#ffffff', backgroundColor: '#101820dd', padding: { x: 8, y: 6 }, wordWrap: { width: 350 } }).setScrollFactor(0).setDepth(10);
     this.keys = this.input.keyboard?.createCursorKeys();
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => { this.touchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); });
@@ -76,19 +76,23 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       this.lead.x = Phaser.Math.Clamp(this.lead.x + x / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE - 7);
       this.lead.y = Phaser.Math.Clamp(this.lead.y + y / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE - 7);
     }
-    if (this.combatActive) {
-      this.tabbyCadence -= delta / 1000; this.houndCadence -= delta / 1000;
-      const hit = (damage: number) => { const index = this.enemyHp.findIndex(hp => hp > 0); if (index >= 0) { const enemy = this.enemies[index]!; const distance = Phaser.Math.Distance.Between(this.lead!.x, this.lead!.y, enemy.x, enemy.y) / SCALE; this.enemyHp[index]! = Math.max(0, this.enemyHp[index]! - fixtureRangeDamage(distance, damage)); } };
-      while (this.tabbyCadence <= 0 && this.enemyHp.some(hp => hp > 0)) { hit(30); this.tabbyCadence += 0.25; }
-      while (this.houndCadence <= 0 && this.enemyHp.some(hp => hp > 0)) { hit(14); this.houndCadence += 0.10; }
-      this.groupCleared = this.enemyHp.every(hp => hp === 0);
-      this.enemies.forEach((enemy, index) => enemy.setAlpha(this.enemyHp[index] === 0 ? 0.2 : 1));
+    if (this.hound) { this.hound.x += (this.lead.x - 15 - this.hound.x) * Math.min(1, delta / 150); this.hound.y += (this.lead.y - this.hound.y) * Math.min(1, delta / 150); }
+    if (this.combatActive && this.hound) {
+      this.combat.setSquadPositions({ x: this.lead.x / SCALE, z: this.lead.y / SCALE }, { x: this.hound.x / SCALE, z: this.hound.y / SCALE });
+      const events = this.combat.advance(delta / 1000);
+      if (events.length) this.combatFeedback = events.map(event => `${event.type}:${event.sourceId}>${event.targetId}`).join(' · ');
+      const hostiles = this.combat.hostileStates();
+      this.groupCleared = this.combat.isGroupCleared();
+      this.enemies.forEach((enemy, index) => {
+        const hostile = hostiles[index];
+        if (!hostile) return enemy.setVisible(false);
+        enemy.setVisible(true).setPosition(hostile.position.x * SCALE, hostile.position.z * SCALE).setAlpha(hostile.health === 0 ? 0.2 : 1);
+      });
       this.refreshStatus();
     }
-    if (this.hound) { this.hound.x += (this.lead.x - 15 - this.hound.x) * Math.min(1, delta / 150); this.hound.y += (this.lead.y - this.hound.y) * Math.min(1, delta / 150); }
   }
 
-  private selectJob(jobId: FixtureJobId): void { this.jobId = jobId; this.completed.clear(); this.groupCleared = false; this.extracted = false; this.refreshStatus(); }
+  private selectJob(jobId: FixtureJobId): void { this.jobId = jobId; this.completed.clear(); this.groupCleared = false; this.extracted = false; this.combatActive = false; this.enemies.forEach(enemy => enemy.setVisible(false)); this.refreshStatus(); }
   private interact(): void {
     if (!this.lead) return;
     if (!this.jobId) { this.selectJob(this.lead.x < 250 ? 'MC-OPT-R01-01' : 'MC-OPT-F01-01'); return; }
@@ -96,13 +100,18 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const nearby = INTEGRATED_FIXTURE_POINTS.find(point => Math.hypot(point.x * SCALE - this.lead!.x, point.z * SCALE - this.lead!.y) < 38);
     if (!nearby) return;
     if (nearby.role === 'interaction') this.completed.add(nearby.id);
-    if (nearby.role === 'spawn' && this.jobId === 'MC-OPT-R01-01') { this.combatActive = true; this.enemyHp = [90, 90]; this.tabbyCadence = 0.1; this.houndCadence = 0.1; }
+    if (nearby.role === 'spawn') { this.combatActive = true; this.combat.beginJob(this.jobId); this.combatFeedback = 'Hostiles activated; auto-fire uses each mercenary position and ballistic LOS.'; }
     if (nearby.id === job.extractionPointId) this.extracted = operationCanSettle({ jobId: this.jobId, completedInteractionIds: [...this.completed], finiteEnemyGroupCleared: this.groupCleared, extractionConfirmed: true });
     this.refreshStatus();
   }
   private refreshStatus(): void {
     const job = this.jobId ? INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)! : undefined;
-    this.status?.setText(job ? `INT-FB ${job.id}\n${this.extracted ? 'COMPLETE — test-only receipt pending adapter' : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${this.enemyHp.filter(hp => hp > 0).length} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nMove to markers/spawn/extraction; tap INTERACT or E`}` : 'INT-FB proving ground\nChoose R01 (1 / left side) or F01 (2 / right side).\nWASD/arrows or touch-hold to move. No save changes.');
+    const hostiles = this.combat.hostileStates().filter(hostile => hostile.health > 0).length;
+    this.status?.setText(job ? `INT-FB ${job.id}\n${this.extracted ? 'COMPLETE — isolated receipt pending adapter' : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${hostiles} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nTAB ${this.combat.actorHealth('tabby').toFixed(0)} HP · HOU ${this.combat.actorHealth('hound').toFixed(0)} HP\n${this.combatFeedback}\nMove to markers/spawn/extraction; tap INTERACT or E`}` : 'INT-FB proving ground\nChoose R01 (1 / left side) or F01 (2 / right side).\nWASD/arrows or touch-hold to move. No save changes.');
   }
-  public diagnostics(): Readonly<{ scene: string; x: number; y: number; jobId?: FixtureJobId; extracted: boolean }> { return Object.freeze({ scene: this.scene.key, x: this.lead?.x ?? 0, y: this.lead?.y ?? 0, jobId: this.jobId, extracted: this.extracted }); }
+  public diagnostics(): Readonly<{ scene: string; x: number; y: number; jobId?: FixtureJobId; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; hostiles: number }> {
+    return Object.freeze({ scene: this.scene.key, x: this.lead?.x ?? 0, y: this.lead?.y ?? 0, jobId: this.jobId, extracted: this.extracted,
+      combatActive: this.combatActive, groupCleared: this.groupCleared, tabbyHealth: this.combat.actorHealth('tabby'), houndHealth: this.combat.actorHealth('hound'),
+      hostiles: this.combat.hostileStates().filter(hostile => hostile.health > 0).length });
+  }
 }
