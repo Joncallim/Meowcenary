@@ -7,9 +7,11 @@ import {
   deserializeIntegratedFixtureEnvelope,
   failFixtureProfileAttempt,
   fixtureDialogue,
+  fixturePointLayer,
   INTEGRATED_FIXTURE_ENVELOPE,
   INTEGRATED_FIXTURE_ENVELOPE_KEY,
   INTEGRATED_FIXTURE_JOBS,
+  INTEGRATED_FIXTURE_OCCLUDERS,
   INTEGRATED_FIXTURE_POINTS,
   INTEGRATED_FIXTURE_SAVE_KEY,
   INTEGRATED_FIXTURE_SURFACES,
@@ -17,6 +19,7 @@ import {
   IntegratedFixtureOperation,
   nextFixtureAttemptId,
   nextFixtureWorldEventId,
+  moveFixtureTerrainPosition,
   operationCanSettle,
   resolveFixtureTakeover,
   retryFixtureProfileAttempt,
@@ -24,6 +27,7 @@ import {
   settleFixtureProfileAttempt,
   settleIntegratedFixtureEvent,
   type FixtureAttemptId,
+  type FixtureLayer,
   type FixtureJobId,
   type FixtureLiveMission,
   type FixturePersistentEnvelope,
@@ -67,6 +71,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private groupCleared = false;
   private extracted = false;
   private controlledActor: 'tabby' | 'hound' = 'tabby';
+  private tabbyLayer: FixtureLayer = 'ground';
+  private houndLayer: FixtureLayer = 'ground';
   private combatActive = false;
   private combat = new IntegratedFixtureCombat();
   private operation = new IntegratedFixtureOperation();
@@ -74,15 +80,19 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private activeWorldEventId?: FixtureWorldEventId;
   private activeAttemptId?: FixtureAttemptId;
   private recoveryMode: RecoveryMode = 'none';
-  private recoveryFee = 0;
+  private recoveryFee?: number;
   private activationWriting = false;
   private progressWriting = false;
+  private combatCheckpointWriting = false;
+  private combatCheckpointElapsed = 0;
   private settlementPending = false;
   private workshopPreview?: FixtureWorkshopAction;
   private workshopPreviewRevision?: number;
   private workshopModal?: Phaser.GameObjects.Container;
   private combatFeedback = 'No hostile contact.';
+  private combatEventSequence = 0;
   private failNextStorageWrite = false;
+  private failNextRecoveryWrite = false;
 
   constructor() { super(SceneKey.IntegratedFixture); }
 
@@ -98,12 +108,13 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const colors: Readonly<Record<string, number>> = { safe: 0x285943, road: 0x39495a, ramp: 0x7b6c4a, bridge: 0x815a3a, underpass: 0x26313d, tunnel: 0x1a1d2a, pocket: 0x49354e };
     for (const surface of INTEGRATED_FIXTURE_SURFACES) {
       this.add.rectangle((surface.x + surface.width / 2) * SCALE, (surface.z + surface.depth / 2) * SCALE,
-        surface.width * SCALE, surface.depth * SCALE, colors[surface.kind] ?? 0x555555, .95).setStrokeStyle(2, 0xb7d5da);
-      createUiText(this, (surface.x + .5) * SCALE, (surface.z + .5) * SCALE, surface.id.replace('INT-FB-', ''), { fontFamily: 'Nunito, sans-serif', fontSize: '11px', color: '#e9f3f5' });
+        surface.width * SCALE, surface.depth * SCALE, colors[surface.kind] ?? 0x555555, .95).setStrokeStyle(2, 0xb7d5da).setDepth(surface.elevation > 0 ? 2 : 1);
+      createUiText(this, (surface.x + .5) * SCALE, (surface.z + .5) * SCALE, `${surface.id.replace('INT-FB-', '')}${surface.elevation > 0 ? ' ↑' : ''}`, { fontFamily: 'Nunito, sans-serif', fontSize: '11px', color: '#e9f3f5' }).setDepth(surface.elevation > 0 ? 3 : 2);
     }
-    for (const point of INTEGRATED_FIXTURE_POINTS) this.add.circle(point.x * SCALE, point.z * SCALE, 5, point.role === 'service' ? 0x3ee8a9 : 0xffd166).setStrokeStyle(1, 0x0b1118);
-    this.lead = this.add.circle(SAFE_POSITION.tabby.x, SAFE_POSITION.tabby.y, 7, 0x71d8ff).setStrokeStyle(2, 0xffffff);
-    this.hound = this.add.circle(SAFE_POSITION.hound.x, SAFE_POSITION.hound.y, 6, 0x84e6a0).setStrokeStyle(2, 0xffffff);
+    for (const occluder of INTEGRATED_FIXTURE_OCCLUDERS) this.add.rectangle((occluder.x + occluder.width / 2) * SCALE, (occluder.z + occluder.depth / 2) * SCALE, occluder.width * SCALE, occluder.depth * SCALE, 0x101820, .95).setStrokeStyle(2, 0xef6b73).setDepth(4);
+    for (const point of INTEGRATED_FIXTURE_POINTS) this.add.circle(point.x * SCALE, point.z * SCALE, 5, point.role === 'service' ? 0x3ee8a9 : 0xffd166).setStrokeStyle(1, 0x0b1118).setDepth(5);
+    this.lead = this.add.circle(SAFE_POSITION.tabby.x, SAFE_POSITION.tabby.y, 7, 0x71d8ff).setStrokeStyle(2, 0xffffff).setDepth(6);
+    this.hound = this.add.circle(SAFE_POSITION.hound.x, SAFE_POSITION.hound.y, 6, 0x84e6a0).setStrokeStyle(2, 0xffffff).setDepth(6);
     this.enemies = [this.add.circle(350, 380, 7, 0xef6b73), this.add.circle(370, 400, 7, 0xef6b73)];
     this.enemies.forEach(enemy => enemy.setVisible(false));
     this.status = createUiText(this, 12, 12, '', { fontFamily: 'Nunito, sans-serif', fontSize: '15px', color: '#fff', backgroundColor: '#101820dd', padding: { x: 8, y: 6 }, wordWrap: { width: 350 } }).setScrollFactor(0).setDepth(10);
@@ -118,8 +129,10 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       surrender: () => this.surrender(),
       forceSquadDefeat: () => this.forceSquadDefeat(),
       forceTabbyDown: () => this.forceTabbyDown(),
+      prolongCombat: () => this.prolongCombat(),
       prepareF01: () => this.prepareF01(),
       failNextStorageWrite: () => { this.failNextStorageWrite = true; },
+      failNextRecoveryWrite: () => { this.failNextRecoveryWrite = true; },
     } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_INT_FB__; });
   }
@@ -144,23 +157,40 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const length = Math.hypot(x, y);
     if (length !== 0) {
       const step = SPEED * SCALE * delta / 1000;
-      controlled.x = Phaser.Math.Clamp(controlled.x + x / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE - 7);
-      controlled.y = Phaser.Math.Clamp(controlled.y + y / length * step, 7, INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE - 7);
+      const moved = moveFixtureTerrainPosition(this.spriteTerrainPosition(this.controlledActor), {
+        x: controlled.x / SCALE + x / length * step / SCALE,
+        z: controlled.y / SCALE + y / length * step / SCALE,
+      });
+      controlled.setPosition(moved.position.x * SCALE, moved.position.z * SCALE);
+      this.setActorLayer(this.controlledActor, moved.position.layer ?? 'ground');
+      if (moved.blocked) this.combatFeedback = 'Route blocked by authored terrain or solid cover.';
     }
     if (this.controlledActor === 'tabby') {
-      this.hound.x += (this.lead.x - 15 - this.hound.x) * Math.min(1, delta / 150);
-      this.hound.y += (this.lead.y - this.hound.y) * Math.min(1, delta / 150);
+      const houndPosition = this.spriteTerrainPosition('hound');
+      const desiredX = (this.lead.x - 15) / SCALE;
+      const desiredZ = this.lead.y / SCALE;
+      const distance = Math.hypot(desiredX - houndPosition.x, desiredZ - houndPosition.z);
+      const followStep = Math.min(distance, SPEED * delta / 1000);
+      const follow = moveFixtureTerrainPosition(houndPosition, distance > 0 ? {
+        x: houndPosition.x + (desiredX - houndPosition.x) / distance * followStep,
+        z: houndPosition.z + (desiredZ - houndPosition.z) / distance * followStep,
+      } : houndPosition);
+      this.hound.setPosition(follow.position.x * SCALE, follow.position.z * SCALE);
+      this.setActorLayer('hound', follow.position.layer ?? 'ground');
     }
     if (!this.combatActive) return;
-    this.combat.setSquadPositions({ x: this.lead.x / SCALE, z: this.lead.y / SCALE }, { x: this.hound.x / SCALE, z: this.hound.y / SCALE });
+    this.combat.setSquadPositions(this.spriteTerrainPosition('tabby'), this.spriteTerrainPosition('hound'));
     const events = this.combat.advance(delta / 1000);
-    if (events.length) this.combatFeedback = events.map(event => `${event.type}:${event.sourceId}>${event.targetId}`).join(' · ');
+    if (events.length) { this.combatEventSequence += events.length; this.combatFeedback = events.map(event => `${event.type}:${event.sourceId}>${event.targetId}`).join(' · '); }
+    this.combatCheckpointElapsed += delta;
+    const groupJustCleared = this.combat.isGroupCleared() && !this.groupCleared;
+    if (groupJustCleared) this.recordGroupClear();
+    else if ((events.length > 0 || this.combatCheckpointElapsed >= 500) && !this.progressWriting) this.persistCombatCheckpoint();
     const hostiles = this.combat.hostileStates();
-    if (this.combat.isGroupCleared() && !this.groupCleared) this.recordGroupClear();
     this.enemies.forEach((enemy, index) => {
       const hostile = hostiles[index];
       if (!hostile) { enemy.setVisible(false); return; }
-      enemy.setVisible(true).setPosition(hostile.position.x * SCALE, hostile.position.z * SCALE).setAlpha(hostile.health === 0 ? .2 : 1);
+      enemy.setVisible(true).setPosition(hostile.position.x * SCALE, hostile.position.z * SCALE).setDepth(hostile.position.layer === 'elevated' ? 9 : 7).setAlpha(hostile.health === 0 ? .2 : 1);
     });
     const after = resolveFixtureTakeover(this.combat.actorHealth('tabby'), this.combat.actorHealth('hound'), this.controlledActor === 'hound');
     if (after === 'takeover-required') this.showTakeoverPrompt();
@@ -228,6 +258,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
 
   private readEnvelope(): FixturePersistentEnvelope | undefined { try { return deserializeIntegratedFixtureEnvelope(localStorage.getItem(INTEGRATED_FIXTURE_ENVELOPE_KEY)); } catch { return undefined; } }
   private writeEnvelope(envelope: FixturePersistentEnvelope): void {
+    if (this.failNextRecoveryWrite && envelope.liveMission?.recoveryRequired) { this.failNextRecoveryWrite = false; throw new Error('forced fixture recovery storage failure'); }
     if (this.failNextStorageWrite) { this.failNextStorageWrite = false; throw new Error('forced fixture storage failure'); }
     localStorage.setItem(INTEGRATED_FIXTURE_ENVELOPE_KEY, serializeIntegratedFixtureEnvelope(envelope));
   }
@@ -245,12 +276,13 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.combat.restoreJob(live.jobId, live.finiteEnemyGroupCleared);
     if (live.recoveryRequired) {
       this.recoveryMode = 'recovered';
-      this.recoveryFee = this.recoverableFee(this.envelope.workshop.wallet.credits);
+      this.recoveryFee = live.recoveryFee;
       this.restoreSafeState();
       this.combatFeedback = 'Recovery loaded. Retry uses a fresh attempt for the unfinished event.';
       this.showRecoveryControls();
       return;
     }
+    if (live.combatSnapshot && this.combat.restore(live.combatSnapshot, live.jobId, live.finiteEnemyGroupCleared)) this.restoreCombatPresentation(live.combatSnapshot);
     this.combatActive = true;
     this.combatFeedback = 'Reloaded unfinished event with its durable event and attempt identity.';
   }
@@ -258,15 +290,14 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (!this.lead || !this.hound) return;
     this.lead.setPosition(SAFE_POSITION.tabby.x, SAFE_POSITION.tabby.y);
     this.hound.setPosition(SAFE_POSITION.hound.x, SAFE_POSITION.hound.y);
+    this.setActorLayer('tabby', 'ground');
+    this.setActorLayer('hound', 'ground');
     this.controlledActor = 'tabby';
+    this.combat.setSquadPositions(this.spriteTerrainPosition('tabby'), this.spriteTerrainPosition('hound'));
     this.touchTarget = undefined;
     this.combatActive = false;
     this.enemies.forEach(enemy => enemy.setVisible(false));
     this.cameras.main.startFollow(this.lead, true, .15, .15);
-  }
-  private recoverableFee(creditsAfterRecovery: number): number {
-    for (let fee = 0; fee <= 250; fee += 1) if (Math.min(250, Math.floor((creditsAfterRecovery + fee) * .10)) === fee) return fee;
-    return 0;
   }
   private replaceLiveMission(live: FixtureLiveMission): void {
     this.jobId = live.jobId;
@@ -274,8 +305,47 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.activeAttemptId = live.attemptId;
     this.completed = new Set(live.completedInteractionIds);
     this.groupCleared = live.finiteEnemyGroupCleared;
+    this.controlledActor = live.combatSnapshot?.controlledActor ?? 'tabby';
     this.operation = new IntegratedFixtureOperation();
     this.operation.restoreActive(live.jobId, live.completedInteractionIds, live.finiteEnemyGroupCleared);
+  }
+  private captureCombatSnapshot() {
+    if (this.lead && this.hound) this.combat.setSquadPositions(this.spriteTerrainPosition('tabby'), this.spriteTerrainPosition('hound'));
+    return this.combat.snapshot(this.controlledActor);
+  }
+  private restoreCombatPresentation(snapshot: NonNullable<FixtureLiveMission['combatSnapshot']>): void {
+    if (!this.lead || !this.hound) return;
+    const actors = new Map(snapshot.actors.map(actor => [actor.id, actor]));
+    const tabby = actors.get('tabby')!;
+    const hound = actors.get('hound')!;
+    this.lead.setPosition(tabby.position.x * SCALE, tabby.position.z * SCALE);
+    this.hound.setPosition(hound.position.x * SCALE, hound.position.z * SCALE);
+    this.setActorLayer('tabby', tabby.position.layer ?? 'ground');
+    this.setActorLayer('hound', hound.position.layer ?? 'ground');
+    this.enemies.forEach((enemy, index) => {
+      const hostile = this.combat.hostileStates()[index];
+      if (!hostile) { enemy.setVisible(false); return; }
+      enemy.setPosition(hostile.position.x * SCALE, hostile.position.z * SCALE).setVisible(hostile.health > 0).setDepth(hostile.position.layer === 'elevated' ? 9 : 7).setAlpha(hostile.health === 0 ? .2 : 1);
+    });
+    this.cameras.main.startFollow(this.controlledSprite()!, true, .15, .15);
+  }
+  /** A compact, lock-owned checkpoint is the resume boundary for movement,
+   * combat cadence, survivor control, and enemy state—not a free retry. */
+  private persistCombatCheckpoint(): void {
+    const current = this.activeMission();
+    if (!current || current.recoveryRequired || !this.combatActive || this.combatCheckpointWriting) return;
+    const snapshot = this.captureCombatSnapshot();
+    this.combatCheckpointWriting = true;
+    this.combatCheckpointElapsed = 0;
+    this.requestWriter('Combat checkpoint writer lock unavailable; the active attempt remains in this scene.', async () => {
+      const durable = this.readEnvelope(); const live = durable?.liveMission;
+      if (!durable || !live || live.recoveryRequired || live.attemptId !== current.attemptId) { this.combatCheckpointWriting = false; return; }
+      const nextLive: FixtureLiveMission = Object.freeze({ ...live, combatSnapshot: snapshot });
+      const candidate: FixturePersistentEnvelope = Object.freeze({ ...durable, liveMission: nextLive });
+      try { this.writeEnvelope(candidate); }
+      catch { this.combatCheckpointWriting = false; this.combatFeedback = 'Combat checkpoint storage failed; this attempt continues and will checkpoint again.'; this.refreshStatus(); return; }
+      this.assignEnvelope(candidate); this.replaceLiveMission(nextLive); this.combatCheckpointWriting = false;
+    }, () => { this.combatCheckpointWriting = false; });
   }
 
   private selectJob(jobId: FixtureJobId): void {
@@ -287,25 +357,44 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private swapGun(): void {
     if (this.recoveryMode !== 'none' || this.settlementPending) return;
     const swapped = this.combat.swapActiveGun(this.controlledActor);
-    this.combatFeedback = swapped ? `${this.actorName()} switched to ${this.combat.activeGun(this.controlledActor).instanceId}; 0.30s swap preparation.` : 'Gun swap unavailable.'; this.refreshStatus();
+    this.combatFeedback = swapped ? `${this.actorName()} switched to ${this.combat.activeGun(this.controlledActor).instanceId}; 0.30s swap preparation.` : 'Gun swap unavailable.';
+    if (swapped) this.persistCombatCheckpoint();
+    this.refreshStatus();
   }
   private confirmTakeover(): void {
     if (!this.lead || !this.hound || this.recoveryMode !== 'none' || resolveFixtureTakeover(this.combat.actorHealth('tabby'), this.combat.actorHealth('hound'), false) !== 'takeover-required') return;
     this.controlledActor = 'hound'; this.cameras.main.startFollow(this.hound, true, .15, .15); this.takeoverPrompt?.setVisible(false);
-    this.combatFeedback = 'Hound has taken control. Hound now drives movement, interaction, service access, and gun swaps.'; this.refreshStatus();
+    this.combatFeedback = 'Hound has taken control. Hound now drives movement, interaction, service access, and gun swaps.'; this.persistCombatCheckpoint(); this.refreshStatus();
   }
   private showTakeoverPrompt(): void { this.takeoverPrompt?.setText('Tabby is down.\nContinue as Hound?\nT / TAP TAKE OVER').setVisible(true); this.refreshStatus(); }
   private controlledSprite(): Phaser.GameObjects.Arc | undefined { return this.controlledActor === 'tabby' ? this.lead : this.hound; }
-  private atService(): boolean { const actor = this.controlledSprite(); return !!actor && Math.hypot(actor.x - 80, actor.y - 80) < 55; }
+  private actorSprite(actor: 'tabby' | 'hound'): Phaser.GameObjects.Arc | undefined { return actor === 'tabby' ? this.lead : this.hound; }
+  private actorLayer(actor: 'tabby' | 'hound'): FixtureLayer { return actor === 'tabby' ? this.tabbyLayer : this.houndLayer; }
+  private spriteTerrainPosition(actor: 'tabby' | 'hound') {
+    const sprite = this.actorSprite(actor);
+    return { x: (sprite?.x ?? 0) / SCALE, z: (sprite?.y ?? 0) / SCALE, layer: this.actorLayer(actor) };
+  }
+  private setActorLayer(actor: 'tabby' | 'hound', layer: FixtureLayer): void {
+    if (actor === 'tabby') this.tabbyLayer = layer;
+    else this.houndLayer = layer;
+    this.actorSprite(actor)?.setDepth(layer === 'elevated' ? 9 : 6);
+  }
+  private atService(): boolean { const actor = this.controlledSprite(); return this.actorLayer(this.controlledActor) === 'ground' && !!actor && Math.hypot(actor.x - 80, actor.y - 80) < 55; }
   private actorName(): string { return this.controlledActor === 'tabby' ? 'Tabby' : 'Hound'; }
 
   private interact(): void {
     if (this.recoveryMode !== 'none' || this.activationWriting || this.progressWriting || this.settlementPending) { this.combatFeedback = 'Recovery or settlement is still pending; controls are locked until it finishes.'; this.refreshStatus(); return; }
     const actor = this.controlledSprite();
     if (!actor || this.combat.actorHealth(this.controlledActor) <= 0) return;
-    const nearby = INTEGRATED_FIXTURE_POINTS.find(point => Math.hypot(point.x * SCALE - actor.x, point.z * SCALE - actor.y) < 38);
+    const nearby = INTEGRATED_FIXTURE_POINTS.find(point => fixturePointLayer(point) === this.actorLayer(this.controlledActor)
+      && Math.hypot(point.x * SCALE - actor.x, point.z * SCALE - actor.y) < 38);
     if (nearby?.role === 'discovery' && nearby.id === 'INT-FB-PUBLIC-SPUR') { this.recordLootDiscovery(); return; }
-    if (!this.jobId) { this.selectJob(actor.x < 250 ? 'MC-OPT-R01-01' : 'MC-OPT-F01-01'); return; }
+    if (!this.jobId) {
+      if (nearby?.role === 'offer-terminal') this.selectJob(actor.x < 250 ? 'MC-OPT-R01-01' : 'MC-OPT-F01-01');
+      else this.combatFeedback = 'Move to the safe offer terminal before inspecting a contract.';
+      this.refreshStatus();
+      return;
+    }
     const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)!;
     if (!nearby) return;
     if (nearby.role === 'offer-terminal') this.combatFeedback = this.operation.accept() ? `${fixtureDialogue(job.id, 'accepted')} Reach its entry to activate.` : 'Inspect a job before accepting it.';
@@ -332,11 +421,14 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       const attemptId = nextFixtureAttemptId(durable.workshop, worldEventId);
       const begun = beginFixtureProfileAttempt(durable.workshop, worldEventId, attemptId);
       if (!begun.applied) { this.activationWriting = false; this.combatFeedback = 'Activation was rejected before combat started.'; this.refreshStatus(); return; }
-      const liveMission: FixtureLiveMission = Object.freeze({ jobId, worldEventId, attemptId, completedInteractionIds: Object.freeze([]), finiteEnemyGroupCleared: false, recoveryRequired: false });
+      const nextCombat = new IntegratedFixtureCombat(begun.profile);
+      nextCombat.beginJob(jobId);
+      if (this.lead && this.hound) nextCombat.setSquadPositions(this.spriteTerrainPosition('tabby'), this.spriteTerrainPosition('hound'));
+      const liveMission: FixtureLiveMission = Object.freeze({ jobId, worldEventId, attemptId, completedInteractionIds: Object.freeze([]), finiteEnemyGroupCleared: false, recoveryRequired: false, combatSnapshot: nextCombat.snapshot(this.controlledActor) });
       const candidate: FixturePersistentEnvelope = Object.freeze({ ...durable, workshop: begun.profile, liveMission });
       try { this.writeEnvelope(candidate); }
       catch { this.activationWriting = false; this.combatFeedback = 'Activation storage failed; no event or attempt was created.'; this.refreshStatus(); return; }
-      this.assignEnvelope(candidate); this.replaceLiveMission(liveMission); this.combat = new IntegratedFixtureCombat(candidate.workshop); this.combat.beginJob(jobId); this.combatActive = true; this.activationWriting = false;
+      this.assignEnvelope(candidate); this.replaceLiveMission(liveMission); this.combat = nextCombat; this.combatActive = true; this.activationWriting = false; this.combatCheckpointElapsed = 0;
       this.combatFeedback = `Event ${worldEventId} saved. Hostiles activated; auto-fire uses each mercenary position and ballistic LOS.`; this.refreshStatus();
     }, () => { this.activationWriting = false; });
   }
@@ -349,7 +441,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       if (!durable || !live || live.attemptId !== current.attemptId || live.recoveryRequired) { this.progressWriting = false; this.combatFeedback = 'Objective changed before it could be recorded.'; this.refreshStatus(); return; }
       const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === live.jobId)!;
       if (!job.requiredInteractionIds.includes(pointId)) { this.progressWriting = false; return; }
-      const nextLive: FixtureLiveMission = Object.freeze({ ...live, completedInteractionIds: Object.freeze([...new Set([...live.completedInteractionIds, pointId])]) });
+      const nextLive: FixtureLiveMission = Object.freeze({ ...live, completedInteractionIds: Object.freeze([...new Set([...live.completedInteractionIds, pointId])]), combatSnapshot: this.captureCombatSnapshot() });
       const candidate: FixturePersistentEnvelope = Object.freeze({ ...durable, liveMission: nextLive });
       try { this.writeEnvelope(candidate); }
       catch { this.progressWriting = false; this.combatFeedback = 'Objective storage failed; it remains available to record again.'; this.refreshStatus(); return; }
@@ -363,7 +455,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.requestWriter('Objective writer lock unavailable; exit group remains unconfirmed.', async () => {
       const durable = this.readEnvelope(); const live = durable?.liveMission;
       if (!durable || !live || live.attemptId !== current.attemptId || live.recoveryRequired) { this.progressWriting = false; return; }
-      const nextLive: FixtureLiveMission = Object.freeze({ ...live, finiteEnemyGroupCleared: true });
+      const nextLive: FixtureLiveMission = Object.freeze({ ...live, finiteEnemyGroupCleared: true, combatSnapshot: this.captureCombatSnapshot() });
       const candidate: FixturePersistentEnvelope = Object.freeze({ ...durable, liveMission: nextLive });
       try { this.writeEnvelope(candidate); }
       catch { this.progressWriting = false; this.combatFeedback = 'Exit group storage failed; retrying its confirmation is safe.'; this.refreshStatus(); return; }
@@ -382,7 +474,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       if (!durable || !live || live.attemptId !== current.attemptId || live.recoveryRequired) { this.recoveryMode = 'write-failed'; this.combatFeedback = 'Recovery state changed before it could be saved; no fee was taken here.'; this.showRecoveryControls(); this.refreshStatus(); return; }
       const failure = failFixtureProfileAttempt(durable.workshop, live.attemptId);
       if (!failure.applied) { this.recoveryMode = 'write-failed'; this.combatFeedback = 'Recovery claim was already resolved or rejected; no additional fee was taken.'; this.showRecoveryControls(); this.refreshStatus(); return; }
-      const nextLive: FixtureLiveMission = Object.freeze({ ...live, recoveryRequired: true });
+      const nextLive: FixtureLiveMission = Object.freeze({ ...live, recoveryRequired: true, recoveryFee: failure.fee });
       const candidate: FixturePersistentEnvelope = Object.freeze({ ...durable, workshop: failure.profile, liveMission: nextLive });
       try { this.writeEnvelope(candidate); }
       catch { this.recoveryMode = 'write-failed'; this.combatFeedback = 'Recovery storage failed; no fee, gear, material, or mission state was changed.'; this.showRecoveryControls(); this.refreshStatus(); return; }
@@ -399,12 +491,15 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       if (!durable || !live || !live.recoveryRequired || live.attemptId !== current.attemptId) { this.recoveryMode = 'write-failed'; this.combatFeedback = 'Retry state changed before it could be saved.'; this.showRecoveryControls(); this.refreshStatus(); return; }
       const attemptId = nextFixtureAttemptId(durable.workshop, live.worldEventId);
       const retry = retryFixtureProfileAttempt(durable.workshop, live.worldEventId, attemptId);
-      if (!retry.applied) { this.recoveryMode = 'write-failed'; this.combatFeedback = 'Retry was rejected; no new attempt was started.'; this.showRecoveryControls(); this.refreshStatus(); return; }
-      const nextLive: FixtureLiveMission = Object.freeze({ jobId: live.jobId, worldEventId: live.worldEventId, attemptId, completedInteractionIds: Object.freeze([]), finiteEnemyGroupCleared: false, recoveryRequired: false });
+      if (!retry.applied) { this.recoveryMode = 'recovered'; this.combatFeedback = 'Retry was rejected; the existing recovery remains ready to retry.'; this.showRecoveryControls(); this.refreshStatus(); return; }
+      const nextCombat = new IntegratedFixtureCombat(retry.profile);
+      nextCombat.beginJob(live.jobId);
+      nextCombat.setSquadPositions({ x: SAFE_POSITION.tabby.x / SCALE, z: SAFE_POSITION.tabby.y / SCALE, layer: 'ground' }, { x: SAFE_POSITION.hound.x / SCALE, z: SAFE_POSITION.hound.y / SCALE, layer: 'ground' });
+      const nextLive: FixtureLiveMission = Object.freeze({ jobId: live.jobId, worldEventId: live.worldEventId, attemptId, completedInteractionIds: Object.freeze([]), finiteEnemyGroupCleared: false, recoveryRequired: false, combatSnapshot: nextCombat.snapshot('tabby') });
       const candidate: FixturePersistentEnvelope = Object.freeze({ ...durable, workshop: retry.profile, liveMission: nextLive });
       try { this.writeEnvelope(candidate); }
-      catch { this.recoveryMode = 'write-failed'; this.combatFeedback = 'Retry storage failed; the prior recovery remains ready and no new attempt was started.'; this.showRecoveryControls(); this.refreshStatus(); return; }
-      this.assignEnvelope(candidate); this.replaceLiveMission(nextLive); this.combat = new IntegratedFixtureCombat(candidate.workshop); this.combat.beginJob(nextLive.jobId); this.restoreSafeState(); this.combatActive = true; this.recoveryMode = 'none'; this.recoveryModal?.setVisible(false);
+      catch { this.recoveryMode = 'recovered'; this.combatFeedback = 'Retry storage failed; the prior recovery remains ready and no new attempt was started.'; this.showRecoveryControls(); this.refreshStatus(); return; }
+      this.assignEnvelope(candidate); this.replaceLiveMission(nextLive); this.combat = nextCombat; this.restoreSafeState(); this.combatActive = true; this.recoveryMode = 'none'; this.recoveryModal?.setVisible(false); this.combatCheckpointElapsed = 0;
       this.combatFeedback = `Retry ${attemptId} saved for unfinished event ${nextLive.worldEventId}.`; this.refreshStatus();
     }, () => { this.recoveryMode = 'recovered'; this.showRecoveryControls(); });
   }
@@ -414,7 +509,9 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const retryReady = this.recoveryMode === 'recovered'; this.recoveryButton.setAlpha(this.recoveryMode === 'write-failed' ? 1 : .45); this.retryButton.setAlpha(retryReady ? 1 : .45);
     if (this.recoveryMode === 'writing') { this.recoveryHeading.setText('SQUAD DOWN — RECOVERY SAVING'); this.recoveryDetail.setText('Movement and interaction are locked. The recovery fee is written atomically with your wallet; gear and materials stay intact.'); }
     else if (this.recoveryMode === 'write-failed') { this.recoveryHeading.setText('RECOVERY WRITE FAILED'); this.recoveryDetail.setText('No fee was taken. Tap RECOVER or press R to retry the same failed attempt.'); }
-    else { this.recoveryHeading.setText('RECOVERY COMPLETE — SAFE SERVICE'); this.recoveryDetail.setText(`Fee ${this.recoveryFee} credits. Gear and materials preserved. Tap RETRY or press Enter for a fresh attempt on the unfinished event.`); }
+    else { this.recoveryHeading.setText('RECOVERY COMPLETE — SAFE SERVICE'); this.recoveryDetail.setText(this.recoveryFee === undefined
+      ? 'This legacy recovery is ready. Its old envelope did not retain the fee amount; gear and materials are preserved. Tap RETRY or press Enter for a fresh attempt on the unfinished event.'
+      : `Fee ${this.recoveryFee} credits. Gear and materials preserved. Tap RETRY or press Enter for a fresh attempt on the unfinished event.`); }
   }
 
   private settleAtExtraction(jobId: FixtureJobId): void {
@@ -489,8 +586,28 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     });
   }
 
-  private forceSquadDefeat(): boolean { if (!this.combatActive || !this.activeMission()) return false; this.combat.setFixtureSquadHealth('tabby', 0); this.combat.setFixtureSquadHealth('hound', 0); return true; }
+  private forceSquadDefeat(): boolean {
+    if (!this.combatActive || !this.activeMission()) return false;
+    this.combat.setFixtureSquadHealth('tabby', 0);
+    this.combat.setFixtureSquadHealth('hound', 0);
+    // Queue the ordinary wipe path now. This test seam deliberately does not
+    // wait for another frame, otherwise an unrelated combat checkpoint could
+    // consume a deliberately injected recovery-write failure first.
+    this.beginRecovery('wipe');
+    return true;
+  }
   private forceTabbyDown(): boolean { if (!this.combatActive || !this.activeMission()) return false; this.combat.setFixtureSquadHealth('tabby', 0); return true; }
+  /** Browser seam: preserves actual hostiles long enough to make a durable
+   * partial-combat reload observable without changing normal combat rules. */
+  private prolongCombat(): boolean {
+    const mission = this.activeMission();
+    if (!this.combatActive || !mission) return false;
+    const prefix = mission.jobId === 'MC-OPT-R01-01' ? 'r01' : 'f01';
+    this.combat.setFixtureHostileHealth(`${prefix}-a` as 'r01-a' | 'f01-a', 10_000);
+    this.combat.setFixtureHostileHealth(`${prefix}-b` as 'r01-b' | 'f01-b', 10_000);
+    this.persistCombatCheckpoint();
+    return true;
+  }
   /** Browser seam: it still uses the ordinary durable activation transaction. */
   private prepareF01(): boolean {
     if (this.activeMission() || this.activationWriting || this.recoveryMode !== 'none') return false;
@@ -510,9 +627,24 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const hostiles = this.combat.hostileStates().filter(hostile => hostile.health > 0).length; const tabbyGun = this.combat.activeGun('tabby'); const phase = this.operation.snapshot().phase; const mission = this.activeMission(); const eventLine = mission ? `\nEvent ${mission.worldEventId} · Attempt ${mission.attemptId}` : '';
     this.status?.setText(job ? `INT-FB ${job.id} · ${phase}${eventLine}\n${this.extracted ? 'COMPLETE — event receipt saved' : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${hostiles} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nTAB ${this.combat.actorHealth('tabby').toFixed(0)} HP · ${tabbyGun.instanceId.split(':').at(-1)} ${tabbyGun.supply} · HOU ${this.combat.actorHealth('hound').toFixed(0)} HP\n${this.combatFeedback}\nMove to offer/markers/spawn/extraction; tap INTERACT or E; swap ${this.actorName()} gun with Q; surrender X`}` : `INT-FB proving ground\n${this.envelope.mission.receipts.length} isolated event receipt(s) loaded. Choose R01 (1 / left side) or F01 (2 / right side).\nWASD/arrows or touch-hold to move.`);
   }
-  public diagnostics(): Readonly<{ scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; controlledGun: string; jobId?: FixtureJobId; phase: string; completedInteractionIds: readonly string[]; canExtract: boolean; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGun: string; hostiles: number; workshopRevision: number; workshopCredits: number; workshopParts: number; workshopMaterials: Readonly<{ metal: number; circuits: number; cloth: number }>; workshopPreview?: FixtureWorkshopAction; workshopOpen: boolean; worldEventId?: FixtureWorldEventId; activeAttemptId?: FixtureAttemptId; attemptTerminal?: string; recoveryMode: RecoveryMode; recoveryFee: number; receiptIds: readonly string[]; paidEventIds: readonly FixtureWorldEventId[]; takeoverControl?: FixtureControlBounds; recoveryControl?: FixtureControlBounds; retryControl?: FixtureControlBounds }> {
+  public diagnostics(): Readonly<{ scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: FixtureLayer; tabbyLayer: FixtureLayer; houndLayer: FixtureLayer; combatEventSequence: number; cameraX: number; cameraY: number; controlledGun: string; jobId?: FixtureJobId; phase: string; completedInteractionIds: readonly string[]; canExtract: boolean; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGun: string; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: Readonly<{ x: number; y: number }>; houndPosition: Readonly<{ x: number; y: number }>; hostiles: number; checkpoint?: Readonly<{ controlledActor: 'tabby' | 'hound'; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: Readonly<{ x: number; y: number }>; houndPosition: Readonly<{ x: number; y: number }>; hostileHealths: readonly number[] }>; workshopRevision: number; workshopCredits: number; workshopParts: number; workshopMaterials: Readonly<{ metal: number; circuits: number; cloth: number }>; workshopPreview?: FixtureWorkshopAction; workshopOpen: boolean; worldEventId?: FixtureWorldEventId; activeAttemptId?: FixtureAttemptId; attemptTerminal?: string; recoveryMode: RecoveryMode; recoveryFee?: number; receiptIds: readonly string[]; paidEventIds: readonly FixtureWorldEventId[]; takeoverControl?: FixtureControlBounds; recoveryControl?: FixtureControlBounds; retryControl?: FixtureControlBounds }> {
     const attempt = this.activeAttemptId ? this.envelope.workshop.attempts.find(candidate => candidate.attemptId === this.activeAttemptId) : undefined;
     const takeoverBounds = this.takeoverPrompt?.getBounds();
-    return Object.freeze({ scene: this.scene.key, x: this.controlledSprite()?.x ?? 0, y: this.controlledSprite()?.y ?? 0, controlledActor: this.controlledActor, controlledGun: this.combat.activeGun(this.controlledActor).instanceId, jobId: this.jobId, completedInteractionIds: Object.freeze([...this.completed]), canExtract: this.operation.canExtract(), extracted: this.extracted, phase: this.operation.snapshot().phase, combatActive: this.combatActive, groupCleared: this.groupCleared, tabbyHealth: this.combat.actorHealth('tabby'), houndHealth: this.combat.actorHealth('hound'), tabbyGun: this.combat.activeGun('tabby').instanceId, hostiles: this.combat.hostileStates().filter(hostile => hostile.health > 0).length, workshopRevision: this.envelope.workshop.revision, workshopCredits: this.envelope.workshop.wallet.credits, workshopParts: this.envelope.workshop.parts.length, workshopMaterials: Object.freeze({ metal: this.envelope.workshop.wallet.metal, circuits: this.envelope.workshop.wallet.circuits, cloth: this.envelope.workshop.wallet.cloth }), workshopPreview: this.workshopPreview, workshopOpen: !!this.workshopModal, worldEventId: this.activeWorldEventId, activeAttemptId: this.activeAttemptId, attemptTerminal: attempt?.terminal, recoveryMode: this.recoveryMode, recoveryFee: this.recoveryFee, receiptIds: Object.freeze(this.envelope.mission.receipts.map(receipt => receipt.id)), paidEventIds: this.envelope.workshop.paidEventIds, takeoverControl: takeoverBounds && this.takeoverPrompt?.visible ? Object.freeze({ x: takeoverBounds.x, y: takeoverBounds.y, width: takeoverBounds.width, height: takeoverBounds.height }) : undefined, recoveryControl: this.controlBounds(this.recoveryButton), retryControl: this.controlBounds(this.retryButton) });
+    const mission = this.activeMission();
+    const snapshot = mission?.combatSnapshot;
+    const snapshotActor = (id: 'tabby' | 'hound') => snapshot?.actors.find(actor => actor.id === id);
+    const tabby = snapshotActor('tabby');
+    const hound = snapshotActor('hound');
+    const checkpoint = snapshot && tabby && hound ? Object.freeze({
+      controlledActor: snapshot.controlledActor,
+      tabbyHealth: tabby.health,
+      houndHealth: hound.health,
+      tabbyGunSupply: tabby.weapons[tabby.activeGunIndex]!.supply,
+      houndGunSupply: hound.weapons[hound.activeGunIndex]!.supply,
+      tabbyPosition: Object.freeze({ x: tabby.position.x * SCALE, y: tabby.position.z * SCALE }),
+      houndPosition: Object.freeze({ x: hound.position.x * SCALE, y: hound.position.z * SCALE }),
+      hostileHealths: Object.freeze(snapshot.actors.filter(actor => actor.id !== 'tabby' && actor.id !== 'hound').map(actor => actor.health)),
+    }) : undefined;
+    return Object.freeze({ scene: this.scene.key, x: this.controlledSprite()?.x ?? 0, y: this.controlledSprite()?.y ?? 0, controlledActor: this.controlledActor, layer: this.actorLayer(this.controlledActor), tabbyLayer: this.tabbyLayer, houndLayer: this.houndLayer, combatEventSequence: this.combatEventSequence, cameraX: this.cameras.main.scrollX, cameraY: this.cameras.main.scrollY, controlledGun: this.combat.activeGun(this.controlledActor).instanceId, jobId: this.jobId, completedInteractionIds: Object.freeze([...this.completed]), canExtract: this.operation.canExtract(), extracted: this.extracted, phase: this.operation.snapshot().phase, combatActive: this.combatActive, groupCleared: this.groupCleared, tabbyHealth: this.combat.actorHealth('tabby'), houndHealth: this.combat.actorHealth('hound'), tabbyGun: this.combat.activeGun('tabby').instanceId, tabbyGunSupply: this.combat.activeGun('tabby').supply, houndGunSupply: this.combat.activeGun('hound').supply, tabbyPosition: Object.freeze({ x: this.lead?.x ?? 0, y: this.lead?.y ?? 0 }), houndPosition: Object.freeze({ x: this.hound?.x ?? 0, y: this.hound?.y ?? 0 }), hostiles: this.combat.hostileStates().filter(hostile => hostile.health > 0).length, checkpoint, workshopRevision: this.envelope.workshop.revision, workshopCredits: this.envelope.workshop.wallet.credits, workshopParts: this.envelope.workshop.parts.length, workshopMaterials: Object.freeze({ metal: this.envelope.workshop.wallet.metal, circuits: this.envelope.workshop.wallet.circuits, cloth: this.envelope.workshop.wallet.cloth }), workshopPreview: this.workshopPreview, workshopOpen: !!this.workshopModal, worldEventId: this.activeWorldEventId, activeAttemptId: this.activeAttemptId, attemptTerminal: attempt?.terminal, recoveryMode: this.recoveryMode, recoveryFee: this.recoveryFee, receiptIds: Object.freeze(this.envelope.mission.receipts.map(receipt => receipt.id)), paidEventIds: this.envelope.workshop.paidEventIds, takeoverControl: takeoverBounds && this.takeoverPrompt?.visible ? Object.freeze({ x: takeoverBounds.x, y: takeoverBounds.y, width: takeoverBounds.width, height: takeoverBounds.height }) : undefined, recoveryControl: this.controlBounds(this.recoveryButton), retryControl: this.controlBounds(this.retryButton) });
   }
 }

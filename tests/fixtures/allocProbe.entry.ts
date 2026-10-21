@@ -194,8 +194,12 @@ controller.onAnyAction((edge) => {
 });
 
 // Warm-up: JIT compilation and lazy init happen here, outside the measured
-// window.
-for (let i = 0; i < 2_000; i += 1) {
+// window. Gamepad's fully-active branch needs more than the idle/keyboard
+// paths to reach a stable V8 tier on the pinned small semi-space; otherwise
+// tiering metadata can trigger a Scavenge in the first measured window even
+// though no poll allocation is retained. This only settles the runner before
+// PROBE-START: the measured window, zero threshold, and canaries are intact.
+for (let i = 0; i < 20_000; i += 1) {
   controller.update(0);
 }
 

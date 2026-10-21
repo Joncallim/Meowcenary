@@ -4,6 +4,9 @@ import {
   INTEGRATED_FIXTURE_JOBS,
   INTEGRATED_FIXTURE_SURFACES,
   operationCanSettle,
+  isFixtureTerrainPositionWalkable,
+  moveFixtureTerrainPosition,
+  fixturePositionsShareLayer,
   selectHumanAutoTarget,
   validateIntegratedFixture,
   fixtureRangeDamage,
@@ -71,6 +74,37 @@ it('deals no fixture damage outside the pinned TAB maximum range', () => {
 it('uses an occluder for ballistic LOS even though the fixture remains traversable around it', () => {
   expect(hasFixtureBallisticLineOfSight({ x: 29, z: 40 }, { x: 35, z: 40 })).toBe(false);
   expect(hasFixtureBallisticLineOfSight({ x: 29, z: 34 }, { x: 35, z: 34 })).toBe(true);
+});
+
+it('uses the named ground route, solid cover, and the ramp to resolve traversal instead of envelope clamps', () => {
+  let position = { x: 8, z: 8, layer: 'ground' as const };
+  position = moveFixtureTerrainPosition(position, { x: 30, z: 8 }).position as typeof position;
+  position = moveFixtureTerrainPosition(position, { x: 35, z: 20 }).position as typeof position;
+  position = moveFixtureTerrainPosition(position, { x: 53, z: 22 }).position as typeof position;
+  position = moveFixtureTerrainPosition(position, { x: 65, z: 22 }).position as typeof position;
+  position = moveFixtureTerrainPosition(position, { x: 65, z: 39 }).position as typeof position;
+  expect(position).toMatchObject({ x: 65, z: 39, layer: 'ground' });
+  expect(isFixtureTerrainPositionWalkable(position)).toBe(true);
+
+  const blocked = moveFixtureTerrainPosition({ x: 29, z: 40, layer: 'ground' }, { x: 35, z: 40, layer: 'ground' });
+  expect(blocked.blocked).toBe(true);
+  expect(blocked.position.x).toBeLessThanOrEqual(30.6);
+
+  const transitioned = moveFixtureTerrainPosition({ x: 40, z: 8, layer: 'ground' }, { x: 40, z: 21, layer: 'ground' });
+  expect(transitioned).toMatchObject({ transitioned: true, position: { x: 40, z: 21, layer: 'elevated' } });
+  expect(isFixtureTerrainPositionWalkable({ x: 53, z: 22, layer: 'elevated' })).toBe(true);
+  expect(isFixtureTerrainPositionWalkable({ x: 53, z: 22, layer: 'ground' })).toBe(true);
+});
+
+it('keeps same-position bridge and underpass combat/interactions layer-separated', () => {
+  const underpass = { x: 53, z: 22, layer: 'ground' as const };
+  const bridge = { x: 53, z: 22, layer: 'elevated' as const };
+  expect(fixturePositionsShareLayer(underpass, bridge)).toBe(false);
+  expect(hasFixtureBallisticLineOfSight(underpass, bridge)).toBe(false);
+  const combat = new IntegratedFixtureCombat();
+  combat.beginJob('MC-OPT-F01-01');
+  combat.setSquadPositions({ x: 67, z: 39, layer: 'elevated' }, { x: 67, z: 39, layer: 'elevated' });
+  expect(combat.advance(.2)).toHaveLength(0);
 });
 
 it('fires TAB and HOU from their own positions, records actual combat events, and retains lawful targets', () => {
@@ -255,6 +289,39 @@ it('round-trips the one live envelope without granting a historical receipt a mu
   const before = JSON.stringify(receipt);
   expect(historicalFixtureMissionReplay(receipt, receipt.receipts[0]!.id)).toBeDefined();
   expect(JSON.stringify(receipt)).toBe(before);
+});
+
+it('round-trips the exact active combat survivors instead of rebuilding a fresh squad', () => {
+  const envelope = createIntegratedFixtureEnvelope();
+  const event = nextFixtureWorldEventId(envelope.workshop, 'MC-OPT-F01-01');
+  const attempt = nextFixtureAttemptId(envelope.workshop, event);
+  const workshop = beginFixtureProfileAttempt(envelope.workshop, event, attempt).profile;
+  const combat = new IntegratedFixtureCombat(workshop);
+  combat.beginJob('MC-OPT-F01-01');
+  combat.setSquadPositions({ x: 62, z: 38 }, { x: 60.5, z: 38 });
+  combat.swapActiveGun('hound');
+  combat.advance(.35);
+  combat.setFixtureSquadHealth('tabby', 41);
+  const snapshot = combat.snapshot('hound');
+  const stored = {
+    ...envelope,
+    workshop,
+    liveMission: {
+      jobId: 'MC-OPT-F01-01' as const,
+      worldEventId: event,
+      attemptId: attempt,
+      completedInteractionIds: [],
+      finiteEnemyGroupCleared: false,
+      recoveryRequired: false,
+      combatSnapshot: snapshot,
+    },
+  };
+  const restored = deserializeIntegratedFixtureEnvelope(JSON.stringify(stored));
+  expect(restored.liveMission?.combatSnapshot).toEqual(snapshot);
+  const resumed = new IntegratedFixtureCombat(restored.workshop);
+  resumed.restoreJob('MC-OPT-F01-01', false);
+  expect(resumed.restore(restored.liveMission!.combatSnapshot!, 'MC-OPT-F01-01', false)).toBe(true);
+  expect(resumed.snapshot('hound')).toEqual(snapshot);
 });
 
 it('keeps a prior isolated receipt readable without importing a normal game save', () => {

@@ -18,6 +18,8 @@ export interface FixtureOccluder {
   readonly z: number;
   readonly width: number;
   readonly depth: number;
+  /** Raised deck traffic is above the small ground cover in this proving ground. */
+  readonly layer?: FixtureLayer;
 }
 
 export const INTEGRATED_FIXTURE_OCCLUDERS: readonly FixtureOccluder[] = deepFreeze([
@@ -27,6 +29,7 @@ export const INTEGRATED_FIXTURE_OCCLUDERS: readonly FixtureOccluder[] = deepFree
 
 export type FixtureJobId = 'MC-OPT-R01-01' | 'MC-OPT-F01-01';
 export type FixtureSurfaceKind = 'safe' | 'road' | 'ramp' | 'bridge' | 'underpass' | 'tunnel' | 'pocket';
+export type FixtureLayer = 'ground' | 'elevated';
 
 export interface FixtureSurface {
   readonly id: string;
@@ -61,10 +64,10 @@ export const INTEGRATED_FIXTURE_SURFACES: readonly FixtureSurface[] = deepFreeze
   { id: 'INT-FB-ROAD-01', kind: 'road', x: 18, z: 5, width: 26, depth: 5, elevation: 0 },
   { id: 'INT-FB-RAMP-01', kind: 'ramp', x: 38, z: 10, width: 4, depth: 12, elevation: 0 },
   { id: 'INT-FB-BRIDGE-01', kind: 'bridge', x: 42, z: 20, width: 20, depth: 4, elevation: 3 },
-  { id: 'INT-FB-UNDERPASS-01', kind: 'underpass', x: 42, z: 20, width: 20, depth: 4, elevation: 0 },
+  { id: 'INT-FB-UNDERPASS-01', kind: 'underpass', x: 38, z: 20, width: 24, depth: 4, elevation: 0 },
   { id: 'INT-FB-TUNNEL-01', kind: 'tunnel', x: 62, z: 20, width: 14, depth: 6, elevation: 0 },
-  { id: 'INT-FB-R01-POCKET', kind: 'pocket', x: 18, z: 34, width: 22, depth: 18, elevation: 0 },
-  { id: 'INT-FB-F01-POCKET', kind: 'pocket', x: 48, z: 36, width: 24, depth: 18, elevation: 0 },
+  { id: 'INT-FB-R01-POCKET', kind: 'pocket', x: 18, z: 10, width: 20, depth: 42, elevation: 0 },
+  { id: 'INT-FB-F01-POCKET', kind: 'pocket', x: 48, z: 26, width: 24, depth: 28, elevation: 0 },
 ]);
 
 export const INTEGRATED_FIXTURE_POINTS: readonly FixturePoint[] = deepFreeze([
@@ -295,6 +298,12 @@ export interface FixtureLiveMission {
   readonly completedInteractionIds: readonly string[];
   readonly finiteEnemyGroupCleared: boolean;
   readonly recoveryRequired: boolean;
+  /** Written in the same envelope transaction as the recovery debit. Older
+   * isolated envelopes did not retain this display receipt. */
+  readonly recoveryFee?: number;
+  /** Last atomic combat checkpoint for this unfinished attempt. It restores
+   * the actual survivors rather than manufacturing a fresh squad on reload. */
+  readonly combatSnapshot?: FixtureCombatSnapshot;
 }
 export interface FixturePersistentEnvelope {
   readonly version: typeof INTEGRATED_FIXTURE_ENVELOPE_VERSION;
@@ -310,7 +319,10 @@ function validLiveMission(value: unknown, profile: FixtureWorkshopProfile): valu
   const live = value as Partial<FixtureLiveMission>;
   if ((live.jobId !== 'MC-OPT-R01-01' && live.jobId !== 'MC-OPT-F01-01') || typeof live.worldEventId !== 'string' || !live.worldEventId
     || typeof live.attemptId !== 'string' || !live.attemptId || !Array.isArray(live.completedInteractionIds)
-    || !live.completedInteractionIds.every(id => typeof id === 'string') || typeof live.finiteEnemyGroupCleared !== 'boolean' || typeof live.recoveryRequired !== 'boolean') return false;
+    || !live.completedInteractionIds.every(id => typeof id === 'string') || typeof live.finiteEnemyGroupCleared !== 'boolean' || typeof live.recoveryRequired !== 'boolean'
+    || (live.recoveryFee !== undefined && (!Number.isInteger(live.recoveryFee) || live.recoveryFee < 0 || live.recoveryFee > 250))
+    || (!live.recoveryRequired && live.recoveryFee !== undefined)
+    || (live.combatSnapshot !== undefined && !validFixtureCombatSnapshot(live.combatSnapshot, live.jobId, live.finiteEnemyGroupCleared))) return false;
   const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === live.jobId)!;
   if (!live.completedInteractionIds.every(id => job.requiredInteractionIds.includes(id))) return false;
   const attempt = profile.attempts.find(candidate => candidate.attemptId === live.attemptId && candidate.worldEventId === live.worldEventId);
@@ -328,7 +340,7 @@ export function deserializeIntegratedFixtureEnvelope(value: string | null): Fixt
     if (raw.version !== INTEGRATED_FIXTURE_ENVELOPE_VERSION && raw.version !== 'int-fb-envelope-v2') return createIntegratedFixtureEnvelope();
     const mission = deserializeIntegratedFixtureSave(JSON.stringify(raw.mission));
     const workshop = deserializeIntegratedFixtureWorkshopProfile(raw.workshop);
-    const liveMission = validLiveMission(raw.liveMission, workshop) ? Object.freeze({ ...raw.liveMission, completedInteractionIds: Object.freeze([...raw.liveMission.completedInteractionIds]) }) : undefined;
+    const liveMission = validLiveMission(raw.liveMission, workshop) ? Object.freeze({ ...raw.liveMission, completedInteractionIds: Object.freeze([...raw.liveMission.completedInteractionIds]), ...(raw.liveMission.combatSnapshot ? { combatSnapshot: freezeFixtureCombatSnapshot(raw.liveMission.combatSnapshot) } : {}) }) : undefined;
     return Object.freeze({ version: INTEGRATED_FIXTURE_ENVELOPE_VERSION, mission, workshop, ...(liveMission ? { liveMission } : {}) });
   } catch { return createIntegratedFixtureEnvelope(); }
 }
@@ -536,8 +548,132 @@ export function fixtureRangeDamage(distanceMetres: number, rawDamage: number, fu
   return rawDamage * factor;
 }
 
-export interface FixturePosition { readonly x: number; readonly z: number; }
+/** A world coordinate carries its deck.  Omitted layers are legacy ground
+ * coordinates; newly written combat checkpoints always store it explicitly. */
+export interface FixturePosition { readonly x: number; readonly z: number; readonly layer?: FixtureLayer; }
+
+const FIXTURE_GROUND: FixtureLayer = 'ground';
+const FIXTURE_ELEVATED: FixtureLayer = 'elevated';
+const RAMP_TRANSITION_Z = 16;
+
+function fixtureLayer(position: FixturePosition): FixtureLayer { return position.layer ?? FIXTURE_GROUND; }
+function freezeFixturePosition(position: FixturePosition): FixturePosition {
+  return Object.freeze({ x: position.x, z: position.z, layer: fixtureLayer(position) });
+}
+function pointInFixtureSurface(position: FixturePosition, surface: FixtureSurface): boolean {
+  return position.x >= surface.x && position.x <= surface.x + surface.width
+    && position.z >= surface.z && position.z <= surface.z + surface.depth;
+}
+function surfaceSupportsFixtureLayer(surface: FixtureSurface, position: FixturePosition, layer: FixtureLayer): boolean {
+  if (!pointInFixtureSurface(position, surface)) return false;
+  if (surface.kind === 'bridge') return layer === FIXTURE_ELEVATED;
+  if (surface.kind === 'ramp') return layer === FIXTURE_GROUND
+    ? position.z <= RAMP_TRANSITION_Z
+    : position.z >= RAMP_TRANSITION_Z;
+  return layer === FIXTURE_GROUND;
+}
+function transitionFixtureLayer(from: FixturePosition, candidate: FixturePosition): FixtureLayer {
+  const current = fixtureLayer(from);
+  const ramp = INTEGRATED_FIXTURE_SURFACES.find(surface => surface.kind === 'ramp');
+  if (!ramp || !pointInFixtureSurface(candidate, ramp)) return current;
+  if (current === FIXTURE_GROUND && from.z < RAMP_TRANSITION_Z && candidate.z >= RAMP_TRANSITION_Z) return FIXTURE_ELEVATED;
+  if (current === FIXTURE_ELEVATED && from.z > RAMP_TRANSITION_Z && candidate.z <= RAMP_TRANSITION_Z) return FIXTURE_GROUND;
+  return current;
+}
+function fixturePositionInBounds(position: FixturePosition, bodyRadius: number): boolean {
+  return position.x >= bodyRadius && position.z >= bodyRadius
+    && position.x <= INTEGRATED_FIXTURE_ENVELOPE.widthMetres - bodyRadius
+    && position.z <= INTEGRATED_FIXTURE_ENVELOPE.heightMetres - bodyRadius;
+}
+function fixturePositionHitsSolid(position: FixturePosition, bodyRadius: number): boolean {
+  const layer = fixtureLayer(position);
+  return INTEGRATED_FIXTURE_OCCLUDERS.some(occluder => (occluder.layer ?? FIXTURE_GROUND) === layer
+    && position.x >= occluder.x - bodyRadius && position.x <= occluder.x + occluder.width + bodyRadius
+    && position.z >= occluder.z - bodyRadius && position.z <= occluder.z + occluder.depth + bodyRadius);
+}
+
+/** Returns whether a body centre occupies one of the authored deck surfaces.
+ * The union is tested before body solids so touching surface rectangles keep
+ * their intended route connected instead of producing artificial seam gaps. */
+export function isFixtureTerrainPositionWalkable(position: FixturePosition, bodyRadius = INTEGRATED_FIXTURE_BODY_DIAMETER_METRES / 2): boolean {
+  if (!Number.isFinite(position.x) || !Number.isFinite(position.z) || !Number.isFinite(bodyRadius) || bodyRadius < 0) return false;
+  const normalized = freezeFixturePosition(position);
+  return fixturePositionInBounds(normalized, bodyRadius)
+    && INTEGRATED_FIXTURE_SURFACES.some(surface => surfaceSupportsFixtureLayer(surface, normalized, normalized.layer!))
+    && !fixturePositionHitsSolid(normalized, bodyRadius);
+}
+
+export interface FixtureTerrainMove {
+  readonly position: FixturePosition;
+  readonly blocked: boolean;
+  readonly transitioned: boolean;
+}
+
+/** Sweeps small deterministic steps through the authored route union.  On a
+ * solid contact it attempts legal axis slides, never bounds-only clamping. */
+export function moveFixtureTerrainPosition(from: FixturePosition, desired: FixturePosition, bodyRadius = INTEGRATED_FIXTURE_BODY_DIAMETER_METRES / 2): FixtureTerrainMove {
+  const start = freezeFixturePosition(from);
+  if (!isFixtureTerrainPositionWalkable(start, bodyRadius) || !Number.isFinite(desired.x) || !Number.isFinite(desired.z)) {
+    return Object.freeze({ position: start, blocked: true, transitioned: false });
+  }
+  const dx = desired.x - start.x;
+  const dz = desired.z - start.z;
+  const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / .12));
+  let position = start;
+  let blocked = false;
+  let transitioned = false;
+  const tryStep = (x: number, z: number): FixturePosition | undefined => {
+    const layer = transitionFixtureLayer(position, { x, z, layer: fixtureLayer(position) });
+    const candidate = freezeFixturePosition({ x, z, layer });
+    return isFixtureTerrainPositionWalkable(candidate, bodyRadius) ? candidate : undefined;
+  };
+  for (let step = 1; step <= steps; step += 1) {
+    const x = start.x + dx * step / steps;
+    const z = start.z + dz * step / steps;
+    const direct = tryStep(x, z);
+    let accepted = direct;
+    if (!accepted) {
+      const slideX = tryStep(x, position.z);
+      const slideZ = tryStep(position.x, z);
+      // A stationary axis candidate is not a slide. Accepting it would let a
+      // later interpolation step tunnel through a solid that stopped us.
+      accepted = slideX && (slideX.x !== position.x || slideX.z !== position.z) ? slideX
+        : slideZ && (slideZ.x !== position.x || slideZ.z !== position.z) ? slideZ
+          : undefined;
+    }
+    if (!accepted) { blocked = true; break; }
+    if (accepted.layer !== position.layer) transitioned = true;
+    position = accepted;
+    if (!direct) blocked = true;
+  }
+  return Object.freeze({ position, blocked, transitioned });
+}
+
+export function fixturePointLayer(point: FixturePoint): FixtureLayer | undefined {
+  const surface = INTEGRATED_FIXTURE_SURFACES.find(candidate => candidate.id === point.surfaceId);
+  if (!surface) return undefined;
+  if (surface.kind === 'bridge') return FIXTURE_ELEVATED;
+  if (surface.kind === 'ramp') return point.z >= RAMP_TRANSITION_Z ? FIXTURE_ELEVATED : FIXTURE_GROUND;
+  return FIXTURE_GROUND;
+}
+
+export function fixturePositionsShareLayer(left: FixturePosition, right: FixturePosition): boolean {
+  return fixtureLayer(left) === fixtureLayer(right);
+}
 export type FixtureCombatantId = 'tabby' | 'hound' | 'r01-a' | 'r01-b' | 'f01-a' | 'f01-b';
+export interface FixtureWeaponSnapshot { readonly supply: number; readonly nextShotSeconds: number; readonly refillRemaining: number; }
+export interface FixtureCombatActorSnapshot {
+  readonly id: FixtureCombatantId;
+  readonly position: FixturePosition;
+  readonly health: number;
+  readonly maxHealth: number;
+  readonly activeGunIndex: number;
+  readonly weapons: readonly FixtureWeaponSnapshot[];
+}
+export interface FixtureCombatSnapshot {
+  readonly controlledActor: 'tabby' | 'hound';
+  readonly actors: readonly FixtureCombatActorSnapshot[];
+}
 export interface FixtureCombatEvent {
   readonly type: 'weapon-fired' | 'enemy-damaged' | 'enemy-defeated' | 'actor-damaged' | 'actor-defeated';
   readonly sourceId: FixtureCombatantId;
@@ -563,7 +699,7 @@ export function resolveFixtureGunProfile(profile: FixtureWorkshopProfile, gunId:
 interface FixtureWeaponState { readonly instanceId: string; readonly profile: FixtureWeaponProfile; supply: number; nextShotSeconds: number; refillRemaining: number; }
 interface FixtureActorState {
   readonly id: FixtureCombatantId; readonly team: 'squad' | 'hostile';
-  position: FixturePosition; health: number; readonly maxHealth: number; readonly radius: number;
+  position: FixturePosition; health: number; maxHealth: number; readonly radius: number;
   retainedTargetId?: FixtureCombatantId; readonly weapons: FixtureWeaponState[]; activeGunIndex: number;
 }
 
@@ -576,6 +712,46 @@ const HOUND_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
 const HOSTILE_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
   id: 'fixture-hostile-rifle', damage: 7, cycleSeconds: 1, initialSetupSeconds: 0.5, fullRangeMetres: 10, maxRangeMetres: 16, store: 99, refillSeconds: 1.5,
 });
+
+function expectedFixtureCombatants(jobId: FixtureJobId): readonly FixtureCombatantId[] {
+  return jobId === 'MC-OPT-R01-01' ? ['tabby', 'hound', 'r01-a', 'r01-b'] : ['tabby', 'hound', 'f01-a', 'f01-b'];
+}
+function validFixtureCombatSnapshot(value: unknown, jobId: FixtureJobId, finiteEnemyGroupCleared: boolean): value is FixtureCombatSnapshot {
+  if (!value || typeof value !== 'object') return false;
+  const snapshot = value as Partial<FixtureCombatSnapshot>;
+  if ((snapshot.controlledActor !== 'tabby' && snapshot.controlledActor !== 'hound') || !Array.isArray(snapshot.actors)) return false;
+  const expected = expectedFixtureCombatants(jobId);
+  if (snapshot.actors.length !== expected.length) return false;
+  const seen = new Set<string>();
+  return snapshot.actors.every((actor): actor is FixtureCombatActorSnapshot => {
+    const weapons = actor?.weapons;
+    const hostile = actor?.id !== 'tabby' && actor?.id !== 'hound';
+    const weaponCount = hostile ? 1 : 2;
+    return !!actor && expected.includes(actor.id) && !seen.has(actor.id) && (seen.add(actor.id), true)
+      && Number.isFinite(actor.position?.x) && Number.isFinite(actor.position?.z)
+      && actor.position.x >= 0 && actor.position.x <= INTEGRATED_FIXTURE_ENVELOPE.widthMetres
+      && actor.position.z >= 0 && actor.position.z <= INTEGRATED_FIXTURE_ENVELOPE.heightMetres
+      && (actor.position.layer === undefined || actor.position.layer === FIXTURE_GROUND || actor.position.layer === FIXTURE_ELEVATED)
+      && Number.isFinite(actor.maxHealth) && actor.maxHealth > 0 && actor.maxHealth <= 10_000
+      && Number.isFinite(actor.health) && actor.health >= 0 && actor.health <= actor.maxHealth
+      && Number.isInteger(actor.activeGunIndex) && actor.activeGunIndex >= 0 && actor.activeGunIndex < weaponCount
+      && Array.isArray(weapons) && weapons.length === weaponCount
+      && weapons.every(weapon => Number.isFinite(weapon.supply) && weapon.supply >= 0 && weapon.supply <= 1_000
+        && Number.isFinite(weapon.nextShotSeconds) && weapon.nextShotSeconds >= 0 && weapon.nextShotSeconds <= 10
+        && Number.isFinite(weapon.refillRemaining) && weapon.refillRemaining >= 0 && weapon.refillRemaining <= 10)
+      && (!finiteEnemyGroupCleared || !hostile || actor.health === 0);
+  });
+}
+function freezeFixtureCombatSnapshot(snapshot: FixtureCombatSnapshot): FixtureCombatSnapshot {
+  return Object.freeze({ controlledActor: snapshot.controlledActor, actors: Object.freeze(snapshot.actors.map(actor => Object.freeze({
+    id: actor.id,
+    position: freezeFixturePosition(actor.position),
+    health: actor.health,
+    maxHealth: actor.maxHealth,
+    activeGunIndex: actor.activeGunIndex,
+    weapons: Object.freeze(actor.weapons.map(weapon => Object.freeze({ ...weapon }))),
+  }))) });
+}
 
 function segmentIntersectsOccluder(from: FixturePosition, to: FixturePosition, box: FixtureOccluder): boolean {
   const dx = to.x - from.x;
@@ -594,7 +770,9 @@ function segmentIntersectsOccluder(from: FixturePosition, to: FixturePosition, b
 }
 
 export function hasFixtureBallisticLineOfSight(from: FixturePosition, to: FixturePosition): boolean {
-  return !INTEGRATED_FIXTURE_OCCLUDERS.some(occluder => segmentIntersectsOccluder(from, to, occluder));
+  const layer = fixtureLayer(from);
+  return fixturePositionsShareLayer(from, to)
+    && !INTEGRATED_FIXTURE_OCCLUDERS.some(occluder => (occluder.layer ?? FIXTURE_GROUND) === layer && segmentIntersectsOccluder(from, to, occluder));
 }
 
 /**
@@ -616,7 +794,7 @@ export class IntegratedFixtureCombat {
 
   private add(id: FixtureCombatantId, team: 'squad' | 'hostile', position: FixturePosition, health: number, radius: number, weapon?: FixtureWeaponProfile, gunCount = 1): void {
     const weapons = weapon ? Array.from({ length: gunCount }, (_, index) => ({ instanceId: `int-fb:${id}:gun-${index + 1}`, profile: weapon, supply: weapon.store, nextShotSeconds: weapon.initialSetupSeconds, refillRemaining: 0 })) : [];
-    this.actors.set(id, { id, team, position: { ...position }, health, maxHealth: health, radius, weapons, activeGunIndex: 0 });
+    this.actors.set(id, { id, team, position: freezeFixturePosition(position), health, maxHealth: health, radius, weapons, activeGunIndex: 0 });
   }
 
   public beginJob(jobId: FixtureJobId): void {
@@ -636,8 +814,42 @@ export class IntegratedFixtureCombat {
   }
 
   public setSquadPositions(tabby: FixturePosition, hound: FixturePosition): void {
-    this.actors.get('tabby')!.position = { ...tabby };
-    this.actors.get('hound')!.position = { ...hound };
+    this.actors.get('tabby')!.position = freezeFixturePosition(tabby);
+    this.actors.get('hound')!.position = freezeFixturePosition(hound);
+  }
+  /** Durable checkpoint containing every combatant needed to resume this exact attempt. */
+  public snapshot(controlledActor: 'tabby' | 'hound'): FixtureCombatSnapshot {
+    return freezeFixtureCombatSnapshot({ controlledActor, actors: [...this.actors.values()].map(actor => ({
+      id: actor.id,
+      position: freezeFixturePosition(actor.position),
+      health: actor.health,
+      maxHealth: actor.maxHealth,
+      activeGunIndex: actor.activeGunIndex,
+      weapons: actor.weapons.map(weapon => ({ supply: weapon.supply, nextShotSeconds: weapon.nextShotSeconds, refillRemaining: weapon.refillRemaining })),
+    })) });
+  }
+  /** Restores only a validated snapshot matching the job's authored roster. */
+  public restore(snapshot: FixtureCombatSnapshot, jobId: FixtureJobId, finiteEnemyGroupCleared: boolean): boolean {
+    if (!validFixtureCombatSnapshot(snapshot, jobId, finiteEnemyGroupCleared)) return false;
+    const expected = expectedFixtureCombatants(jobId);
+    if (this.actors.size !== expected.length || expected.some(id => !this.actors.has(id))) return false;
+    for (const saved of snapshot.actors) {
+      const actor = this.actors.get(saved.id)!;
+      if (actor.weapons.length !== saved.weapons.length) return false;
+      actor.position = freezeFixturePosition(saved.position);
+      actor.maxHealth = saved.maxHealth;
+      actor.health = saved.health;
+      actor.activeGunIndex = saved.activeGunIndex;
+      saved.weapons.forEach((weapon, index) => {
+        const target = actor.weapons[index]!;
+        target.supply = weapon.supply;
+        target.nextShotSeconds = weapon.nextShotSeconds;
+        target.refillRemaining = weapon.refillRemaining;
+      });
+    }
+    this.ownedDesignationId = undefined;
+    this.events.length = 0;
+    return true;
   }
   public designate(targetId: FixtureCombatantId | undefined): void { this.ownedDesignationId = targetId; }
   /** Exactly one equipped gun is active. Stored supply and cadence belong to each instance. */
@@ -656,11 +868,11 @@ export class IntegratedFixtureCombat {
   public isGroupCleared(): boolean { return ![...this.actors.values()].some(actor => actor.team === 'hostile' && actor.health > 0); }
   public actorHealth(id: FixtureCombatantId): number { return this.actors.get(id)?.health ?? 0; }
   /** Test fixture only: keeps a valid authored hostile contact alive for cadence/refill proofs. */
-  public setFixtureHostileHealth(id: FixtureCombatantId, health: number): void { const actor = this.actors.get(id); if (actor?.team === 'hostile' && Number.isFinite(health) && health > 0) actor.health = health; }
+  public setFixtureHostileHealth(id: FixtureCombatantId, health: number): void { const actor = this.actors.get(id); if (actor?.team === 'hostile' && Number.isFinite(health) && health > 0 && health <= 10_000) { actor.maxHealth = health; actor.health = health; } }
   /** Test fixture only: drives the real scene recovery branch without faking its persistence. */
   public setFixtureSquadHealth(id: 'tabby' | 'hound', health: number): void { const actor = this.actors.get(id); if (actor && Number.isFinite(health) && health >= 0) actor.health = Math.min(actor.maxHealth, health); }
   public hostileStates(): readonly Readonly<{ id: FixtureCombatantId; position: FixturePosition; health: number }>[] {
-    return Object.freeze([...this.actors.values()].filter(actor => actor.team === 'hostile').map(actor => Object.freeze({ id: actor.id, position: { ...actor.position }, health: actor.health })));
+    return Object.freeze([...this.actors.values()].filter(actor => actor.team === 'hostile').map(actor => Object.freeze({ id: actor.id, position: freezeFixturePosition(actor.position), health: actor.health })));
   }
   public drainEvents(): readonly FixtureCombatEvent[] { const value = Object.freeze([...this.events]); this.events.length = 0; return value; }
 
