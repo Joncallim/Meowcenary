@@ -208,6 +208,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)!;
     const nearby = INTEGRATED_FIXTURE_POINTS.find(point => Math.hypot(point.x * SCALE - this.lead!.x, point.z * SCALE - this.lead!.y) < 38);
     if (!nearby) return;
+    if (nearby.role === 'discovery' && nearby.id === 'INT-FB-PUBLIC-SPUR') { this.recordLootDiscovery(); return; }
     if (nearby.role === 'offer-terminal') this.combatFeedback = this.operation.accept() ? `${fixtureDialogue(job.id, 'accepted')} Reach its entry to activate.` : 'Inspect a job before accepting it.';
     if (nearby.role === 'interaction' && this.operation.interact(nearby.id)) this.completed.add(nearby.id);
     if (nearby.role === 'spawn') {
@@ -218,6 +219,16 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       if (this.operation.canExtract()) this.settleLocked(job.id);
     }
     this.refreshStatus();
+  }
+  private recordLootDiscovery(): void {
+    const locks = (navigator as unknown as { locks?: { request(name: string, options: { mode: 'exclusive' }, callback: () => Promise<void>): Promise<void> } }).locks;
+    if (!locks) { this.combatFeedback = 'Discovery writer lock unavailable.'; this.refreshStatus(); return; }
+    void locks.request(`${INTEGRATED_FIXTURE_SAVE_KEY}:writer`, { mode: 'exclusive' }, async () => {
+      const result = commitAndPersistFixtureWorkshop(this.workshopProfile, { profileId: this.workshopProfile.profileId, commandId: `world:discover-h2:${this.workshopProfile.revision}`, expectedRevision: this.workshopProfile.revision, action: 'discover-h2' }, candidate => localStorage.setItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:profile`, JSON.stringify({ version: 'int-fb-envelope-v2', mission: this.fixtureSave, workshop: candidate })));
+      if (result.applied) { this.workshopProfile = result.profile; this.combatFeedback = 'HOU-H2 integration loot discovered. Claim is now available at safe service.'; }
+      else this.combatFeedback = result.reason === 'already-discovered' ? 'HOU-H2 discovery already recorded.' : `Discovery rejected: ${result.reason ?? 'invalid'}.`;
+      this.refreshStatus();
+    });
   }
   private settleLocked(jobId: FixtureJobId): void {
     const locks = (navigator as unknown as { locks?: { request(name: string, options: { mode: 'exclusive' }, callback: () => Promise<void>): Promise<void> } }).locks;
