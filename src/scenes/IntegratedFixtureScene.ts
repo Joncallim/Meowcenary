@@ -174,6 +174,11 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   }
   private cancelWorkshop(): void { if (!this.workshopPreview && !this.workshopModal) return; this.workshopPreview = undefined; this.workshopPreviewRevision = undefined; this.workshopModal?.destroy(); this.workshopModal = undefined; this.combatFeedback = 'Workshop preview cancelled; nothing changed.'; this.refreshStatus(); }
   private confirmWorkshop(): void {
+    const locks = (navigator as unknown as { locks?: { request(name: string, options: { mode: 'exclusive' }, callback: () => Promise<void>): Promise<void> } }).locks;
+    if (!locks) { this.cancelWorkshop(); this.combatFeedback = 'Workshop writer lock unavailable; nothing changed.'; this.refreshStatus(); return; }
+    void locks.request(`${INTEGRATED_FIXTURE_SAVE_KEY}:writer`, { mode: 'exclusive' }, async () => this.confirmWorkshopLocked());
+  }
+  private async confirmWorkshopLocked(): Promise<void> {
     const action = this.workshopPreview;
     if (!action) return;
     if (!this.atService()) { this.cancelWorkshop(); this.combatFeedback = 'Workshop confirmation rejected: safe service required.'; this.refreshStatus(); return; }
