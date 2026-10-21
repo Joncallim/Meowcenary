@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SceneKey } from '../engine/sceneKeys';
-import { createIntegratedFixtureSave, deserializeIntegratedFixtureSave, fixtureDialogue, INTEGRATED_FIXTURE_SAVE_KEY, IntegratedFixtureCombat, IntegratedFixtureOperation, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, resolveFixtureTakeover, settleIntegratedFixtureJob, type FixtureJobId, type FixtureMissionSave, validateIntegratedFixture } from '../gameplay/integratedFixture';
+import { createIntegratedFixtureSave, createIntegratedFixtureWorkshopProfile, deserializeIntegratedFixtureSave, fixtureDialogue, INTEGRATED_FIXTURE_SAVE_KEY, IntegratedFixtureCombat, IntegratedFixtureOperation, INTEGRATED_FIXTURE_ENVELOPE, INTEGRATED_FIXTURE_JOBS, INTEGRATED_FIXTURE_POINTS, INTEGRATED_FIXTURE_SURFACES, resolveFixtureTakeover, settleFixtureWorkshopMission, settleIntegratedFixtureJob, type FixtureJobId, type FixtureMissionSave, type FixtureWorkshopProfile, validateIntegratedFixture } from '../gameplay/integratedFixture';
 
 const SCALE = 10;
 const SPEED = 12;
@@ -19,6 +19,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private combat = new IntegratedFixtureCombat();
   private operation = new IntegratedFixtureOperation();
   private fixtureSave: FixtureMissionSave = createIntegratedFixtureSave();
+  private workshopProfile: FixtureWorkshopProfile = createIntegratedFixtureWorkshopProfile();
   private controlledActor: 'tabby' | 'hound' = 'tabby';
   private takeoverPrompt?: Phaser.GameObjects.Text;
   private combatFeedback = 'No hostile contact.';
@@ -138,8 +139,13 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       this.extracted = this.operation.extract();
       if (this.extracted) {
         const result = settleIntegratedFixtureJob(this.fixtureSave, job.id);
+        const workshop = settleFixtureWorkshopMission(this.workshopProfile, `mission:${job.id}:settlement`);
+        if (!workshop.applied && !this.fixtureSave.receipts.some(receipt => receipt.jobId === job.id)) { this.extracted = false; this.combatFeedback = 'Settlement could not reconcile; no receipt written.'; this.refreshStatus(); return; }
+        const nextWorkshop = workshop.profile;
+        try { localStorage.setItem(INTEGRATED_FIXTURE_SAVE_KEY, JSON.stringify(result.save)); localStorage.setItem(`${INTEGRATED_FIXTURE_SAVE_KEY}:workshop`, JSON.stringify(nextWorkshop)); }
+        catch { this.extracted = false; this.combatFeedback = 'Settlement storage failed; no success recorded.'; this.refreshStatus(); return; }
         this.fixtureSave = result.save;
-        try { localStorage.setItem(INTEGRATED_FIXTURE_SAVE_KEY, JSON.stringify(this.fixtureSave)); } catch { /* volatile fixture remains playable if storage is unavailable */ }
+        this.workshopProfile = nextWorkshop;
         this.combatFeedback = `${fixtureDialogue(job.id, 'result')} ${result.applied ? 'Settlement saved.' : 'Existing receipt restored.'}`;
       }
     }
