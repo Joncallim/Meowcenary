@@ -497,6 +497,8 @@ export class IntegratedFixtureCombat {
   }
   public isGroupCleared(): boolean { return ![...this.actors.values()].some(actor => actor.team === 'hostile' && actor.health > 0); }
   public actorHealth(id: FixtureCombatantId): number { return this.actors.get(id)?.health ?? 0; }
+  /** Test fixture only: keeps a valid authored hostile contact alive for cadence/refill proofs. */
+  public setFixtureHostileHealth(id: FixtureCombatantId, health: number): void { const actor = this.actors.get(id); if (actor?.team === 'hostile' && Number.isFinite(health) && health > 0) actor.health = health; }
   public hostileStates(): readonly Readonly<{ id: FixtureCombatantId; position: FixturePosition; health: number }>[] {
     return Object.freeze([...this.actors.values()].filter(actor => actor.team === 'hostile').map(actor => Object.freeze({ id: actor.id, position: { ...actor.position }, health: actor.health })));
   }

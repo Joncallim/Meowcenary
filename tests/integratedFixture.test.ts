@@ -98,6 +98,17 @@ it('resolves baseline and F2 capacities/refill timing from exact fitted instance
   expect(resolveFixtureGunProfile(profile, 'TAB-B')).toMatchObject({ store: 12, refillSeconds: 1.5, fullRangeMetres: 15 });
 });
 
+it('uses F2’s real 18-shot store and blocks fire until its 2.7s per-instance refill completes', () => {
+  let profile = settleFixtureWorkshopMission(createIntegratedFixtureWorkshopProfile(), 'fund').profile;
+  profile = commitFixtureWorkshop(profile, { commandId: 'buy', expectedRevision: profile.revision, action: 'buy-f2' }).profile;
+  profile = commitFixtureWorkshop(profile, { commandId: 'fit', expectedRevision: profile.revision, action: 'fit-f2-a', partInstanceId: 'INT-B1-TAB-F2-buy' }).profile;
+  const combat = new IntegratedFixtureCombat(profile); combat.beginJob('MC-OPT-R01-01'); combat.setFixtureHostileHealth('r01-a', 10000); combat.setSquadPositions({ x: 34, z: 38 }, { x: 0, z: 0 });
+  const fired = combat.advance(4.6).filter(event => event.type === 'weapon-fired' && event.sourceId === 'tabby');
+  expect(fired).toHaveLength(18); expect(combat.activeGun('tabby').supply).toBe(0);
+  expect(combat.advance(2.69).filter(event => event.type === 'weapon-fired' && event.sourceId === 'tabby')).toHaveLength(0);
+  combat.advance(.02); expect(combat.activeGun('tabby').supply).toBe(18);
+});
+
 it('keeps two gun instances distinct and never emits both during a swap', () => {
   const combat = new IntegratedFixtureCombat();
   combat.beginJob('MC-OPT-R01-01');
