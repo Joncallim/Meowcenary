@@ -203,9 +203,10 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   }
   private interact(): void {
     if (!this.lead) return;
+    const nearby = INTEGRATED_FIXTURE_POINTS.find(point => Math.hypot(point.x * SCALE - this.lead!.x, point.z * SCALE - this.lead!.y) < 38);
+    if (nearby?.role === 'discovery' && nearby.id === 'INT-FB-PUBLIC-SPUR') { this.recordLootDiscovery(); return; }
     if (!this.jobId) { this.selectJob(this.lead.x < 250 ? 'MC-OPT-R01-01' : 'MC-OPT-F01-01'); return; }
     const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)!;
-    const nearby = INTEGRATED_FIXTURE_POINTS.find(point => Math.hypot(point.x * SCALE - this.lead!.x, point.z * SCALE - this.lead!.y) < 38);
     if (!nearby) return;
     if (nearby.role === 'discovery' && nearby.id === 'INT-FB-PUBLIC-SPUR') { this.recordLootDiscovery(); return; }
     if (nearby.role === 'offer-terminal') this.combatFeedback = this.operation.accept() ? `${fixtureDialogue(job.id, 'accepted')} Reach its entry to activate.` : 'Inspect a job before accepting it.';
