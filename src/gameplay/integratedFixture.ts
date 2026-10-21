@@ -229,6 +229,21 @@ export function settleFixtureAttempt(ledger: FixtureAttemptLedger, attemptId: Fi
   if (!target || target.terminal !== 'active' || ledger.paidEventIds.includes(target.worldEventId)) return Object.freeze({ ledger, applied: false });
   return Object.freeze({ ledger: Object.freeze({ attempts: Object.freeze(ledger.attempts.map(attempt => attempt.attemptId === attemptId ? terminalFixtureAttempt(attempt, 'victory') : attempt)), paidEventIds: Object.freeze([...ledger.paidEventIds, target.worldEventId]) }), applied: true });
 }
+export function failFixtureProfileAttempt(profile: FixtureWorkshopProfile, attemptId: FixtureAttemptId): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean; fee: number }> {
+  const index = profile.attempts.findIndex(attempt => attempt.attemptId === attemptId); if (index < 0) return Object.freeze({ profile, applied: false, fee: 0 });
+  const failed = terminalFixtureAttempt(profile.attempts[index]!, 'failure'); const recovery = recoverFixtureFailure(failed, profile.wallet.credits); if (!recovery.applied) return Object.freeze({ profile, applied: false, fee: 0 });
+  return Object.freeze({ profile: freezeProfile({ ...profile, revision: profile.revision + 1, wallet: { ...profile.wallet, credits: profile.wallet.credits - recovery.fee }, attempts: [...profile.attempts.slice(0, index), recovery.attempt, ...profile.attempts.slice(index + 1)] }), applied: true, fee: recovery.fee });
+}
+export function retryFixtureProfileAttempt(profile: FixtureWorkshopProfile, worldEventId: FixtureWorldEventId, attemptId: FixtureAttemptId): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean }> {
+  const ledger = retryFixtureAttempt({ attempts: profile.attempts, paidEventIds: profile.paidEventIds }, worldEventId, attemptId);
+  if (ledger.attempts === profile.attempts) return Object.freeze({ profile, applied: false });
+  return Object.freeze({ profile: freezeProfile({ ...profile, revision: profile.revision + 1, attempts: ledger.attempts, paidEventIds: ledger.paidEventIds }), applied: true });
+}
+export function settleFixtureProfileAttempt(profile: FixtureWorkshopProfile, attemptId: FixtureAttemptId): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean }> {
+  const settled = settleFixtureAttempt({ attempts: profile.attempts, paidEventIds: profile.paidEventIds }, attemptId);
+  if (!settled.applied) return Object.freeze({ profile, applied: false });
+  return Object.freeze({ profile: freezeProfile({ ...profile, revision: profile.revision + 1, attempts: settled.ledger.attempts, paidEventIds: settled.ledger.paidEventIds, wallet: { ...profile.wallet, credits: profile.wallet.credits + 1000, metal: profile.wallet.metal + 20, circuits: profile.wallet.circuits + 4, cloth: profile.wallet.cloth + 6 } }), applied: true });
+}
 
 export type FixturePartKind = 'R1' | 'B1' | 'F1' | 'P1' | 'H1' | 'C1' | 'B2' | 'F2' | 'H2' | 'B3';
 export type FixtureGunId = 'TAB-A' | 'TAB-B' | 'HOU-A' | 'HOU-B';

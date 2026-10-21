@@ -23,6 +23,7 @@ import {
   settleFixtureWorkshopMission,
   resolveFixtureGunProfile,
   beginFixtureAttempt, terminalFixtureAttempt, recoverFixtureFailure,
+  failFixtureProfileAttempt, retryFixtureProfileAttempt, settleFixtureProfileAttempt,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -190,6 +191,16 @@ it('normalizes wipe and surrender recovery to one fee per failed attempt', () =>
   expect(1390 - first.fee).toBe(1251);
   expect(recoverFixtureFailure(first.attempt, 1390)).toMatchObject({ applied: false, fee: 0 });
   expect(terminalFixtureAttempt(terminalFixtureAttempt(active, 'victory'), 'failure').terminal).toBe('victory');
+});
+
+it('persists one recovery fee then rewards a fresh retry once', () => {
+  let p = createIntegratedFixtureWorkshopProfile();
+  p = { ...p, wallet: { ...p.wallet, credits: 1390 }, attempts: [beginFixtureAttempt('event-1' as any, 'attempt-1' as any)] };
+  p = failFixtureProfileAttempt(p, 'attempt-1' as any).profile; expect(p.wallet.credits).toBe(1251);
+  expect(failFixtureProfileAttempt(p, 'attempt-1' as any).applied).toBe(false);
+  p = retryFixtureProfileAttempt(p, 'event-1' as any, 'attempt-2' as any).profile;
+  p = settleFixtureProfileAttempt(p, 'attempt-2' as any).profile; expect(p.wallet.credits).toBe(2251);
+  expect(settleFixtureProfileAttempt(p, 'attempt-2' as any).applied).toBe(false);
 });
 
 it('commits the directed B1 workshop ledger as unique, full-slot transactions', () => {
