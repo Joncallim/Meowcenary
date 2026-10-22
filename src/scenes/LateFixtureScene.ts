@@ -11,6 +11,7 @@ export class LateFixtureScene extends Phaser.Scene {
   private status?: Phaser.GameObjects.Text;
   private message = 'Choose RETAIN DONORS, DEVELOP donor, MERGE donors, or BUILD after discovery.';
   private blocked = false;
+  private failNextStorageWrite = false;
   constructor() { super(SceneKey.LateFixture); }
   create(): void {
     this.profile = this.read();
@@ -29,7 +30,7 @@ export class LateFixtureScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-F', () => { const output = this.profile.parts.find(part => part.kind === 'B-HM' && !part.assignedTo); if (output) this.commit({ commandId: `late:fit:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'fit', inputIds: [output.id], targetGun: 'TAB-A' }); });
     this.input.keyboard?.on('keydown-N', () => this.commit({ commandId: `late:retain:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'retain-donors' }));
     this.input.keyboard?.on('keydown-S', () => this.commit({ commandId: `late:sell-h2:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'sell-h2' }));
-    Object.defineProperty(globalThis, '__MEOWCENARY_LATE_FIXTURE__', { configurable: true, value: { diagnostics: () => this.diagnostics(), commit: (command: Parameters<typeof commitLateFixture>[1]) => this.commit(command), reset: () => { this.profile = createLateFixtureProfile(this.b1History()); this.persist(); this.render(); } } });
+    Object.defineProperty(globalThis, '__MEOWCENARY_LATE_FIXTURE__', { configurable: true, value: { diagnostics: () => this.diagnostics(), commit: (command: Parameters<typeof commitLateFixture>[1]) => this.commit(command), failNextStorageWrite: () => { this.failNextStorageWrite = true; }, reset: () => { this.profile = createLateFixtureProfile(this.b1History()); this.persist(); this.render(); } } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_LATE_FIXTURE__; });
     this.render();
   }
@@ -52,7 +53,29 @@ export class LateFixtureScene extends Phaser.Scene {
     }
   }
   private persist(): void { localStorage.setItem(KEY, JSON.stringify(this.profile)); }
-  private commit(command: Parameters<typeof commitLateFixture>[1]): boolean { if (this.blocked) return false; const result = commitLateFixture(this.profile, command); if (!result.applied) { this.message = `Confirmation rejected: ${result.reason}.`; this.render(); return false; } this.profile = result.profile; this.persist(); this.message = `Confirmed ${command.action}; receipt persisted before presentation.`; this.render(); return true; }
+  /** Single durable writer: never publish a candidate until storage accepts it. */
+  private async commit(command: Parameters<typeof commitLateFixture>[1]): Promise<boolean> {
+    if (this.blocked) return false;
+    const locks = (navigator as unknown as { locks?: { request(name: string, options: { mode: 'exclusive' }, callback: () => Promise<void>): Promise<void> } }).locks;
+    if (!locks) { this.message = 'Late save writer is unavailable; no change was made.'; this.render(); return false; }
+    let applied = false;
+    await locks.request(`${KEY}:writer`, { mode: 'exclusive' }, async () => {
+      const raw = localStorage.getItem(KEY);
+      let durable = this.profile;
+      if (raw !== null) {
+        try { durable = JSON.parse(raw) as LateFixtureProfile; }
+        catch { this.blocked = true; this.message = 'Stored late save is invalid or unsupported. It was preserved unchanged; restore it from a trusted backup before continuing.'; this.render(); return; }
+      }
+      const result = commitLateFixture(durable, command);
+      if (!result.applied) { this.message = `Confirmation rejected: ${result.reason}.`; this.render(); return; }
+      try { if (this.failNextStorageWrite) { this.failNextStorageWrite = false; throw new Error('forced late storage failure'); } localStorage.setItem(KEY, JSON.stringify(result.profile)); }
+      catch { this.message = 'Late save storage failed; no change was made. Retry safely.'; this.render(); return; }
+      this.profile = result.profile;
+      this.message = `Confirmed ${command.action}; receipt persisted before presentation.`;
+      this.render(); applied = true;
+    });
+    return applied;
+  }
   private render(): void { this.status?.setText(`${this.profile.declaration}\n\nLATE WORKSHOP · revision ${this.profile.revision} · ${this.profile.parts.length} parts\nCredits ${this.profile.wallet.credits} · Metal ${this.profile.wallet.metal} · Circuits ${this.profile.wallet.circuits}\nDiscoveries: ${this.profile.discoveries.join(', ') || 'none'}\n${this.message}\n\nThis surface uses ${KEY} only. B1 is never read or written.`); }
   private currentH2State() { return this.profile.parts.some(part => part.id === 'INT-LATE-HOU-H2-LOOT') ? 'kept' : this.profile.pinnedEarlierHistory.h2State === 'kept' ? 'sold' : this.profile.pinnedEarlierHistory.h2State; }
   private diagnostics() { return Object.freeze({ scene: this.scene.key, blocked: this.blocked, revision: this.profile.revision, parts: this.profile.parts.length, partRecords: this.profile.parts, wallet: this.profile.wallet, receipts: this.profile.receipts, discoveries: this.profile.discoveries, pinnedEarlierHistory: this.profile.pinnedEarlierHistory, currentH2State: this.currentH2State(), declaration: this.profile.declaration, message: this.message }); }

@@ -3,7 +3,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 type Part = { id: string; kind: string; tier: number | null; assignedTo?: string };
 type Receipt = { commandId: string; action: string; outputIds: readonly string[] };
 type Diagnostics = { scene: string; revision: number; parts: number; partRecords: readonly Part[]; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly Receipt[]; discoveries: readonly string[]; pinnedEarlierHistory: { receiptIds: readonly string[]; paidEventIds: readonly string[]; h2State: string }; currentH2State: string; declaration: string; message: string };
-type LateSeam = { diagnostics(): Diagnostics; commit(command: { commandId: string; expectedRevision: number; action: 'develop' | 'merge' | 'build'; inputIds?: readonly string[] }): boolean; reset(keep?: boolean): void };
+type LateSeam = { diagnostics(): Diagnostics; commit(command: { commandId: string; expectedRevision: number; action: 'develop' | 'merge' | 'build' | 'fit'; inputIds?: readonly string[]; targetGun?: 'TAB-A' }): Promise<boolean>; failNextStorageWrite(): void; reset(keep?: boolean): void };
 type B1Seam = { prepareF01(): boolean };
 
 const b1Key = 'meowcenary:int-fb:v1:profile';
@@ -140,4 +140,27 @@ test('late UI fail-closes malformed persisted saves without changing late or B1 
     expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-late:v1:profile'))).toBe(raw);
     expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(b1);
   }
+});
+
+test('late writer fences competing tabs at one durable revision', async ({ page }, info) => {
+  const b1 = await openLate(page, info);
+  const peer = await page.context().newPage(); await peer.goto('/?fixture=int-late'); await expect.poll(() => peer.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
+  const command = { commandId: 'race-merge', expectedRevision: 0, action: 'merge' as const, inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] };
+  const [left, right] = await Promise.all([page.evaluate(c => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit(c), command), peer.evaluate(c => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit(c), command)]);
+  expect([left, right].filter(Boolean)).toHaveLength(1);
+  await page.reload(); await waitLateReload(page); expect(await diagnostics(page)).toMatchObject({ revision: 1, parts: 28 }); await expectB1Unchanged(page, b1); await peer.close();
+});
+
+test('late storage failure leaves durable and in-memory state unchanged', async ({ page }, info) => {
+  await openLate(page, info); const before = await diagnostics(page); const raw = await page.evaluate(key => localStorage.getItem(key), lateKey);
+  await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.failNextStorageWrite());
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'fail-write', expectedRevision: 0, action: 'develop', inputIds: ['INT-LATE-DONOR-B2-T2'] }))).toBe(false);
+  expect(await diagnostics(page)).toMatchObject({ revision: before.revision, wallet: before.wallet, receipts: before.receipts }); expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(raw);
+});
+
+test('late fit displaces the prior barrel and reload retains unique slots', async ({ page }, info) => {
+  await openLate(page, info); await page.keyboard.press('m'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  const hm = (await diagnostics(page)).partRecords.find(part => part.kind === 'B-HM')!.id;
+  expect(await page.evaluate(id => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'fit-hm', expectedRevision: 1, action: 'fit', inputIds: [id], targetGun: 'TAB-A' }), hm)).toBe(true);
+  await page.reload(); await waitLateReload(page); const parts = (await diagnostics(page)).partRecords; expect(parts.find(part => part.id === hm)?.assignedTo).toBe('TAB-A'); expect(parts.find(part => part.id === 'INT-LATE-TAB-A-B')?.assignedTo).toBeUndefined();
 });
