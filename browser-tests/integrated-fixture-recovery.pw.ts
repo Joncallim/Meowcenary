@@ -989,4 +989,8 @@ test('ordinary B1 controls join two jobs with the directed safe-service workshop
   const final = await state(page);
   expect(final).toMatchObject({ workshopCredits: 2390, workshopMaterials: { metal: 60, circuits: 12 }, receiptIds: expect.any(Array) });
   expect(final.receiptIds).toHaveLength(2); expect(final.paidEventIds).toEqual([r01.worldEventId, f01.worldEventId]);
+  const reloadedWorkshop = await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!).workshop);
+  expect(reloadedWorkshop.gunSlots['TAB-A'].F).toMatch(/^INT-B1-TAB-F2-/);
+  expect(reloadedWorkshop.gunSlots['TAB-A'].B).toMatch(/^INT-B1-TAB-B3-/);
+  expect(reloadedWorkshop.parts.find((part: { instanceId: string }) => part.instanceId === 'INT-B1-TAB-B2-GIFT')).toMatchObject({ tier: 2, version: 2 });
 });
