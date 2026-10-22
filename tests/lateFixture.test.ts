@@ -62,6 +62,21 @@ describe('late fixture refinement transactions', () => {
     expect(resolveLateBarrelVector('B-HM', 'Balanced50')).toEqual({ range: .975, setup: 1.125, cone: 1.125, contactWidthMetres: .13 });
   });
 
+  it('round-trips a modern zero-input Build receipt and permits the next command', () => {
+    const merged = commitLateFixture(createLateFixtureProfile(), { commandId: 'discover-for-build', expectedRevision: 0, action: 'merge', inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] }, () => .3).profile;
+    const built = commitLateFixture(merged, { commandId: 'modern-build', expectedRevision: 1, action: 'build' }).profile;
+    expect(built.receipts.at(-1)).toMatchObject({ action: 'build', inputIds: [], inputVersions: [], workshopStamp: 'INT-FB-SERVICE-01' });
+    const decoded = decodeLateFixtureProfile(JSON.stringify(built));
+    expect(decoded.state).toBe('valid');
+    if (decoded.state !== 'valid') throw new Error('modern Build profile should decode');
+    const output = decoded.profile.parts.find(part => part.id === 'INT-LATE-TAB-B-HM-modern-build')!;
+    expect(commitLateFixture(decoded.profile, { commandId: 'fit-after-build', expectedRevision: 2, action: 'fit', inputIds: [output.id], targetGun: 'TAB-A' })).toMatchObject({ applied: true });
+    const writtenBy94ce = JSON.parse(JSON.stringify(built));
+    delete writtenBy94ce.receipts.at(-1).inputIds;
+    delete writtenBy94ce.receipts.at(-1).inputVersions;
+    expect(decodeLateFixtureProfile(JSON.stringify(writtenBy94ce)).state).toBe('valid');
+  });
+
   it('does not draw refinement for rejected capability/schematic commands', () => {
     const seed = createLateFixtureProfile(); let draws = 0;
     const rng = () => { draws += 1; return .1; };

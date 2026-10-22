@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 type Part = { id: string; kind: string; tier: number | null; refinement?: string; assignedTo?: string };
-type Receipt = { commandId: string; action: string; outputIds: readonly string[]; refinement?: string };
+type Receipt = { commandId: string; action: string; outputIds: readonly string[]; refinement?: string; inputIds?: readonly string[]; inputVersions?: readonly number[] };
 type Diagnostics = { scene: string; revision: number; parts: number; partRecords: readonly Part[]; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly Receipt[]; discoveries: readonly string[]; pinnedEarlierHistory: { receiptIds: readonly string[]; paidEventIds: readonly string[]; h2State: string }; currentH2State: string; declaration: string; message: string };
 type LateSeam = { diagnostics(): Diagnostics; commit(command: { commandId: string; expectedRevision: number; action: 'develop' | 'merge' | 'build' | 'fit'; inputIds?: readonly string[]; targetGun?: 'TAB-A' }): Promise<boolean>; failNextStorageWrite(): void; failNextStorageRead(): void; rejectNextWriterLock(): void };
 type B1Seam = { prepareF01(): boolean };
@@ -61,6 +61,61 @@ test('late preview Cancel is inert and Confirm persists exactly once', async ({ 
   expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(before);
   await page.keyboard.press('m'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
   expect((await diagnostics(page)).receipts).toHaveLength(1); await page.reload(); await waitLateReload(page); expect((await diagnostics(page)).receipts).toHaveLength(1); await expectB1Unchanged(page, b1);
+});
+
+test('late Cancel fences a queued Confirm before the writer lock is released', async ({ page }, info) => {
+  await openLate(page, info);
+  const before = await page.evaluate(key => localStorage.getItem(key), lateKey);
+  await page.keyboard.press('m');
+  await page.evaluate(() => new Promise<void>(resolve => {
+    const target = globalThis as typeof globalThis & { releaseLatePreview?: () => void };
+    navigator.locks.request('meowcenary:int-late:v1:profile:writer', { mode: 'exclusive' }, async () => { resolve(); await new Promise<void>(release => { target.releaseLatePreview = release; }); });
+  }));
+  try {
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).pending?.some(lock => lock.name === 'meowcenary:int-late:v1:profile:writer') ?? false)).toBe(true);
+    await page.keyboard.press('Escape');
+    expect(await diagnostics(page)).toMatchObject({ revision: 0, receipts: [], message: expect.stringContaining('Preview cancelled') });
+    await page.evaluate(() => (globalThis as typeof globalThis & { releaseLatePreview?: () => void }).releaseLatePreview?.());
+    await page.evaluate(() => navigator.locks.request('meowcenary:int-late:v1:profile:writer', { mode: 'exclusive' }, async () => undefined));
+    expect(await diagnostics(page)).toMatchObject({ revision: 0, receipts: [], message: expect.stringContaining('queued confirmation was discarded') });
+    expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(before);
+  } finally {
+    await page.evaluate(() => (globalThis as typeof globalThis & { releaseLatePreview?: () => void }).releaseLatePreview?.());
+  }
+});
+
+test('late Build reloads through the modern zero-input receipt and permits a later fit', async ({ page }, info) => {
+  await openLate(page, info);
+  await page.keyboard.press('m'); await page.keyboard.press('Enter');
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await page.keyboard.press('u'); await page.keyboard.press('Enter');
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
+  expect((await diagnostics(page)).receipts.at(-1)).toMatchObject({ action: 'build', inputIds: [], inputVersions: [] });
+  await page.reload(); await waitLateReload(page);
+  expect(await diagnostics(page)).toMatchObject({ revision: 2 });
+  await page.keyboard.press('f');
+  expect(await diagnostics(page)).toMatchObject({ message: expect.stringContaining('Preview fit') });
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(3);
+});
+
+test('late Merge Select visibly reaches an eligible same-blueprint donor pair', async ({ page }, info) => {
+  await openLate(page, info);
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'persist-seed', expectedRevision: 0, action: 'retain-donors' } as any))).toBe(true);
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('meowcenary:int-late:v1:profile')!);
+    const donor = raw.parts.find((part: { id: string }) => part.id === 'INT-LATE-DONOR-B2-T2');
+    raw.parts.push({ ...donor, id: 'INT-LATE-DONOR-B2-T2-SECOND' });
+    localStorage.setItem('meowcenary:int-late:v1:profile', JSON.stringify(raw));
+  });
+  await page.reload(); await waitLateReload(page);
+  await page.keyboard.press('m'); await page.keyboard.press('Escape'); // B2+B3
+  await page.keyboard.press('m');
+  expect(await diagnostics(page)).toMatchObject({ message: expect.stringContaining('INT-LATE-DONOR-B2-T2@v1, INT-LATE-DONOR-B2-T2-SECOND@v1') });
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
+  expect((await diagnostics(page)).partRecords.find(part => part.id === 'INT-LATE-TAB-B2-late:merge:1')).toMatchObject({ kind: 'B2', tier: 3 });
 });
 
 test('phone late preview uses visible Cancel and Confirm controls without overflow', async ({ page }, info) => {

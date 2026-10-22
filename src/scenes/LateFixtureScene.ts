@@ -15,6 +15,9 @@ export class LateFixtureScene extends Phaser.Scene {
   private failNextStorageRead = false;
   private rejectNextWriterLock = false;
   private pending?: LateCommand;
+  /** Invalidates a queued confirmation as well as the visible preview. */
+  private previewGeneration = 0;
+  private mergeSelection = 0;
   private compactLayout = false;
   constructor() { super(SceneKey.LateFixture); }
   create(): void {
@@ -31,14 +34,21 @@ export class LateFixtureScene extends Phaser.Scene {
     const narrow = this.scale.width < 600 || this.scale.height < 500; const ultraCompact = narrow && this.scale.height < 500;
     const buttonWidth = ultraCompact ? Math.min(108, this.scale.width / 3 - 12) : Math.min(172, this.scale.width / 2 - 18);
     const button = (x: number, y: number, label: string, run: () => void, color = 0x3ee8a9) => { this.add.rectangle(x, y, buttonWidth, 46, color).setInteractive().on('pointerup', run); createUiText(this, x, y, label, { fontSize: ultraCompact ? '10px' : '12px', color: '#071018', align: 'center' }).setOrigin(.5); };
-    const columns = ultraCompact ? [this.scale.width * .17, this.scale.width * .50, this.scale.width * .83] : narrow ? [this.scale.width * .27, this.scale.width * .73] : [this.scale.width * .12, this.scale.width * .30, this.scale.width * .48, this.scale.width * .66, this.scale.width * .84, this.scale.width * .94];
+    const columns = ultraCompact ? [this.scale.width * .17, this.scale.width * .50, this.scale.width * .83] : narrow ? [this.scale.width * .27, this.scale.width * .73] : [this.scale.width / 12, this.scale.width * .25, this.scale.width * 5 / 12, this.scale.width * 7 / 12, this.scale.width * .75, this.scale.width * 11 / 12];
     const rows = ultraCompact ? [270, 325] : narrow ? this.compactLayout ? [315, 370, 425] : [350, 410, 470] : [300, 300, 300, 300, 300, 300];
-    [['DEVELOP\nD', 'develop', ['INT-LATE-DONOR-B2-T2']], ['MERGE\n25/50/25 · M', 'merge', ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2']], ['BUILD\nBALANCED · U', 'build'], ['FIT HM A\nF', 'fit'], ['RETAIN\nN', 'retain-donors'], ['SELL H2\nS', 'sell-h2']].forEach(([label, action, inputs], index) => button(columns[ultraCompact ? index % 3 : narrow ? index % 2 : index]!, rows[ultraCompact ? Math.floor(index / 3) : narrow ? Math.floor(index / 2) : index]!, label as string, () => { const output = action === 'fit' ? this.profile.parts.find(part => part.kind === 'B-HM' && !part.assignedTo)?.id : undefined; stage(action as LateCommand['action'], output ? [output] : inputs as readonly string[] | undefined, action === 'fit' ? 'TAB-A' : undefined); }));
-    const confirmY = ultraCompact ? 360 : narrow ? this.compactLayout ? 495 : 550 : 370; button(this.scale.width * .32, confirmY, 'CONFIRM\nENTER', () => { const pending = this.pending; if (pending) void this.commit(pending); }, 0xf6c85f); button(this.scale.width * .68, confirmY, 'CANCEL\nESC', () => this.cancelPreview(), 0x7393d8);
-    this.input.keyboard?.on('keydown-D', () => stage('develop', ['INT-LATE-DONOR-B2-T2'])); this.input.keyboard?.on('keydown-M', () => stage('merge', ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'])); this.input.keyboard?.on('keydown-U', () => stage('build')); this.input.keyboard?.on('keydown-N', () => stage('retain-donors')); this.input.keyboard?.on('keydown-S', () => stage('sell-h2'));
+    const stageFit = () => { const output = this.profile.parts.find(part => part.kind === 'B-HM' && !part.assignedTo)?.id; if (output) stage('fit', [output], 'TAB-A'); else { this.message = 'No unassigned B-HM is available to fit.'; this.render(); } };
+    const stageMerge = () => {
+      const candidates = this.profile.parts.filter(part => part.family === 'TAB' && part.slot === 'B' && part.tier === 2 && !part.assignedTo && !part.sealed && !part.protected && !part.infusions.length && (part.kind === 'B2' || part.kind === 'B3'));
+      const pairs = candidates.flatMap((left, index) => candidates.slice(index + 1).map(right => [left.id, right.id] as const));
+      const inputs = pairs[this.mergeSelection++ % pairs.length];
+      if (inputs) stage('merge', inputs); else { this.message = 'No eligible unassigned T2 barrel donor pair is available.'; this.render(); }
+    };
+    [['DEVELOP\nD', () => stage('develop', ['INT-LATE-DONOR-B2-T2'])], ['MERGE SELECT\n25/50/25 · M', stageMerge], ['BUILD\nBALANCED · U', () => stage('build')], ['FIT HM A\nF', stageFit], ['RETAIN\nN', () => stage('retain-donors')], ['SELL H2\nS', () => stage('sell-h2')]].forEach(([label, run], index) => button(columns[ultraCompact ? index % 3 : narrow ? index % 2 : index]!, rows[ultraCompact ? Math.floor(index / 3) : narrow ? Math.floor(index / 2) : index]!, label as string, run as () => void));
+    const confirmY = ultraCompact ? 360 : narrow ? this.compactLayout ? 495 : 550 : 370; button(this.scale.width * .32, confirmY, 'CONFIRM\nENTER', () => this.confirmPreview(), 0xf6c85f); button(this.scale.width * .68, confirmY, 'CANCEL\nESC', () => this.cancelPreview(), 0x7393d8);
+    this.input.keyboard?.on('keydown-D', () => stage('develop', ['INT-LATE-DONOR-B2-T2'])); this.input.keyboard?.on('keydown-M', stageMerge); this.input.keyboard?.on('keydown-U', () => stage('build')); this.input.keyboard?.on('keydown-F', stageFit); this.input.keyboard?.on('keydown-N', () => stage('retain-donors')); this.input.keyboard?.on('keydown-S', () => stage('sell-h2'));
     Object.defineProperty(globalThis, '__MEOWCENARY_LATE_FIXTURE__', { configurable: true, value: { diagnostics: () => this.diagnostics(), commit: (command: Parameters<typeof commitLateFixture>[1]) => this.commit(command), failNextStorageWrite: () => { this.failNextStorageWrite = true; }, failNextStorageRead: () => { this.failNextStorageRead = true; }, rejectNextWriterLock: () => { this.rejectNextWriterLock = true; } } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_LATE_FIXTURE__; });
-    this.input.keyboard?.on('keydown-ENTER', () => { if (this.pending) void this.commit(this.pending); }); this.input.keyboard?.on('keydown-ESC', () => this.cancelPreview()); this.render();
+    this.input.keyboard?.on('keydown-ENTER', () => this.confirmPreview()); this.input.keyboard?.on('keydown-ESC', () => this.cancelPreview()); this.render();
   }
   private b1History() {
     try {
@@ -66,17 +76,20 @@ export class LateFixtureScene extends Phaser.Scene {
     const donors = inputs.map(part => `${part.id}@v${part.version}`).join(', ') || 'none';
     const cost = command.action === 'develop' ? '500 Credits · 20 Metal · 4 Circuits' : command.action === 'build' ? '2000 Credits · 80 Metal · 16 Circuits' : 'no currency/material fee';
     const outcome = command.action === 'merge' ? 'one internal sample: LeanA 25% · Balanced 50% · LeanB 25%' : command.action === 'build' ? 'Balanced B-HM' : command.action === 'develop' ? 'same instance; tier +1; refinement preserved' : command.action;
+    this.previewGeneration += 1;
     this.pending = command; this.message = `Preview ${command.action}: donors ${donors}. Cost ${cost}. Outcome ${outcome}. Confirm or Cancel; no change has been made.`; this.render();
   }
-  private cancelPreview(): void { if (!this.pending) return; this.pending = undefined; this.message = 'Preview cancelled; no RNG draw, debit, inventory change, or receipt.'; this.render(); }
+  private confirmPreview(): void { const pending = this.pending; if (pending) void this.commit(pending, this.previewGeneration); }
+  private cancelPreview(): void { if (!this.pending) return; this.previewGeneration += 1; this.pending = undefined; this.message = 'Preview cancelled; no RNG draw, debit, inventory change, or receipt.'; this.render(); }
   /** Single durable writer: never publish a candidate until storage accepts it. */
-  private async commit(command: Parameters<typeof commitLateFixture>[1]): Promise<boolean> {
+  private async commit(command: Parameters<typeof commitLateFixture>[1], previewGeneration?: number): Promise<boolean> {
     if (this.blocked) return false;
     const locks = (navigator as unknown as { locks?: { request(name: string, options: { mode: 'exclusive' }, callback: () => Promise<void>): Promise<void> } }).locks;
     if (!locks) { this.message = 'Late save writer is unavailable; no change was made.'; this.render(); return false; }
     let applied = false;
     if (this.rejectNextWriterLock) { this.rejectNextWriterLock = false; this.message = 'Late save writer failed before publishing a change.'; this.render(); return false; }
     try { await locks.request(`${KEY}:writer`, { mode: 'exclusive' }, async () => {
+      if (previewGeneration !== undefined && previewGeneration !== this.previewGeneration) { this.message = 'Preview cancelled; queued confirmation was discarded without a change.'; this.render(); return; }
       if (this.blocked) return;
       let raw: string | null;
       try { if (this.failNextStorageRead) { this.failNextStorageRead = false; throw new Error('forced late read failure'); } raw = localStorage.getItem(KEY); } catch { this.message = 'Late save storage could not be read; no change was made. Retry safely.'; this.render(); return; }
@@ -90,7 +103,7 @@ export class LateFixtureScene extends Phaser.Scene {
       if (!result.applied) { this.profile = durable; this.message = result.reason === 'duplicate-command' ? 'Confirmation already persisted; durable receipt reconciled.' : result.reason === 'stale-revision' ? 'Confirmation was stale; validated durable state refreshed. Retry deliberately.' : `Confirmation rejected: ${result.reason}.`; this.render(); return; }
       try { if (this.failNextStorageWrite) { this.failNextStorageWrite = false; throw new Error('forced late storage failure'); } localStorage.setItem(KEY, JSON.stringify(result.profile)); }
       catch { this.message = 'Late save storage failed; no change was made. Retry safely.'; this.render(); return; }
-      this.profile = result.profile; this.pending = undefined;
+      this.profile = result.profile; if (previewGeneration === undefined || previewGeneration === this.previewGeneration) this.pending = undefined;
       const receipt = result.profile.receipts.at(-1);
       this.message = `Confirmed ${command.action}${receipt?.refinement ? ` (${receipt.refinement})` : ''}; receipt persisted before presentation.`;
       this.render(); applied = true;

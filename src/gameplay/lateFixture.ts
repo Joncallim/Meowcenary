@@ -60,7 +60,12 @@ export function decodeLateFixtureProfile(raw: string | null): LateFixtureDecode 
       const modern = inputIds !== undefined || inputVersions !== undefined || receipt.workshopStamp !== undefined;
       if (!modern) continue; // Valid legacy history remains unknown, not invented.
       const expectedInputs = action === 'merge' ? 2 : action === 'develop' ? 1 : 0;
-      if (!inputIds || !inputVersions || inputIds.length !== expectedInputs || inputVersions.length !== expectedInputs || outputIds.length !== (action === 'merge' || action === 'develop' || action === 'build' ? 1 : 0)) return frozen({ state: 'invalid' });
+      // 94ce wrote stamped Build receipts before zero-input arrays were
+      // serialized. Accept only that unambiguous historical shape; it carries
+      // no donor lineage to reconstruct. All other modern receipts require
+      // their paired input arrays.
+      const stampedZeroInputBuild = action === 'build' && receipt.workshopStamp === 'INT-FB-SERVICE-01' && inputIds === undefined && inputVersions === undefined;
+      if ((!stampedZeroInputBuild && (!inputIds || !inputVersions || inputIds.length !== expectedInputs || inputVersions.length !== expectedInputs)) || outputIds.length !== (action === 'merge' || action === 'develop' || action === 'build' ? 1 : 0)) return frozen({ state: 'invalid' });
       if ((action === 'merge' || action === 'develop' || action === 'build') && receipt.workshopStamp !== 'INT-FB-SERVICE-01') return frozen({ state: 'invalid' });
       const output = parts.find(candidate => (candidate as Record<string, unknown>).id === outputIds[0]) as Record<string, unknown> | undefined;
       if (output && action === 'merge' && (JSON.stringify(output.sourceInstanceIds) !== JSON.stringify(inputIds) || JSON.stringify(output.sourceVersions) !== JSON.stringify(inputVersions))) return frozen({ state: 'invalid' });
@@ -68,7 +73,12 @@ export function decodeLateFixtureProfile(raw: string | null): LateFixtureDecode 
     return frozen({ state: 'valid', profile: freezeProfile(value as LateFixtureProfile) });
   } catch { return frozen({ state: 'invalid' }); }
 }
-function finish(profile: LateFixtureProfile, command: LateCommand, parts: readonly LatePart[], wallet = profile.wallet, discoveries = profile.discoveries, schematics = profile.knownSchematics, outputIds: readonly string[] = [], refinement?: LateRefinement, inputs: readonly LatePart[] = [], workshopStamp?: 'INT-FB-SERVICE-01') { return frozen({ profile: freezeProfile({ ...profile, revision: profile.revision + 1, parts, wallet, discoveries, knownSchematics: schematics, receipts: [...profile.receipts, { commandId: command.commandId, action: command.action, outputIds, ...(refinement ? { refinement } : {}), ...(inputs.length ? { inputIds: inputs.map(input => input.id), inputVersions: inputs.map(input => input.version) } : {}), ...(workshopStamp ? { workshopStamp } : {}) }] }), applied: true as const }); }
+function finish(profile: LateFixtureProfile, command: LateCommand, parts: readonly LatePart[], wallet = profile.wallet, discoveries = profile.discoveries, schematics = profile.knownSchematics, outputIds: readonly string[] = [], refinement?: LateRefinement, inputs: readonly LatePart[] = [], workshopStamp?: 'INT-FB-SERVICE-01') {
+  // Modern receipts always carry a paired input ledger. Build has zero
+  // inputs, but zero is still durable information—not legacy absence.
+  const lineage = workshopStamp ? { inputIds: inputs.map(input => input.id), inputVersions: inputs.map(input => input.version) } : {};
+  return frozen({ profile: freezeProfile({ ...profile, revision: profile.revision + 1, parts, wallet, discoveries, knownSchematics: schematics, receipts: [...profile.receipts, { commandId: command.commandId, action: command.action, outputIds, ...(refinement ? { refinement } : {}), ...lineage, ...(workshopStamp ? { workshopStamp } : {}) }] }), applied: true as const });
+}
 export type LateRefinementRng = () => number;
 export function sampleLateRefinement(random: LateRefinementRng): LateRefinement { const roll = random(); if (!Number.isFinite(roll) || roll < 0 || roll >= 1) throw new Error('late refinement RNG must return [0, 1)'); return roll < .25 ? 'LeanA25' : roll < .75 ? 'Balanced50' : 'LeanB25'; }
 export function commitLateFixture(profile: LateFixtureProfile, command: LateCommand, random: LateRefinementRng = Math.random): Readonly<{ profile: LateFixtureProfile; applied: boolean; reason?: string }> {
