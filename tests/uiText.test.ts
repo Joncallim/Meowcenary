@@ -203,8 +203,9 @@ describe('createUiText', () => {
     // The retired brief used modal helpers, so no direct factory site is removed.
     // Responsive Mercenary cards add two centralized text sites for the
     // compact/wide render block and its content-aware measurement probe.
-    // INT-FB adds 20 explicit scene-owned labels (terrain/status, live and
-    // replay controls, recovery, workshop, and replay overlay); the isolated
+    // INT-FB adds 21 explicit scene-owned labels (terrain/status, live and
+    // replay controls, recovery, workshop, replay overlay, and the
+    // point-signage owner for OFFER/objective/extraction readability); the isolated
     // late workshop adds its status and generated action-label factory. The
     // later range fixture adds four factory sites: status, the repeated fixed
     // target label, the fire control, and the return control. Keep these
@@ -214,14 +215,14 @@ describe('createUiText', () => {
     const lateFixtureSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/LateFixtureScene.ts'));
     const lateRangeSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/LateRangeScene.ts'));
     const nonRangeSites = migratedSites.filter(node => !node.getSourceFile().fileName.endsWith('/scenes/LateRangeScene.ts'));
-    expect(integratedFixtureSites).toHaveLength(20);
+    expect(integratedFixtureSites).toHaveLength(21);
     expect(lateFixtureSites).toHaveLength(2);
     expect(lateRangeSites).toHaveLength(4);
     // 77 was the measured inventory immediately before LateRangeScene was
     // introduced. Keep it as the non-range baseline; a change anywhere else
     // or in the range scene fails a named assertion rather than silently
     // updating a single unexplained total.
-    expect(nonRangeSites).toHaveLength(77);
+    expect(nonRangeSites).toHaveLength(78);
     const introSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/ui/runStartIntroView.ts'));
     expect(introSites).toHaveLength(4);
 
