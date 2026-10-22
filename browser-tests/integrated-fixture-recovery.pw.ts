@@ -6,7 +6,7 @@ type Diagnostics = {
   combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostiles: number;
   checkpoint?: { revision: number; controlledActor: 'tabby' | 'hound'; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostileHealths: number[] }; workshopCredits: number; workshopParts: number;
   workshopMaterials: { metal: number; circuits: number; cloth: number }; standing: { rcc: number; fre: number }; houDossier: number; fluxQualificationRemainder: number; historicalReplayActive: boolean; historicalReplayOutcome?: 'success' | 'death' | 'exit'; worldEventId?: string; activeAttemptId?: string; attemptTerminal?: string;
-  workshopOpen: boolean; settlementPending: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; loadBlocked: boolean; recoveryMessage: string; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
+  workshopOpen: boolean; workshopPreview?: string; settlementPending: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; loadBlocked: boolean; recoveryMessage: string; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
 };
 type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; setHistoricalReplayContentAvailable(available: boolean): void; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void };
 type Globals = { __MEOWCENARY_INT_FB__?: FixtureSeam };
@@ -162,6 +162,43 @@ test('absent B1 storage persists its first activation and rejects corruption wit
   await page.waitForTimeout(100);
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(corrupt);
   expect(corrupt).not.toBe(first);
+});
+
+test('fresh B1 purchase, fit, and reload conserve the displaced barrel', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Dedicated desktop workshop persistence evidence.');
+  await ready(page); await page.evaluate(() => localStorage.removeItem('meowcenary:int-fb:v1:profile')); await page.reload();
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+  expect(await state(page)).toMatchObject({ loadBlocked: false, workshopCredits: 3000, workshopParts: 25 });
+  await page.keyboard.press('b'); await expect.poll(async () => (await state(page)).workshopOpen).toBe(true);
+  const canvas = page.locator('canvas'); const box = await canvas.boundingBox(); if (!box) throw new Error('canvas unavailable');
+  await page.mouse.click(box.x + 550 * box.width / 1280, box.y + 295 * box.height / 720);
+  await expect.poll(async () => (await state(page)).workshopPreview).toBe('buy-f2'); await page.keyboard.press('Enter');
+  await expect.poll(async () => (await state(page)).workshopCredits).toBe(1350);
+  const bought = await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!)); const f2 = bought.workshop.parts.find((part: any) => part.kind === 'F2'); const ids = bought.workshop.parts.map((part: any) => part.instanceId);
+  expect(bought.workshop.parts).toHaveLength(26); expect(f2).toBeDefined();
+  await page.keyboard.press('f'); await expect.poll(async () => (await state(page)).workshopPreview).toBe('fit-f2-a'); await page.keyboard.press('Enter'); await expect.poll(async () => (await state(page)).workshopPreview).toBeUndefined();
+  const raw = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!); const fitted = JSON.parse(raw); const slots = fitted.workshop.gunSlots;
+  expect(slots['TAB-A'].F).toBe(f2.instanceId); expect(fitted.workshop.parts.map((part: any) => part.instanceId)).toEqual(ids); expect(fitted.workshop.parts.some((part: any) => part.instanceId === 'INT-B1-TAB-A-F-BASE')).toBe(true);
+  await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+  expect(await state(page)).toMatchObject({ workshopCredits: 1350, workshopParts: 26 }); expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(raw);
+});
+
+test('held writer rejects corruption after a non-live workshop preview', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Dedicated desktop held-lock corruption evidence.');
+  await ready(page); await page.keyboard.press('b'); const canvas = page.locator('canvas'); const box = await canvas.boundingBox(); if (!box) throw new Error('canvas unavailable');
+  await page.mouse.click(box.x + 550 * box.width / 1280, box.y + 295 * box.height / 720); await expect.poll(async () => (await state(page)).workshopPreview).toBe('buy-f2'); await page.keyboard.press('Enter'); await expect.poll(async () => (await state(page)).workshopCredits).toBe(1350);
+  await page.keyboard.press('f'); await expect.poll(async () => (await state(page)).workshopPreview).toBe('fit-f2-a'); await holdFixtureWriter(page);
+  try {
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).pending?.some(lock => lock.name === 'meowcenary:int-fb:v1:writer') ?? false)).toBe(true);
+    const corrupt = await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); raw.workshop.standing.rcc = -1; const text = JSON.stringify(raw); localStorage.setItem('meowcenary:int-fb:v1:profile', text); return text; });
+    await releaseFixtureWriter(page);
+    await page.evaluate(() => navigator.locks.request('meowcenary:int-fb:v1:writer', { mode: 'exclusive' }, async () => undefined));
+    expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(corrupt);
+    expect(await state(page)).toMatchObject({ workshopCredits: 1350, workshopParts: 26 });
+    await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true); await expect.poll(async () => (await state(page)).loadBlocked).toBe(true);
+    expect((await state(page)).recoveryMessage).toContain('preserved unchanged'); expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(corrupt);
+  } finally { await releaseFixtureWriter(page); }
 });
 
 test('F01 recovery/retry/extraction is persisted by the live Phaser scene', async ({ page }, info) => {
