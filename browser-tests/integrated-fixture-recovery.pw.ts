@@ -954,3 +954,39 @@ test('R01 browser route requires both markers, collection, finite clear, and ext
   expect(complete.paidEventIds).toHaveLength(1);
   await capture(page, info, 'r01-markers-clear-extraction');
 });
+
+test('ordinary B1 controls join two jobs with the directed safe-service workshop ledger', async ({ page }, info) => {
+  test.setTimeout(180_000);
+  test.skip(info.project.name !== 'desktop-1280x720', 'Joined B1 ledger evidence is captured once at the desktop reference viewport.');
+  await ready(page);
+  // Public-spur discovery is a normal world interaction, before either job.
+  await moveAlong(page, [{ x: 300, y: 80 }, { x: 350, y: 200 }, { x: 530, y: 220 }]); await page.keyboard.press('e');
+  await expect.poll(async () => (await state(page)).workshopParts).toBe(25);
+  await moveAlong(page, [{ x: 350, y: 200 }, { x: 300, y: 80 }, { x: 80, y: 80 }]);
+  const r01 = await activate(page, '1', { x: 370, y: 380 });
+  await expect.poll(async () => (await state(page)).groupCleared).toBe(true);
+  for (const point of [
+    { x: 230, y: 390, route: [{ x: 350, y: 350 }, { x: 230, y: 390 }] },
+    { x: 340, y: 460, route: [{ x: 280, y: 480 }, { x: 340, y: 460 }] },
+    { x: 290, y: 480, route: [{ x: 290, y: 480 }] },
+  ]) { await moveAlong(page, point.route); await page.keyboard.press('e'); }
+  await moveTo(page, 200, 490); await page.keyboard.press('e'); await expect.poll(async () => (await state(page)).extracted).toBe(true);
+  const f01 = await activate(page, '2', { x: 670, y: 390 });
+  await expect.poll(async () => (await state(page)).groupCleared).toBe(true);
+  await moveAlong(page, [{ x: 550, y: 410 }]); await page.keyboard.press('e');
+  await moveTo(page, 690, 490); await page.keyboard.press('e'); await expect.poll(async () => (await state(page)).extracted).toBe(true);
+  // All following actions use player shortcuts/menu selections plus Enter
+  // confirmation; no direct workshop transaction or storage call is used.
+  const chooseMenu = async (x: number, y: number) => { await page.keyboard.press('b'); await expect.poll(async () => (await state(page)).workshopOpen).toBe(true); await page.mouse.click(x, y); await expect.poll(async () => (await state(page)).workshopPreview).toBeDefined(); await page.keyboard.press('Enter'); await expect.poll(async () => (await state(page)).workshopPreview).toBeUndefined(); };
+  await chooseMenu(550, 295); // BUY F2
+  await page.keyboard.press('f'); await page.keyboard.press('Enter'); await expect.poll(async () => (await state(page)).workshopPreview).toBeUndefined();
+  await page.keyboard.press('l'); await page.keyboard.press('Enter'); await expect.poll(async () => (await state(page)).workshopPreview).toBeUndefined();
+  await page.keyboard.press('s'); await page.keyboard.press('Enter'); await expect.poll(async () => (await state(page)).workshopPreview).toBeUndefined();
+  await page.keyboard.press('g'); await page.keyboard.press('Enter'); await expect.poll(async () => (await state(page)).workshopPreview).toBeUndefined();
+  await chooseMenu(730, 411); // FIT B3
+  await chooseMenu(550, 469); // DEVELOP B2
+  await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+  const final = await state(page);
+  expect(final).toMatchObject({ workshopCredits: 2390, workshopMaterials: { metal: 60, circuits: 12 }, receiptIds: expect.any(Array) });
+  expect(final.receiptIds).toHaveLength(2); expect(final.paidEventIds).toEqual([r01.worldEventId, f01.worldEventId]);
+});

@@ -36,6 +36,7 @@ deployment, hosted-site change, or product-acceptance claim.
 | Range focused browser set | 4 passed, 0 skipped | Actual control input covers full/falloff/outside contact, queued Confirm→Range cancellation, branch/missing/invalid recovery, denied storage. |
 | Full late browser file, desktop project | 26 passed, 2 skipped | Two phone/tablet-only layout cases are intentionally project-targeted skips. |
 | R01 ordinary browser route, desktop | 1 passed, 0 skipped | Real selection/movement/interact/extract controls; hostile clear is fixture combat behavior, not a human aim/playthrough claim. |
+| Joined ordinary B1 controls, desktop | 1 passed, 0 skipped | Fresh profile: public discovery; R01 and F01 acceptance/exploration/combat/objectives/extraction; Buy/Fit F2; Claim/Sell H2; Build/Fit B3; Develop B2; durable reload. It uses player controls and confirmation, with no forced terminal or direct transaction/storage call. |
 | Full B1 integrated browser file, desktop + phone projects | 17 passed, 15 skipped | Exact current-source run. Skips are explicit project scoping (for example desktop-only or phone-only evidence), not converted passes. It covers B1 recovery/retry, purchase/fit/reload, objectives/extraction, terrain, replay isolation, and phone touch routes; several adversarial rows deliberately use test-only setup. |
 | Production `npm run build` + bundle scan | pass | No `__MEOWCENARY_INT_FB__`, `__MEOWCENARY_LATE_FIXTURE__`, or range test seam in built assets. |
 
