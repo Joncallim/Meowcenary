@@ -362,6 +362,10 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     createUiText(this, this.scale.width - 76, this.scale.height - 48, 'INTERACT\nE', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(.5).setScrollFactor(0).setDepth(11);
     this.workshopButton = this.add.rectangle(this.scale.width / 2, this.scale.height - 48, 110, 58, 0xf6c85f, .95).setScrollFactor(0).setDepth(10);
     createUiText(this, this.scale.width / 2, this.scale.height - 48, 'WORKSHOP\nB', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(.5).setScrollFactor(0).setDepth(11);
+    // Replay is a normal retained-receipt action, not keyboard/debug-only.
+    // Keep it above the bottom touch row so it remains reachable at phone width.
+    this.add.rectangle(this.scale.width / 2, this.scale.height - 116, 150, 42, 0x8f7ad8, .95).setScrollFactor(0).setDepth(10).setInteractive().on('pointerup', () => this.openHistoricalReplay());
+    createUiText(this, this.scale.width / 2, this.scale.height - 116, 'HISTORY REPLAY\nH', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '12px', color: '#071018' }).setOrigin(.5).setScrollFactor(0).setDepth(11);
     this.takeoverPrompt = createUiText(this, this.scale.width / 2, this.scale.height / 2, '', { fontFamily: 'Nunito, sans-serif', fontSize: '18px', color: '#fff', backgroundColor: '#34151bdd', align: 'center', padding: { x: 12, y: 10 } }).setOrigin(.5).setScrollFactor(0).setDepth(20).setVisible(false).setInteractive().on('pointerup', () => this.confirmTakeover());
     const modal = this.add.container(this.scale.width / 2, this.scale.height / 2).setScrollFactor(0).setDepth(40).setVisible(false);
     const panel = this.add.rectangle(0, 0, Math.min(470, this.scale.width - 24), 260, 0x34151b, .98).setStrokeStyle(2, 0xef6b73);

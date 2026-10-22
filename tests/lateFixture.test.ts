@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { commitLateFixture, createLateFixtureProfile, lateFullRangeMetres, resolveLateBarrelVector, sampleLateRefinement, type LateFixtureProfile } from '../src/gameplay/lateFixture';
+import { commitLateFixture, createLateFixtureProfile, decodeLateFixtureProfile, lateFullRangeMetres, resolveLateBarrelVector, sampleLateRefinement, type LateFixtureProfile } from '../src/gameplay/lateFixture';
 
 it('seeds an isolated Chapter-5 sale and keep-loot fixture without touching B1', () => {
   const sale = createLateFixtureProfile();
@@ -72,5 +72,25 @@ describe('late fixture refinement transactions', () => {
     const missingSchematic = { ...discovered, knownSchematics: ['TAB-B2'] } as LateFixtureProfile;
     expect(commitLateFixture(missingSchematic, { commandId: 'blocked-build', expectedRevision: 1, action: 'build' }, rng)).toMatchObject({ applied: false, reason: 'ineligible-build' });
     expect(draws).toBe(1);
+  });
+
+  it('requires T3, matching barrel schematics, and TAB barrel donors before mutation', () => {
+    const seed = createLateFixtureProfile();
+    const merge = { commandId: 'gate-merge', expectedRevision: 0, action: 'merge' as const, inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] };
+    expect(commitLateFixture({ ...seed, capabilities: ['CHAPTER-5-MERGE'] } as LateFixtureProfile, merge)).toMatchObject({ applied: false, reason: 'ineligible-merge' });
+    const incompatible = { ...seed, parts: seed.parts.map(part => part.id === 'INT-LATE-DONOR-B3-T2' ? { ...part, family: 'HOU' as const } : part) } as LateFixtureProfile;
+    expect(commitLateFixture(incompatible, merge)).toMatchObject({ applied: false, reason: 'ineligible-merge' });
+    const develop = { commandId: 'gate-develop', expectedRevision: 0, action: 'develop' as const, inputIds: ['INT-LATE-DONOR-B2-T2'] };
+    expect(commitLateFixture({ ...seed, capabilities: ['CHAPTER-5-MERGE'] } as LateFixtureProfile, develop)).toMatchObject({ applied: false, reason: 'ineligible-develop' });
+    expect(commitLateFixture({ ...seed, knownSchematics: ['TAB-B3'] } as LateFixtureProfile, develop)).toMatchObject({ applied: false, reason: 'ineligible-develop' });
+  });
+
+  it('accepts a consumed historical refinement output but rejects a present mismatch', () => {
+    const merged = commitLateFixture(createLateFixtureProfile(), { commandId: 'recorded-merge', expectedRevision: 0, action: 'merge', inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] }, () => 0).profile;
+    const outputId = merged.receipts[0]!.outputIds[0]!;
+    const consumed = { ...merged, parts: merged.parts.filter(part => part.id !== outputId) };
+    expect(decodeLateFixtureProfile(JSON.stringify(consumed)).state).toBe('valid');
+    const mismatched = { ...merged, parts: merged.parts.map(part => part.id === outputId ? { ...part, refinement: 'LeanB25' as const } : part) };
+    expect(decodeLateFixtureProfile(JSON.stringify(mismatched)).state).toBe('invalid');
   });
 });

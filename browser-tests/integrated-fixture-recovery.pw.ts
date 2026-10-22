@@ -367,7 +367,8 @@ test('phone replay completes through touch controls without mutating live state'
   await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); const replayRecord = raw.liveMission?.replayRecord; if (!replayRecord) throw new Error('record missing'); raw.mission.receipts.push({ id: 'int-fb:test:phone', jobId: 'MC-OPT-F01-01', worldEventId: 'phone-event', attemptId: 'phone-attempt', recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6, replayRecord }); delete raw.liveMission; localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw)); });
   await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
   const before = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
-  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
+  await page.touchscreen.tap((page.viewportSize()?.width ?? 390) / 2, (page.viewportSize()?.height ?? 844) - 116);
+  await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(true);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayTabbyDown())).toBe(true);
   await expect.poll(async () => (await state(page)).replay?.takeoverControl).toBeTruthy();
   const takeover = (await state(page)).replay!;
@@ -385,7 +386,8 @@ test('phone replay completes through touch controls without mutating live state'
   // gameplay path below remains touch-only; this reset avoids relying on a
   // Phaser panel handler as evidence for a gameplay control.
   await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
-  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
+  await page.touchscreen.tap((page.viewportSize()?.width ?? 390) / 2, (page.viewportSize()?.height ?? 844) - 116);
+  await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(true);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayTabbyDown())).toBe(true);
   await expect.poll(async () => (await state(page)).replay?.takeoverControl).toBeTruthy();
   const completionTakeover = (await state(page)).replay!;
