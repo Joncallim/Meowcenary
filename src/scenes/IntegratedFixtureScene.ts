@@ -60,6 +60,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private enemies: Phaser.GameObjects.Arc[] = [];
   private keys?: Phaser.Types.Input.Keyboard.CursorKeys;
   private touchTarget?: Phaser.Math.Vector2;
+  private historyGesture = false;
   private status?: Phaser.GameObjects.Text;
   private takeoverPrompt?: Phaser.GameObjects.Text;
   private recoveryModal?: Phaser.GameObjects.Container;
@@ -341,14 +342,22 @@ export class IntegratedFixtureScene extends Phaser.Scene {
         else this.replayTouchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY);
         return;
       }
-      if (contains(this.historyButton)) { this.touchTarget = undefined; return; }
+      if (contains(this.historyButton)) { this.historyGesture = true; this.touchTarget = undefined; return; }
       if (contains(this.swapButton)) { this.swapGun(); return; }
       if (contains(this.interactButton)) { this.interact(); return; }
       if (contains(this.workshopButton)) { this.openWorkshopMenu(); return; }
       this.touchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY);
     });
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (pointer.isDown) { if (this.historicalReplay) this.replayTouchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); else this.touchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); } });
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (pointer.isDown && !this.historyGesture) { if (this.historicalReplay) this.replayTouchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); else this.touchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); } });
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      const releaseHistoryGesture = this.historyGesture;
+      this.historyGesture = false;
+      // Phaser only delivers a control's pointerup when the release remains
+      // over that rectangle. Keep a History gesture owned through a drag so
+      // it cannot turn into world movement; a release still activates its
+      // originating action exactly once (an already-open replay refuses the
+      // duplicate control event harmlessly).
+      if (releaseHistoryGesture) { this.touchTarget = undefined; this.openHistoricalReplay(); return; }
       if (this.historicalReplay) { this.replayTouchTarget = undefined; return; }
       this.touchTarget = undefined;
       // Container children keep their own local transforms; route the fixed
@@ -359,6 +368,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       else if (this.recoveryMode === 'write-failed' && contains(this.controlBounds(this.recoveryButton))) this.beginRecovery('recovery retry');
       else if (this.recoveryMode === 'recovered' && contains(this.controlBounds(this.retryButton))) this.retryEvent();
     });
+    this.input.on('pointerupoutside', () => { this.historyGesture = false; this.touchTarget = undefined; });
     this.swapButton = this.add.rectangle(76, this.scale.height - 48, 124, 58, 0x7393d8, .95).setScrollFactor(0).setDepth(10);
     createUiText(this, 76, this.scale.height - 48, 'SWAP\nQ', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(.5).setScrollFactor(0).setDepth(11);
     this.interactButton = this.add.rectangle(this.scale.width - 76, this.scale.height - 48, 124, 58, 0x24cec7, .95).setScrollFactor(0).setDepth(10);

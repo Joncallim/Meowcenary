@@ -109,5 +109,9 @@ describe('late fixture refinement transactions', () => {
     const legacy = JSON.parse(JSON.stringify(seed));
     for (const part of legacy.parts) delete part.originalMaker;
     expect(decodeLateFixtureProfile(JSON.stringify(legacy)).state).toBe('valid');
+    const orphaned = JSON.parse(JSON.stringify(merged)); orphaned.parts.find((part: { id: string }) => part.id === output.id).sourceVersions = [1];
+    expect(decodeLateFixtureProfile(JSON.stringify(orphaned)).state).toBe('invalid');
+    const receiptMismatch = JSON.parse(JSON.stringify(merged)); receiptMismatch.receipts[0].inputVersions = [2, 1];
+    expect(decodeLateFixtureProfile(JSON.stringify(receiptMismatch)).state).toBe('invalid');
   });
 });

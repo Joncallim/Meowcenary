@@ -408,8 +408,8 @@ test('phone replay completes through touch controls without mutating live state'
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(before);
 });
 
-test('held History touch cannot leak a live target through replay entry and exit', async ({ page }, info) => {
-  test.skip(info.project.name !== 'phone-390x844', 'Dedicated phone held-touch input isolation evidence.');
+test('History hold-drag-release cannot leak a live target through replay entry and exit', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone-390x844', 'Dedicated phone History gesture isolation evidence.');
   await ready(page);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prepareF01())).toBe(true);
   await expect.poll(async () => (await state(page)).activeAttemptId).toBeTruthy();
@@ -419,6 +419,10 @@ test('held History touch cannot leak a live target through replay entry and exit
   try {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 195, y: 728, id: 1 }] });
     await page.waitForTimeout(250);
+    // A dragged press remains owned by the History control until release; it
+    // must not become a live movement target midway through the gesture.
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 42, y: 410, id: 1 }] });
+    await page.waitForTimeout(150);
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.hasLiveTouchTarget())).toBe(false);
     expect(await state(page)).toMatchObject({ x: before.x, y: before.y, tabbyPosition: before.tabbyPosition, houndPosition: before.houndPosition });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });

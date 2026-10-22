@@ -26,6 +26,7 @@ export default defineConfig({
   projects: [
     { name: 'phone-360x640', use: { viewport: { width: 360, height: 640 }, hasTouch: true, isMobile: true } },
     { name: 'phone-390x844', use: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },
+    { name: 'phone-landscape-640x390', use: { viewport: { width: 640, height: 390 }, hasTouch: true, isMobile: true } },
     { name: 'tablet-768x1024', use: { viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true } },
     { name: 'foldable-1114x720', use: { viewport: { width: 1114, height: 720 }, hasTouch: true, isMobile: true } },
     { name: 'desktop-1280x720', use: { viewport: { width: 1280, height: 720 } } },
