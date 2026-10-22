@@ -2,6 +2,14 @@
 
 Candidate source: `d3315c1a51eeb40193484fb7ee7af786ab5f66fb`.
 
+The final focused browser matrix was rerun at clean source
+`c0d0a8b620386d9e8048216c093764eaf6136e61` after the responsive runtime
+repairs: desktop `1280x720` 17 passed / 2 skipped; phone `390x844` 4 passed /
+15 skipped; total 21 passed / 17 skipped / 0 failed. Its raw sanitized report,
+exit status, and command are in `validated/matrix/`. The phone project remains
+viewport-emulation coverage except for its explicit touch cases; skips are not
+touch acceptance.
+
 `npm run build` completed with exit status 0 before the production captures.
 The browser matrix used one immutable `VITE_VISUAL_TEST=1` build and exited 0:
 
@@ -25,6 +33,12 @@ movement used keyboard input, so they are not a touch-acceptance claim.
 Replay/takeover without visual-test setup remains unverified in these captures:
 normal replay requires a completed retained receipt, and takeover requires an
 ordinary combat down event. No production state was forced to manufacture them.
+
+Fresh-storage ordinary-production captures in `production/final-head/` show
+desktop workshop access and phone touchscreen workshop/movement. A manually
+driven R01 attempt remains explicitly incomplete (`r01-manual-route-incomplete.png`):
+it was still at the visible offer-terminal acceptance step, so this record does
+not claim ordinary extraction, squad takeover, or archive replay acceptance.
 
 ## Responsive regression — 2026-10-22
 

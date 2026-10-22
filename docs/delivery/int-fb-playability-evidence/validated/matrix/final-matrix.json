@@ -196,7 +196,7 @@
                   "description": "Root-route capture is retained at the reference desktop viewport.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 211,
+                    "line": 242,
                     "column": 8
                   }
                 }
@@ -209,19 +209,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 226,
+                  "duration": 210,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:14.998Z",
+                  "startTime": "2026-10-22T12:30:03.032Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Root-route capture is retained at the reference desktop viewport.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 211,
+                        "line": 242,
                         "column": 8
                       }
                     }
@@ -234,7 +234,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-a1d6beed19a67d590fb1",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 210,
+          "line": 241,
           "column": 1
         },
         {
@@ -250,7 +250,7 @@
                   "description": "Reference desktop frame-parity evidence.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 221,
+                    "line": 252,
                     "column": 8
                   }
                 }
@@ -263,19 +263,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 151,
+                  "duration": 167,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:15.418Z",
+                  "startTime": "2026-10-22T12:30:03.438Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Reference desktop frame-parity evidence.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 221,
+                        "line": 252,
                         "column": 8
                       }
                     }
@@ -288,7 +288,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-6f08f9fe9aa01f418901",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 220,
+          "line": 251,
           "column": 1
         },
         {
@@ -304,7 +304,7 @@
                   "description": "One desktop recovery proof covers malformed, future, and incomplete persisted B1 envelopes.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 242,
+                    "line": 273,
                     "column": 8
                   }
                 }
@@ -317,19 +317,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 141,
+                  "duration": 112,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:15.584Z",
+                  "startTime": "2026-10-22T12:30:03.624Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "One desktop recovery proof covers malformed, future, and incomplete persisted B1 envelopes.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 242,
+                        "line": 273,
                         "column": 8
                       }
                     }
@@ -342,7 +342,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-58617abda435ef08c207",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 241,
+          "line": 272,
           "column": 1
         },
         {
@@ -358,7 +358,7 @@
                   "description": "Dedicated first-write and corruption evidence runs once on desktop.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 262,
+                    "line": 293,
                     "column": 8
                   }
                 }
@@ -371,19 +371,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 102,
+                  "duration": 111,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:15.739Z",
+                  "startTime": "2026-10-22T12:30:03.745Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Dedicated first-write and corruption evidence runs once on desktop.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 262,
+                        "line": 293,
                         "column": 8
                       }
                     }
@@ -396,7 +396,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-e15e0683292e0b9fa977",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 261,
+          "line": 292,
           "column": 1
         },
         {
@@ -412,7 +412,7 @@
                   "description": "Dedicated desktop workshop persistence evidence.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 289,
+                    "line": 320,
                     "column": 8
                   }
                 }
@@ -425,19 +425,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 119,
+                  "duration": 149,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:15.849Z",
+                  "startTime": "2026-10-22T12:30:03.866Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Dedicated desktop workshop persistence evidence.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 289,
+                        "line": 320,
                         "column": 8
                       }
                     }
@@ -450,7 +450,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-bc40fd49b5c5acc8c6c8",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 288,
+          "line": 319,
           "column": 1
         },
         {
@@ -466,7 +466,7 @@
                   "description": "Dedicated desktop replay writer evidence.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 308,
+                    "line": 339,
                     "column": 8
                   }
                 }
@@ -479,19 +479,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 119,
+                  "duration": 143,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:15.977Z",
+                  "startTime": "2026-10-22T12:30:04.026Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Dedicated desktop replay writer evidence.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 308,
+                        "line": 339,
                         "column": 8
                       }
                     }
@@ -504,7 +504,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-8550f5a0e8c3c7c2921c",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 307,
+          "line": 338,
           "column": 1
         },
         {
@@ -520,7 +520,7 @@
                   "description": "Dedicated desktop legacy-receipt refusal evidence.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 332,
+                    "line": 363,
                     "column": 8
                   }
                 }
@@ -533,19 +533,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 169,
+                  "duration": 147,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:16.106Z",
+                  "startTime": "2026-10-22T12:30:04.179Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Dedicated desktop legacy-receipt refusal evidence.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 332,
+                        "line": 363,
                         "column": 8
                       }
                     }
@@ -558,7 +558,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-3e3dfb00303fb7b2ed9d",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 331,
+          "line": 362,
           "column": 1
         },
         {
@@ -574,7 +574,7 @@
                   "description": "Dedicated desktop archived mission lifecycle evidence.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 352,
+                    "line": 383,
                     "column": 8
                   }
                 }
@@ -587,19 +587,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 128,
+                  "duration": 176,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:16.282Z",
+                  "startTime": "2026-10-22T12:30:04.335Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Dedicated desktop archived mission lifecycle evidence.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 352,
+                        "line": 383,
                         "column": 8
                       }
                     }
@@ -612,7 +612,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-76b95f9c473e42ffbebd",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 350,
+          "line": 381,
           "column": 1
         },
         {
@@ -631,12 +631,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 26942,
+                  "duration": 27213,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:16.427Z",
+                  "startTime": "2026-10-22T12:30:04.518Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -646,7 +646,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-a47cbc0a7e316f2798d7",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 408,
+          "line": 439,
           "column": 1
         },
         {
@@ -665,12 +665,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3637,
+                  "duration": 3219,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:43.374Z",
+                  "startTime": "2026-10-22T12:30:31.742Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -680,7 +680,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-b94183ac3eeb65204ca6",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 458,
+          "line": 489,
           "column": 1
         },
         {
@@ -696,7 +696,7 @@
                   "description": "Reference desktop establishes archived terrain traversal; phone is reported separately.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 489,
+                    "line": 520,
                     "column": 8
                   }
                 }
@@ -709,19 +709,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 202,
+                  "duration": 175,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:47.029Z",
+                  "startTime": "2026-10-22T12:30:34.971Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Reference desktop establishes archived terrain traversal; phone is reported separately.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 489,
+                        "line": 520,
                         "column": 8
                       }
                     }
@@ -734,7 +734,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-f01a8b2d78d890ac83e8",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 485,
+          "line": 516,
           "column": 1
         },
         {
@@ -750,7 +750,7 @@
                   "description": "Dedicated desktop held-lock corruption evidence.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 547,
+                    "line": 578,
                     "column": 8
                   }
                 }
@@ -763,19 +763,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 219,
+                  "duration": 168,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:47.246Z",
+                  "startTime": "2026-10-22T12:30:35.168Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Dedicated desktop held-lock corruption evidence.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 547,
+                        "line": 578,
                         "column": 8
                       }
                     }
@@ -788,7 +788,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-c3ba2c1e031690d3b984",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 546,
+          "line": 577,
           "column": 1
         },
         {
@@ -807,12 +807,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 19484,
+                  "duration": 19923,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:47.473Z",
+                  "startTime": "2026-10-22T12:30:35.343Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -833,7 +833,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-0dc254104c6ba7468668",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 564,
+          "line": 595,
           "column": 1
         },
         {
@@ -849,7 +849,7 @@
                   "description": "The canonical fee receipt is exercised once on the desktop fixture route.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 789,
+                    "line": 820,
                     "column": 8
                   }
                 }
@@ -862,19 +862,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 197,
+                  "duration": 200,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:53:06.971Z",
+                  "startTime": "2026-10-22T12:30:55.281Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "The canonical fee receipt is exercised once on the desktop fixture route.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 789,
+                        "line": 820,
                         "column": 8
                       }
                     }
@@ -887,7 +887,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-838241173235d8a4b4ea",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 788,
+          "line": 819,
           "column": 1
         },
         {
@@ -903,7 +903,7 @@
                   "description": "The durable combat checkpoint is exercised once on the desktop fixture route.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 809,
+                    "line": 840,
                     "column": 8
                   }
                 }
@@ -916,19 +916,19 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 177,
+                  "duration": 178,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:53:07.172Z",
+                  "startTime": "2026-10-22T12:30:55.487Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "The durable combat checkpoint is exercised once on the desktop fixture route.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 809,
+                        "line": 840,
                         "column": 8
                       }
                     }
@@ -941,7 +941,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-d7e28830ac7f37cc5fff",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 807,
+          "line": 838,
           "column": 1
         },
         {
@@ -955,60 +955,6 @@
                 {
                   "type": "skip",
                   "description": "The terrain contract is exercised on the reference desktop viewport.",
-                  "location": {
-                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 948,
-                    "column": 8
-                  }
-                }
-              ],
-              "expectedStatus": "skipped",
-              "projectId": "phone-390x844",
-              "projectName": "phone-390x844",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "skipped",
-                  "duration": 138,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-22T11:53:07.369Z",
-                  "annotations": [
-                    {
-                      "type": "skip",
-                      "description": "The terrain contract is exercised on the reference desktop viewport.",
-                      "location": {
-                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 948,
-                        "column": 8
-                      }
-                    }
-                  ],
-                  "attachments": []
-                }
-              ],
-              "status": "skipped"
-            }
-          ],
-          "id": "47fb1dd7db2bd57359ce-00b759732d5b6a4846a9",
-          "file": "integrated-fixture-recovery.pw.ts",
-          "line": 946,
-          "column": 1
-        },
-        {
-          "title": "R01 browser route requires both markers, collection, finite clear, and extraction",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 30000,
-              "annotations": [
-                {
-                  "type": "skip",
-                  "description": "The longer R01 route is captured once at the reference desktop viewport.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
                     "line": 979,
@@ -1029,11 +975,11 @@
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:53:07.517Z",
+                  "startTime": "2026-10-22T12:30:55.677Z",
                   "annotations": [
                     {
                       "type": "skip",
-                      "description": "The longer R01 route is captured once at the reference desktop viewport.",
+                      "description": "The terrain contract is exercised on the reference desktop viewport.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
                         "line": 979,
@@ -1047,22 +993,22 @@
               "status": "skipped"
             }
           ],
-          "id": "47fb1dd7db2bd57359ce-b1ecd36c9fd3fd754ba8",
+          "id": "47fb1dd7db2bd57359ce-00b759732d5b6a4846a9",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 978,
+          "line": 977,
           "column": 1
         },
         {
-          "title": "ordinary B1 controls join two jobs with the directed safe-service workshop ledger",
+          "title": "R01 browser route requires both markers, collection, finite clear, and extraction",
           "ok": true,
           "tags": [],
           "tests": [
             {
-              "timeout": 180000,
+              "timeout": 30000,
               "annotations": [
                 {
                   "type": "skip",
-                  "description": "Joined B1 ledger evidence is captured once at the desktop reference viewport.",
+                  "description": "The longer R01 route is captured once at the reference desktop viewport.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
                     "line": 1010,
@@ -1078,16 +1024,16 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 179,
+                  "duration": 159,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:53:07.687Z",
+                  "startTime": "2026-10-22T12:30:55.842Z",
                   "annotations": [
                     {
                       "type": "skip",
-                      "description": "Joined B1 ledger evidence is captured once at the desktop reference viewport.",
+                      "description": "The longer R01 route is captured once at the reference desktop viewport.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
                         "line": 1010,
@@ -1101,9 +1047,103 @@
               "status": "skipped"
             }
           ],
+          "id": "47fb1dd7db2bd57359ce-b1ecd36c9fd3fd754ba8",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 1009,
+          "column": 1
+        },
+        {
+          "title": "ordinary B1 controls join two jobs with the directed safe-service workshop ledger",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Joined B1 ledger evidence is captured once at the desktop reference viewport.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 1041,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 199,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T12:30:56.010Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Joined B1 ledger evidence is captured once at the desktop reference viewport.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 1041,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
           "id": "47fb1dd7db2bd57359ce-a3a73a3fdb06dc339825",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 1008,
+          "line": 1039,
+          "column": 1
+        },
+        {
+          "title": "fixture resize keeps fixed controls, follow framing, and an open workshop through rotate-return",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2083,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T12:30:56.219Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "resize-phone-portrait-return-workshop-open",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-phone-390x844/attachments/resize-phone-portrait-return-workshop-open-837fac29f72c92a56b9bce989d4b5fe2525f69c2.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-00b4960578440c1536ec",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 1079,
           "column": 1
         },
         {
@@ -1122,12 +1162,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 2536,
+                  "duration": 2380,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:14.999Z",
+                  "startTime": "2026-10-22T12:30:03.034Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -1143,7 +1183,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-d884e30d5e1debd8e7b2",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 210,
+          "line": 241,
           "column": 1
         },
         {
@@ -1162,12 +1202,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 3207,
+                  "duration": 3002,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:17.708Z",
+                  "startTime": "2026-10-22T12:30:05.617Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1177,7 +1217,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-7cb89eb0dd4a570f10c8",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 220,
+          "line": 251,
           "column": 1
         },
         {
@@ -1196,12 +1236,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 5059,
+                  "duration": 4733,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:20.922Z",
+                  "startTime": "2026-10-22T12:30:08.630Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1211,7 +1251,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-7dd5d9f0c30d8499adc3",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 241,
+          "line": 272,
           "column": 1
         },
         {
@@ -1230,12 +1270,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 3738,
+                  "duration": 4136,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:25.996Z",
+                  "startTime": "2026-10-22T12:30:13.384Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1245,7 +1285,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-c03cff5007ec5b31a8df",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 261,
+          "line": 292,
           "column": 1
         },
         {
@@ -1264,12 +1304,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 5178,
+                  "duration": 4965,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:29.748Z",
+                  "startTime": "2026-10-22T12:30:17.540Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1279,7 +1319,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-6ca20a37338a2995ff89",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 288,
+          "line": 319,
           "column": 1
         },
         {
@@ -1298,12 +1338,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 4470,
+                  "duration": 4788,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:34.954Z",
+                  "startTime": "2026-10-22T12:30:22.517Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1313,7 +1353,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-0c8ae7e4eb931cf162a6",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 307,
+          "line": 338,
           "column": 1
         },
         {
@@ -1332,12 +1372,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 2806,
+                  "duration": 2727,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:39.479Z",
+                  "startTime": "2026-10-22T12:30:27.335Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1347,7 +1387,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-82aaca84055dc0840aa5",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 331,
+          "line": 362,
           "column": 1
         },
         {
@@ -1366,12 +1406,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 25679,
+                  "duration": 28817,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:52:42.306Z",
+                  "startTime": "2026-10-22T12:30:30.070Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1381,7 +1421,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-a722b117dc41db66fd56",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 350,
+          "line": 381,
           "column": 1
         },
         {
@@ -1397,7 +1437,7 @@
                   "description": "Dedicated phone touch-only replay evidence.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 409,
+                    "line": 440,
                     "column": 8
                   }
                 }
@@ -1410,19 +1450,19 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "skipped",
-                  "duration": 146,
+                  "duration": 138,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:53:08.036Z",
+                  "startTime": "2026-10-22T12:30:58.920Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Dedicated phone touch-only replay evidence.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 409,
+                        "line": 440,
                         "column": 8
                       }
                     }
@@ -1435,7 +1475,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-8fd965df6e7ad1cfa719",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 408,
+          "line": 439,
           "column": 1
         },
         {
@@ -1451,7 +1491,7 @@
                   "description": "Dedicated phone History gesture isolation evidence.",
                   "location": {
                     "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                    "line": 459,
+                    "line": 490,
                     "column": 8
                   }
                 }
@@ -1464,19 +1504,19 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "skipped",
-                  "duration": 124,
+                  "duration": 126,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:53:08.191Z",
+                  "startTime": "2026-10-22T12:30:59.073Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Dedicated phone History gesture isolation evidence.",
                       "location": {
                         "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
-                        "line": 459,
+                        "line": 490,
                         "column": 8
                       }
                     }
@@ -1489,7 +1529,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-bf46360afe5fe8426871",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 458,
+          "line": 489,
           "column": 1
         },
         {
@@ -1508,12 +1548,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 24721,
+                  "duration": 24589,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:53:08.322Z",
+                  "startTime": "2026-10-22T12:30:59.205Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1523,7 +1563,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-07911cffd0d797377e0d",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 485,
+          "line": 516,
           "column": 1
         },
         {
@@ -1542,12 +1582,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 2858,
+                  "duration": 2971,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:53:33.068Z",
+                  "startTime": "2026-10-22T12:31:23.804Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1557,7 +1597,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-6812a85fd96c535904b6",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 546,
+          "line": 577,
           "column": 1
         },
         {
@@ -1576,12 +1616,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 51777,
+                  "duration": 52967,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:53:35.936Z",
+                  "startTime": "2026-10-22T12:31:26.785Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -1602,7 +1642,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-3409e3560129c6f7fe5b",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 564,
+          "line": 595,
           "column": 1
         },
         {
@@ -1621,12 +1661,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 11752,
+                  "duration": 12055,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:54:27.721Z",
+                  "startTime": "2026-10-22T12:32:19.756Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1636,7 +1676,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-1462a9e09d2c64a99739",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 788,
+          "line": 819,
           "column": 1
         },
         {
@@ -1655,12 +1695,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 31509,
+                  "duration": 33793,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:54:39.480Z",
+                  "startTime": "2026-10-22T12:32:31.827Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -1676,7 +1716,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-6dcefd9e399ba4f40c56",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 807,
+          "line": 838,
           "column": 1
         },
         {
@@ -1695,12 +1735,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 14772,
+                  "duration": 15290,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:55:11.012Z",
+                  "startTime": "2026-10-22T12:33:05.626Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -1716,7 +1756,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-faab49f9f5f20af9944a",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 946,
+          "line": 977,
           "column": 1
         },
         {
@@ -1735,12 +1775,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 19185,
+                  "duration": 18388,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:55:25.789Z",
+                  "startTime": "2026-10-22T12:33:20.927Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -1756,7 +1796,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-82fce2087743e8f96d99",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 978,
+          "line": 1009,
           "column": 1
         },
         {
@@ -1775,12 +1815,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 43041,
+                  "duration": 45882,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T11:55:44.990Z",
+                  "startTime": "2026-10-22T12:33:39.321Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1790,7 +1830,57 @@
           ],
           "id": "47fb1dd7db2bd57359ce-ebb83045ef1bd0aa89a5",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 1008,
+          "line": 1039,
+          "column": 1
+        },
+        {
+          "title": "fixture resize keeps fixed controls, follow framing, and an open workshop through rotate-return",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2183,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T12:34:25.209Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "resize-desktop-720x1280-workshop-open",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-desktop-1280x720/attachments/resize-desktop-720x1280-workshop-open-a376dff9a06ce720d2399f06739b38c4ca265359.png"
+                    },
+                    {
+                      "name": "resize-desktop-return-1280x720-workshop-open",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-desktop-1280x720/attachments/resize-desktop-return-1280x720-workshop-open-309acdb601e356bd98dd21a11a31dd45dc3cf852.png"
+                    },
+                    {
+                      "name": "resize-desktop-narrow-preview-390x844",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-desktop-1280x720/attachments/resize-desktop-narrow-preview-390x844-d5f412277d72c9dcb9f7c84c0f460b1c49d91eb3.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-49e4412fe86fd5a2f96c",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 1079,
           "column": 1
         }
       ]
@@ -1798,9 +1888,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-22T11:52:11.134Z",
-    "duration": 257009.839,
-    "expected": 19,
+    "startTime": "2026-10-22T12:29:58.729Z",
+    "duration": 268733.76999999996,
+    "expected": 21,
     "skipped": 17,
     "unexpected": 0,
     "flaky": 0
