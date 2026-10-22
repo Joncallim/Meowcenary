@@ -22,6 +22,7 @@ import {
   nextFixtureAttemptId,
   nextFixtureWorldEventId,
   moveFixtureTerrainPosition,
+  nearestFixturePoint,
   operationCanSettle,
   resolveFixtureTakeover,
   resolveIntegratedFixtureReplayContent,
@@ -763,9 +764,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     // Service and offer markers intentionally sit close together. Choose the
     // nearest eligible marker rather than the declaration-order match, so a
     // player standing on OFFER cannot have its interaction swallowed by SAFE.
-    const nearby = INTEGRATED_FIXTURE_POINTS
-      .filter(point => fixturePointLayer(point) === this.actorLayer(this.controlledActor) && Math.hypot(point.x * SCALE - actor.x, point.z * SCALE - actor.y) < 38)
-      .sort((left, right) => Math.hypot(left.x * SCALE - actor.x, left.z * SCALE - actor.y) - Math.hypot(right.x * SCALE - actor.x, right.z * SCALE - actor.y))[0];
+    const nearby = nearestFixturePoint(INTEGRATED_FIXTURE_POINTS, { x: actor.x / SCALE, z: actor.y / SCALE, layer: this.actorLayer(this.controlledActor) }, 3.8);
     if (nearby?.role === 'discovery' && nearby.id === 'INT-FB-PUBLIC-SPUR') { this.recordLootDiscovery(); return; }
     if (!this.jobId) {
       if (nearby?.role === 'offer-terminal') this.selectJob(actor.x < 250 ? 'MC-OPT-R01-01' : 'MC-OPT-F01-01');
