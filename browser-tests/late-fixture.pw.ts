@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
-type Part = { id: string; kind: string; tier: number | null; assignedTo?: string };
-type Receipt = { commandId: string; action: string; outputIds: readonly string[] };
+type Part = { id: string; kind: string; tier: number | null; refinement?: string; assignedTo?: string };
+type Receipt = { commandId: string; action: string; outputIds: readonly string[]; refinement?: string };
 type Diagnostics = { scene: string; revision: number; parts: number; partRecords: readonly Part[]; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly Receipt[]; discoveries: readonly string[]; pinnedEarlierHistory: { receiptIds: readonly string[]; paidEventIds: readonly string[]; h2State: string }; currentH2State: string; declaration: string; message: string };
 type LateSeam = { diagnostics(): Diagnostics; commit(command: { commandId: string; expectedRevision: number; action: 'develop' | 'merge' | 'build' | 'fit'; inputIds?: readonly string[]; targetGun?: 'TAB-A' }): Promise<boolean>; failNextStorageWrite(): void; failNextStorageRead(): void; rejectNextWriterLock(): void };
 type B1Seam = { prepareF01(): boolean };
@@ -171,6 +171,23 @@ test('late storage failure leaves durable and in-memory state unchanged', async 
   await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.failNextStorageWrite());
   expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'fail-write', expectedRevision: 0, action: 'develop', inputIds: ['INT-LATE-DONOR-B2-T2'] }))).toBe(false);
   expect(await diagnostics(page)).toMatchObject({ revision: before.revision, wallet: before.wallet, receipts: before.receipts }); expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(raw);
+});
+
+test('late merge write failure persists exactly one sampled refinement receipt after retry', async ({ page }, info) => {
+  await openLate(page, info);
+  const command = { commandId: 'retryable-merge', expectedRevision: 0, action: 'merge' as const, inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] };
+  await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.failNextStorageWrite());
+  expect(await page.evaluate(c => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit(c), command)).toBe(false);
+  expect(await diagnostics(page)).toMatchObject({ revision: 0, receipts: [] });
+  expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBeNull();
+  expect(await page.evaluate(c => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit(c), command)).toBe(true);
+  const persisted = await diagnostics(page);
+  expect(persisted).toMatchObject({ revision: 1, receipts: [{ commandId: 'retryable-merge', refinement: expect.stringMatching(/^(LeanA25|Balanced50|LeanB25)$/) }] });
+  expect(persisted.receipts).toHaveLength(1);
+  const output = persisted.partRecords.find(part => part.id === 'INT-LATE-TAB-B-HM-retryable-merge')!;
+  expect(output.refinement).toBe(persisted.receipts[0]!.refinement);
+  await page.reload(); await waitLateReload(page);
+  expect((await diagnostics(page)).receipts).toHaveLength(1);
 });
 
 test('late read and lock failures leave state retryable without duplicate receipts', async ({ page }, info) => {
