@@ -101,6 +101,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private replayLead?: Phaser.GameObjects.Arc;
   private replayHound?: Phaser.GameObjects.Arc;
   private replayEnemies: Phaser.GameObjects.Arc[] = [];
+  private replayControlledActor: 'tabby' | 'hound' = 'tabby';
+  private replayLayers: Record<'tabby' | 'hound', FixtureLayer> = { tabby: 'ground', hound: 'ground' };
   private replayTouchTarget?: Phaser.Math.Vector2;
   private replayEnvelopeBytes?: string;
   private historicalReplayOutcome?: 'success' | 'death' | 'exit';
@@ -247,27 +249,35 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (this.simulationPaused) return;
     const replay = this.replayCombat;
     if (!replay || !this.replayLead || !this.replayHound) return;
+    const controlled = this.replayControlledActor === 'tabby' ? this.replayLead : this.replayHound;
     let x = 0; let y = 0;
     if (this.keys?.left?.isDown || this.input.keyboard?.addKey('A').isDown) x -= 1;
     if (this.keys?.right?.isDown || this.input.keyboard?.addKey('D').isDown) x += 1;
     if (this.keys?.up?.isDown || this.input.keyboard?.addKey('W').isDown) y -= 1;
     if (this.keys?.down?.isDown || this.input.keyboard?.addKey('S').isDown) y += 1;
-    if (x === 0 && y === 0 && this.replayTouchTarget) { x = this.replayTouchTarget.x - this.replayLead.x; y = this.replayTouchTarget.y - this.replayLead.y; }
+    if (x === 0 && y === 0 && this.replayTouchTarget) { x = this.replayTouchTarget.x - controlled.x; y = this.replayTouchTarget.y - controlled.y; }
     const length = Math.hypot(x, y);
     if (length > 0) {
-      const next = moveFixtureTerrainPosition({ x: this.replayLead.x / SCALE, z: this.replayLead.y / SCALE }, { x: this.replayLead.x / SCALE + x / length * SPEED * delta / 1000 / SCALE, z: this.replayLead.y / SCALE + y / length * SPEED * delta / 1000 / SCALE });
-      this.replayLead.setPosition(next.position.x * SCALE, next.position.z * SCALE);
+      const next = moveFixtureTerrainPosition({ x: controlled.x / SCALE, z: controlled.y / SCALE, layer: this.replayLayers[this.replayControlledActor] }, { x: controlled.x / SCALE + x / length * SPEED * delta / 1000 / SCALE, z: controlled.y / SCALE + y / length * SPEED * delta / 1000 / SCALE });
+      controlled.setPosition(next.position.x * SCALE, next.position.z * SCALE); this.replayLayers[this.replayControlledActor] = next.position.layer ?? 'ground';
     }
-    const houndPosition = { x: this.replayHound.x / SCALE, z: this.replayHound.y / SCALE };
-    const desired = { x: (this.replayLead.x - 15) / SCALE, z: this.replayLead.y / SCALE };
-    const distance = Math.hypot(desired.x - houndPosition.x, desired.z - houndPosition.z);
-    if (distance > 0) {
-      const follow = moveFixtureTerrainPosition(houndPosition, { x: houndPosition.x + (desired.x - houndPosition.x) / distance * Math.min(distance, SPEED * delta / 1000), z: houndPosition.z + (desired.z - houndPosition.z) / distance * Math.min(distance, SPEED * delta / 1000) });
-      this.replayHound.setPosition(follow.position.x * SCALE, follow.position.z * SCALE);
+    if (this.replayControlledActor === 'tabby') {
+      const houndPosition = { x: this.replayHound.x / SCALE, z: this.replayHound.y / SCALE, layer: this.replayLayers.hound };
+      const desired = { x: (this.replayLead.x - 15) / SCALE, z: this.replayLead.y / SCALE };
+      const distance = Math.hypot(desired.x - houndPosition.x, desired.z - houndPosition.z);
+      if (distance > 0) {
+        const follow = moveFixtureTerrainPosition(houndPosition, { x: houndPosition.x + (desired.x - houndPosition.x) / distance * Math.min(distance, SPEED * delta / 1000), z: houndPosition.z + (desired.z - houndPosition.z) / distance * Math.min(distance, SPEED * delta / 1000) });
+        this.replayHound.setPosition(follow.position.x * SCALE, follow.position.z * SCALE); this.replayLayers.hound = follow.position.layer ?? 'ground';
+      }
     }
-    replay.setSquadPositions({ x: this.replayLead.x / SCALE, z: this.replayLead.y / SCALE }, { x: this.replayHound.x / SCALE, z: this.replayHound.y / SCALE });
+    replay.setSquadPositions(
+      { x: this.replayLead.x / SCALE, z: this.replayLead.y / SCALE, layer: this.replayLayers.tabby },
+      { x: this.replayHound.x / SCALE, z: this.replayHound.y / SCALE, layer: this.replayLayers.hound },
+    );
     replay.advance(delta / 1000);
     this.syncReplayActors();
+    const takeover = resolveFixtureTakeover(replay.actorHealth('tabby'), replay.actorHealth('hound'), this.replayControlledActor === 'hound');
+    if (takeover === 'takeover-required') this.combatFeedback = 'Archived Tabby is down; press T to continue as archived Hound.';
     if (replay.isGroupCleared()) this.finishHistoricalReplay('success');
     else if (replay.actorHealth('tabby') <= 0 && replay.actorHealth('hound') <= 0) this.finishHistoricalReplay('death');
   }
@@ -475,7 +485,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.combatFeedback = `${jobId} inspected. Accept it at the offer terminal.`; this.refreshStatus();
   }
   private swapGun(): void {
-    if (this.historicalReplay) { const swapped = this.replayCombat?.swapActiveGun('tabby'); this.combatFeedback = swapped ? 'Historical replay: Tabby switched archived weapon.' : 'Historical replay weapon swap unavailable.'; this.refreshStatus(); return; }
+    if (this.historicalReplay) { const swapped = this.replayCombat?.swapActiveGun(this.replayControlledActor); this.combatFeedback = swapped ? 'Historical replay switched archived weapon.' : 'Historical replay weapon swap unavailable.'; this.refreshStatus(); return; }
     if (this.ownershipLost || this.recoveryMode !== 'none' || this.settlementPending) return;
     const swapped = this.combat.swapActiveGun(this.controlledActor);
     this.combatFeedback = swapped ? `${this.actorName()} switched to ${this.combat.activeGun(this.controlledActor).instanceId}; 0.30s swap preparation.` : 'Gun swap unavailable.';
@@ -483,7 +493,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.refreshStatus();
   }
   private confirmTakeover(): void {
-    if (this.historicalReplay) { this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
+    if (this.historicalReplay) { const replay = this.replayCombat; if (replay && resolveFixtureTakeover(replay.actorHealth('tabby'), replay.actorHealth('hound'), this.replayControlledActor === 'hound') === 'takeover-required') { this.replayControlledActor = 'hound'; this.cameras.main.startFollow(this.replayHound!, true, .15, .15); this.combatFeedback = 'Archived Hound has taken control.'; this.refreshStatus(); } return; }
     if (this.ownershipLost || !this.lead || !this.hound || this.recoveryMode !== 'none' || resolveFixtureTakeover(this.combat.actorHealth('tabby'), this.combat.actorHealth('hound'), false) !== 'takeover-required') return;
     this.controlledActor = 'hound'; this.cameras.main.startFollow(this.hound, true, .15, .15); this.takeoverPrompt?.setVisible(false);
     this.combatFeedback = 'Hound has taken control. Hound now drives movement, interaction, service access, and gun swaps.'; this.persistCombatCheckpoint(); this.refreshStatus();
@@ -743,11 +753,12 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     // restored from the recorded start snapshot, while live state stays put.
     const actors = new Map(record.startSnapshot.actors.map(actor => [actor.id, actor]));
     const tabby = actors.get('tabby')!; const hound = actors.get('hound')!;
+    this.replayControlledActor = record.startSnapshot.controlledActor; this.replayLayers = { tabby: tabby.position.layer ?? 'ground', hound: hound.position.layer ?? 'ground' };
     this.lead?.setVisible(false); this.hound?.setVisible(false); this.enemies.forEach(enemy => enemy.setVisible(false));
     this.replayLead = this.add.circle(tabby.position.x * SCALE, tabby.position.z * SCALE, 7, 0x71d8ff).setStrokeStyle(2, 0x24cec7).setDepth(16);
     this.replayHound = this.add.circle(hound.position.x * SCALE, hound.position.z * SCALE, 6, 0x84e6a0).setStrokeStyle(2, 0x24cec7).setDepth(16);
     this.replayEnemies = replayCombat.hostileStates().map(hostile => this.add.circle(hostile.position.x * SCALE, hostile.position.z * SCALE, 7, 0xef6b73).setStrokeStyle(2, 0xffd166).setDepth(16));
-    this.cameras.main.startFollow(this.replayLead, true, .15, .15);
+    this.cameras.main.startFollow(this.replayControlledActor === 'tabby' ? this.replayLead : this.replayHound, true, .15, .15);
     const panel = this.add.container(this.scale.width / 2, 62).setScrollFactor(0).setDepth(35);
     const width = Math.min(480, this.scale.width - 24);
     const background = this.add.rectangle(0, 0, width, 88, 0x101820, .98).setStrokeStyle(2, 0x24cec7);

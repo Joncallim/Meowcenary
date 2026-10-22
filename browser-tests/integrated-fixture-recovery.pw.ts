@@ -8,7 +8,7 @@ type Diagnostics = {
   workshopMaterials: { metal: number; circuits: number; cloth: number }; standing: { rcc: number; fre: number }; houDossier: number; fluxQualificationRemainder: number; historicalReplayActive: boolean; historicalReplayOutcome?: 'success' | 'death' | 'exit'; worldEventId?: string; activeAttemptId?: string; attemptTerminal?: string;
   workshopOpen: boolean; workshopPreview?: string; settlementPending: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; loadBlocked: boolean; recoveryMessage: string; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
 };
-type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; forceReplayTerminal(outcome: 'success' | 'death'): boolean; replayActiveGun(): { instanceId: string; supply: number } | undefined; setHistoricalReplayContentAvailable(available: boolean): void; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void };
+type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; forceReplayTerminal(outcome: 'success' | 'death'): boolean; replayActiveGun(): { instanceId: string; supply: number } | undefined; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void };
 type Globals = { __MEOWCENARY_INT_FB__?: FixtureSeam };
 type LateSeam = { diagnostics(): { scene: string; revision: number; parts: number; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly { commandId: string }[]; discoveries: readonly string[]; declaration: string }; commit(command: { commandId: string; expectedRevision: number; action: 'merge' | 'build'; inputIds?: readonly string[] }): boolean };
 
@@ -201,7 +201,6 @@ test('queued workshop confirmation aborts when replay opens before writer acquis
   await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); const replayRecord = raw.liveMission?.replayRecord; if (!replayRecord) throw new Error('activation did not retain replay record'); raw.mission.receipts.push({ id: 'int-fb:test:settlement', jobId: 'MC-OPT-F01-01', worldEventId: 'test-event', attemptId: 'test-attempt', recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6, replayRecord }); delete raw.liveMission; localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw)); });
   await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
   expect(await state(page)).toMatchObject({ loadBlocked: false, historicalReplayActive: false, activeAttemptId: undefined });
-  await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.setHistoricalReplayContentAvailable(true));
   await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.pauseSimulation());
   expect(await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); const receipt = raw.mission.receipts.at(-1); return { hasRecord: Boolean(receipt?.replayRecord), hasLoadout: Boolean(receipt?.replayRecord?.loadout), contentId: receipt?.replayRecord?.contentId, storyBranch: receipt?.replayRecord?.storyBranch, jobId: receipt?.jobId }; })).toEqual({ hasRecord: true, hasLoadout: true, contentId: 'fixture:MC-OPT-F01-01:v1', storyBranch: 'MC-OPT-F01-01', jobId: 'MC-OPT-F01-01' });
   const before = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
@@ -229,7 +228,6 @@ test('recordless historical receipt refuses replay without changing the decoded 
     localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw));
   });
   await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
-  await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.setHistoricalReplayContentAvailable(true));
   const before = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
   const sessionBefore = await state(page);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(false);
@@ -419,7 +417,6 @@ test('F01 recovery/retry/extraction is persisted by the live Phaser scene', asyn
   // observe a pinned receipt. Every terminal route leaves the complete live
   // envelope byte-identical; unavailable pinned content refuses entry.
   const durableBeforeReplay = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'));
-  await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.setHistoricalReplayContentAvailable(true));
   await page.keyboard.press('h');
   await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(true);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.replayActiveGun())).toMatchObject({ supply: 12 });
@@ -437,9 +434,12 @@ test('F01 recovery/retry/extraction is persisted by the live Phaser scene', asyn
   await page.keyboard.press('Escape');
   expect(await state(page)).toMatchObject({ historicalReplayActive: false, historicalReplayOutcome: 'exit' });
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
-  expect(await page.evaluate(() => { const seam = (globalThis as Globals).__MEOWCENARY_INT_FB__!; seam.setHistoricalReplayContentAvailable(false); return seam.openHistoricalReplay(); })).toBe(false);
+  await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); raw.mission.receipts.at(-1).replayRecord.contentId = 'fixture:MC-OPT-F01-01:v9'; localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw)); });
+  const unsupportedRecord = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+  await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__)), { timeout: 15_000 }).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(false);
   expect(await state(page)).toMatchObject({ historicalReplayActive: false });
-  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(unsupportedRecord);
   await capture(page, info, 'f01-event-delivered');
   await page.keyboard.press('e');
   expect(await state(page)).toMatchObject({ workshopCredits: postWorkshop.workshopCredits, receiptIds: postWorkshop.receiptIds, paidEventIds: postWorkshop.paidEventIds });

@@ -62,6 +62,8 @@ describe('INT-FB integrated browser-slice fixture', () => {
       (value: any) => { value.mission.receipts[0].replayRecord.loadout.parts[0].kind = 'BAD'; },
       (value: any) => { value.mission.receipts[0].replayRecord.loadout.wallet.credits = -1; },
       (value: any) => { value.mission.receipts[0].replayRecord.loadout.wallet.metal = Infinity; },
+      (value: any) => { delete value.mission.receipts[0].replayRecord.loadout.definitionVersion; },
+      (value: any) => { value.mission.receipts[0].replayRecord.loadout.rulesVersion = 'int-fb-rules-v9'; },
       (value: any) => { value.mission.receipts[0].replayRecord.loadout.parts[1].instanceId = value.mission.receipts[0].replayRecord.loadout.parts[0].instanceId; },
       (value: any) => { value.mission.receipts[0].replayRecord.loadout.gunSlots['TAB-B'].R = value.mission.receipts[0].replayRecord.loadout.gunSlots['TAB-A'].R; },
     ]) { const invalid = structuredClone(envelope); mutate(invalid); expect(decodeIntegratedFixtureEnvelope(JSON.stringify(invalid))).toEqual({ state: 'invalid' }); }

@@ -383,7 +383,7 @@ function validArchivedReplayLoadout(value: unknown): value is FixtureWorkshopPro
   const kinds = new Set(['R1', 'B1', 'B2', 'B3', 'F1', 'F2', 'P1', 'H1', 'C1', 'H2']);
   const slots = new Set(['R', 'B', 'F', 'P', 'H', 'C']);
   const guns = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'] as const;
-  if (loadout.version !== 'int-fb-profile-v2' || loadout.profileId !== 'INT-B1-PROFILE-01' || !Number.isSafeInteger(loadout.revision) || loadout.revision! < 0 || !loadout.wallet || !['credits', 'metal', 'circuits', 'cloth', 'flux'].every(key => Number.isFinite(loadout.wallet![key as keyof FixtureWallet]) && loadout.wallet![key as keyof FixtureWallet]! >= 0) || !Array.isArray(loadout.parts) || !loadout.gunSlots) return false;
+  if (loadout.version !== 'int-fb-profile-v2' || loadout.profileId !== 'INT-B1-PROFILE-01' || loadout.definitionVersion !== 'int-fb-definitions-v1' || loadout.rulesVersion !== 'int-fb-rules-v1' || !Number.isSafeInteger(loadout.revision) || loadout.revision! < 0 || !loadout.wallet || !['credits', 'metal', 'circuits', 'cloth', 'flux'].every(key => Number.isFinite(loadout.wallet![key as keyof FixtureWallet]) && loadout.wallet![key as keyof FixtureWallet]! >= 0) || !Array.isArray(loadout.parts) || !loadout.gunSlots) return false;
   if (!loadout.parts.every(part => !!part && typeof part.instanceId === 'string' && part.instanceId.length > 0 && kinds.has(part.kind) && slots.has(part.slot) && (part.family === 'TAB' || part.family === 'HOU') && (part.tier === null || part.tier === 1 || part.tier === 2 || part.tier === 3) && Number.isSafeInteger(part.version) && part.version > 0)) return false;
   if (new Set(loadout.parts.map(part => part.instanceId)).size !== loadout.parts.length) return false;
   const assigned: string[] = [];
