@@ -281,7 +281,7 @@ it('round-trips the one live envelope without granting a historical receipt a mu
   const event = nextFixtureWorldEventId(envelope.workshop, 'MC-OPT-R01-01');
   const attempt = nextFixtureAttemptId(envelope.workshop, event);
   const begun = beginFixtureProfileAttempt(envelope.workshop, event, attempt).profile;
-  const stored = { ...envelope, workshop: begun, liveMission: { jobId: 'MC-OPT-R01-01' as const, worldEventId: event, attemptId: attempt, completedInteractionIds: ['INT-FB-R01-MARKER-A'], finiteEnemyGroupCleared: false, recoveryRequired: false, checkpointRevision: 0 } };
+  const stored = { ...envelope, workshop: begun, liveMission: { jobId: 'MC-OPT-R01-01' as const, worldEventId: event, attemptId: attempt, completedInteractionIds: ['INT-FB-R01-MARKER-A'], finiteEnemyGroupCleared: false, recoveryRequired: false, checkpointRevision: 0, ownerEpoch: 0 } };
   const restored = deserializeIntegratedFixtureEnvelope(JSON.stringify(stored));
   expect(restored.liveMission).toEqual(stored.liveMission);
   expect(restored.workshop.attempts).toEqual(begun.attempts);
@@ -314,6 +314,7 @@ it('round-trips the exact active combat survivors instead of rebuilding a fresh 
       finiteEnemyGroupCleared: false,
       recoveryRequired: false,
       checkpointRevision: 0,
+      ownerEpoch: 0,
       combatSnapshot: snapshot,
     },
   };
@@ -325,7 +326,7 @@ it('round-trips the exact active combat survivors instead of rebuilding a fresh 
   expect(resumed.snapshot('hound')).toEqual(snapshot);
 });
 
-it('migrates an active pre-revision envelope to checkpoint revision zero', () => {
+it('migrates an active pre-fence envelope to zero checkpoint revision and owner epoch', () => {
   const envelope = createIntegratedFixtureEnvelope();
   const event = nextFixtureWorldEventId(envelope.workshop, 'MC-OPT-F01-01');
   const attempt = nextFixtureAttemptId(envelope.workshop, event);
@@ -334,6 +335,7 @@ it('migrates an active pre-revision envelope to checkpoint revision zero', () =>
     ...envelope, workshop, liveMission: { jobId: 'MC-OPT-F01-01', worldEventId: event, attemptId: attempt, completedInteractionIds: [], finiteEnemyGroupCleared: false, recoveryRequired: false },
   }));
   expect(restored.liveMission?.checkpointRevision).toBe(0);
+  expect(restored.liveMission?.ownerEpoch).toBe(0);
 });
 
 it('assigns the z16 ramp boundary to elevated traffic in both directions', () => {

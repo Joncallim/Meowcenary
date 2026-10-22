@@ -6,7 +6,7 @@ type Diagnostics = {
   combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostiles: number;
   checkpoint?: { revision: number; controlledActor: 'tabby' | 'hound'; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostileHealths: number[] }; workshopCredits: number; workshopParts: number;
   workshopMaterials: { metal: number; circuits: number; cloth: number }; worldEventId?: string; activeAttemptId?: string; attemptTerminal?: string;
-  workshopOpen: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
+  workshopOpen: boolean; settlementPending: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
 };
 type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void };
 type Globals = { __MEOWCENARY_INT_FB__?: FixtureSeam };
@@ -222,6 +222,9 @@ test('F01 recovery/retry/extraction is persisted by the live Phaser scene', asyn
   }, { timeout: 15_000 }).toBe(true);
   expect((await state(page)).workshopCredits).toBe(recovered.workshopCredits);
   await page.keyboard.press('e');
+  // Establish that the actual extraction transaction is queued before
+  // injecting the KO; key dispatch alone is not a transaction boundary.
+  await expect.poll(async () => (await state(page)).settlementPending).toBe(true);
   // A KO arriving after a valid extraction request cannot replace committed victory.
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceSquadDefeat())).toBe(true);
   await expect.poll(async () => (await state(page)).extracted, { timeout: 15_000 }).toBe(true);
@@ -305,27 +308,45 @@ test('active reload retains partial combat and a Hound takeover without reviving
   expect(resumedTakeover.checkpoint?.controlledActor).toBe('hound');
   // A stale second tab may read the active attempt, but its old checkpoint
   // revision must not overwrite the fresh owner snapshot.
+  // Take the baseline only after the test lock is acquired: an ordinary
+  // periodic checkpoint may already have been queued by the last reload.
+  // Queue the current owner's checkpoint before the second tab can request
+  // one. The held writer makes the durable winner/order explicit.
+  await holdFixtureWriter(page);
+  const staleRevision = (await state(page)).checkpoint!.revision;
+  await page.keyboard.press('q');
   const staleTab = await page.context().newPage();
   await ready(staleTab);
-  const staleRevision = (await state(staleTab)).checkpoint!.revision;
-  await page.keyboard.press('q');
+  expect((await state(staleTab)).checkpoint!.revision).toBe(staleRevision);
+  expect(await staleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prolongCombat())).toBe(true);
+  await releaseFixtureWriter(page);
   await expect.poll(async () => (await state(page)).checkpoint?.revision).toBeGreaterThan(staleRevision);
   const ownerRevision = (await state(page)).checkpoint!.revision;
-  expect(await staleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prolongCombat())).toBe(true);
-  await staleTab.waitForTimeout(100);
+  await expect.poll(async () => !(await state(staleTab)).combatActive).toBe(true);
   expect(await staleTab.evaluate(() => JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!).liveMission.checkpointRevision)).toBe(ownerRevision);
+  const frozenWallet = (await state(staleTab)).workshopCredits;
+  expect(await staleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceSquadDefeat())).toBe(false);
+  await staleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.surrender());
+  expect(await state(staleTab)).toMatchObject({ workshopCredits: frozenWallet, receiptIds: [] });
   await staleTab.close();
   // Rejected writer acquisition must release the checkpoint flag so the next
   // control mutation can publish normally.
-  const revisionBeforeReject = resumedTakeover.checkpoint!.revision;
+  const revisionBeforeReject = (await state(page)).checkpoint!.revision;
+  const gunBeforeReject = (await state(page)).controlledGun;
+  await holdFixtureWriter(page);
   await page.evaluate(() => {
     const seam = (globalThis as Globals).__MEOWCENARY_INT_FB__!;
     seam.rejectNextWriterLock();
     seam.prolongCombat();
   });
   await page.waitForTimeout(50);
+  expect((await state(page)).checkpoint!.revision).toBe(revisionBeforeReject);
   await page.keyboard.press('q');
-  await expect.poll(async () => (await state(page)).checkpoint?.revision).toBeGreaterThan(revisionBeforeReject);
+  await releaseFixtureWriter(page);
+  await expect.poll(async () => {
+    const value = await state(page);
+    return value.checkpoint!.revision > revisionBeforeReject && value.controlledGun !== gunBeforeReject;
+  }).toBe(true);
   await capture(page, info, 'f01-hound-takeover-reloaded');
 });
 

@@ -301,6 +301,9 @@ export interface FixtureLiveMission {
   /** Monotonic ownership token for combat snapshots. A stale tab may observe
    * an active attempt, but cannot publish over a checkpoint it did not read. */
   readonly checkpointRevision: number;
+  /** Companion mutation counter retained with the revision for persisted
+   * compare-and-swap compatibility; it is not a designated-owner lease. */
+  readonly ownerEpoch: number;
   /** Written in the same envelope transaction as the recovery debit. Older
    * isolated envelopes did not retain this display receipt. */
   readonly recoveryFee?: number;
@@ -324,6 +327,7 @@ function validLiveMission(value: unknown, profile: FixtureWorkshopProfile): valu
     || typeof live.attemptId !== 'string' || !live.attemptId || !Array.isArray(live.completedInteractionIds)
     || !live.completedInteractionIds.every(id => typeof id === 'string') || typeof live.finiteEnemyGroupCleared !== 'boolean' || typeof live.recoveryRequired !== 'boolean'
     || (live.checkpointRevision !== undefined && (!Number.isSafeInteger(live.checkpointRevision) || live.checkpointRevision < 0))
+    || (live.ownerEpoch !== undefined && (!Number.isSafeInteger(live.ownerEpoch) || live.ownerEpoch < 0))
     || (live.recoveryFee !== undefined && (!Number.isInteger(live.recoveryFee) || live.recoveryFee < 0 || live.recoveryFee > 250))
     || (!live.recoveryRequired && live.recoveryFee !== undefined)
     || (live.combatSnapshot !== undefined && !validFixtureCombatSnapshot(live.combatSnapshot, live.jobId, live.finiteEnemyGroupCleared))) return false;
@@ -344,7 +348,7 @@ export function deserializeIntegratedFixtureEnvelope(value: string | null): Fixt
     if (raw.version !== INTEGRATED_FIXTURE_ENVELOPE_VERSION && raw.version !== 'int-fb-envelope-v2') return createIntegratedFixtureEnvelope();
     const mission = deserializeIntegratedFixtureSave(JSON.stringify(raw.mission));
     const workshop = deserializeIntegratedFixtureWorkshopProfile(raw.workshop);
-    const liveMission = validLiveMission(raw.liveMission, workshop) ? Object.freeze({ ...raw.liveMission, checkpointRevision: raw.liveMission.checkpointRevision ?? 0, completedInteractionIds: Object.freeze([...raw.liveMission.completedInteractionIds]), ...(raw.liveMission.combatSnapshot ? { combatSnapshot: freezeFixtureCombatSnapshot(raw.liveMission.combatSnapshot) } : {}) }) : undefined;
+    const liveMission = validLiveMission(raw.liveMission, workshop) ? Object.freeze({ ...raw.liveMission, checkpointRevision: raw.liveMission.checkpointRevision ?? 0, ownerEpoch: raw.liveMission.ownerEpoch ?? 0, completedInteractionIds: Object.freeze([...raw.liveMission.completedInteractionIds]), ...(raw.liveMission.combatSnapshot ? { combatSnapshot: freezeFixtureCombatSnapshot(raw.liveMission.combatSnapshot) } : {}) }) : undefined;
     return Object.freeze({ version: INTEGRATED_FIXTURE_ENVELOPE_VERSION, mission, workshop, ...(liveMission ? { liveMission } : {}) });
   } catch { return createIntegratedFixtureEnvelope(); }
 }
