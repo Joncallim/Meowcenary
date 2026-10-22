@@ -5,6 +5,7 @@ import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import { IntegratedFixtureScene } from './scenes/IntegratedFixtureScene';
 import { LateFixtureScene } from './scenes/LateFixtureScene';
+import { LateRangeScene } from './scenes/LateRangeScene';
 import './styles.css';
 import { physicsDebugEnabled } from './systems/debug';
 import { installDiagnostics } from './engine/diagnostics';
@@ -45,7 +46,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: physicsDebugEnabled(globalThis.location?.search ?? '', RuntimeConfig.isDev),
     },
   },
-  scene: [BootScene, MenuScene, GameScene, IntegratedFixtureScene, LateFixtureScene],
+  scene: [BootScene, MenuScene, GameScene, IntegratedFixtureScene, LateFixtureScene, LateRangeScene],
 };
 
 // Phaser rasterises Text objects into canvas textures when they are created.

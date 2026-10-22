@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { commitLateFixture, createLateFixtureProfile, decodeLateFixtureProfile, lateFullRangeMetres, resolveLateBarrelVector, sampleLateRefinement, type LateFixtureProfile } from '../src/gameplay/lateFixture';
+import { commitLateFixture, createLateFixtureProfile, decodeLateFixtureProfile, lateFullRangeMetres, resolveFittedLateHmRange, resolveLateBarrelVector, sampleLateRefinement, type LateFixtureProfile } from '../src/gameplay/lateFixture';
 
 it('seeds an isolated Chapter-5 sale and keep-loot fixture without touching B1', () => {
   const sale = createLateFixtureProfile();
@@ -26,6 +26,14 @@ it('uses the supplied persisted vectors and one capped additive range lane', () 
   expect(resolveLateBarrelVector('B2', 'LeanA25')).toEqual({ range: 1.2625, setup: 1.25, cone: .65, contactWidthMetres: .0198 });
   expect(lateFullRangeMetres(.975, 2)).toEqual({ full: 12.402, max: 24.804 });
   expect(lateFullRangeMetres(1.25, 2)).toEqual({ full: 15.9, max: 31.8 });
+});
+
+it('resolves late range only from an actually persisted fitted TAB-A HM', () => {
+  const merged = commitLateFixture(createLateFixtureProfile(), { commandId: 'range-merge', expectedRevision: 0, action: 'merge', inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] }, () => .3).profile;
+  const hm = merged.parts.find(part => part.kind === 'B-HM')!;
+  expect(resolveFittedLateHmRange(merged)).toBeUndefined();
+  const fitted = commitLateFixture(merged, { commandId: 'range-fit', expectedRevision: 1, action: 'fit', inputIds: [hm.id], targetGun: 'TAB-A' }).profile;
+  expect(resolveFittedLateHmRange(fitted)).toEqual({ instanceId: hm.id, refinement: 'Balanced50', full: 12.402, max: 24.804 });
 });
 
 describe('late fixture refinement transactions', () => {

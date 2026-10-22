@@ -4,6 +4,7 @@ export const SceneKey = {
   Game: 'GameScene',
   IntegratedFixture: 'IntegratedFixtureScene',
   LateFixture: 'LateFixtureScene',
+  LateRange: 'LateRangeScene',
 } as const;
 
 export type SceneKey = (typeof SceneKey)[keyof typeof SceneKey];

@@ -36,6 +36,13 @@ export function createLateFixtureProfile(history: LateB1History = frozen({ recei
   if (history.h2State === 'kept') parts.push(part('INT-LATE-HOU-H2-LOOT', 'HOU', 'H', 'H2', 1, undefined, false, false, 'Balanced50'));
   return freezeProfile({ version: 'int-late-v1', revision: 0, declaration, wallet: { credits: 3000, metal: 100, circuits: 20, cloth: 12, flux: 3 }, parts, receipts: [], discoveries: history.h2State === 'unavailable' ? [] : ['INT-LOOT-01'], knownSchematics: ['TAB-B2', 'TAB-B3'], capabilities: ['T3', 'CHAPTER-5-MERGE'], pinnedEarlierHistory: history });
 }
+/** Explicit alternate Chapter-5 fixture only. It never changes the canonical
+ * B2+B3 seed or represents a free acquisition in that economy. */
+export function createLateSameBlueprintFixtureProfile(history?: LateB1History): LateFixtureProfile {
+  const base = createLateFixtureProfile(history);
+  const donor = base.parts.find(candidate => candidate.id === 'INT-LATE-DONOR-B2-T2')!;
+  return freezeProfile({ ...base, parts: [...base.parts, frozen({ ...donor, id: 'INT-LATE-DONOR-B2-T2-SECOND' })] });
+}
 function reject(profile: LateFixtureProfile, reason: string) { return frozen({ profile, applied: false as const, reason }); }
 /** Fail-closed persistence boundary. Only a missing late-save key may seed it. */
 export function decodeLateFixtureProfile(raw: string | null): LateFixtureDecode {
@@ -98,3 +105,12 @@ export function commitLateFixture(profile: LateFixtureProfile, command: LateComm
 }
 export function resolveLateBarrelVector(kind: 'B2' | 'B-HM', refinement: LateRefinement): Readonly<{ range: number; setup: number; cone: number; contactWidthMetres: number }> { const vectors = kind === 'B2' ? { LeanA25: [1.2625, 1.25, .65, .0198], Balanced50: [1.25, 1.25, .65, .02], LeanB25: [1.2375, 1.25, .65, .0202] } : { LeanA25: [.98475, 1.125, 1.125, .1287], Balanced50: [.975, 1.125, 1.125, .13], LeanB25: [.9652499999999999, 1.125, 1.125, .1313] }; const [range, setup, cone, contactWidthMetres] = vectors[refinement]; return frozen({ range, setup, cone, contactWidthMetres }); }
 export function lateFullRangeMetres(structuralRange: number, engineeringSteps: number): Readonly<{ full: number; max: number }> { const multiplier = structuralRange * (1 + Math.min(.40, Math.max(0, engineeringSteps) * .03)); const round = (value: number) => Math.round(value * 1e12) / 1e12; return frozen({ full: round(12 * multiplier), max: round(24 * multiplier) }); }
+/** The late range fixture accepts only the actual saved TAB-A B-HM. */
+export function resolveFittedLateHmRange(profile: LateFixtureProfile): Readonly<{ instanceId: string; refinement: LateRefinement; full: number; max: number }> | undefined {
+  const part = profile.parts.find(candidate => candidate.assignedTo === 'TAB-A' && candidate.kind === 'B-HM' && candidate.tier === 3 && candidate.refinement !== undefined);
+  const tier = part?.tier;
+  if (!part?.refinement || tier !== 3) return undefined;
+  const vector = resolveLateBarrelVector('B-HM', part.refinement);
+  const range = lateFullRangeMetres(vector.range, tier - 1);
+  return frozen({ instanceId: part.id, refinement: part.refinement, ...range });
+}

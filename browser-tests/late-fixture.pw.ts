@@ -4,6 +4,7 @@ type Part = { id: string; kind: string; tier: number | null; refinement?: string
 type Receipt = { commandId: string; action: string; outputIds: readonly string[]; refinement?: string; inputIds?: readonly string[]; inputVersions?: readonly number[] };
 type Diagnostics = { scene: string; revision: number; parts: number; partRecords: readonly Part[]; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly Receipt[]; discoveries: readonly string[]; pinnedEarlierHistory: { receiptIds: readonly string[]; paidEventIds: readonly string[]; h2State: string }; currentH2State: string; declaration: string; message: string };
 type LateSeam = { diagnostics(): Diagnostics; commit(command: { commandId: string; expectedRevision: number; action: 'develop' | 'merge' | 'build' | 'fit'; inputIds?: readonly string[]; targetGun?: 'TAB-A' }): Promise<boolean>; failNextStorageWrite(): void; failNextStorageRead(): void; rejectNextWriterLock(): void };
+type LateRangeSeam = { diagnostics(): { range?: { full: number; max: number }; resolved: number[]; unresolved: number[] } };
 type B1Seam = { prepareF01(): boolean };
 
 const b1Key = 'meowcenary:int-fb:v1:profile';
@@ -118,6 +119,34 @@ test('late Merge Select visibly reaches an eligible same-blueprint donor pair', 
   expect((await diagnostics(page)).partRecords.find(part => part.id === 'INT-LATE-TAB-B2-late:merge:1')).toMatchObject({ kind: 'B2', tier: 3 });
 });
 
+test('explicit same-blueprint fixture offers its spare B2 donor without changing the canonical late save', async ({ page }, info) => {
+  const b1 = await page.goto('/?fixture=int-late');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
+  const b1Raw = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'));
+  await page.goto('/?fixture=int-late-same-b2'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
+  await page.keyboard.press('m'); await page.keyboard.press('Escape'); await page.keyboard.press('m');
+  expect(await diagnostics(page)).toMatchObject({ message: expect.stringContaining('INT-LATE-DONOR-B2-T2@v1, INT-LATE-DONOR-B2-T2-SECOND@v1') });
+  await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  expect((await diagnostics(page)).partRecords.some(part => part.kind === 'B2' && part.tier === 3)).toBe(true);
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-late:v1:profile'))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(b1Raw);
+  void b1;
+});
+
+test('visible range route uses the persisted fitted HM range and returns without writes', async ({ page }, info) => {
+  const b1 = await openLate(page, info);
+  await page.keyboard.press('m'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await page.keyboard.press('f'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
+  const lateBefore = await page.evaluate(key => localStorage.getItem(key), lateKey);
+  await page.keyboard.press('r');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics())).toMatchObject({ range: { full: 12.402, max: 24.804 }, unresolved: [12.402, 24.804, 26.804] });
+  await page.keyboard.press('Space'); await page.keyboard.press('Space');
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics())).toEqual({ range: expect.anything(), resolved: [12.402, 24.804], unresolved: [26.804] });
+  expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(lateBefore); await expectB1Unchanged(page, b1);
+  await page.keyboard.press('Escape'); await waitLateReload(page); expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(lateBefore);
+});
+
 test('phone late preview uses visible Cancel and Confirm controls without overflow', async ({ page }, info) => {
   test.skip(!['phone-390x844', 'phone-360x640', 'phone-landscape-640x390'].includes(info.project.name), 'Dedicated phone workshop preview evidence.');
   await page.goto('/?fixture=int-late'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
@@ -133,6 +162,19 @@ test('phone late preview uses visible Cancel and Confirm controls without overfl
   expect(await diagnostics(page)).toMatchObject({ revision: 0, receipts: [], message: expect.stringContaining('Preview cancelled') }); expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(before);
   await page.touchscreen.tap(mergeX, mergeY); await page.touchscreen.tap(viewport.width * .32, confirmY); // MERGE then CONFIRM
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(1); expect((await diagnostics(page)).receipts).toHaveLength(1);
+});
+
+test('intermediate tablet widths keep adjacent late action cards independently reachable', async ({ page }, info) => {
+  test.skip(!['tablet-768x1024', 'tablet-landscape-1024x768'].includes(info.project.name), 'Dedicated intermediate-width layout evidence.');
+  await page.goto('/?fixture=int-late'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
+  const viewport = page.viewportSize()!;
+  // Desktop-style columns are 1/12, 3/12, 5/12, 7/12, 9/12, 11/12.
+  await page.touchscreen.tap(viewport.width * .25, 300);
+  expect(await diagnostics(page)).toMatchObject({ message: expect.stringContaining('Preview merge') });
+  await page.screenshot({ path: info.outputPath('late-tablet-layout.png') });
+  await page.touchscreen.tap(viewport.width * .68, 370);
+  await page.touchscreen.tap(viewport.width * .75, 300);
+  expect(await diagnostics(page)).toMatchObject({ message: expect.stringContaining('Preview retain-donors') });
 });
 
 test('late UI rejects duplicate delivery, stale revision, and fitted donor merge without mutation', async ({ page }, info) => {

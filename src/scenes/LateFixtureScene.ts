@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { SceneKey } from '../engine/sceneKeys';
-import { commitLateFixture, createLateFixtureProfile, decodeLateFixtureProfile, deriveLateB1History, type LateCommand, type LateFixtureProfile } from '../gameplay/lateFixture';
+import { commitLateFixture, createLateFixtureProfile, createLateSameBlueprintFixtureProfile, decodeLateFixtureProfile, deriveLateB1History, resolveFittedLateHmRange, type LateCommand, type LateFixtureProfile } from '../gameplay/lateFixture';
 import { decodeIntegratedFixtureEnvelope } from '../gameplay/integratedFixture';
 import { createUiText } from '../ui/text';
 
 const KEY = 'meowcenary:int-late:v1:profile';
+const SAME_BLUEPRINT_KEY = 'meowcenary:int-late:same-b2:v1:profile';
 /** Separate later-save surface; it never reads or writes INT-FB B1 storage. */
 export class LateFixtureScene extends Phaser.Scene {
   private profile: LateFixtureProfile = createLateFixtureProfile();
@@ -18,9 +19,13 @@ export class LateFixtureScene extends Phaser.Scene {
   /** Invalidates a queued confirmation as well as the visible preview. */
   private previewGeneration = 0;
   private mergeSelection = 0;
+  private profileKey = KEY;
+  private sameBlueprintFixture = false;
   private compactLayout = false;
   constructor() { super(SceneKey.LateFixture); }
   create(): void {
+    this.sameBlueprintFixture = new URLSearchParams(globalThis.location.search).get('fixture') === 'int-late-same-b2';
+    this.profileKey = this.sameBlueprintFixture ? SAME_BLUEPRINT_KEY : KEY;
     this.profile = this.read();
     this.compactLayout = (this.scale.width < 600 || this.scale.height < 500) && this.scale.height < 650;
     this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x101820);
@@ -32,8 +37,12 @@ export class LateFixtureScene extends Phaser.Scene {
       this.preview({ commandId: `late:${commandAlias}:${this.profile.revision}`, expectedRevision: this.profile.revision, action, ...(inputIds ? { inputIds } : {}), ...(targetGun ? { targetGun } : {}) });
     };
     const narrow = this.scale.width < 600 || this.scale.height < 500; const ultraCompact = narrow && this.scale.height < 500;
-    const buttonWidth = ultraCompact ? Math.min(108, this.scale.width / 3 - 12) : Math.min(172, this.scale.width / 2 - 18);
+    // Six desktop cards use a real column gutter at every intermediate width;
+    // fixed 172px cards overlapped around 768px despite fitting at 1280px.
+    const buttonWidth = ultraCompact ? Math.min(108, this.scale.width / 3 - 12) : narrow ? Math.min(172, this.scale.width / 2 - 18) : Math.min(172, this.scale.width / 6 - 12);
     const button = (x: number, y: number, label: string, run: () => void, color = 0x3ee8a9) => { this.add.rectangle(x, y, buttonWidth, 46, color).setInteractive().on('pointerup', run); createUiText(this, x, y, label, { fontSize: ultraCompact ? '10px' : '12px', color: '#071018', align: 'center' }).setOrigin(.5); };
+    const enterRange = () => { if (!resolveFittedLateHmRange(this.profile)) { this.message = 'Fit a persisted TAB-A B-HM T3 before entering the read-only range fixture.'; this.render(); return; } this.scene.start(SceneKey.LateRange); };
+    button(this.scale.width * .5, ultraCompact ? 220 : narrow ? 275 : 225, 'RANGE RUN\nFITTED HM', enterRange, 0x24cec7);
     const columns = ultraCompact ? [this.scale.width * .17, this.scale.width * .50, this.scale.width * .83] : narrow ? [this.scale.width * .27, this.scale.width * .73] : [this.scale.width / 12, this.scale.width * .25, this.scale.width * 5 / 12, this.scale.width * 7 / 12, this.scale.width * .75, this.scale.width * 11 / 12];
     const rows = ultraCompact ? [270, 325] : narrow ? this.compactLayout ? [315, 370, 425] : [350, 410, 470] : [300, 300, 300, 300, 300, 300];
     const stageFit = () => { const output = this.profile.parts.find(part => part.kind === 'B-HM' && !part.assignedTo)?.id; if (output) stage('fit', [output], 'TAB-A'); else { this.message = 'No unassigned B-HM is available to fit.'; this.render(); } };
@@ -45,7 +54,7 @@ export class LateFixtureScene extends Phaser.Scene {
     };
     [['DEVELOP\nD', () => stage('develop', ['INT-LATE-DONOR-B2-T2'])], ['MERGE SELECT\n25/50/25 · M', stageMerge], ['BUILD\nBALANCED · U', () => stage('build')], ['FIT HM A\nF', stageFit], ['RETAIN\nN', () => stage('retain-donors')], ['SELL H2\nS', () => stage('sell-h2')]].forEach(([label, run], index) => button(columns[ultraCompact ? index % 3 : narrow ? index % 2 : index]!, rows[ultraCompact ? Math.floor(index / 3) : narrow ? Math.floor(index / 2) : index]!, label as string, run as () => void));
     const confirmY = ultraCompact ? 360 : narrow ? this.compactLayout ? 495 : 550 : 370; button(this.scale.width * .32, confirmY, 'CONFIRM\nENTER', () => this.confirmPreview(), 0xf6c85f); button(this.scale.width * .68, confirmY, 'CANCEL\nESC', () => this.cancelPreview(), 0x7393d8);
-    this.input.keyboard?.on('keydown-D', () => stage('develop', ['INT-LATE-DONOR-B2-T2'])); this.input.keyboard?.on('keydown-M', stageMerge); this.input.keyboard?.on('keydown-U', () => stage('build')); this.input.keyboard?.on('keydown-F', stageFit); this.input.keyboard?.on('keydown-N', () => stage('retain-donors')); this.input.keyboard?.on('keydown-S', () => stage('sell-h2'));
+    this.input.keyboard?.on('keydown-D', () => stage('develop', ['INT-LATE-DONOR-B2-T2'])); this.input.keyboard?.on('keydown-M', stageMerge); this.input.keyboard?.on('keydown-U', () => stage('build')); this.input.keyboard?.on('keydown-F', stageFit); this.input.keyboard?.on('keydown-N', () => stage('retain-donors')); this.input.keyboard?.on('keydown-S', () => stage('sell-h2')); this.input.keyboard?.on('keydown-R', enterRange);
     Object.defineProperty(globalThis, '__MEOWCENARY_LATE_FIXTURE__', { configurable: true, value: { diagnostics: () => this.diagnostics(), commit: (command: Parameters<typeof commitLateFixture>[1]) => this.commit(command), failNextStorageWrite: () => { this.failNextStorageWrite = true; }, failNextStorageRead: () => { this.failNextStorageRead = true; }, rejectNextWriterLock: () => { this.rejectNextWriterLock = true; } } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_LATE_FIXTURE__; });
     this.input.keyboard?.on('keydown-ENTER', () => this.confirmPreview()); this.input.keyboard?.on('keydown-ESC', () => this.cancelPreview()); this.render();
@@ -62,9 +71,9 @@ export class LateFixtureScene extends Phaser.Scene {
   }
   private read(): LateFixtureProfile {
     let raw: string | null;
-    try { raw = localStorage.getItem(KEY); } catch { this.blocked = true; this.message = 'Late save storage could not be read; no change was made. Restore access and reload.'; return createLateFixtureProfile(); }
+    try { raw = localStorage.getItem(this.profileKey); } catch { this.blocked = true; this.message = 'Late save storage could not be read; no change was made. Restore access and reload.'; return createLateFixtureProfile(); }
     const decoded = decodeLateFixtureProfile(raw);
-    if (decoded.state === 'absent') { const history = this.b1History(); return history ? createLateFixtureProfile(history) : createLateFixtureProfile(); }
+    if (decoded.state === 'absent') { const history = this.b1History(); return this.sameBlueprintFixture ? createLateSameBlueprintFixtureProfile(history) : history ? createLateFixtureProfile(history) : createLateFixtureProfile(); }
     if (decoded.state === 'valid') return decoded.profile;
     this.blocked = true;
     this.message = 'Stored late save is invalid or unsupported. It was preserved unchanged; restore it from a trusted backup before continuing.';
@@ -88,11 +97,11 @@ export class LateFixtureScene extends Phaser.Scene {
     if (!locks) { this.message = 'Late save writer is unavailable; no change was made.'; this.render(); return false; }
     let applied = false;
     if (this.rejectNextWriterLock) { this.rejectNextWriterLock = false; this.message = 'Late save writer failed before publishing a change.'; this.render(); return false; }
-    try { await locks.request(`${KEY}:writer`, { mode: 'exclusive' }, async () => {
+    try { await locks.request(`${this.profileKey}:writer`, { mode: 'exclusive' }, async () => {
       if (previewGeneration !== undefined && previewGeneration !== this.previewGeneration) { this.message = 'Preview cancelled; queued confirmation was discarded without a change.'; this.render(); return; }
       if (this.blocked) return;
       let raw: string | null;
-      try { if (this.failNextStorageRead) { this.failNextStorageRead = false; throw new Error('forced late read failure'); } raw = localStorage.getItem(KEY); } catch { this.message = 'Late save storage could not be read; no change was made. Retry safely.'; this.render(); return; }
+      try { if (this.failNextStorageRead) { this.failNextStorageRead = false; throw new Error('forced late read failure'); } raw = localStorage.getItem(this.profileKey); } catch { this.message = 'Late save storage could not be read; no change was made. Retry safely.'; this.render(); return; }
       let durable = this.profile;
       if (raw !== null) {
         const decoded = decodeLateFixtureProfile(raw);
@@ -101,7 +110,7 @@ export class LateFixtureScene extends Phaser.Scene {
       }
       const result = commitLateFixture(durable, command);
       if (!result.applied) { this.profile = durable; this.message = result.reason === 'duplicate-command' ? 'Confirmation already persisted; durable receipt reconciled.' : result.reason === 'stale-revision' ? 'Confirmation was stale; validated durable state refreshed. Retry deliberately.' : `Confirmation rejected: ${result.reason}.`; this.render(); return; }
-      try { if (this.failNextStorageWrite) { this.failNextStorageWrite = false; throw new Error('forced late storage failure'); } localStorage.setItem(KEY, JSON.stringify(result.profile)); }
+      try { if (this.failNextStorageWrite) { this.failNextStorageWrite = false; throw new Error('forced late storage failure'); } localStorage.setItem(this.profileKey, JSON.stringify(result.profile)); }
       catch { this.message = 'Late save storage failed; no change was made. Retry safely.'; this.render(); return; }
       this.profile = result.profile; if (previewGeneration === undefined || previewGeneration === this.previewGeneration) this.pending = undefined;
       const receipt = result.profile.receipts.at(-1);
@@ -110,7 +119,7 @@ export class LateFixtureScene extends Phaser.Scene {
     }); } catch { this.message = 'Late save writer failed before publishing a change.'; this.render(); return false; }
     return applied;
   }
-  private render(): void { this.status?.setText(`${this.profile.declaration}\n\nLATE WORKSHOP · revision ${this.profile.revision} · ${this.profile.parts.length} parts\nCredits ${this.profile.wallet.credits} · Metal ${this.profile.wallet.metal} · Circuits ${this.profile.wallet.circuits}\nDiscoveries: ${this.profile.discoveries.join(', ') || 'none'}\n${this.message}${this.compactLayout ? '' : `\n\nThis surface uses ${KEY} only. Earlier B1 history is read only; B1 is never modified.`}`); }
+  private render(): void { this.status?.setText(`${this.profile.declaration}\n${this.sameBlueprintFixture ? 'Explicit same-blueprint donor selection fixture; canonical B2+B3 seed is unchanged.' : ''}\nLATE WORKSHOP · revision ${this.profile.revision} · ${this.profile.parts.length} parts\nCredits ${this.profile.wallet.credits} · Metal ${this.profile.wallet.metal} · Circuits ${this.profile.wallet.circuits}\nDiscoveries: ${this.profile.discoveries.join(', ') || 'none'}\n${this.message}${this.compactLayout ? '' : `\n\nThis surface uses ${this.profileKey} only. Earlier B1 history is read only; B1 is never modified.`}`); }
   private currentH2State() { return this.profile.parts.some(part => part.id === 'INT-LATE-HOU-H2-LOOT') ? 'kept' : this.profile.pinnedEarlierHistory.h2State === 'kept' ? 'sold' : this.profile.pinnedEarlierHistory.h2State; }
   private diagnostics() { return Object.freeze({ scene: this.scene.key, blocked: this.blocked, revision: this.profile.revision, parts: this.profile.parts.length, partRecords: this.profile.parts, wallet: this.profile.wallet, receipts: this.profile.receipts, discoveries: this.profile.discoveries, pinnedEarlierHistory: this.profile.pinnedEarlierHistory, currentH2State: this.currentH2State(), declaration: this.profile.declaration, message: this.message }); }
 }
