@@ -422,7 +422,11 @@ export function decodeIntegratedFixtureEnvelope(value: string | null): FixtureEn
     const envelope = deserializeIntegratedFixtureEnvelope(value);
     // The legacy decoder seeds on bad nested values; reject those by requiring
     // every required persisted branch and live attempt to survive decoding.
-    if (!raw.mission || !raw.workshop || (raw.liveMission !== undefined && !envelope.liveMission)) return Object.freeze({ state: 'invalid' });
+    if (!raw.mission || !raw.workshop || (raw.liveMission !== undefined && !envelope.liveMission)
+      // A successful decode must never be a legacy seed in disguise. The
+      // legacy reader remains for compatibility-only callers, but the durable
+      // browser boundary accepts no silently repaired workshop branch.
+      || JSON.stringify(envelope.workshop) !== JSON.stringify(raw.workshop)) return Object.freeze({ state: 'invalid' });
     return Object.freeze({ state: 'valid', envelope });
   } catch { return Object.freeze({ state: 'invalid' }); }
 }

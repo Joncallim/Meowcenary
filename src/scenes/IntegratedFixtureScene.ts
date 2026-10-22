@@ -283,7 +283,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => { if (this.historicalReplay) this.finishHistoricalReplay('exit'); else this.cancelWorkshop(); });
   }
 
-  private readEnvelope(): FixturePersistentEnvelope | undefined { const decoded = decodeIntegratedFixtureEnvelope(localStorage.getItem(INTEGRATED_FIXTURE_ENVELOPE_KEY)); return decoded.state === 'valid' ? decoded.envelope : undefined; }
+  private readEnvelope(): FixturePersistentEnvelope | undefined { const decoded = decodeIntegratedFixtureEnvelope(localStorage.getItem(INTEGRATED_FIXTURE_ENVELOPE_KEY)); return decoded.state === 'valid' ? decoded.envelope : decoded.state === 'absent' ? createIntegratedFixtureEnvelope() : undefined; }
   private writeEnvelope(envelope: FixturePersistentEnvelope): void {
     if (this.failNextRecoveryWrite && envelope.liveMission?.recoveryRequired) { this.failNextRecoveryWrite = false; throw new Error('forced fixture recovery storage failure'); }
     if (this.failNextStorageWrite) { this.failNextStorageWrite = false; throw new Error('forced fixture storage failure'); }

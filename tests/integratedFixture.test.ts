@@ -46,6 +46,10 @@ describe('INT-FB integrated browser-slice fixture', () => {
     expect(decodeIntegratedFixtureEnvelope(JSON.stringify(badPart))).toEqual({ state: 'invalid' });
     const badReceipt = structuredClone(valid) as any; badReceipt.mission.receipts = [{ id: 'bad', jobId: 'MC-OPT-R01-01', worldEventId: '', attemptId: '', recipientId: 'rcc-dispatch', credits: 1, metal: 20, circuits: 4, cloth: 6 }];
     expect(decodeIntegratedFixtureEnvelope(JSON.stringify(badReceipt))).toEqual({ state: 'invalid' });
+    const badStanding = structuredClone(valid) as any; badStanding.workshop.standing.rcc = -1;
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify(badStanding))).toEqual({ state: 'invalid' });
+    const badAttempt = structuredClone(valid) as any; badAttempt.workshop.attempts = [{ worldEventId: 'event', attemptId: 'attempt', terminal: 'invalid', recoveryClaimed: false }];
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify(badAttempt))).toEqual({ state: 'invalid' });
   });
   it('pins the 80 by 64 metre authored test envelope and validates every reference', () => {
     expect(INTEGRATED_FIXTURE_ENVELOPE).toEqual({ widthMetres: 80, heightMetres: 64 });
