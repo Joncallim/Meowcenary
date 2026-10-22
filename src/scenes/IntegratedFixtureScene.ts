@@ -364,7 +364,9 @@ export class IntegratedFixtureScene extends Phaser.Scene {
         this.workshopPreviewRevision = previewRevision;
       } else this.openWorkshopMenu();
     }
-    this.historicalReplayModal?.setPosition(width / 2, 62);
+    // Reserve the top strip for mission/objective status; replay controls
+    // occupy their own responsive row below it.
+    this.historicalReplayModal?.setPosition(width / 2, 126);
     // Text labels have no controller object; their stable content keeps this
     // compact fixture layout declarative without rebuilding the scene.
     for (const child of this.children.list) {
@@ -1043,7 +1045,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.replayControlledActor === 'tabby' ? this.replayLead : this.replayHound, true, .15, .15);
     this.replayTakeoverPrompt = createUiText(this, this.scale.width / 2, this.scale.height / 2, 'ARCHIVED TABBY DOWN\nTAKE OVER AS HOUND', { fontFamily: 'Nunito, sans-serif', fontSize: '18px', color: '#fff', backgroundColor: '#34151bdd', align: 'center', padding: { x: 12, y: 10 } }).setOrigin(.5).setScrollFactor(0).setDepth(40).setVisible(false).setInteractive().on('pointerup', () => this.confirmTakeover());
     this.registerUi(this.replayTakeoverPrompt);
-    const panel = this.add.container(this.scale.width / 2, 62).setScrollFactor(0).setDepth(35);
+    const panel = this.add.container(this.scale.width / 2, 126).setScrollFactor(0).setDepth(35);
     const width = Math.min(480, this.scale.width - 24);
     const background = this.add.rectangle(0, 0, width, 88, 0x101820, .98).setStrokeStyle(2, 0x24cec7);
     const copy = createUiText(this, -80, 0, `ARCHIVED REPLAY · ${receipt.id}\nPinned ${begun.session.contentId}\nMove / E objectives & extract / Q swaps archived gun`, { align: 'left', fontSize: '12px', color: '#fff', wordWrap: { width: width - 170 } }).setOrigin(.5);

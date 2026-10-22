@@ -42,6 +42,7 @@ describe('INT-FB integrated browser-slice fixture', () => {
     expect(nearestFixturePoint([service, offer], { x: 8, z: 8, layer: 'ground' }, 3.8)?.id).toBe(service.id);
     expect(nearestFixturePoint([service, offer], { x: 10.5, z: 8, layer: 'ground' }, 3.8)?.id).toBe(service.id);
     expect(nearestFixturePoint([service, offer], { x: 13, z: 8, layer: 'elevated' }, 3.8)).toBeUndefined();
+    expect(nearestFixturePoint([service, offer], { x: 16.8, z: 8, layer: 'ground' }, 3.8)).toBeUndefined();
     expect(nearestFixturePoint([service, offer], { x: 16.81, z: 8, layer: 'ground' }, 3.8)).toBeUndefined();
   });
   it('persists a versioned activation replay record while legacy receipts remain recordless', () => {

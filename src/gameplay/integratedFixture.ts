@@ -844,7 +844,7 @@ export function nearestFixturePoint(points: readonly FixturePoint[], position: R
   for (const point of points) {
     if (fixturePointLayer(point) !== position.layer) continue;
     const distance = Math.hypot(point.x - position.x, point.z - position.z);
-    if (distance > radius || distance >= nearestDistance) continue;
+    if (distance >= radius || distance >= nearestDistance) continue;
     nearest = point; nearestDistance = distance;
   }
   return nearest;
