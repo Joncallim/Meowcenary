@@ -366,7 +366,11 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     }
     // Reserve the top strip for mission/objective status; replay controls
     // occupy their own responsive row below it.
-    this.historicalReplayModal?.setPosition(width / 2, 126);
+    if (this.historicalReplayModal) {
+      this.historicalReplayModal.setPosition(width / 2, 126).setScale(1);
+      const bounds = this.historicalReplayModal.getBounds();
+      this.historicalReplayModal.setScale(Math.min(1, (width - 16) / bounds.width));
+    }
     // Text labels have no controller object; their stable content keeps this
     // compact fixture layout declarative without rebuilding the scene.
     for (const child of this.children.list) {
