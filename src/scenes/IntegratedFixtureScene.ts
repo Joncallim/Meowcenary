@@ -96,6 +96,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private historicalReplay?: FixtureHistoricalReplaySession;
   private historicalReplayContentAvailable = false;
   private historicalReplayOutcome?: 'success' | 'death' | 'exit';
+  private replayGeneration = 0;
   private combatFeedback = 'No hostile contact.';
   private combatEventSequence = 0;
   private failNextStorageWrite = false;
@@ -299,8 +300,9 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (this.rejectNextWriterLock) { this.rejectNextWriterLock = false; void Promise.reject(new Error('forced fixture writer-lock rejection')).catch(rejected); return; }
     const locks = (navigator as unknown as { locks?: FixtureLockManager }).locks;
     if (!locks) { onUnavailable?.(); this.combatFeedback = unavailable; this.refreshStatus(); return; }
+    const generation = this.replayGeneration;
     void locks.request(`${INTEGRATED_FIXTURE_SAVE_KEY}:writer`, { mode: 'exclusive' }, async () => {
-      if (this.historicalReplay) { onUnavailable?.(); this.combatFeedback = 'Historical replay is read-only; queued live change was cancelled.'; this.refreshStatus(); return; }
+      if (this.historicalReplay || generation !== this.replayGeneration) { onUnavailable?.(); this.combatFeedback = 'Historical replay is read-only; queued live change was cancelled.'; this.refreshStatus(); return; }
       await callback();
     }).catch(rejected);
   }
@@ -420,6 +422,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.combatFeedback = `${jobId} inspected. Accept it at the offer terminal.`; this.refreshStatus();
   }
   private swapGun(): void {
+    if (this.historicalReplay) { this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
     if (this.ownershipLost || this.recoveryMode !== 'none' || this.settlementPending) return;
     const swapped = this.combat.swapActiveGun(this.controlledActor);
     this.combatFeedback = swapped ? `${this.actorName()} switched to ${this.combat.activeGun(this.controlledActor).instanceId}; 0.30s swap preparation.` : 'Gun swap unavailable.';
@@ -448,6 +451,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private actorName(): string { return this.controlledActor === 'tabby' ? 'Tabby' : 'Hound'; }
 
   private interact(): void {
+    if (this.historicalReplay) { this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
     if (this.ownershipLost || this.recoveryMode !== 'none' || this.activationWriting || this.progressWriting || this.settlementPending) { this.combatFeedback = this.ownershipLost ? 'This tab is stale. Reload before taking over the attempt.' : 'Recovery or settlement is still pending; controls are locked until it finishes.'; this.refreshStatus(); return; }
     const actor = this.controlledSprite();
     if (!actor || this.combat.actorHealth(this.controlledActor) <= 0) return;
@@ -663,6 +667,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const begun = beginHistoricalFixtureReplay(this.envelope.workshop, this.envelope.mission, receipt.id, { contentId: `fixture:${receipt.jobId}`, storyBranch: receipt.jobId, available: this.historicalReplayContentAvailable });
     if (!begun.session) { this.combatFeedback = 'Historical replay unavailable: pinned content is not retained.'; this.refreshStatus(); return false; }
     this.historicalReplay = begun.session;
+    this.replayGeneration += 1;
     const panel = this.add.container(this.scale.width / 2, this.scale.height / 2).setScrollFactor(0).setDepth(35);
     const width = Math.min(480, this.scale.width - 24);
     const background = this.add.rectangle(0, 0, width, 270, 0x101820, .98).setStrokeStyle(2, 0x24cec7);
