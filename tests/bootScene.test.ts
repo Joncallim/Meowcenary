@@ -206,7 +206,7 @@ describe('BootScene loading and startup wiring', () => {
       expect(() => boot.create()).not.toThrow();
       expect(textureGet.mock.calls.map(([key]) => key)).not.toContain(resource.textureKey);
       expect(missingFallbackFilter).not.toHaveBeenCalled();
-      expect(start).toHaveBeenCalledWith(SceneKey.Menu);
+      expect(start).toHaveBeenCalledWith(SceneKey.IntegratedFixture);
     } finally {
       visualArtJson.bindings.pop();
       visualResourcesJson.pop();
@@ -324,14 +324,14 @@ describe('BootScene loading and startup wiring', () => {
       const { boot, scene, start } = createBoot();
       scene.textures.exists.mockImplementation((key: string) => key !== resource.textureKey);
       expect(() => boot.create()).not.toThrow();
-      expect(start).toHaveBeenCalledWith(SceneKey.Menu);
+      expect(start).toHaveBeenCalledWith(SceneKey.IntegratedFixture);
     } finally {
       visualArtJson.bindings.pop();
       visualResourcesJson.pop();
     }
   });
 
-  it('publishes the context first, then one initialized manager, then starts Menu', () => {
+  it('publishes the context first, then one initialized manager, then starts the root B1 fixture', () => {
     const { boot, registryValues, start } = createBoot();
 
     // The shared hoisted counters accumulate across tests and repeats, so
@@ -348,7 +348,7 @@ describe('BootScene loading and startup wiring', () => {
     expect(manager).toBeInstanceOf(AudioManager);
     expect(registryValues.size).toBe(2);
     expect(start).toHaveBeenCalledTimes(1);
-    expect(start).toHaveBeenCalledWith(SceneKey.Menu);
+    expect(start).toHaveBeenCalledWith(SceneKey.IntegratedFixture);
 
     // Exactly one manager constructed and inited per Boot create, and the
     // inited instance is the published one.

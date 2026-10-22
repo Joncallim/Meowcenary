@@ -41,6 +41,9 @@ import {
   validateIntegratedFixture,
 } from '../gameplay/integratedFixture';
 import { createUiText } from '../ui/text';
+import { loadGameData } from '../systems/validation';
+import { DataAssetBundleRegistry } from '../systems/assetBundles';
+import { queueTextureResources } from '../systems/resourceLoader';
 
 const SCALE = 10;
 const SPEED = 12;
@@ -55,9 +58,10 @@ type FixtureControlBounds = Readonly<{ x: number; y: number; width: number; heig
  * envelope and deliberately never reads or writes the normal game save.
  */
 export class IntegratedFixtureScene extends Phaser.Scene {
-  private lead?: Phaser.GameObjects.Arc;
-  private hound?: Phaser.GameObjects.Arc;
-  private enemies: Phaser.GameObjects.Arc[] = [];
+  private uiCamera?: Phaser.Cameras.Scene2D.Camera;
+  private lead?: Phaser.GameObjects.Sprite;
+  private hound?: Phaser.GameObjects.Sprite;
+  private enemies: Phaser.GameObjects.Sprite[] = [];
   private keys?: Phaser.Types.Input.Keyboard.CursorKeys;
   private touchTarget?: Phaser.Math.Vector2;
   private historyGesture = false;
@@ -128,6 +132,16 @@ export class IntegratedFixtureScene extends Phaser.Scene {
 
   constructor() { super(SceneKey.IntegratedFixture); }
 
+  /** B1 owns its small, authored terrain geometry, but its presentation uses
+   * the same manifest-bound core-junkyard physical bundle as live play. */
+  preload(): void {
+    const data = loadGameData();
+    const resources = new DataAssetBundleRegistry(data).resourcesForBundle('bundle:core-junkyard');
+    if (!resources) throw new Error('INT-FB requires bundle:core-junkyard');
+    const actorIds = new Set(['resource:character-scrap-tabby', 'resource:character-bolt-hound', 'resource:enemy-junk-rusher']);
+    queueTextureResources(this, [...resources, ...data.visualResources.filter(resource => actorIds.has(resource.id))]);
+  }
+
   create(): void {
     const errors = validateIntegratedFixture();
     if (errors.length) throw new Error(`INT-FB fixture invalid: ${errors.join(',')}`);
@@ -141,24 +155,35 @@ export class IntegratedFixtureScene extends Phaser.Scene {
 
     const width = INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE;
     const height = INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE;
-    this.cameras.main.setBounds(0, 0, width, height).setBackgroundColor('#101820');
+    const camera = this.cameras.main;
+    camera.setBackgroundColor('#101820').setZoom(1.25);
+    // Extend bounds by half a visible viewport: following remains centred at
+    // authored world edges without changing collision/world coordinates.
+    const halfWidth = this.scale.width / camera.zoom / 2;
+    const halfHeight = this.scale.height / camera.zoom / 2;
+    camera.setBounds(-halfWidth, -halfHeight, width + halfWidth * 2, height + halfHeight * 2);
+    this.renderJunkyardPresentation(width, height);
     const colors: Readonly<Record<string, number>> = { safe: 0x285943, road: 0x39495a, ramp: 0x7b6c4a, bridge: 0x815a3a, underpass: 0x26313d, tunnel: 0x1a1d2a, pocket: 0x49354e };
     for (const surface of INTEGRATED_FIXTURE_SURFACES) {
       this.add.rectangle((surface.x + surface.width / 2) * SCALE, (surface.z + surface.depth / 2) * SCALE,
-        surface.width * SCALE, surface.depth * SCALE, colors[surface.kind] ?? 0x555555, .95).setStrokeStyle(2, 0xb7d5da).setDepth(surface.elevation > 0 ? 2 : 1);
-      createUiText(this, (surface.x + .5) * SCALE, (surface.z + .5) * SCALE, `${surface.id.replace('INT-FB-', '')}${surface.elevation > 0 ? ' ↑' : ''}`, { fontFamily: 'Nunito, sans-serif', fontSize: '11px', color: '#e9f3f5' }).setDepth(surface.elevation > 0 ? 3 : 2);
+        surface.width * SCALE, surface.depth * SCALE, colors[surface.kind] ?? 0x555555, .24).setStrokeStyle(1, surface.kind === 'ramp' ? 0xf6c85f : 0x7da4a8).setDepth(surface.elevation > 0 ? 2 : 1);
+      if (surface.kind === 'ramp' || surface.kind === 'safe') createUiText(this, (surface.x + .5) * SCALE, (surface.z + .5) * SCALE, surface.kind === 'ramp' ? 'RAMP ↑' : 'SAFE SERVICE', { fontFamily: 'Nunito, sans-serif', fontSize: '11px', color: '#f7f1d5', backgroundColor: '#101820aa', padding: { x: 3, y: 2 } }).setDepth(surface.elevation > 0 ? 3 : 2);
     }
     for (const occluder of INTEGRATED_FIXTURE_OCCLUDERS) this.add.rectangle((occluder.x + occluder.width / 2) * SCALE, (occluder.z + occluder.depth / 2) * SCALE, occluder.width * SCALE, occluder.depth * SCALE, 0x101820, .95).setStrokeStyle(2, 0xef6b73).setDepth(4);
     for (const point of INTEGRATED_FIXTURE_POINTS) this.add.circle(point.x * SCALE, point.z * SCALE, 5, point.role === 'service' ? 0x3ee8a9 : 0xffd166).setStrokeStyle(1, 0x0b1118).setDepth(5);
-    this.lead = this.add.circle(SAFE_POSITION.tabby.x, SAFE_POSITION.tabby.y, 7, 0x71d8ff).setStrokeStyle(2, 0xffffff).setDepth(6);
-    this.hound = this.add.circle(SAFE_POSITION.hound.x, SAFE_POSITION.hound.y, 6, 0x84e6a0).setStrokeStyle(2, 0xffffff).setDepth(6);
-    this.enemies = [this.add.circle(350, 380, 7, 0xef6b73), this.add.circle(370, 400, 7, 0xef6b73)];
+    this.lead = this.add.sprite(SAFE_POSITION.tabby.x, SAFE_POSITION.tabby.y, 'art-character-scrap-tabby', 0).setDisplaySize(28, 28).setDepth(6);
+    this.hound = this.add.sprite(SAFE_POSITION.hound.x, SAFE_POSITION.hound.y, 'art-character-bolt-hound', 0).setDisplaySize(28, 28).setDepth(6);
+    this.enemies = [this.add.sprite(350, 380, 'art-enemy-junk-rusher', 0).setDisplaySize(26, 26), this.add.sprite(370, 400, 'art-enemy-junk-rusher', 0).setDisplaySize(26, 26)];
     this.enemies.forEach(enemy => enemy.setVisible(false));
-    this.status = createUiText(this, 12, 12, '', { fontFamily: 'Nunito, sans-serif', fontSize: '15px', color: '#fff', backgroundColor: '#101820dd', padding: { x: 8, y: 6 }, wordWrap: { width: 350 } }).setScrollFactor(0).setDepth(10);
+    this.status = createUiText(this, this.scale.width / 2, 10, '', { fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#fff', backgroundColor: '#101820d9', padding: { x: 8, y: 5 }, align: 'center', wordWrap: { width: Math.min(420, this.scale.width - 32) } }).setOrigin(.5, 0).setScrollFactor(0).setDepth(10);
     this.createControls();
     this.keys = this.input.keyboard?.createCursorKeys();
     this.installInputs();
     this.cameras.main.startFollow(this.lead, true, .15, .15);
+    this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height).setScroll(0, 0).setZoom(1);
+    // The world camera must not transform fixed controls; UI nodes are
+    // registered after creation below and rendered only by this camera.
+    this.registerFixedUi();
     if (this.envelope.liveMission) this.restoreLiveMission(this.envelope.liveMission);
     this.refreshStatus();
     if (import.meta.env.VITE_VISUAL_TEST === '1') {
@@ -204,6 +229,40 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       } : {}),
     } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_INT_FB__; });
+    }
+  }
+
+  private registerUi(...nodes: Array<Phaser.GameObjects.GameObject | undefined>): void {
+    const active = nodes.filter((node): node is Phaser.GameObjects.GameObject => node !== undefined);
+    if (!active.length || !this.uiCamera) return;
+    this.cameras.main.ignore(active);
+    this.uiCamera.ignore(this.children.list.filter(node => !active.includes(node)));
+  }
+
+  /** Every fixed object created before the UI camera is established is marked
+   * by scrollFactor=0. Route that complete set together, including labels. */
+  private registerFixedUi(): void {
+    const fixed = this.children.list.filter((node) => {
+      const candidate = node as Phaser.GameObjects.GameObject & { scrollFactorX?: number; scrollFactorY?: number };
+      return candidate.scrollFactorX === 0 && candidate.scrollFactorY === 0;
+    });
+    this.registerUi(...fixed);
+  }
+
+  /** Presentation only. The pure B1 surface/occluder functions remain the
+   * collision and layer authority; no legacy arena collision is imported. */
+  private renderJunkyardPresentation(width: number, height: number): void {
+    const floorKey = 'art-world-junkyard-floor-base';
+    if (!this.textures.exists(floorKey)) throw new Error('INT-FB required junkyard floor art is unavailable');
+    for (let y = 16; y < height; y += 32) for (let x = 16; x < width; x += 32) {
+      this.add.image(x, y, floorKey).setDisplaySize(32, 32).setDepth(-3);
+    }
+    const propKeys = ['art-world-prop-tyre-pile', 'art-world-prop-crate', 'art-world-prop-engine-block', 'art-world-prop-scrap-heap'];
+    for (const [index, occluder] of INTEGRATED_FIXTURE_OCCLUDERS.entries()) {
+      const key = propKeys[index % propKeys.length]!;
+      if (!this.textures.exists(key)) throw new Error(`INT-FB required junkyard prop art is unavailable: ${key}`);
+      this.add.image((occluder.x + occluder.width / 2) * SCALE, (occluder.z + occluder.depth / 2) * SCALE, key)
+        .setDisplaySize(Math.max(28, occluder.width * SCALE), Math.max(28, occluder.depth * SCALE)).setDepth(4);
     }
   }
 
@@ -392,6 +451,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const retryText = createUiText(this, 92, 70, 'RETRY\nENTER', { align: 'center', fontSize: '14px', color: '#071018' }).setOrigin(.5);
     modal.add([panel, this.recoveryHeading, this.recoveryDetail, this.recoveryButton, this.retryButton, recoverText, retryText]);
     this.recoveryModal = modal;
+    this.registerUi(modal);
   }
 
   private installInputs(): void {
@@ -561,8 +621,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.combatFeedback = 'Hound has taken control. Hound now drives movement, interaction, service access, and gun swaps.'; this.persistCombatCheckpoint(); this.refreshStatus();
   }
   private showTakeoverPrompt(): void { this.takeoverPrompt?.setText('Tabby is down.\nContinue as Hound?\nT / TAP TAKE OVER').setVisible(true); this.refreshStatus(); }
-  private controlledSprite(): Phaser.GameObjects.Arc | undefined { return this.controlledActor === 'tabby' ? this.lead : this.hound; }
-  private actorSprite(actor: 'tabby' | 'hound'): Phaser.GameObjects.Arc | undefined { return actor === 'tabby' ? this.lead : this.hound; }
+  private controlledSprite(): Phaser.GameObjects.Sprite | undefined { return this.controlledActor === 'tabby' ? this.lead : this.hound; }
+  private actorSprite(actor: 'tabby' | 'hound'): Phaser.GameObjects.Sprite | undefined { return actor === 'tabby' ? this.lead : this.hound; }
   private actorLayer(actor: 'tabby' | 'hound'): FixtureLayer { return actor === 'tabby' ? this.tabbyLayer : this.houndLayer; }
   private spriteTerrainPosition(actor: 'tabby' | 'hound') {
     const sprite = this.actorSprite(actor);
@@ -800,7 +860,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     panel.add(this.add.rectangle(0, 0, Math.min(460, this.scale.width - 20), 330, 0x0b1118, .98).setStrokeStyle(2, 0xf6c85f));
     panel.add(createUiText(this, 0, -135, `SAFE SERVICE WORKSHOP\nCredits ${this.envelope.workshop.wallet.credits} · Metal ${this.envelope.workshop.wallet.metal} · Circuits ${this.envelope.workshop.wallet.circuits}`, { align: 'center', fontSize: '14px', color: '#fff' }).setOrigin(.5));
     actions.forEach(([action, label], index) => { const x = index % 2 ? 90 : -90; const y = -65 + Math.floor(index / 2) * 58; const button = this.add.rectangle(x, y, 155, 42, 0x7393d8).setInteractive(); const text = createUiText(this, x, y, label, { fontSize: '13px', color: '#071018' }).setOrigin(.5); button.on('pointerup', () => this.openWorkshop(action)); panel.add([button, text]); });
-    const close = createUiText(this, 0, 135, 'CLOSE / ESC', { fontSize: '13px', color: '#fff' }).setOrigin(.5).setInteractive(); close.on('pointerup', () => this.cancelWorkshop()); panel.add(close); this.workshopModal = panel;
+    const close = createUiText(this, 0, 135, 'CLOSE / ESC', { fontSize: '13px', color: '#fff' }).setOrigin(.5).setInteractive(); close.on('pointerup', () => this.cancelWorkshop()); panel.add(close); this.workshopModal = panel; this.registerUi(panel);
   }
   private openWorkshop(action: FixtureWorkshopAction): void {
     if (this.historicalReplay) { this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
@@ -812,7 +872,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const text = createUiText(this, 0, -58, `WORKSHOP PREVIEW\n${labels[action]}\nNo wallet, item, claim, or assignment changes until confirmed.`, { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '15px', color: '#fff', wordWrap: { width: Math.min(450, this.scale.width - 50) } }).setOrigin(.5);
     const confirm = this.add.rectangle(-85, 65, 140, 45, 0x3ee8a9).setInteractive(); const cancel = this.add.rectangle(85, 65, 140, 45, 0xef6b73).setInteractive();
     const yes = createUiText(this, -85, 65, 'CONFIRM\nENTER', { align: 'center', fontSize: '13px', color: '#071018' }).setOrigin(.5); const no = createUiText(this, 85, 65, 'CANCEL\nESC', { align: 'center', fontSize: '13px', color: '#071018' }).setOrigin(.5);
-    confirm.on('pointerup', () => this.confirmWorkshop()); cancel.on('pointerup', () => this.cancelWorkshop()); panel.add([background, text, confirm, cancel, yes, no]); this.workshopModal = panel;
+    confirm.on('pointerup', () => this.confirmWorkshop()); cancel.on('pointerup', () => this.cancelWorkshop()); panel.add([background, text, confirm, cancel, yes, no]); this.workshopModal = panel; this.registerUi(panel);
     this.combatFeedback = `Preview ready: ${labels[action]}`; this.refreshStatus();
   }
   private cancelWorkshop(): void { if (!this.workshopPreview && !this.workshopModal) return; this.workshopPreview = undefined; this.workshopPreviewRevision = undefined; this.workshopModal?.destroy(); this.workshopModal = undefined; this.combatFeedback = 'Workshop preview cancelled; nothing changed.'; this.refreshStatus(); }
@@ -866,6 +926,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const exit = this.add.rectangle(width / 2 - 62, 0, 100, 40, 0x7393d8).setInteractive().on('pointerup', () => this.finishHistoricalReplay('exit'));
     panel.add([background, copy, exit, createUiText(this, width / 2 - 62, 0, 'EXIT\nESC', { fontSize: '12px', color: '#071018', align: 'center' }).setOrigin(.5)]);
     this.historicalReplayModal = panel;
+    this.registerUi(panel);
     this.combatFeedback = 'Historical replay is pinned and read-only.'; this.refreshStatus();
     return true;
   }
@@ -1027,9 +1088,10 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       return;
     }
     const job = this.jobId ? INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)! : undefined;
-    const hostiles = this.combat.hostileStates().filter(hostile => hostile.health > 0).length; const tabbyGun = this.combat.activeGun('tabby'); const phase = this.operation.snapshot().phase; const mission = this.activeMission(); const eventLine = mission ? `\nEvent ${mission.worldEventId} · Attempt ${mission.attemptId}` : '';
-    const progress = `RCC ${this.envelope.workshop.standing.rcc} · FRE ${this.envelope.workshop.standing.fre} · HOU dossier ${this.envelope.workshop.houDossier}/4 · Flux ${this.envelope.workshop.wallet.flux} + ${this.envelope.workshop.fluxQualificationRemainder.toFixed(2)}/3`;
-    this.status?.setText(job ? `INT-FB ${job.id} · ${phase}${eventLine}\n${this.extracted ? `COMPLETE — event receipt and progression saved\n${progress}` : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${hostiles} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nTAB ${this.combat.actorHealth('tabby').toFixed(0)} HP · ${tabbyGun.instanceId.split(':').at(-1)} ${tabbyGun.supply} · HOU ${this.combat.actorHealth('hound').toFixed(0)} HP\n${this.combatFeedback}\nMove to offer/markers/spawn/extraction; tap INTERACT or E; swap ${this.actorName()} gun with Q; surrender X`}` : `INT-FB proving ground\n${this.envelope.mission.receipts.length} isolated event receipt(s) loaded · ${progress}\n${this.combatFeedback}\nChoose R01 (1 / left side) or F01 (2 / right side). WASD/arrows or touch-hold to move.`);
+    const hostiles = this.combat.hostileStates().filter(hostile => hostile.health > 0).length; const phase = this.operation.snapshot().phase;
+    this.status?.setText(job
+      ? `${job.id} · ${phase}${this.extracted ? ' · COMPLETE' : ''}\nObjectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · ${this.groupCleared ? 'hostiles clear' : `${hostiles} hostile(s)`}` : ''}\n${this.combatFeedback}`
+      : `B1 PROVING GROUND · Choose R01 [1] or F01 [2]\nMove with WASD/touch · INTERACT E · workshop at SAFE SERVICE`);
   }
   public diagnostics(): Readonly<{ scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: FixtureLayer; tabbyLayer: FixtureLayer; houndLayer: FixtureLayer; combatEventSequence: number; cameraX: number; cameraY: number; controlledGun: string; jobId?: FixtureJobId; phase: string; completedInteractionIds: readonly string[]; canExtract: boolean; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGun: string; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: Readonly<{ x: number; y: number }>; houndPosition: Readonly<{ x: number; y: number }>; hostiles: number; replay?: Readonly<{ x: number; y: number; controlledActor: 'tabby' | 'hound'; cameraActor?: 'tabby' | 'hound'; layer: FixtureLayer; tabbyLayer: FixtureLayer; houndLayer: FixtureLayer; tabbyPosition: Readonly<{ x: number; y: number }>; houndPosition: Readonly<{ x: number; y: number }>; trailLength: number; completedInteractionIds: readonly string[]; groupCleared: boolean; canExtract: boolean; hostiles: number; takeoverControl?: FixtureControlBounds }>; checkpoint?: Readonly<{ revision: number; controlledActor: 'tabby' | 'hound'; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: Readonly<{ x: number; y: number }>; houndPosition: Readonly<{ x: number; y: number }>; hostileHealths: readonly number[] }>; workshopRevision: number; workshopCredits: number; workshopParts: number; workshopMaterials: Readonly<{ metal: number; circuits: number; cloth: number }>; standing: Readonly<{ rcc: number; fre: number }>; houDossier: number; fluxQualificationRemainder: number; historicalReplayActive: boolean; historicalReplayOutcome?: 'success' | 'death' | 'exit'; workshopPreview?: FixtureWorkshopAction; workshopOpen: boolean; settlementPending: boolean; worldEventId?: FixtureWorldEventId; activeAttemptId?: FixtureAttemptId; attemptTerminal?: string; recoveryMode: RecoveryMode; recoveryFee?: number; receiptIds: readonly string[]; paidEventIds: readonly FixtureWorldEventId[]; loadBlocked: boolean; recoveryMessage: string; takeoverControl?: FixtureControlBounds; recoveryControl?: FixtureControlBounds; retryControl?: FixtureControlBounds }> {
     const attempt = this.activeAttemptId ? this.envelope.workshop.attempts.find(candidate => candidate.attemptId === this.activeAttemptId) : undefined;
