@@ -68,6 +68,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private swapButton?: Phaser.GameObjects.Rectangle;
   private interactButton?: Phaser.GameObjects.Rectangle;
   private workshopButton?: Phaser.GameObjects.Rectangle;
+  private historyButton?: Phaser.GameObjects.Rectangle;
   private recoveryButton?: Phaser.GameObjects.Rectangle;
   private retryButton?: Phaser.GameObjects.Rectangle;
 
@@ -196,6 +197,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
           this.update(0, delta);
           this.simulationPaused = paused;
         },
+        hasLiveTouchTarget: () => this.touchTarget !== undefined,
         replayActiveGun: () => this.replayCombat?.activeGun(this.replayControlledActor),
       } : {}),
     } });
@@ -339,6 +341,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
         else this.replayTouchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY);
         return;
       }
+      if (contains(this.historyButton)) { this.touchTarget = undefined; return; }
       if (contains(this.swapButton)) { this.swapGun(); return; }
       if (contains(this.interactButton)) { this.interact(); return; }
       if (contains(this.workshopButton)) { this.openWorkshopMenu(); return; }
@@ -364,7 +367,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     createUiText(this, this.scale.width / 2, this.scale.height - 48, 'WORKSHOP\nB', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#071018' }).setOrigin(.5).setScrollFactor(0).setDepth(11);
     // Replay is a normal retained-receipt action, not keyboard/debug-only.
     // Keep it above the bottom touch row so it remains reachable at phone width.
-    this.add.rectangle(this.scale.width / 2, this.scale.height - 116, 150, 42, 0x8f7ad8, .95).setScrollFactor(0).setDepth(10).setInteractive().on('pointerup', () => this.openHistoricalReplay());
+    this.historyButton = this.add.rectangle(this.scale.width / 2, this.scale.height - 116, 150, 42, 0x8f7ad8, .95).setScrollFactor(0).setDepth(10).setInteractive().on('pointerup', () => this.openHistoricalReplay());
     createUiText(this, this.scale.width / 2, this.scale.height - 116, 'HISTORY REPLAY\nH', { align: 'center', fontFamily: 'Nunito, sans-serif', fontSize: '12px', color: '#071018' }).setOrigin(.5).setScrollFactor(0).setDepth(11);
     this.takeoverPrompt = createUiText(this, this.scale.width / 2, this.scale.height / 2, '', { fontFamily: 'Nunito, sans-serif', fontSize: '18px', color: '#fff', backgroundColor: '#34151bdd', align: 'center', padding: { x: 12, y: 10 } }).setOrigin(.5).setScrollFactor(0).setDepth(20).setVisible(false).setInteractive().on('pointerup', () => this.confirmTakeover());
     const modal = this.add.container(this.scale.width / 2, this.scale.height / 2).setScrollFactor(0).setDepth(40).setVisible(false);
@@ -813,6 +816,9 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const begun = beginHistoricalFixtureReplay(this.envelope.workshop, this.envelope.mission, receipt.id, { contentId: record.contentId, storyBranch: record.storyBranch, available: resolveIntegratedFixtureReplayContent(record.contentId, record.storyBranch) });
     if (!begun.session) { this.combatFeedback = 'Historical replay unavailable: pinned content is not retained.'; this.refreshStatus(); return false; }
     this.historicalReplay = begun.session;
+    // A held History touch must not leak a live move target into or out of
+    // archived playback; replay owns input from this point onward.
+    this.touchTarget = undefined;
     this.replayGeneration += 1;
     const replayCombat = new IntegratedFixtureCombat(record.loadout);
     // restore() intentionally requires the authored roster. Build it from

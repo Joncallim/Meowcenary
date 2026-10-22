@@ -93,4 +93,21 @@ describe('late fixture refinement transactions', () => {
     const mismatched = { ...merged, parts: merged.parts.map(part => part.id === outputId ? { ...part, refinement: 'LeanB25' as const } : part) };
     expect(decodeLateFixtureProfile(JSON.stringify(mismatched)).state).toBe('invalid');
   });
+
+  it('persists immutable manufacturer, source-version, and workshop lineage for new work', () => {
+    const seed = createLateFixtureProfile();
+    expect(seed.parts.find(part => part.id === 'INT-LATE-TAB-B-B')).toMatchObject({ originalMaker: 'Needlebank Instruments', version: 1 });
+    expect(seed.parts.find(part => part.id === 'INT-LATE-TAB-A-B')).toMatchObject({ originalMaker: 'Oddlot Cooperative', version: 1 });
+    const merged = commitLateFixture(seed, { commandId: 'lineage-merge', expectedRevision: 0, action: 'merge', inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] }, () => .3).profile;
+    const output = merged.parts.find(part => part.id === 'INT-LATE-TAB-B-HM-lineage-merge')!;
+    expect(output).toMatchObject({ workshopStamp: 'INT-FB-SERVICE-01', sourceInstanceIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'], sourceVersions: [1, 1], version: 1 });
+    expect(merged.receipts[0]).toMatchObject({ inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'], inputVersions: [1, 1], workshopStamp: 'INT-FB-SERVICE-01' });
+    const developed = commitLateFixture(createLateFixtureProfile(), { commandId: 'lineage-develop', expectedRevision: 0, action: 'develop', inputIds: ['INT-LATE-DONOR-B2-T2'] }).profile;
+    expect(developed.parts.find(part => part.id === 'INT-LATE-DONOR-B2-T2')).toMatchObject({ version: 2, workshopStamp: 'INT-FB-SERVICE-01', originalMaker: 'Needlebank Instruments' });
+    expect(developed.receipts[0]).toMatchObject({ inputIds: ['INT-LATE-DONOR-B2-T2'], inputVersions: [1], workshopStamp: 'INT-FB-SERVICE-01' });
+    expect(decodeLateFixtureProfile(JSON.stringify(merged)).state).toBe('valid');
+    const legacy = JSON.parse(JSON.stringify(seed));
+    for (const part of legacy.parts) delete part.originalMaker;
+    expect(decodeLateFixtureProfile(JSON.stringify(legacy)).state).toBe('valid');
+  });
 });
