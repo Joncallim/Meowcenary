@@ -9,6 +9,7 @@ export interface LateB1History { readonly receiptIds: readonly string[]; readonl
 export interface LateReceipt { readonly commandId: string; readonly action: 'develop' | 'merge' | 'build' | 'fit' | 'sell-h2' | 'retain-donors'; readonly outputIds: readonly string[]; }
 export interface LateFixtureProfile { readonly version: 'int-late-v1'; readonly revision: number; readonly declaration: 'This is a later workshop test save with Chapter 5 capability already unlocked. Your earlier test save is unchanged.'; readonly wallet: LateWallet; readonly parts: readonly LatePart[]; readonly receipts: readonly LateReceipt[]; readonly discoveries: readonly string[]; readonly knownSchematics: readonly string[]; readonly capabilities: readonly string[]; readonly pinnedEarlierHistory: LateB1History; }
 export interface LateCommand { readonly commandId: string; readonly expectedRevision: number; readonly action: LateReceipt['action']; readonly inputIds?: readonly string[]; readonly targetGun?: 'TAB-A' | 'TAB-B'; readonly refinement?: LateRefinement; }
+export type LateFixtureDecode = Readonly<{ state: 'absent' } | { state: 'invalid' } | { state: 'valid'; profile: LateFixtureProfile }>;
 const declaration = 'This is a later workshop test save with Chapter 5 capability already unlocked. Your earlier test save is unchanged.' as const;
 const frozen = <T>(value: T): Readonly<T> => Object.freeze(value);
 const part = (id: string, family: LatePart['family'], slot: LatePart['slot'], kind: LatePart['kind'], tier: LatePart['tier'], assignedTo?: LatePart['assignedTo'], protectedBaseline = false, sealed = false, refinement?: LateRefinement): LatePart => frozen({ id, family, slot, kind, tier, ...(refinement ? { refinement } : {}), protected: protectedBaseline, sealed, ...(assignedTo ? { assignedTo } : {}), infusions: frozen([]) });
@@ -35,6 +36,26 @@ export function createLateFixtureProfile(history: LateB1History = frozen({ recei
   return freezeProfile({ version: 'int-late-v1', revision: 0, declaration, wallet: { credits: 3000, metal: 100, circuits: 20, cloth: 12, flux: 3 }, parts, receipts: [], discoveries: history.h2State === 'unavailable' ? [] : ['INT-LOOT-01'], knownSchematics: ['TAB-B2', 'TAB-B3'], capabilities: ['T3', 'CHAPTER-5-MERGE'], pinnedEarlierHistory: history });
 }
 function reject(profile: LateFixtureProfile, reason: string) { return frozen({ profile, applied: false as const, reason }); }
+/** Fail-closed persistence boundary. Only a missing late-save key may seed it. */
+export function decodeLateFixtureProfile(raw: string | null): LateFixtureDecode {
+  if (raw === null) return frozen({ state: 'absent' });
+  try {
+    const value = JSON.parse(raw) as Partial<LateFixtureProfile>;
+    const record = (candidate: unknown): candidate is Record<string, unknown> => !!candidate && typeof candidate === 'object' && !Array.isArray(candidate);
+    const text = (candidate: unknown): candidate is string => typeof candidate === 'string' && candidate.length > 0;
+    const guns = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'] as const; const slots = ['R', 'B', 'F', 'P', 'H', 'C'] as const;
+    const wallet = value.wallet as Record<string, unknown> | undefined; const history = value.pinnedEarlierHistory as Record<string, unknown> | undefined;
+    if (value.version !== 'int-late-v1' || !Number.isInteger(value.revision) || value.revision! < 0 || !wallet || !['credits', 'metal', 'circuits', 'cloth', 'flux'].every(key => Number.isFinite(wallet[key]) && (wallet[key] as number) >= 0)
+      || !Array.isArray(value.parts) || !Array.isArray(value.receipts) || !Array.isArray(value.discoveries) || !Array.isArray(value.knownSchematics) || !Array.isArray(value.capabilities) || !history || !Array.isArray(history.receiptIds) || !Array.isArray(history.paidEventIds) || !['unavailable', 'unclaimed', 'kept', 'sold'].includes(history.h2State as string)) return frozen({ state: 'invalid' });
+    const parts = value.parts as readonly unknown[];
+    if (!parts.every(candidate => record(candidate) && text(candidate.id) && (candidate.family === 'TAB' || candidate.family === 'HOU') && slots.includes(candidate.slot as typeof slots[number]) && ['R1', 'B1', 'B2', 'B3', 'B-HM', 'F1', 'F2', 'P1', 'H1', 'C1', 'H2'].includes(candidate.kind as string) && (candidate.tier === null || candidate.tier === 1 || candidate.tier === 2 || candidate.tier === 3) && typeof candidate.protected === 'boolean' && typeof candidate.sealed === 'boolean' && Array.isArray(candidate.infusions) && candidate.infusions.every(text) && (candidate.assignedTo === undefined || guns.includes(candidate.assignedTo as typeof guns[number])) && (candidate.refinement === undefined || ['LeanA25', 'Balanced50', 'LeanB25'].includes(candidate.refinement as string)))) return frozen({ state: 'invalid' });
+    const ids = new Set(parts.map(candidate => (candidate as Record<string, unknown>).id));
+    if (ids.size !== parts.length || !guns.every(gun => slots.every(slot => parts.filter(candidate => { const part = candidate as Record<string, unknown>; return part.assignedTo === gun && part.slot === slot && part.family === (gun.startsWith('TAB') ? 'TAB' : 'HOU'); }).length === 1))
+      || !value.receipts.every(receipt => record(receipt) && text(receipt.commandId) && ['develop', 'merge', 'build', 'fit', 'sell-h2', 'retain-donors'].includes(receipt.action as string) && Array.isArray(receipt.outputIds) && receipt.outputIds.every(text))
+      || ![...(value.discoveries as unknown[]), ...(value.knownSchematics as unknown[]), ...(value.capabilities as unknown[]), ...(history.receiptIds as unknown[]), ...(history.paidEventIds as unknown[])].every(text)) return frozen({ state: 'invalid' });
+    return frozen({ state: 'valid', profile: freezeProfile(value as LateFixtureProfile) });
+  } catch { return frozen({ state: 'invalid' }); }
+}
 function finish(profile: LateFixtureProfile, command: LateCommand, parts: readonly LatePart[], wallet = profile.wallet, discoveries = profile.discoveries, schematics = profile.knownSchematics, outputIds: readonly string[] = []) { return frozen({ profile: freezeProfile({ ...profile, revision: profile.revision + 1, parts, wallet, discoveries, knownSchematics: schematics, receipts: [...profile.receipts, { commandId: command.commandId, action: command.action, outputIds }] }), applied: true as const }); }
 export function commitLateFixture(profile: LateFixtureProfile, command: LateCommand): Readonly<{ profile: LateFixtureProfile; applied: boolean; reason?: string }> {
   if (!command.commandId || profile.receipts.some(receipt => receipt.commandId === command.commandId)) return reject(profile, 'duplicate-command');

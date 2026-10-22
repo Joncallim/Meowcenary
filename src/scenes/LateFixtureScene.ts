@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SceneKey } from '../engine/sceneKeys';
-import { commitLateFixture, createLateFixtureProfile, deriveLateB1History, type LateFixtureProfile } from '../gameplay/lateFixture';
+import { commitLateFixture, createLateFixtureProfile, decodeLateFixtureProfile, deriveLateB1History, type LateFixtureProfile } from '../gameplay/lateFixture';
 import { deserializeIntegratedFixtureEnvelope } from '../gameplay/integratedFixture';
 import { createUiText } from '../ui/text';
 
@@ -12,6 +12,8 @@ export class LateFixtureScene extends Phaser.Scene {
   private message = 'Choose RETAIN DONORS, DEVELOP donor, MERGE donors, or BUILD after discovery.';
   private blocked = false;
   private failNextStorageWrite = false;
+  private failNextStorageRead = false;
+  private rejectNextWriterLock = false;
   constructor() { super(SceneKey.LateFixture); }
   create(): void {
     this.profile = this.read();
@@ -30,50 +32,46 @@ export class LateFixtureScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-F', () => { const output = this.profile.parts.find(part => part.kind === 'B-HM' && !part.assignedTo); if (output) this.commit({ commandId: `late:fit:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'fit', inputIds: [output.id], targetGun: 'TAB-A' }); });
     this.input.keyboard?.on('keydown-N', () => this.commit({ commandId: `late:retain:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'retain-donors' }));
     this.input.keyboard?.on('keydown-S', () => this.commit({ commandId: `late:sell-h2:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'sell-h2' }));
-    Object.defineProperty(globalThis, '__MEOWCENARY_LATE_FIXTURE__', { configurable: true, value: { diagnostics: () => this.diagnostics(), commit: (command: Parameters<typeof commitLateFixture>[1]) => this.commit(command), failNextStorageWrite: () => { this.failNextStorageWrite = true; }, reset: () => { this.profile = createLateFixtureProfile(this.b1History()); this.persist(); this.render(); } } });
+    Object.defineProperty(globalThis, '__MEOWCENARY_LATE_FIXTURE__', { configurable: true, value: { diagnostics: () => this.diagnostics(), commit: (command: Parameters<typeof commitLateFixture>[1]) => this.commit(command), failNextStorageWrite: () => { this.failNextStorageWrite = true; }, failNextStorageRead: () => { this.failNextStorageRead = true; }, rejectNextWriterLock: () => { this.rejectNextWriterLock = true; } } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_LATE_FIXTURE__; });
     this.render();
   }
   private b1History() { return deriveLateB1History(deserializeIntegratedFixtureEnvelope(localStorage.getItem('meowcenary:int-fb:v1:profile'))); }
   private read(): LateFixtureProfile {
-    const raw = localStorage.getItem(KEY);
-    if (raw === null) return createLateFixtureProfile(this.b1History());
-    try {
-      const parsed = JSON.parse(raw) as Partial<LateFixtureProfile>;
-      const wallet = parsed.wallet as Partial<LateFixtureProfile['wallet']> | undefined;
-      const ids = Array.isArray(parsed.parts) ? parsed.parts.map(part => (part as { id?: unknown }).id) : [];
-      const history = parsed.pinnedEarlierHistory as Partial<LateFixtureProfile['pinnedEarlierHistory']> | undefined;
-      const slots = Array.isArray(parsed.parts) ? parsed.parts.filter((part): part is { assignedTo?: unknown; family?: unknown; slot?: unknown } => typeof part === 'object' && part !== null).filter(part => part.assignedTo !== undefined) : [];
-      if (parsed.version !== 'int-late-v1' || !Number.isInteger(parsed.revision) || !wallet || ![wallet.credits, wallet.metal, wallet.circuits, wallet.cloth, wallet.flux].every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0) || !Array.isArray(parsed.parts) || !ids.every(id => typeof id === 'string' && id.length > 0) || new Set(ids).size !== ids.length || !slots.every(part => ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'].includes(part.assignedTo as string) && ['TAB', 'HOU'].includes(part.family as string) && ['R', 'B', 'F', 'P', 'H', 'C'].includes(part.slot as string)) || new Set(slots.map(part => `${part.assignedTo}:${part.slot}`)).size !== slots.length || !Array.isArray(parsed.receipts) || !parsed.receipts.every(receipt => typeof (receipt as { commandId?: unknown }).commandId === 'string') || !history || !Array.isArray(history.receiptIds) || !Array.isArray(history.paidEventIds) || !['unavailable', 'unclaimed', 'kept', 'sold'].includes(history.h2State ?? '')) throw new Error('invalid late profile');
-      return parsed as LateFixtureProfile;
-    } catch {
-      this.blocked = true;
-      this.message = 'Stored late save is invalid or unsupported. It was preserved unchanged; restore it from a trusted backup before continuing.';
-      return createLateFixtureProfile();
-    }
+    let raw: string | null;
+    try { raw = localStorage.getItem(KEY); } catch { this.blocked = true; this.message = 'Late save storage could not be read; no change was made. Restore access and reload.'; return createLateFixtureProfile(); }
+    const decoded = decodeLateFixtureProfile(raw);
+    if (decoded.state === 'absent') return createLateFixtureProfile(this.b1History());
+    if (decoded.state === 'valid') return decoded.profile;
+    this.blocked = true;
+    this.message = 'Stored late save is invalid or unsupported. It was preserved unchanged; restore it from a trusted backup before continuing.';
+    return createLateFixtureProfile();
   }
-  private persist(): void { localStorage.setItem(KEY, JSON.stringify(this.profile)); }
   /** Single durable writer: never publish a candidate until storage accepts it. */
   private async commit(command: Parameters<typeof commitLateFixture>[1]): Promise<boolean> {
     if (this.blocked) return false;
     const locks = (navigator as unknown as { locks?: { request(name: string, options: { mode: 'exclusive' }, callback: () => Promise<void>): Promise<void> } }).locks;
     if (!locks) { this.message = 'Late save writer is unavailable; no change was made.'; this.render(); return false; }
     let applied = false;
-    await locks.request(`${KEY}:writer`, { mode: 'exclusive' }, async () => {
-      const raw = localStorage.getItem(KEY);
+    if (this.rejectNextWriterLock) { this.rejectNextWriterLock = false; this.message = 'Late save writer failed before publishing a change.'; this.render(); return false; }
+    try { await locks.request(`${KEY}:writer`, { mode: 'exclusive' }, async () => {
+      if (this.blocked) return;
+      let raw: string | null;
+      try { if (this.failNextStorageRead) { this.failNextStorageRead = false; throw new Error('forced late read failure'); } raw = localStorage.getItem(KEY); } catch { this.message = 'Late save storage could not be read; no change was made. Retry safely.'; this.render(); return; }
       let durable = this.profile;
       if (raw !== null) {
-        try { durable = JSON.parse(raw) as LateFixtureProfile; }
-        catch { this.blocked = true; this.message = 'Stored late save is invalid or unsupported. It was preserved unchanged; restore it from a trusted backup before continuing.'; this.render(); return; }
+        const decoded = decodeLateFixtureProfile(raw);
+        if (decoded.state !== 'valid') { this.blocked = true; this.message = 'Stored late save is invalid or unsupported. It was preserved unchanged; restore it from a trusted backup before continuing.'; this.render(); return; }
+        durable = decoded.profile;
       }
       const result = commitLateFixture(durable, command);
-      if (!result.applied) { this.message = `Confirmation rejected: ${result.reason}.`; this.render(); return; }
+      if (!result.applied) { this.profile = durable; this.message = result.reason === 'duplicate-command' ? 'Confirmation already persisted; durable receipt reconciled.' : result.reason === 'stale-revision' ? 'Confirmation was stale; validated durable state refreshed. Retry deliberately.' : `Confirmation rejected: ${result.reason}.`; this.render(); return; }
       try { if (this.failNextStorageWrite) { this.failNextStorageWrite = false; throw new Error('forced late storage failure'); } localStorage.setItem(KEY, JSON.stringify(result.profile)); }
       catch { this.message = 'Late save storage failed; no change was made. Retry safely.'; this.render(); return; }
       this.profile = result.profile;
       this.message = `Confirmed ${command.action}; receipt persisted before presentation.`;
       this.render(); applied = true;
-    });
+    }); } catch { this.message = 'Late save writer failed before publishing a change.'; this.render(); return false; }
     return applied;
   }
   private render(): void { this.status?.setText(`${this.profile.declaration}\n\nLATE WORKSHOP · revision ${this.profile.revision} · ${this.profile.parts.length} parts\nCredits ${this.profile.wallet.credits} · Metal ${this.profile.wallet.metal} · Circuits ${this.profile.wallet.circuits}\nDiscoveries: ${this.profile.discoveries.join(', ') || 'none'}\n${this.message}\n\nThis surface uses ${KEY} only. B1 is never read or written.`); }
