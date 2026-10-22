@@ -33,16 +33,28 @@ it('resolves late range only from an actually persisted fitted TAB-A HM', () => 
   const hm = merged.parts.find(part => part.kind === 'B-HM')!;
   expect(resolveFittedLateHmRange(merged)).toBeUndefined();
   const fitted = commitLateFixture(merged, { commandId: 'range-fit', expectedRevision: 1, action: 'fit', inputIds: [hm.id], targetGun: 'TAB-A' }).profile;
-  expect(resolveFittedLateHmRange(fitted)).toEqual({ instanceId: hm.id, refinement: 'Balanced50', full: 12.402, max: 24.804 });
+  expect(resolveFittedLateHmRange(fitted)).toEqual({ instanceId: hm.id, refinement: 'Balanced50', full: 12.402, max: 24.804, store: 18, refillSeconds: 2.7 });
 });
 
 it('uses the shared contact falloff resolver for independent late range targets', () => {
-  const combat = new LateRangeCombat({ instanceId: 'hm', refinement: 'Balanced50', full: 12.402, max: 24.804 });
-  expect(combat.activeGun()).toMatchObject({ instanceId: 'hm', supply: 12 });
+  const combat = new LateRangeCombat({ instanceId: 'hm', refinement: 'Balanced50', full: 12.402, max: 24.804, store: 18, refillSeconds: 2.7 });
+  expect(combat.activeGun()).toMatchObject({ instanceId: 'hm', supply: 18 });
   const events = [...combat.fire(), ...combat.fire(), ...combat.fire(), ...combat.fire(), ...combat.fire()];
   expect(events.filter(event => event.type === 'enemy-damaged').map(event => event.targetId)).toEqual(['range-full', 'range-falloff', 'range-falloff']);
   expect(combat.snapshot()).toEqual([{ id: 'full', distance: 12, health: 0 }, { id: 'falloff', distance: 18, health: 0 }, { id: 'outside', distance: 27, health: 30 }]);
-  expect(combat.activeGun().supply).toBe(9);
+  expect(combat.activeGun().supply).toBe(15);
+});
+
+it('uses the persisted F2 store and refill duration in the shared lifecycle', () => {
+  const combat = new LateRangeCombat({ instanceId: 'hm', refinement: 'Balanced50', full: 12.402, max: 24.804, store: 18, refillSeconds: 2.7 }, 10_000);
+  for (let tick = 0; tick < 36; tick += 1) combat.fire();
+  expect(combat.activeGun().supply).toBe(0);
+  // The following tick already began refill, so 20 further 125ms steps leave
+  // 2.625s elapsed; one more reaches 2.75s and restores the F2 store.
+  for (let tick = 0; tick < 20; tick += 1) combat.fire();
+  expect(combat.activeGun().supply).toBe(0);
+  combat.fire();
+  expect(combat.activeGun().supply).toBe(18);
 });
 
 describe('late fixture refinement transactions', () => {

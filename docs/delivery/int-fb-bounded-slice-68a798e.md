@@ -48,7 +48,9 @@ not a substitute for the exact-head checks above.
 - The Chapter-5 fixture is intentionally separate from ordinary campaign
   progression. It does not establish seamless B1→late acquisition.
 - The range fixture is a bounded real contact/damage proof, not a complete
-  mission, enemy AI, reward, or human aim playthrough.
+  mission, enemy AI, reward, or human aim playthrough. Its centered B-HM
+  profile exercises setup/cadence/supply/refill and persisted contact width,
+  but does not yet provide a non-zero-offset cone/width boundary case.
 - Evidence is Chromium/SwiftShader browser execution. Physical phone/controller
   validation and hosted-site validation remain open.
 - The full repository suite has two Pillow-version environment failures shared

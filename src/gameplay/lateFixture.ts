@@ -109,13 +109,14 @@ export function commitLateFixture(profile: LateFixtureProfile, command: LateComm
 export function resolveLateBarrelVector(kind: 'B2' | 'B-HM', refinement: LateRefinement): Readonly<{ range: number; setup: number; cone: number; contactWidthMetres: number }> { const vectors = kind === 'B2' ? { LeanA25: [1.2625, 1.25, .65, .0198], Balanced50: [1.25, 1.25, .65, .02], LeanB25: [1.2375, 1.25, .65, .0202] } : { LeanA25: [.98475, 1.125, 1.125, .1287], Balanced50: [.975, 1.125, 1.125, .13], LeanB25: [.9652499999999999, 1.125, 1.125, .1313] }; const [range, setup, cone, contactWidthMetres] = vectors[refinement]; return frozen({ range, setup, cone, contactWidthMetres }); }
 export function lateFullRangeMetres(structuralRange: number, engineeringSteps: number): Readonly<{ full: number; max: number }> { const multiplier = structuralRange * (1 + Math.min(.40, Math.max(0, engineeringSteps) * .03)); const round = (value: number) => Math.round(value * 1e12) / 1e12; return frozen({ full: round(12 * multiplier), max: round(24 * multiplier) }); }
 /** The late range fixture accepts only the actual saved TAB-A B-HM. */
-export function resolveFittedLateHmRange(profile: LateFixtureProfile): Readonly<{ instanceId: string; refinement: LateRefinement; full: number; max: number }> | undefined {
+export function resolveFittedLateHmRange(profile: LateFixtureProfile): Readonly<{ instanceId: string; refinement: LateRefinement; full: number; max: number; store: number; refillSeconds: number }> | undefined {
   const part = profile.parts.find(candidate => candidate.assignedTo === 'TAB-A' && candidate.kind === 'B-HM' && candidate.tier === 3 && candidate.refinement !== undefined);
+  const feed = profile.parts.find(candidate => candidate.assignedTo === 'TAB-A' && candidate.slot === 'F');
   const tier = part?.tier;
-  if (!part?.refinement || tier !== 3) return undefined;
+  if (!part?.refinement || tier !== 3 || !feed || (feed.kind !== 'F1' && feed.kind !== 'F2')) return undefined;
   const vector = resolveLateBarrelVector('B-HM', part.refinement);
   const range = lateFullRangeMetres(vector.range, tier - 1);
-  return frozen({ instanceId: part.id, refinement: part.refinement, ...range });
+  return frozen({ instanceId: part.id, refinement: part.refinement, ...range, store: feed.kind === 'F2' ? 18 : 12, refillSeconds: feed.kind === 'F2' ? 2.7 : 1.5 });
 }
 
 export interface LateRangeTarget { readonly id: 'full' | 'falloff' | 'outside'; readonly distance: number; readonly health: number; }
@@ -127,15 +128,14 @@ export interface LateRangeTarget { readonly id: 'full' | 'falloff' | 'outside'; 
  * range rule merely by placing targets at that rule's thresholds.
  */
 export class LateRangeCombat {
-  private readonly targets: readonly LateRangeTarget[] = [
-    { id: 'full', distance: 12, health: 30 },
-    { id: 'falloff', distance: 18, health: 30 },
-    { id: 'outside', distance: 27, health: 30 },
+  private targets: readonly LateRangeTarget[] = [
+    { id: 'full', distance: 12, health: 30 }, { id: 'falloff', distance: 18, health: 30 }, { id: 'outside', distance: 27, health: 30 },
   ];
   private readonly combat = new IntegratedFixtureCombat();
-  constructor(range: Readonly<{ instanceId: string; refinement: LateRefinement; full: number; max: number }>) {
+  constructor(range: Readonly<{ instanceId: string; refinement: LateRefinement; full: number; max: number; store: number; refillSeconds: number }>, targetHealth = 30) {
     const vector = resolveLateBarrelVector('B-HM', range.refinement);
-    const weapon: FixtureWeaponProfile = { id: range.instanceId, damage: 30, cycleSeconds: .25, initialSetupSeconds: .1 * vector.setup, fullRangeMetres: range.full, maxRangeMetres: range.max, store: 12, refillSeconds: 1.5, shotOffsetDegrees: Object.freeze([0]), contactWidthMetres: vector.contactWidthMetres };
+    const weapon: FixtureWeaponProfile = { id: range.instanceId, damage: 30, cycleSeconds: .25, initialSetupSeconds: .1 * vector.setup, fullRangeMetres: range.full, maxRangeMetres: range.max, store: range.store, refillSeconds: range.refillSeconds, shotOffsetDegrees: Object.freeze([0]), contactWidthMetres: vector.contactWidthMetres };
+    this.targets = this.targets.map(target => frozen({ ...target, health: targetHealth }));
     const targets: FixtureRangeTargetDefinition[] = this.targets.map(target => ({ id: `range-${target.id}` as FixtureRangeTargetDefinition['id'], position: { x: 8 + target.distance + .4, z: 11, layer: 'ground' }, health: target.health, radius: .4 }));
     this.combat.configureRangeCombat(weapon, targets);
   }

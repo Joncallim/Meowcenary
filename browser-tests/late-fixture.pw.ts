@@ -4,7 +4,7 @@ type Part = { id: string; kind: string; tier: number | null; refinement?: string
 type Receipt = { commandId: string; action: string; outputIds: readonly string[]; refinement?: string; inputIds?: readonly string[]; inputVersions?: readonly number[] };
 type Diagnostics = { scene: string; revision: number; parts: number; partRecords: readonly Part[]; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly Receipt[]; discoveries: readonly string[]; pinnedEarlierHistory: { receiptIds: readonly string[]; paidEventIds: readonly string[]; h2State: string }; currentH2State: string; declaration: string; message: string };
 type LateSeam = { diagnostics(): Diagnostics; commit(command: { commandId: string; expectedRevision: number; action: 'develop' | 'merge' | 'build' | 'fit'; inputIds?: readonly string[]; targetGun?: 'TAB-A' }): Promise<boolean>; failNextStorageWrite(): void; failNextStorageRead(): void; rejectNextWriterLock(): void };
-type LateRangeSeam = { diagnostics(): { range?: { full: number; max: number; refinement: string }; targets: readonly { id: string; distance: number; health: number }[] } };
+type LateRangeSeam = { diagnostics(): { range?: { full: number; max: number; refinement: string; store: number; refillSeconds: number }; activeGun?: { supply: number }; targets: readonly { id: string; distance: number; health: number }[] } };
 type B1Seam = { prepareF01(): boolean };
 
 const b1Key = 'meowcenary:int-fb:v1:profile';
@@ -143,6 +143,8 @@ test('visible range route uses the persisted fitted HM range and returns without
   const initial = await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics());
   const structural = { LeanA25: .98475, Balanced50: .975, LeanB25: .9652499999999999 }[initial.range!.refinement]!;
   expect(initial.range).toMatchObject({ full: 12 * structural * 1.06, max: 24 * structural * 1.06 });
+  expect(initial.range).toMatchObject({ store: 18, refillSeconds: 2.7 });
+  expect(initial.activeGun).toMatchObject({ supply: 18 });
   expect(initial.targets).toEqual([{ id: 'full', distance: 12, health: 30 }, { id: 'falloff', distance: 18, health: 30 }, { id: 'outside', distance: 27, health: 30 }]);
   // Each press advances the configured 125ms lifecycle: setup/cadence yields
   // one full contact then two falloff contacts; the authored 27m target is
@@ -150,6 +152,7 @@ test('visible range route uses the persisted fitted HM range and returns without
   for (let shot = 0; shot < 5; shot += 1) await page.keyboard.press('Space');
   const after = await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics());
   expect(after.targets).toEqual([{ id: 'full', distance: 12, health: 0 }, { id: 'falloff', distance: 18, health: 0 }, { id: 'outside', distance: 27, health: 30 }]);
+  expect(after.activeGun).toMatchObject({ supply: 15 });
   expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(lateBefore); await expectB1Unchanged(page, b1);
   await page.keyboard.press('Escape'); await waitLateReload(page); expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(lateBefore);
 });

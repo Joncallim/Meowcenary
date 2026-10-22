@@ -14,7 +14,7 @@ export class LateRangeScene extends Phaser.Scene {
   private combat?: LateRangeCombat;
   private fire?: Phaser.GameObjects.Rectangle;
   private back?: Phaser.GameObjects.Rectangle;
-  private range?: Readonly<{ instanceId: string; refinement: 'LeanA25' | 'Balanced50' | 'LeanB25'; full: number; max: number }>;
+  private range?: Readonly<{ instanceId: string; refinement: 'LeanA25' | 'Balanced50' | 'LeanB25'; full: number; max: number; store: number; refillSeconds: number }>;
   private profileKey = LATE_KEY;
   private recoveryMessage?: string;
   constructor() { super(SceneKey.LateRange); }
@@ -47,7 +47,7 @@ export class LateRangeScene extends Phaser.Scene {
       createUiText(this, sprite.x, y + 30, index === 0 ? `FULL ${distance}m` : index === 1 ? `FALLOFF ${distance}m` : `OUT ${distance}m`, { fontSize: '11px', color: '#fff', align: 'center' }).setOrigin(.5);
       return { sprite, id: target.id, distance };
     });
-    this.status.setText(`LATE RANGE FIXTURE · persisted ${this.range.instanceId}\nB-HM T3 ${this.range.refinement}: full ${this.range.full}m · max ${this.range.max}m\nFIRE / SPACE launches a contact attempt at 12m, 18m, then 27m. The shared resolver yields full, falloff, then zero damage.\nNo B1 or late-save writes occur here.`);
+    this.status.setText(`LATE RANGE FIXTURE · persisted ${this.range.instanceId}\nB-HM T3 ${this.range.refinement}: full ${this.range.full}m · max ${this.range.max}m · feed ${this.range.store} / ${this.range.refillSeconds}s\nFIRE / SPACE launches a contact attempt at 12m, 18m, then 27m. The shared resolver yields full, falloff, then zero damage.\nNo B1 or late-save writes occur here.`);
     this.fire = this.add.rectangle(this.scale.width * .28, this.scale.height - 54, 150, 46, 0x3ee8a9).setInteractive();
     createUiText(this, this.fire.x, this.fire.y, 'FIRE\nSPACE', { fontSize: '13px', color: '#071018', align: 'center' }).setOrigin(.5);
     this.fire.on('pointerup', () => this.fireHm()); this.addBack();
