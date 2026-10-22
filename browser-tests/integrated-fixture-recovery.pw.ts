@@ -2,7 +2,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 type Bounds = { x: number; y: number; width: number; height: number };
 type CameraTransform = { viewport: Bounds; origin: { x: number; y: number }; zoom: number; topLeftWorld: { x: number; y: number }; bottomRightWorld: { x: number; y: number } };
-type FixtureLayout = { viewport: { width: number; height: number }; status?: Bounds; interact?: Bounds; workshop?: Bounds; history?: Bounds; player?: { x: number; y: number }; camera: { x: number; y: number; width: number; height: number; zoom: number; scrollX: number; scrollY: number; worldView: Bounds }; floorCoverage: { minX: number; minY: number; maxX: number; maxY: number }; workshopModalBounds?: Bounds; workshopModalChildren?: Bounds[]; workshopPreviewRevision?: number; fixedUiCount: number; workshopOpen: boolean };
+type FixtureLayout = { viewport: { width: number; height: number }; status?: Bounds; interact?: Bounds; workshop?: Bounds; history?: Bounds; player?: { x: number; y: number }; camera: { x: number; y: number; width: number; height: number; zoom: number; scrollX: number; scrollY: number; worldView: Bounds }; floorCoverage: { minX: number; minY: number; maxX: number; maxY: number }; workshopModalBounds?: Bounds; workshopModalChildren?: Bounds[]; replayBanner?: { scaleX: number; scaleY: number; background?: Bounds; copy?: Bounds; exit?: Bounds; exitText?: Bounds }; workshopPreviewRevision?: number; fixedUiCount: number; workshopOpen: boolean };
 type Diagnostics = {
   scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: 'ground' | 'elevated'; tabbyLayer: 'ground' | 'elevated'; houndLayer: 'ground' | 'elevated'; combatEventSequence: number; cameraX: number; cameraY: number; cameraTransform?: CameraTransform; controlledGun: string; jobId?: string; phase: string; completedInteractionIds: string[]; canExtract: boolean; extracted: boolean;
   combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostiles: number;
@@ -267,6 +267,24 @@ test('archived movement matches live world-unit displacement for an equal frame'
   expect(replayDistance).toBeGreaterThan(10);
   expect(replayDistance).toBeCloseTo(liveDistance, 5);
   expect(Math.hypot(replay.tabbyPosition.x - replay.houndPosition.x, replay.tabbyPosition.y - replay.houndPosition.y)).toBeLessThanOrEqual(27);
+  const bytesBeforeResize = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+  for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }, { width: 1280, height: 720 }]) {
+    await page.setViewportSize(viewport);
+    await expect.poll(async () => (await layout(page)).viewport).toEqual(viewport);
+    const value = await layout(page); const banner = value.replayBanner!;
+    expect((await state(page)).historicalReplayActive).toBe(true);
+    expect(banner.scaleX).toBe(1); expect(banner.scaleY).toBe(1);
+    expect(banner.background!.y).toBeGreaterThanOrEqual(value.status!.y + value.status!.height + 8);
+    for (const child of [banner.copy!, banner.exit!, banner.exitText!]) {
+      expect(child.x).toBeGreaterThanOrEqual(banner.background!.x - 1); expect(child.y).toBeGreaterThanOrEqual(banner.background!.y - 1);
+      expect(child.x + child.width).toBeLessThanOrEqual(banner.background!.x + banner.background!.width + 1); expect(child.y + child.height).toBeLessThanOrEqual(banner.background!.y + banner.background!.height + 1);
+    }
+    expectVisibleBounds(banner.background, value.viewport, 'replay banner'); expect(banner.exit!.height).toBeGreaterThanOrEqual(40);
+  }
+  const exit = (await layout(page)).replayBanner!.exit!;
+  await page.mouse.click(exit.x + exit.width / 2, exit.y + exit.height / 2);
+  await expect.poll(async () => !(await state(page)).historicalReplayActive).toBe(true);
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(bytesBeforeResize);
 });
 
 test('invalid persisted B1 envelopes are visibly blocked and remain byte-identical after ordinary actions', async ({ page }, info) => {

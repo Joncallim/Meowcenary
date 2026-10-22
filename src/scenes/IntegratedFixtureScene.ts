@@ -241,7 +241,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       failNextRecoveryWrite: () => { this.failNextRecoveryWrite = true; },
       rejectNextWriterLock: () => { this.rejectNextWriterLock = true; },
       ...(import.meta.env.VITE_VISUAL_TEST === '1' ? {
-        layout: () => ({ viewport: { width: this.scale.width, height: this.scale.height }, status: this.status?.getBounds(), interact: this.interactButton?.getBounds(), workshop: this.workshopButton?.getBounds(), history: this.historyButton?.getBounds(), player: this.controlledSprite() ? { x: this.controlledSprite()!.x, y: this.controlledSprite()!.y } : undefined, camera: { x: this.cameras.main.x, y: this.cameras.main.y, width: this.cameras.main.width, height: this.cameras.main.height, zoom: this.cameras.main.zoom, scrollX: this.cameras.main.scrollX, scrollY: this.cameras.main.scrollY, worldView: this.cameras.main.worldView }, floorCoverage: this.floorCoverage, workshopModalBounds: this.workshopModal?.getBounds(), workshopModalChildren: this.workshopModal?.list.map(child => (child as Phaser.GameObjects.GameObject & { getBounds(): Phaser.Geom.Rectangle }).getBounds()), workshopPreviewRevision: this.workshopPreviewRevision, fixedUiCount: this.children.list.filter((node) => (node as Phaser.GameObjects.GameObject & { scrollFactorX?: number }).scrollFactorX === 0).length, workshopOpen: !!this.workshopModal }),
+        layout: () => ({ viewport: { width: this.scale.width, height: this.scale.height }, status: this.status?.getBounds(), interact: this.interactButton?.getBounds(), workshop: this.workshopButton?.getBounds(), history: this.historyButton?.getBounds(), player: this.controlledSprite() ? { x: this.controlledSprite()!.x, y: this.controlledSprite()!.y } : undefined, camera: { x: this.cameras.main.x, y: this.cameras.main.y, width: this.cameras.main.width, height: this.cameras.main.height, zoom: this.cameras.main.zoom, scrollX: this.cameras.main.scrollX, scrollY: this.cameras.main.scrollY, worldView: this.cameras.main.worldView }, floorCoverage: this.floorCoverage, workshopModalBounds: this.workshopModal?.getBounds(), workshopModalChildren: this.workshopModal?.list.map(child => (child as Phaser.GameObjects.GameObject & { getBounds(): Phaser.Geom.Rectangle }).getBounds()), replayBanner: this.historicalReplayModal ? { scaleX: this.historicalReplayModal.scaleX, scaleY: this.historicalReplayModal.scaleY, container: { x: this.historicalReplayModal.x, y: this.historicalReplayModal.y }, background: this.replayBannerBackground?.getBounds(), backgroundGeometry: this.replayBannerBackground ? { y: this.replayBannerBackground.y, originY: this.replayBannerBackground.originY, height: this.replayBannerBackground.height, displayHeight: this.replayBannerBackground.displayHeight, scaleY: this.replayBannerBackground.scaleY } : undefined, copy: this.replayBannerCopy?.getBounds(), exit: this.replayBannerExit?.getBounds(), exitText: this.replayBannerExitText?.getBounds() } : undefined, workshopPreviewRevision: this.workshopPreviewRevision, fixedUiCount: this.children.list.filter((node) => (node as Phaser.GameObjects.GameObject & { scrollFactorX?: number }).scrollFactorX === 0).length, workshopOpen: !!this.workshopModal }),
         pauseSimulation: () => { this.simulationPaused = true; },
         forceReplayTerminal: (outcome: 'success' | 'death') => this.forceReplayTerminal(outcome),
         forceReplayHostileClear: () => this.forceReplayHostileClear(),
@@ -1211,11 +1211,13 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   }
   private layoutReplayBanner(viewportWidth: number): void {
     if (!this.historicalReplayModal || !this.replayBannerBackground || !this.replayBannerCopy || !this.replayBannerExit || !this.replayBannerExitText) return;
-    const width = Math.min(480, viewportWidth - 24); const height = 88;
+    const width = Math.min(480, viewportWidth - 24);
+    this.replayBannerCopy.setWordWrapWidth(width - 170, true);
+    const height = Math.max(88, this.replayBannerCopy.height + 24);
     const statusBottom = this.status?.getBounds().bottom ?? 0;
     this.historicalReplayModal.setScale(1).setPosition(viewportWidth / 2, statusBottom + 12 + height / 2);
     this.replayBannerBackground.setSize(width, height);
-    this.replayBannerCopy.setPosition(-80, 0).setWordWrapWidth(width - 170, true);
+    this.replayBannerCopy.setPosition(-80, 0);
     const exitX = width / 2 - 62;
     this.replayBannerExit.setPosition(exitX, 0); this.replayBannerExitText.setPosition(exitX, 0);
   }
