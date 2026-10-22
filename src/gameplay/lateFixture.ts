@@ -1,3 +1,5 @@
+import { fixtureRangeDamage } from './integratedFixture';
+
 /** Isolated Chapter-5 workshop fixture. It intentionally has no B1 envelope
  * adapter: its seed and receipts can never mutate the earlier browser save. */
 export type LateRefinement = 'LeanA25' | 'Balanced50' | 'LeanB25';
@@ -25,6 +27,7 @@ export function deriveLateB1History(value: unknown): LateB1History {
   const kept = workshop?.parts?.some(part => part.instanceId === 'INT-B1-HOU-H2-LOOT') ?? false;
   return frozen({ receiptIds: frozen(receipts), paidEventIds: frozen(paidEventIds), h2State: !discovered ? 'unavailable' : !claimed ? 'unclaimed' : kept ? 'kept' : 'sold' });
 }
+
 export function createLateFixtureProfile(history: LateB1History = frozen({ receiptIds: frozen([]), paidEventIds: frozen([]), h2State: 'unavailable' })): LateFixtureProfile {
   const parts: LatePart[] = [
     part('INT-LATE-TAB-A-R', 'TAB', 'R', 'R1', null, 'TAB-A', true), part('INT-LATE-TAB-A-B', 'TAB', 'B', 'B3', 2, 'TAB-A', false, false, 'Balanced50'), part('INT-LATE-TAB-A-F', 'TAB', 'F', 'F2', null, 'TAB-A', false, true), part('INT-LATE-TAB-A-P', 'TAB', 'P', 'P1', null, 'TAB-A', true), part('INT-LATE-TAB-A-H', 'TAB', 'H', 'H1', null, 'TAB-A', true), part('INT-LATE-TAB-A-C', 'TAB', 'C', 'C1', null, 'TAB-A', true),
@@ -113,4 +116,32 @@ export function resolveFittedLateHmRange(profile: LateFixtureProfile): Readonly<
   const vector = resolveLateBarrelVector('B-HM', part.refinement);
   const range = lateFullRangeMetres(vector.range, tier - 1);
   return frozen({ instanceId: part.id, refinement: part.refinement, ...range });
+}
+
+export interface LateRangeTarget { readonly id: 'full' | 'falloff' | 'outside'; readonly distance: number; readonly health: number; }
+export interface LateRangeShot { readonly targetId: LateRangeTarget['id']; readonly distance: number; readonly damage: number; readonly targetHealth: number; readonly projectileTravelled: number; }
+/**
+ * Small read-only combat adapter for the late range fixture.  It uses the
+ * same first-contact falloff resolver as the integrated combat owner; Phaser
+ * only renders the resulting projectile/contact state.  Target distances are
+ * authored independently of a sampled refinement, so the test cannot prove a
+ * range rule merely by placing targets at that rule's thresholds.
+ */
+export class LateRangeCombat {
+  private readonly targets: Array<{ id: LateRangeTarget['id']; distance: number; health: number }> = [
+    { id: 'full', distance: 12, health: 30 },
+    { id: 'falloff', distance: 18, health: 30 },
+    { id: 'outside', distance: 27, health: 30 },
+  ];
+  constructor(private readonly range: Readonly<{ full: number; max: number }>) {}
+  snapshot(): readonly LateRangeTarget[] { return frozen(this.targets.map(target => frozen({ ...target }))); }
+  fire(): LateRangeShot | undefined {
+    const target = this.targets.find(candidate => candidate.health > 0);
+    if (!target) return undefined;
+    // Deliberately no range prefilter: an outside target receives a projectile
+    // contact attempt and the shared resolver returns zero damage.
+    const damage = fixtureRangeDamage(target.distance, 30, this.range.full, this.range.max);
+    target.health = Math.max(0, target.health - damage);
+    return frozen({ targetId: target.id, distance: target.distance, damage, targetHealth: target.health, projectileTravelled: target.distance });
+  }
 }

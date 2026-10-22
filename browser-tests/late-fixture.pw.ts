@@ -4,7 +4,7 @@ type Part = { id: string; kind: string; tier: number | null; refinement?: string
 type Receipt = { commandId: string; action: string; outputIds: readonly string[]; refinement?: string; inputIds?: readonly string[]; inputVersions?: readonly number[] };
 type Diagnostics = { scene: string; revision: number; parts: number; partRecords: readonly Part[]; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly Receipt[]; discoveries: readonly string[]; pinnedEarlierHistory: { receiptIds: readonly string[]; paidEventIds: readonly string[]; h2State: string }; currentH2State: string; declaration: string; message: string };
 type LateSeam = { diagnostics(): Diagnostics; commit(command: { commandId: string; expectedRevision: number; action: 'develop' | 'merge' | 'build' | 'fit'; inputIds?: readonly string[]; targetGun?: 'TAB-A' }): Promise<boolean>; failNextStorageWrite(): void; failNextStorageRead(): void; rejectNextWriterLock(): void };
-type LateRangeSeam = { diagnostics(): { range?: { full: number; max: number }; resolved: number[]; unresolved: number[] } };
+type LateRangeSeam = { diagnostics(): { range?: { full: number; max: number; refinement: string }; targets: readonly { id: string; distance: number; health: number }[] } };
 type B1Seam = { prepareF01(): boolean };
 
 const b1Key = 'meowcenary:int-fb:v1:profile';
@@ -140,11 +140,67 @@ test('visible range route uses the persisted fitted HM range and returns without
   const lateBefore = await page.evaluate(key => localStorage.getItem(key), lateKey);
   await page.keyboard.press('r');
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
-  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics())).toMatchObject({ range: { full: 12.402, max: 24.804 }, unresolved: [12.402, 24.804, 26.804] });
-  await page.keyboard.press('Space'); await page.keyboard.press('Space');
-  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics())).toEqual({ range: expect.anything(), resolved: [12.402, 24.804], unresolved: [26.804] });
+  const initial = await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics());
+  const structural = { LeanA25: .98475, Balanced50: .975, LeanB25: .9652499999999999 }[initial.range!.refinement]!;
+  expect(initial.range).toMatchObject({ full: 12 * structural * 1.06, max: 24 * structural * 1.06 });
+  expect(initial.targets).toEqual([{ id: 'full', distance: 12, health: 30 }, { id: 'falloff', distance: 18, health: 30 }, { id: 'outside', distance: 27, health: 30 }]);
+  // Real projectile/contact attempts: full contact, two falloff contacts, then
+  // an out-of-range attempt that the shared resolver leaves undamaged.
+  for (let shot = 0; shot < 4; shot += 1) await page.keyboard.press('Space');
+  const after = await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics());
+  expect(after.targets).toEqual([{ id: 'full', distance: 12, health: 0 }, { id: 'falloff', distance: 18, health: 0 }, { id: 'outside', distance: 27, health: 30 }]);
   expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(lateBefore); await expectB1Unchanged(page, b1);
   await page.keyboard.press('Escape'); await waitLateReload(page); expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(lateBefore);
+});
+
+test('range entry cancels a held workshop confirmation before it can write', async ({ page }, info) => {
+  await openLate(page, info);
+  await page.keyboard.press('m'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await page.keyboard.press('f'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
+  const before = await page.evaluate(key => localStorage.getItem(key), lateKey);
+  await page.evaluate(() => new Promise<void>(resolve => {
+    const target = globalThis as typeof globalThis & { releaseLateRangeWriter?: () => void };
+    navigator.locks.request('meowcenary:int-late:v1:profile:writer', { mode: 'exclusive' }, async () => { resolve(); await new Promise<void>(release => { target.releaseLateRangeWriter = release; }); });
+  }));
+  try {
+    await page.keyboard.press('u'); await page.keyboard.press('Enter');
+    await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).pending?.some(lock => lock.name === 'meowcenary:int-late:v1:profile:writer') ?? false)).toBe(true);
+    await page.keyboard.press('r');
+    await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
+    await page.evaluate(() => (globalThis as typeof globalThis & { releaseLateRangeWriter?: () => void }).releaseLateRangeWriter?.());
+    await page.evaluate(() => navigator.locks.request('meowcenary:int-late:v1:profile:writer', { mode: 'exclusive' }, async () => undefined));
+    expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(before);
+  } finally { await page.evaluate(() => (globalThis as typeof globalThis & { releaseLateRangeWriter?: () => void }).releaseLateRangeWriter?.()); }
+});
+
+test('range keeps its selected fixture profile and fails closed for missing or invalid saves', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Range recovery evidence is captured once at the desktop reference viewport.');
+  await openLate(page, info);
+  await page.keyboard.press('m'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await page.keyboard.press('f'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
+  // The explicit same-B2 branch has a different profile/key and no HM. It
+  // must refuse rather than silently reading the populated canonical key.
+  await page.goto('/?fixture=int-late-same-b2'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
+  await page.keyboard.press('r'); expect(await diagnostics(page)).toMatchObject({ message: expect.stringContaining('B-HM T3 before') });
+  await page.evaluate(key => localStorage.removeItem(key), lateKey);
+  await page.goto('/?fixture=int-late-range'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: { diagnostics(): { recoveryMessage?: string } } }).__MEOWCENARY_LATE_RANGE__.diagnostics().recoveryMessage)).toContain('must be fitted first');
+  await page.keyboard.press('Escape'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: unknown }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
+  await page.evaluate(() => localStorage.setItem('meowcenary:int-late:v1:profile', '{bad'));
+  await page.goto('/?fixture=int-late-range'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: { diagnostics(): { recoveryMessage?: string } } }).__MEOWCENARY_LATE_RANGE__.diagnostics().recoveryMessage)).toContain('invalid or unsupported');
+});
+
+test('range reports denied late storage and still offers Return', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Range recovery evidence is captured once at the desktop reference viewport.');
+  await page.addInitScript(() => { Storage.prototype.getItem = () => { throw new Error('denied for range recovery test'); }; });
+  await page.goto('/?fixture=int-late-range');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: { diagnostics(): { recoveryMessage?: string } } }).__MEOWCENARY_LATE_RANGE__.diagnostics().recoveryMessage)).toContain('could not be read');
+  await page.keyboard.press('Escape');
+  // The handler exists even on the failed range entry; the destination itself
+  // may correctly report denied storage rather than fabricating a profile.
+  await expect.poll(() => page.evaluate(() => !Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
 });
 
 test('phone late preview uses visible Cancel and Confirm controls without overflow', async ({ page }, info) => {

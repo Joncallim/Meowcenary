@@ -161,6 +161,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.lead, true, .15, .15);
     if (this.envelope.liveMission) this.restoreLiveMission(this.envelope.liveMission);
     this.refreshStatus();
+    if (import.meta.env.VITE_VISUAL_TEST === '1') {
     Object.defineProperty(globalThis, '__MEOWCENARY_INT_FB__', { configurable: true, value: {
       diagnostics: () => this.diagnostics(),
       surrender: () => this.surrender(),
@@ -203,6 +204,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       } : {}),
     } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_INT_FB__; });
+    }
   }
 
   update(_time: number, delta: number): void {

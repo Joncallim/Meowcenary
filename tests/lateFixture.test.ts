@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { commitLateFixture, createLateFixtureProfile, decodeLateFixtureProfile, lateFullRangeMetres, resolveFittedLateHmRange, resolveLateBarrelVector, sampleLateRefinement, type LateFixtureProfile } from '../src/gameplay/lateFixture';
+import { commitLateFixture, createLateFixtureProfile, decodeLateFixtureProfile, LateRangeCombat, lateFullRangeMetres, resolveFittedLateHmRange, resolveLateBarrelVector, sampleLateRefinement, type LateFixtureProfile } from '../src/gameplay/lateFixture';
 
 it('seeds an isolated Chapter-5 sale and keep-loot fixture without touching B1', () => {
   const sale = createLateFixtureProfile();
@@ -34,6 +34,14 @@ it('resolves late range only from an actually persisted fitted TAB-A HM', () => 
   expect(resolveFittedLateHmRange(merged)).toBeUndefined();
   const fitted = commitLateFixture(merged, { commandId: 'range-fit', expectedRevision: 1, action: 'fit', inputIds: [hm.id], targetGun: 'TAB-A' }).profile;
   expect(resolveFittedLateHmRange(fitted)).toEqual({ instanceId: hm.id, refinement: 'Balanced50', full: 12.402, max: 24.804 });
+});
+
+it('uses the shared contact falloff resolver for independent late range targets', () => {
+  const combat = new LateRangeCombat({ full: 12.402, max: 24.804 });
+  expect(combat.fire()).toMatchObject({ targetId: 'full', distance: 12, damage: 30, targetHealth: 0, projectileTravelled: 12 });
+  expect(combat.fire()).toMatchObject({ targetId: 'falloff', distance: 18, damage: expect.any(Number), projectileTravelled: 18 });
+  expect(combat.fire()!.damage).toBeGreaterThan(0);
+  expect(combat.fire()).toMatchObject({ targetId: 'outside', distance: 27, damage: 0, targetHealth: 30, projectileTravelled: 27 });
 });
 
 describe('late fixture refinement transactions', () => {
