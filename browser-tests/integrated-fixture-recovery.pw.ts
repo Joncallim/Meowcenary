@@ -48,30 +48,27 @@ function clampToViewport(screen: { x: number; y: number }, transform: CameraTran
   return { x: Math.max(viewport.x + inset, Math.min(viewport.x + viewport.width - inset, screen.x)), y: Math.max(viewport.y + inset, Math.min(viewport.y + viewport.height - inset, screen.y)) };
 }
 async function moveTo(page: Page, x: number, y: number): Promise<void> {
-  if ((page.viewportSize()?.width ?? 0) < 800 || x > (page.viewportSize()?.width ?? 0) || y > (page.viewportSize()?.height ?? 0)) {
-    await moveAxis(page, 'x', x);
-    await moveAxis(page, 'y', y);
-    return;
-  }
   const before = await state(page);
-  const screen = worldToScreen(before, { x, y });
-  const viewport = before.cameraTransform!.viewport;
-  // A genuine map target may render behind the compact bottom controls. Those
-  // controls correctly own their gesture, so retain the same world waypoint
-  // assertion through ordinary keyboard movement instead of clicking through
-  // the HUD into a different action.
-  if (screen.y >= viewport.y + viewport.height - 150) {
-    await moveAxis(page, 'x', x);
-    await moveAxis(page, 'y', y);
-    return;
-  }
+  let screen = worldToScreen(before, { x, y });
+  // Keep contacts above the fixed bottom controls. Recompute while held so
+  // the follow camera brings an initially off-screen authored waypoint into
+  // view through real collision-constrained movement.
+  const safeScreen = (current: Diagnostics) => {
+    const transform = current.cameraTransform!;
+    const raw = worldToScreen(current, { x, y });
+    const { viewport } = transform;
+    return { x: Math.max(viewport.x + 8, Math.min(viewport.x + viewport.width - 8, raw.x)), y: Math.max(viewport.y + 8, Math.min(viewport.y + viewport.height - 160, raw.y)) };
+  };
+  screen = safeScreen(before);
   await page.mouse.move(screen.x, screen.y);
   await page.mouse.down();
   try {
-    let last = before;
     await expect.poll(async () => {
-      last = await state(page);
-      return Math.hypot(last.x - x, last.y - y) < 9;
+      const current = await state(page);
+      if (Math.hypot(current.x - x, current.y - y) < 9) return true;
+      screen = safeScreen(current);
+      await page.mouse.move(screen.x, screen.y);
+      return false;
     }, { timeout: 15_000, intervals: [50, 100, 200] }).toBe(true);
   } catch (error) {
     const current = await state(page);
@@ -83,10 +80,15 @@ async function moveAxis(page: Page, axis: 'x' | 'y', target: number): Promise<vo
   const key = axis === 'x' ? (target > before.x ? 'ArrowRight' : 'ArrowLeft') : (target > before.y ? 'ArrowDown' : 'ArrowUp');
   await page.keyboard.down(key);
   try {
-    await expect.poll(async () => {
+    try {
+      await expect.poll(async () => {
+        const current = await state(page);
+        return Math.abs(current[axis] - target) < 9;
+      }, { timeout: 15_000, intervals: [50, 100, 200] }).toBe(true);
+    } catch (error) {
       const current = await state(page);
-      return Math.abs(current[axis] - target) < 9;
-    }, { timeout: 15_000, intervals: [50, 100, 200] }).toBe(true);
+      throw new Error(`moveAxis stalled: axis=${axis}; target=${target}; key=${key}; before=${before.x},${before.y},${before.layer}; current=${current.x},${current.y},${current.layer}; ${error instanceof Error ? error.message : String(error)}`);
+    }
   } finally { await page.keyboard.up(key); }
 }
 async function moveAlong(page: Page, points: readonly { x: number; y: number }[]): Promise<void> {
@@ -522,7 +524,9 @@ test('archived R01 preserves terrain layers, collision, camera, and living-actor
   await page.mouse.move(...Object.values(worldToScreen(blockedStart, { x: 530, y: 320 }))); await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up();
   const blocked = (await state(page)).replay!;
   expect(blocked.tabbyPosition.y).toBeLessThan(260); expect(blocked.houndPosition.y).toBeLessThan(260);
-  for (const point of [{ x: 530, y: 220 }, { x: 400, y: 210 }, { x: 400, y: 80 }, { x: 370, y: 100 }, { x: 370, y: 380 }]) {
+  // Descend through visible ground-pocket targets so each replay pointer
+  // contact remains within the camera viewport while it follows Tabby.
+  for (const point of [{ x: 530, y: 220 }, { x: 400, y: 210 }, { x: 400, y: 80 }, { x: 370, y: 100 }, { x: 370, y: 220 }, { x: 370, y: 300 }, { x: 370, y: 380 }]) {
     await moveReplayTo(page, point.x, point.y);
   }
   await expect.poll(async () => {
@@ -667,7 +671,7 @@ test('F01 recovery/retry/extraction is persisted by the live Phaser scene', asyn
     return;
   }
 
-  await moveAlong(page, [{ x: 300, y: 80 }, { x: 350, y: 200 }, { x: 530, y: 220 }, { x: 650, y: 220 }, { x: 550, y: 410 }]);
+  await moveAlong(page, [{ x: 300, y: 80 }, { x: 350, y: 200 }, { x: 530, y: 220 }, { x: 650, y: 220 }, { x: 650, y: 300 }, { x: 550, y: 410 }]);
   await page.keyboard.press('e');
   await expect.poll(async () => (await state(page)).completedInteractionIds).toContain('INT-FB-F01-DISPUTED-LOT');
   await moveAlong(page, [{ x: 550, y: 470 }, { x: 690, y: 490 }]);
