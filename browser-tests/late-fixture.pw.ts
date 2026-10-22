@@ -142,6 +142,14 @@ test('late UI fail-closes malformed persisted saves without changing late or B1 
   }
 });
 
+test('invalid B1 history blocks late seeding without inventing empty history', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Dedicated strict B1 import evidence runs once on desktop.');
+  await page.goto('/?fixture=int-fb'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_INT_FB__?: unknown }).__MEOWCENARY_INT_FB__))).toBe(true);
+  const b1 = '{invalid-b1'; await page.evaluate(value => { localStorage.setItem('meowcenary:int-fb:v1:profile', value); localStorage.removeItem('meowcenary:int-late:v1:profile'); }, b1);
+  await page.goto('/?fixture=int-late'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
+  expect(await diagnostics(page)).toMatchObject({ blocked: true, message: expect.stringContaining('Earlier B1 history is invalid') }); expect(await page.evaluate(key => localStorage.getItem(key), b1Key)).toBe(b1); expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBeNull();
+});
+
 test('late writer fences competing tabs at one durable revision', async ({ page }, info) => {
   const b1 = await openLate(page, info);
   const peer = await page.context().newPage(); await peer.goto('/?fixture=int-late'); await expect.poll(() => peer.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
@@ -149,7 +157,13 @@ test('late writer fences competing tabs at one durable revision', async ({ page 
   const develop = { commandId: 'race-develop', expectedRevision: 0, action: 'develop' as const, inputIds: ['INT-LATE-DONOR-B2-T2'] };
   const [left, right] = await Promise.all([page.evaluate(c => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit(c), merge), peer.evaluate(c => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit(c), develop)]);
   expect([left, right].filter(Boolean)).toHaveLength(1);
-  await page.reload(); await waitLateReload(page); const durable = await diagnostics(page); expect(durable).toMatchObject({ revision: 1 }); expect(durable.receipts).toHaveLength(1); expect(durable.partRecords.map(part => part.id)).not.toContain('INT-LATE-DONOR-B2-T2'); expectB1Unchanged(page, b1); await peer.close();
+  await page.reload(); await waitLateReload(page); const durable = await diagnostics(page); expect(durable).toMatchObject({ revision: 1 }); expect(durable.receipts).toHaveLength(1); if (durable.receipts[0]!.commandId === 'race-merge') expect(durable.partRecords.map(part => part.id)).not.toContain('INT-LATE-DONOR-B2-T2'); else expect(durable.partRecords.find(part => part.id === 'INT-LATE-DONOR-B2-T2')).toMatchObject({ tier: 3 }); await expectB1Unchanged(page, b1); await peer.close();
+});
+
+test('late decoder rejects an extra foreign-family assignment', async ({ page }, info) => {
+  await openLate(page, info); expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'seed', expectedRevision: 0, action: 'retain-donors' } as any))).toBe(true);
+  const corrupt = await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-late:v1:profile')!); raw.parts.push({ ...raw.parts.find((part: any) => part.id === 'INT-LATE-HOU-A-R'), id: 'foreign-extra', assignedTo: 'TAB-A' }); const text = JSON.stringify(raw); localStorage.setItem('meowcenary:int-late:v1:profile', text); return text; });
+  await page.reload(); await waitLateReload(page); expect(await diagnostics(page)).toMatchObject({ blocked: true }); expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(corrupt);
 });
 
 test('late storage failure leaves durable and in-memory state unchanged', async ({ page }, info) => {

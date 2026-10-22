@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { SceneKey } from '../engine/sceneKeys';
 import { commitLateFixture, createLateFixtureProfile, decodeLateFixtureProfile, deriveLateB1History, type LateFixtureProfile } from '../gameplay/lateFixture';
-import { deserializeIntegratedFixtureEnvelope } from '../gameplay/integratedFixture';
+import { decodeIntegratedFixtureEnvelope } from '../gameplay/integratedFixture';
 import { createUiText } from '../ui/text';
 
 const KEY = 'meowcenary:int-late:v1:profile';
@@ -36,12 +36,21 @@ export class LateFixtureScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_LATE_FIXTURE__; });
     this.render();
   }
-  private b1History() { return deriveLateB1History(deserializeIntegratedFixtureEnvelope(localStorage.getItem('meowcenary:int-fb:v1:profile'))); }
+  private b1History() {
+    try {
+      const decoded = decodeIntegratedFixtureEnvelope(localStorage.getItem('meowcenary:int-fb:v1:profile'));
+      if (decoded.state === 'valid') return deriveLateB1History(decoded.envelope);
+      if (decoded.state === 'absent') return deriveLateB1History(undefined);
+    } catch { /* handled below */ }
+    this.blocked = true;
+    this.message = 'Earlier B1 history is invalid or unavailable; late save was not initialized and both saves were preserved.';
+    return undefined;
+  }
   private read(): LateFixtureProfile {
     let raw: string | null;
     try { raw = localStorage.getItem(KEY); } catch { this.blocked = true; this.message = 'Late save storage could not be read; no change was made. Restore access and reload.'; return createLateFixtureProfile(); }
     const decoded = decodeLateFixtureProfile(raw);
-    if (decoded.state === 'absent') return createLateFixtureProfile(this.b1History());
+    if (decoded.state === 'absent') { const history = this.b1History(); return history ? createLateFixtureProfile(history) : createLateFixtureProfile(); }
     if (decoded.state === 'valid') return decoded.profile;
     this.blocked = true;
     this.message = 'Stored late save is invalid or unsupported. It was preserved unchanged; restore it from a trusted backup before continuing.';
