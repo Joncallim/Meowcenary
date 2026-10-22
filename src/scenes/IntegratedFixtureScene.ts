@@ -760,8 +760,12 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (this.ownershipLost || this.recoveryMode !== 'none' || this.activationWriting || this.progressWriting || this.settlementPending) { this.combatFeedback = this.ownershipLost ? 'This tab is stale. Reload before taking over the attempt.' : 'Recovery or settlement is still pending; controls are locked until it finishes.'; this.refreshStatus(); return; }
     const actor = this.controlledSprite();
     if (!actor || this.combat.actorHealth(this.controlledActor) <= 0) return;
-    const nearby = INTEGRATED_FIXTURE_POINTS.find(point => fixturePointLayer(point) === this.actorLayer(this.controlledActor)
-      && Math.hypot(point.x * SCALE - actor.x, point.z * SCALE - actor.y) < 38);
+    // Service and offer markers intentionally sit close together. Choose the
+    // nearest eligible marker rather than the declaration-order match, so a
+    // player standing on OFFER cannot have its interaction swallowed by SAFE.
+    const nearby = INTEGRATED_FIXTURE_POINTS
+      .filter(point => fixturePointLayer(point) === this.actorLayer(this.controlledActor) && Math.hypot(point.x * SCALE - actor.x, point.z * SCALE - actor.y) < 38)
+      .sort((left, right) => Math.hypot(left.x * SCALE - actor.x, left.z * SCALE - actor.y) - Math.hypot(right.x * SCALE - actor.x, right.z * SCALE - actor.y))[0];
     if (nearby?.role === 'discovery' && nearby.id === 'INT-FB-PUBLIC-SPUR') { this.recordLootDiscovery(); return; }
     if (!this.jobId) {
       if (nearby?.role === 'offer-terminal') this.selectJob(actor.x < 250 ? 'MC-OPT-R01-01' : 'MC-OPT-F01-01');
