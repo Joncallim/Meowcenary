@@ -2,7 +2,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 type Bounds = { x: number; y: number; width: number; height: number };
 type CameraTransform = { viewport: Bounds; origin: { x: number; y: number }; zoom: number; topLeftWorld: { x: number; y: number }; bottomRightWorld: { x: number; y: number } };
-type FixtureLayout = { viewport: { width: number; height: number }; status?: Bounds; interact?: Bounds; workshop?: Bounds; history?: Bounds; player?: { x: number; y: number }; camera: { x: number; y: number; width: number; height: number; zoom: number; scrollX: number; scrollY: number; worldView: Bounds }; fixedUiCount: number; workshopOpen: boolean };
+type FixtureLayout = { viewport: { width: number; height: number }; status?: Bounds; interact?: Bounds; workshop?: Bounds; history?: Bounds; player?: { x: number; y: number }; camera: { x: number; y: number; width: number; height: number; zoom: number; scrollX: number; scrollY: number; worldView: Bounds }; floorCoverage: { minX: number; minY: number; maxX: number; maxY: number }; workshopModalBounds?: Bounds; workshopModalChildren?: Bounds[]; fixedUiCount: number; workshopOpen: boolean };
 type Diagnostics = {
   scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: 'ground' | 'elevated'; tabbyLayer: 'ground' | 'elevated'; houndLayer: 'ground' | 'elevated'; combatEventSequence: number; cameraX: number; cameraY: number; cameraTransform?: CameraTransform; controlledGun: string; jobId?: string; phase: string; completedInteractionIds: string[]; canExtract: boolean; extracted: boolean;
   combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostiles: number;
@@ -39,6 +39,18 @@ function expectFollowCentred(value: FixtureLayout): void {
   // that renderer rounding is not a gameplay displacement.
   expect(Math.abs(screenX - value.viewport.width / 2)).toBeLessThanOrEqual(2);
   expect(Math.abs(screenY - value.viewport.height / 2)).toBeLessThanOrEqual(2);
+}
+function expectFloorOverscan(value: FixtureLayout): void {
+  const view = value.camera.worldView;
+  expect(value.floorCoverage.minX).toBeLessThanOrEqual(view.x);
+  expect(value.floorCoverage.minY).toBeLessThanOrEqual(view.y);
+  expect(value.floorCoverage.maxX).toBeGreaterThanOrEqual(view.x + view.width);
+  expect(value.floorCoverage.maxY).toBeGreaterThanOrEqual(view.y + view.height);
+}
+function expectModalVisible(value: FixtureLayout): void {
+  expectVisibleBounds(value.workshopModalBounds, value.viewport, 'workshop panel');
+  expect(value.workshopModalChildren, 'workshop panel children exist').toBeDefined();
+  for (const [index, child] of value.workshopModalChildren!.entries()) expectVisibleBounds(child, value.viewport, `workshop child ${index}`);
 }
 function worldToScreen(diagnostic: Diagnostics, world: { x: number; y: number }): { x: number; y: number } {
   const transform = diagnostic.cameraTransform;
@@ -1082,6 +1094,8 @@ test('fixture resize keeps fixed controls, follow framing, and an open workshop 
     expectVisibleBounds(value.workshop, value.viewport, 'WORKSHOP');
     expectVisibleBounds(value.history, value.viewport, 'HISTORY');
     expectFollowCentred(value);
+    expectFloorOverscan(value);
+    expectModalVisible(value);
     expect(value.fixedUiCount).toBe(initial.fixedUiCount);
   };
 
@@ -1092,6 +1106,14 @@ test('fixture resize keeps fixed controls, follow framing, and an open workshop 
     await page.setViewportSize({ width: 1280, height: 720 });
     await assertSettled(1280, 720);
     await capture(page, info, 'resize-desktop-return-1280x720-workshop-open');
+    await page.keyboard.press('f');
+    await expect.poll(async () => (await state(page)).workshopPreview).toBe('fit-f2-a');
+    const beforeNarrowPreview = await state(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await assertSettled(390, 844);
+    const afterNarrowPreview = await state(page);
+    expect(afterNarrowPreview).toMatchObject({ workshopPreview: beforeNarrowPreview.workshopPreview, workshopCredits: beforeNarrowPreview.workshopCredits, workshopParts: beforeNarrowPreview.workshopParts, workshopMaterials: beforeNarrowPreview.workshopMaterials });
+    await capture(page, info, 'resize-desktop-narrow-preview-390x844');
     return;
   }
 

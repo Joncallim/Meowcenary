@@ -112,6 +112,9 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private workshopPreview?: FixtureWorkshopAction;
   private workshopPreviewRevision?: number;
   private workshopModal?: Phaser.GameObjects.Container;
+  /** Render-only tile positions. They deliberately exceed collision bounds. */
+  private floorTiles = new Set<string>();
+  private floorCoverage = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
   private historicalReplayModal?: Phaser.GameObjects.Container;
   private historicalReplay?: FixtureHistoricalReplaySession;
   private replayCombat?: IntegratedFixtureCombat;
@@ -226,7 +229,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       failNextRecoveryWrite: () => { this.failNextRecoveryWrite = true; },
       rejectNextWriterLock: () => { this.rejectNextWriterLock = true; },
       ...(import.meta.env.VITE_VISUAL_TEST === '1' ? {
-        layout: () => ({ viewport: { width: this.scale.width, height: this.scale.height }, status: this.status?.getBounds(), interact: this.interactButton?.getBounds(), workshop: this.workshopButton?.getBounds(), history: this.historyButton?.getBounds(), player: this.controlledSprite() ? { x: this.controlledSprite()!.x, y: this.controlledSprite()!.y } : undefined, camera: { x: this.cameras.main.x, y: this.cameras.main.y, width: this.cameras.main.width, height: this.cameras.main.height, zoom: this.cameras.main.zoom, scrollX: this.cameras.main.scrollX, scrollY: this.cameras.main.scrollY, worldView: this.cameras.main.worldView }, fixedUiCount: this.children.list.filter((node) => (node as Phaser.GameObjects.GameObject & { scrollFactorX?: number }).scrollFactorX === 0).length, workshopOpen: !!this.workshopModal }),
+        layout: () => ({ viewport: { width: this.scale.width, height: this.scale.height }, status: this.status?.getBounds(), interact: this.interactButton?.getBounds(), workshop: this.workshopButton?.getBounds(), history: this.historyButton?.getBounds(), player: this.controlledSprite() ? { x: this.controlledSprite()!.x, y: this.controlledSprite()!.y } : undefined, camera: { x: this.cameras.main.x, y: this.cameras.main.y, width: this.cameras.main.width, height: this.cameras.main.height, zoom: this.cameras.main.zoom, scrollX: this.cameras.main.scrollX, scrollY: this.cameras.main.scrollY, worldView: this.cameras.main.worldView }, floorCoverage: this.floorCoverage, workshopModalBounds: this.workshopModal?.getBounds(), workshopModalChildren: this.workshopModal?.list.map(child => (child as Phaser.GameObjects.GameObject & { getBounds(): Phaser.Geom.Rectangle }).getBounds()), fixedUiCount: this.children.list.filter((node) => (node as Phaser.GameObjects.GameObject & { scrollFactorX?: number }).scrollFactorX === 0).length, workshopOpen: !!this.workshopModal }),
         pauseSimulation: () => { this.simulationPaused = true; },
         forceReplayTerminal: (outcome: 'success' | 'death') => this.forceReplayTerminal(outcome),
         forceReplayHostileClear: () => this.forceReplayHostileClear(),
@@ -284,11 +287,21 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   /** Presentation only. The pure B1 surface/occluder functions remain the
    * collision and layer authority; no legacy arena collision is imported. */
   private renderJunkyardPresentation(width: number, height: number): void {
+    this.ensureFloorOverscan(width, height);
+    const propKeys = ['art-world-prop-tyre-pile', 'art-world-prop-crate', 'art-world-prop-engine-block', 'art-world-prop-scrap-heap'];
+    for (const [index, occluder] of INTEGRATED_FIXTURE_OCCLUDERS.entries()) {
+      const key = propKeys[index % propKeys.length]!;
+      if (!this.textures.exists(key)) throw new Error(`INT-FB required junkyard prop art is unavailable: ${key}`);
+      this.add.image((occluder.x + occluder.width / 2) * SCALE, (occluder.z + occluder.depth / 2) * SCALE, key)
+        .setDisplaySize(Math.max(28, occluder.width * SCALE), Math.max(28, occluder.depth * SCALE)).setDepth(4);
+    }
+  }
+
+  /** Adds only missing visual tiles for the current padded follow viewport.
+   * This never modifies the authored surface or collision model. */
+  private ensureFloorOverscan(width: number, height: number): void {
     const floorKey = 'art-world-junkyard-floor-base';
     if (!this.textures.exists(floorKey)) throw new Error('INT-FB required junkyard floor art is unavailable');
-    // Bounds deliberately let the actor stay centred at the authored edge.
-    // Continue the existing floor pattern through that camera padding so it
-    // never reveals a misleading blank void beyond traversable terrain.
     const camera = this.cameras.main;
     const padX = this.scale.width / camera.zoom / 2;
     const padY = this.scale.height / camera.zoom / 2;
@@ -297,14 +310,12 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const endX = width + Math.ceil(padX / 32) * 32;
     const endY = height + Math.ceil(padY / 32) * 32;
     for (let y = startY; y < endY; y += 32) for (let x = startX; x < endX; x += 32) {
+      const id = `${x},${y}`;
+      if (this.floorTiles.has(id)) continue;
+      this.floorTiles.add(id);
       this.add.image(x, y, floorKey).setDisplaySize(32, 32).setDepth(-3);
-    }
-    const propKeys = ['art-world-prop-tyre-pile', 'art-world-prop-crate', 'art-world-prop-engine-block', 'art-world-prop-scrap-heap'];
-    for (const [index, occluder] of INTEGRATED_FIXTURE_OCCLUDERS.entries()) {
-      const key = propKeys[index % propKeys.length]!;
-      if (!this.textures.exists(key)) throw new Error(`INT-FB required junkyard prop art is unavailable: ${key}`);
-      this.add.image((occluder.x + occluder.width / 2) * SCALE, (occluder.z + occluder.depth / 2) * SCALE, key)
-        .setDisplaySize(Math.max(28, occluder.width * SCALE), Math.max(28, occluder.depth * SCALE)).setDepth(4);
+      this.floorCoverage.minX = Math.min(this.floorCoverage.minX, x - 16); this.floorCoverage.minY = Math.min(this.floorCoverage.minY, y - 16);
+      this.floorCoverage.maxX = Math.max(this.floorCoverage.maxX, x + 16); this.floorCoverage.maxY = Math.max(this.floorCoverage.maxY, y + 16);
     }
   }
 
@@ -318,6 +329,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const worldHeight = INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE;
     const halfWidth = width / camera.zoom / 2; const halfHeight = height / camera.zoom / 2;
     camera.setBounds(-halfWidth, -halfHeight, worldWidth + halfWidth * 2, worldHeight + halfHeight * 2);
+    this.ensureFloorOverscan(worldWidth, worldHeight);
     this.uiCamera?.setViewport(0, 0, width, height).setScroll(0, 0).setZoom(1);
     this.status?.setPosition(width / 2, 10).setWordWrapWidth(Math.min(420, width - 32), true);
     this.swapButton?.setPosition(76, height - 48);
@@ -327,7 +339,13 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.takeoverPrompt?.setPosition(width / 2, height / 2);
     this.replayTakeoverPrompt?.setPosition(width / 2, height / 2);
     this.recoveryModal?.setPosition(width / 2, height / 2);
-    this.workshopModal?.setPosition(width / 2, height / 2);
+    if (this.workshopModal) {
+      // Recreate only visual controls at the new dimensions. The action and
+      // revision remain unchanged, so a preview still requires the same
+      // normal confirmation and cannot mutate the ledger during a resize.
+      const preview = this.workshopPreview;
+      if (preview) this.openWorkshop(preview); else this.openWorkshopMenu();
+    }
     this.historicalReplayModal?.setPosition(width / 2, 62);
     // Text labels have no controller object; their stable content keeps this
     // compact fixture layout declarative without rebuilding the scene.

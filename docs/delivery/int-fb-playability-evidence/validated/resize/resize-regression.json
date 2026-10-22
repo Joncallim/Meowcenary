@@ -201,12 +201,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1904,
+                  "duration": 2192,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T12:17:51.345Z",
+                  "startTime": "2026-10-22T12:22:45.059Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -222,7 +222,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-00b4960578440c1536ec",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 1067,
+          "line": 1079,
           "column": 1
         },
         {
@@ -241,12 +241,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 1,
                   "status": "passed",
-                  "duration": 2831,
+                  "duration": 3425,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-22T12:17:51.337Z",
+                  "startTime": "2026-10-22T12:22:45.113Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -258,6 +258,11 @@
                       "name": "resize-desktop-return-1280x720-workshop-open",
                       "contentType": "image/png",
                       "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-desktop-1280x720/attachments/resize-desktop-return-1280x720-workshop-open-309acdb601e356bd98dd21a11a31dd45dc3cf852.png"
+                    },
+                    {
+                      "name": "resize-desktop-narrow-preview-390x844",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-desktop-1280x720/attachments/resize-desktop-narrow-preview-390x844-d5f412277d72c9dcb9f7c84c0f460b1c49d91eb3.png"
                     }
                   ]
                 }
@@ -267,7 +272,7 @@
           ],
           "id": "47fb1dd7db2bd57359ce-49e4412fe86fd5a2f96c",
           "file": "integrated-fixture-recovery.pw.ts",
-          "line": 1067,
+          "line": 1079,
           "column": 1
         }
       ]
@@ -275,8 +280,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-22T12:17:47.267Z",
-    "duration": 7187.441,
+    "startTime": "2026-10-22T12:22:40.613Z",
+    "duration": 8152.568,
     "expected": 2,
     "skipped": 0,
     "unexpected": 0,

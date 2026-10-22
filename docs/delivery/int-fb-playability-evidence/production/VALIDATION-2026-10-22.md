@@ -39,9 +39,12 @@ Chromium at clean source `49af44c8789eeb3f9a8e6776ab1943266c10d946`:
 `MEOWCENARY_BROWSER_EXECUTABLE=/usr/bin/chromium npx playwright test browser-tests/integrated-fixture-recovery.pw.ts --project=desktop-1280x720 --project=phone-390x844 --grep 'fixture resize keeps' --reporter=json`
 
 It exited `0`: 2 passed, 0 failed, 0 skipped. It covers desktop
-`1280x720 → 720x1280 → 1280x720` and phone
+`1280x720 → 720x1280 → 1280x720 → 390x844` and phone
 `390x844 → 844x390 portrait guard → 390x844`, asserting header/HUD/action
-bounds, live follow centring, stable fixed-UI count, and preserved open
-workshop state. Its sanitized reporter JSON, exit status, command, and the
-separate production-build exit status are retained beside the inspected
-captures in `validated/resize/`.
+bounds, live follow centring, stable fixed-UI count, and preserved workshop
+state. The desktop narrow leg opens a pending preview first, checks every
+modal child and the render-only floor overscan against the camera view, and
+proves the action, credits, parts, and materials are unchanged by resize.
+Its sanitized reporter JSON, exit status, command, and the separate
+production-build exit status are retained beside the inspected captures in
+`validated/resize/`.
