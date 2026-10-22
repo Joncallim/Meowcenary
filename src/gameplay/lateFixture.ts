@@ -1,4 +1,4 @@
-import { fixtureRangeDamage } from './integratedFixture';
+import { IntegratedFixtureCombat, type FixtureCombatEvent, type FixtureRangeTargetDefinition, type FixtureWeaponProfile } from './integratedFixture';
 
 /** Isolated Chapter-5 workshop fixture. It intentionally has no B1 envelope
  * adapter: its seed and receipts can never mutate the earlier browser save. */
@@ -119,7 +119,6 @@ export function resolveFittedLateHmRange(profile: LateFixtureProfile): Readonly<
 }
 
 export interface LateRangeTarget { readonly id: 'full' | 'falloff' | 'outside'; readonly distance: number; readonly health: number; }
-export interface LateRangeShot { readonly targetId: LateRangeTarget['id']; readonly distance: number; readonly damage: number; readonly targetHealth: number; readonly projectileTravelled: number; }
 /**
  * Small read-only combat adapter for the late range fixture.  It uses the
  * same first-contact falloff resolver as the integrated combat owner; Phaser
@@ -128,20 +127,19 @@ export interface LateRangeShot { readonly targetId: LateRangeTarget['id']; reado
  * range rule merely by placing targets at that rule's thresholds.
  */
 export class LateRangeCombat {
-  private readonly targets: Array<{ id: LateRangeTarget['id']; distance: number; health: number }> = [
+  private readonly targets: readonly LateRangeTarget[] = [
     { id: 'full', distance: 12, health: 30 },
     { id: 'falloff', distance: 18, health: 30 },
     { id: 'outside', distance: 27, health: 30 },
   ];
-  constructor(private readonly range: Readonly<{ full: number; max: number }>) {}
-  snapshot(): readonly LateRangeTarget[] { return frozen(this.targets.map(target => frozen({ ...target }))); }
-  fire(): LateRangeShot | undefined {
-    const target = this.targets.find(candidate => candidate.health > 0);
-    if (!target) return undefined;
-    // Deliberately no range prefilter: an outside target receives a projectile
-    // contact attempt and the shared resolver returns zero damage.
-    const damage = fixtureRangeDamage(target.distance, 30, this.range.full, this.range.max);
-    target.health = Math.max(0, target.health - damage);
-    return frozen({ targetId: target.id, distance: target.distance, damage, targetHealth: target.health, projectileTravelled: target.distance });
+  private readonly combat = new IntegratedFixtureCombat();
+  constructor(range: Readonly<{ instanceId: string; refinement: LateRefinement; full: number; max: number }>) {
+    const vector = resolveLateBarrelVector('B-HM', range.refinement);
+    const weapon: FixtureWeaponProfile = { id: range.instanceId, damage: 30, cycleSeconds: .25, initialSetupSeconds: .1 * vector.setup, fullRangeMetres: range.full, maxRangeMetres: range.max, store: 12, refillSeconds: 1.5, shotOffsetDegrees: Object.freeze([0]), contactWidthMetres: vector.contactWidthMetres };
+    const targets: FixtureRangeTargetDefinition[] = this.targets.map(target => ({ id: `range-${target.id}` as FixtureRangeTargetDefinition['id'], position: { x: 8 + target.distance + .4, z: 11, layer: 'ground' }, health: target.health, radius: .4 }));
+    this.combat.configureRangeCombat(weapon, targets);
   }
+  snapshot(): readonly LateRangeTarget[] { return frozen(this.targets.map(target => frozen({ ...target, health: this.combat.actorHealth(`range-${target.id}` as const) }))); }
+  activeGun(): Readonly<{ instanceId: string; supply: number }> { return this.combat.activeGun('tabby'); }
+  fire(elapsedSeconds = .125): readonly FixtureCombatEvent[] { return this.combat.advance(elapsedSeconds); }
 }

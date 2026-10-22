@@ -144,9 +144,10 @@ test('visible range route uses the persisted fitted HM range and returns without
   const structural = { LeanA25: .98475, Balanced50: .975, LeanB25: .9652499999999999 }[initial.range!.refinement]!;
   expect(initial.range).toMatchObject({ full: 12 * structural * 1.06, max: 24 * structural * 1.06 });
   expect(initial.targets).toEqual([{ id: 'full', distance: 12, health: 30 }, { id: 'falloff', distance: 18, health: 30 }, { id: 'outside', distance: 27, health: 30 }]);
-  // Real projectile/contact attempts: full contact, two falloff contacts, then
-  // an out-of-range attempt that the shared resolver leaves undamaged.
-  for (let shot = 0; shot < 4; shot += 1) await page.keyboard.press('Space');
+  // Each press advances the configured 125ms lifecycle: setup/cadence yields
+  // one full contact then two falloff contacts; the authored 27m target is
+  // outside max and remains untargetable by the shared selector.
+  for (let shot = 0; shot < 5; shot += 1) await page.keyboard.press('Space');
   const after = await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics());
   expect(after.targets).toEqual([{ id: 'full', distance: 12, health: 0 }, { id: 'falloff', distance: 18, health: 0 }, { id: 'outside', distance: 27, health: 30 }]);
   expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(lateBefore); await expectB1Unchanged(page, b1);
@@ -189,6 +190,19 @@ test('range keeps its selected fixture profile and fails closed for missing or i
   await page.evaluate(() => localStorage.setItem('meowcenary:int-late:v1:profile', '{bad'));
   await page.goto('/?fixture=int-late-range'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
   expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: { diagnostics(): { recoveryMessage?: string } } }).__MEOWCENARY_LATE_RANGE__.diagnostics().recoveryMessage)).toContain('invalid or unsupported');
+});
+
+test('alternate same-B2 fixture enters and returns from its own fitted-HM range save', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Alternate range evidence is captured once at the desktop reference viewport.');
+  await page.goto('/?fixture=int-late-same-b2'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
+  await page.keyboard.press('m'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await page.keyboard.press('f'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
+  const branchRaw = await page.evaluate(() => localStorage.getItem('meowcenary:int-late:same-b2:v1:profile'));
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-late:v1:profile'))).toBeNull();
+  await page.keyboard.press('r'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics().range)).toBeDefined();
+  await page.keyboard.press('Escape'); await waitLateReload(page);
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-late:same-b2:v1:profile'))).toBe(branchRaw);
 });
 
 test('range reports denied late storage and still offers Return', async ({ page }, info) => {

@@ -840,7 +840,7 @@ export function fixturePointLayer(point: FixturePoint): FixtureLayer | undefined
 export function fixturePositionsShareLayer(left: FixturePosition, right: FixturePosition): boolean {
   return fixtureLayer(left) === fixtureLayer(right);
 }
-export type FixtureCombatantId = 'tabby' | 'hound' | 'r01-a' | 'r01-b' | 'f01-a' | 'f01-b';
+export type FixtureCombatantId = 'tabby' | 'hound' | 'r01-a' | 'r01-b' | 'f01-a' | 'f01-b' | 'range-full' | 'range-falloff' | 'range-outside';
 export interface FixtureWeaponSnapshot { readonly supply: number; readonly nextShotSeconds: number; readonly refillRemaining: number; /** Legacy snapshots begin at the first shot. */ readonly shotOffsetIndex?: number; }
 export interface FixtureCombatActorSnapshot {
   readonly id: FixtureCombatantId;
@@ -864,10 +864,11 @@ export interface FixtureCombatEvent {
   readonly shotOffsetDegrees?: number;
 }
 
-interface FixtureWeaponProfile {
+export interface FixtureWeaponProfile {
   readonly id: string; readonly damage: number; readonly cycleSeconds: number;
   readonly initialSetupSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly store: number; readonly refillSeconds: number; readonly shotOffsetDegrees: readonly number[]; readonly contactWidthMetres: number;
 }
+export interface FixtureRangeTargetDefinition { readonly id: 'range-full' | 'range-falloff' | 'range-outside'; readonly position: FixturePosition; readonly health: number; readonly radius: number; }
 export interface FixtureResolvedGunProfile { readonly gunId: FixtureGunId; readonly store: number; readonly refillSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly setupSeconds: number; readonly coneMultiplier: number; readonly contactWidthMetres: number; readonly shotOffsetDegrees: readonly number[]; }
 /** Reads the actual six-slot assignment; no workshop choice may alter damage. */
 export function resolveFixtureGunProfile(profile: FixtureWorkshopProfile, gunId: FixtureGunId): FixtureResolvedGunProfile {
@@ -991,6 +992,18 @@ export class IntegratedFixtureCombat {
     const locations = jobId === 'MC-OPT-R01-01' ? [{ x: 37, z: 38 }, { x: 37, z: 42 }] : [{ x: 67, z: 39 }, { x: 67, z: 44 }];
     this.add(`${prefix}-a` as FixtureCombatantId, 'hostile', locations[0]!, 90, 0.4, HOSTILE_FIXTURE_GUN);
     this.add(`${prefix}-b` as FixtureCombatantId, 'hostile', locations[1]!, 90, 0.4, HOSTILE_FIXTURE_GUN);
+    this.ownedDesignationId = undefined;
+  }
+  /** Uses the ordinary combat owner with a caller-resolved weapon profile for
+   * a read-only range fixture. It does not create a second firing model. */
+  public configureRangeCombat(weapon: FixtureWeaponProfile, targets: readonly FixtureRangeTargetDefinition[]): void {
+    for (const actor of [...this.actors.values()]) if (actor.team === 'hostile') this.actors.delete(actor.id);
+    const tabby = this.actors.get('tabby')!;
+    tabby.position = freezeFixturePosition({ x: 8, z: 11, layer: 'ground' });
+    tabby.weapons.splice(0, 1, { instanceId: weapon.id, profile: weapon, supply: weapon.store, nextShotSeconds: weapon.initialSetupSeconds, refillRemaining: 0, shotOffsetIndex: 0 });
+    tabby.activeGunIndex = 0;
+    this.actors.get('hound')!.position = freezeFixturePosition({ x: 6.5, z: 11, layer: 'ground' });
+    for (const target of targets) this.add(target.id, 'hostile', target.position, target.health, target.radius, HOSTILE_FIXTURE_GUN);
     this.ownedDesignationId = undefined;
   }
   /** Reload only persists the finite-clear fact, so restore it without reviving

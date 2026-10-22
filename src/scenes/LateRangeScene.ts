@@ -14,7 +14,7 @@ export class LateRangeScene extends Phaser.Scene {
   private combat?: LateRangeCombat;
   private fire?: Phaser.GameObjects.Rectangle;
   private back?: Phaser.GameObjects.Rectangle;
-  private range?: Readonly<{ instanceId: string; refinement: string; full: number; max: number }>;
+  private range?: Readonly<{ instanceId: string; refinement: 'LeanA25' | 'Balanced50' | 'LeanB25'; full: number; max: number }>;
   private profileKey = LATE_KEY;
   private recoveryMessage?: string;
   constructor() { super(SceneKey.LateRange); }
@@ -55,15 +55,18 @@ export class LateRangeScene extends Phaser.Scene {
   }
   private installTestSeam(): void {
     if (import.meta.env.VITE_VISUAL_TEST !== '1') return;
-    Object.defineProperty(globalThis, '__MEOWCENARY_LATE_RANGE__', { configurable: true, value: { diagnostics: () => ({ range: this.range, targets: this.combat?.snapshot() ?? [], recoveryMessage: this.recoveryMessage }), fire: () => this.fireHm() } });
+      Object.defineProperty(globalThis, '__MEOWCENARY_LATE_RANGE__', { configurable: true, value: { diagnostics: () => ({ range: this.range, targets: this.combat?.snapshot() ?? [], activeGun: this.combat?.activeGun(), recoveryMessage: this.recoveryMessage }), fire: () => this.fireHm() } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_LATE_RANGE__; });
   }
   private addBack(): void { this.back = this.add.rectangle(this.scale.width * .72, this.scale.height - 54, 150, 46, 0x7393d8).setInteractive(); createUiText(this, this.back.x, this.back.y, 'RETURN\nESC', { fontSize: '13px', color: '#071018', align: 'center' }).setOrigin(.5); this.back.on('pointerup', () => this.scene.start(SceneKey.LateFixture)); }
   private fireHm(): boolean {
-    const shot = this.combat?.fire(); if (!shot) return false;
-    const target = this.targets.find(candidate => candidate.id === shot.targetId);
-    if (target) target.sprite.setFillStyle(shot.damage > 0 ? 0xf6c85f : 0xef6b73).setAlpha(shot.targetHealth === 0 ? .35 : 1);
-    this.status?.setText(`${this.status.text}\nProjectile ${shot.targetId} @ ${shot.distance}m: ${shot.damage.toFixed(3)} damage; target health ${shot.targetHealth.toFixed(3)}.`);
+    const events = this.combat?.fire(); if (!events) return false;
+    const hit = events.find(event => event.type === 'enemy-damaged');
+    const damagedId = hit?.targetId?.replace('range-', '') as Target['id'] | undefined;
+    const target = this.targets.find(candidate => candidate.id === damagedId);
+    const health = target ? this.combat?.snapshot().find(candidate => candidate.id === target.id)?.health : undefined;
+    if (target && hit) target.sprite.setFillStyle(0xf6c85f).setAlpha(health === 0 ? .35 : 1);
+    this.status?.setText(`${this.status.text}\nWeapon lifecycle advanced 125ms: ${hit ? `${damagedId} ${hit.damage?.toFixed(3)} damage; health ${health?.toFixed(3)}.` : 'setup/cadence/range produced no contact.'}`);
     return true;
   }
 }

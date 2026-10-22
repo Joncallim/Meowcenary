@@ -37,11 +37,12 @@ it('resolves late range only from an actually persisted fitted TAB-A HM', () => 
 });
 
 it('uses the shared contact falloff resolver for independent late range targets', () => {
-  const combat = new LateRangeCombat({ full: 12.402, max: 24.804 });
-  expect(combat.fire()).toMatchObject({ targetId: 'full', distance: 12, damage: 30, targetHealth: 0, projectileTravelled: 12 });
-  expect(combat.fire()).toMatchObject({ targetId: 'falloff', distance: 18, damage: expect.any(Number), projectileTravelled: 18 });
-  expect(combat.fire()!.damage).toBeGreaterThan(0);
-  expect(combat.fire()).toMatchObject({ targetId: 'outside', distance: 27, damage: 0, targetHealth: 30, projectileTravelled: 27 });
+  const combat = new LateRangeCombat({ instanceId: 'hm', refinement: 'Balanced50', full: 12.402, max: 24.804 });
+  expect(combat.activeGun()).toMatchObject({ instanceId: 'hm', supply: 12 });
+  const events = [...combat.fire(), ...combat.fire(), ...combat.fire(), ...combat.fire(), ...combat.fire()];
+  expect(events.filter(event => event.type === 'enemy-damaged').map(event => event.targetId)).toEqual(['range-full', 'range-falloff', 'range-falloff']);
+  expect(combat.snapshot()).toEqual([{ id: 'full', distance: 12, health: 0 }, { id: 'falloff', distance: 18, health: 0 }, { id: 'outside', distance: 27, health: 30 }]);
+  expect(combat.activeGun().supply).toBe(9);
 });
 
 describe('late fixture refinement transactions', () => {
