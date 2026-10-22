@@ -94,7 +94,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private workshopModal?: Phaser.GameObjects.Container;
   private historicalReplayModal?: Phaser.GameObjects.Container;
   private historicalReplay?: FixtureHistoricalReplaySession;
-  private historicalReplayContentAvailable = true;
+  private historicalReplayContentAvailable = false;
   private historicalReplayOutcome?: 'success' | 'death' | 'exit';
   private combatFeedback = 'No hostile contact.';
   private combatEventSequence = 0;
@@ -166,7 +166,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (!this.lead || !this.hound || this.simulationPaused) return;
+    if (!this.lead || !this.hound || this.simulationPaused || this.historicalReplay) return;
     if (this.ownershipLost || this.recoveryMode !== 'none' || this.activationWriting || this.progressWriting || this.settlementPending) return;
     if (this.combatActive) {
       const before = resolveFixtureTakeover(this.combat.actorHealth('tabby'), this.combat.actorHealth('hound'), this.controlledActor === 'hound');
@@ -228,6 +228,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
 
   private createControls(): void {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.historicalReplay) return;
       const contains = (control: Phaser.GameObjects.Rectangle | undefined) => {
         const bounds = this.controlBounds(control);
         return !!bounds && pointer.x >= bounds.x && pointer.x <= bounds.x + bounds.width && pointer.y >= bounds.y && pointer.y <= bounds.y + bounds.height;
@@ -292,12 +293,16 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     localStorage.setItem(INTEGRATED_FIXTURE_ENVELOPE_KEY, serializeIntegratedFixtureEnvelope(envelope));
   }
   private requestWriter(unavailable: string, callback: () => Promise<void>, onUnavailable?: () => void): void {
+    if (this.historicalReplay) { onUnavailable?.(); this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
     if (this.loadBlocked) { onUnavailable?.(); this.combatFeedback = 'Stored B1 fixture save is invalid and was preserved unchanged. Restore a trusted backup before continuing.'; this.refreshStatus(); return; }
     const rejected = () => { onUnavailable?.(); this.combatFeedback = 'Fixture writer failed before publishing a change.'; this.refreshStatus(); };
     if (this.rejectNextWriterLock) { this.rejectNextWriterLock = false; void Promise.reject(new Error('forced fixture writer-lock rejection')).catch(rejected); return; }
     const locks = (navigator as unknown as { locks?: FixtureLockManager }).locks;
     if (!locks) { onUnavailable?.(); this.combatFeedback = unavailable; this.refreshStatus(); return; }
-    void locks.request(`${INTEGRATED_FIXTURE_SAVE_KEY}:writer`, { mode: 'exclusive' }, callback).catch(rejected);
+    void locks.request(`${INTEGRATED_FIXTURE_SAVE_KEY}:writer`, { mode: 'exclusive' }, async () => {
+      if (this.historicalReplay) { onUnavailable?.(); this.combatFeedback = 'Historical replay is read-only; queued live change was cancelled.'; this.refreshStatus(); return; }
+      await callback();
+    }).catch(rejected);
   }
   private assignEnvelope(envelope: FixturePersistentEnvelope): void { this.envelope = envelope; }
   /** Profile and receipt refreshes must never let a stale combat scene adopt
@@ -408,6 +413,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   }
 
   private selectJob(jobId: FixtureJobId): void {
+    if (this.historicalReplay) { this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
     if (this.activeMission() || this.recoveryMode !== 'none' || this.activationWriting) { this.combatFeedback = 'Finish or recover the current event before selecting another job.'; this.refreshStatus(); return; }
     this.jobId = jobId; this.operation = new IntegratedFixtureOperation(); this.operation.inspect(jobId); this.completed.clear(); this.groupCleared = false; this.extracted = false; this.combatActive = false;
     this.combat = new IntegratedFixtureCombat(this.envelope.workshop); this.enemies.forEach(enemy => enemy.setVisible(false));
@@ -634,6 +640,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const close = createUiText(this, 0, 135, 'CLOSE / ESC', { fontSize: '13px', color: '#fff' }).setOrigin(.5).setInteractive(); close.on('pointerup', () => this.cancelWorkshop()); panel.add(close); this.workshopModal = panel;
   }
   private openWorkshop(action: FixtureWorkshopAction): void {
+    if (this.historicalReplay) { this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
     if (this.ownershipLost || !this.atService() || this.recoveryMode !== 'none') { this.combatFeedback = this.ownershipLost ? 'This tab is stale. Reload before changing the workshop.' : `Workshop unavailable: move ${this.actorName()} to safe service.`; this.refreshStatus(); return; }
     this.workshopPreview = action; this.workshopPreviewRevision = this.envelope.workshop.revision; this.workshopModal?.destroy();
     const labels: Record<FixtureWorkshopAction, string> = { 'discover-h2': 'Record HOU-H2 discovery', 'buy-f2': 'Buy TAB-F2 — 1650 Credits', 'fit-f2-a': 'Fit owned TAB-F2 to TAB-A — free', 'claim-h2': 'Claim discovered HOU-H2 — free', 'sell-h2': 'Sell unassigned HOU-H2 — +540 Credits', 'build-b3': 'Build TAB-B3 T1 — 1000 Credits / 40 Metal / 8 Circuits', 'fit-b3-a': 'Fit owned TAB-B3 to TAB-A — free', 'develop-b2': 'Develop gift TAB-B2 T1 → T2 — 500 Credits / 20 Metal / 4 Circuits' };
@@ -660,10 +667,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const width = Math.min(480, this.scale.width - 24);
     const background = this.add.rectangle(0, 0, width, 270, 0x101820, .98).setStrokeStyle(2, 0x24cec7);
     const copy = createUiText(this, 0, -78, `HISTORICAL REPLAY — READ ONLY\n${receipt.id}\nPinned ${begun.session.contentId} · profile ${begun.session.profileHash}\nNo wallet, receipt, standing, claim, or world writes.`, { align: 'center', fontSize: '14px', color: '#fff', wordWrap: { width: width - 32 } }).setOrigin(.5);
-    const success = this.add.rectangle(-120, 62, 100, 44, 0x3ee8a9).setInteractive().on('pointerup', () => this.finishHistoricalReplay('success'));
-    const death = this.add.rectangle(0, 62, 100, 44, 0xef6b73).setInteractive().on('pointerup', () => this.finishHistoricalReplay('death'));
-    const exit = this.add.rectangle(120, 62, 100, 44, 0x7393d8).setInteractive().on('pointerup', () => this.finishHistoricalReplay('exit'));
-    panel.add([background, copy, success, death, exit, createUiText(this, -120, 62, 'SUCCESS', { fontSize: '13px', color: '#071018' }).setOrigin(.5), createUiText(this, 0, 62, 'DEATH', { fontSize: '13px', color: '#071018' }).setOrigin(.5), createUiText(this, 120, 62, 'EXIT / ESC', { fontSize: '13px', color: '#071018' }).setOrigin(.5)]);
+    const exit = this.add.rectangle(0, 62, 140, 44, 0x7393d8).setInteractive().on('pointerup', () => this.finishHistoricalReplay('exit'));
+    panel.add([background, copy, exit, createUiText(this, 0, 62, 'EXIT / ESC', { fontSize: '13px', color: '#071018' }).setOrigin(.5)]);
     this.historicalReplayModal = panel;
     this.combatFeedback = 'Historical replay is pinned and read-only.'; this.refreshStatus();
     return true;
