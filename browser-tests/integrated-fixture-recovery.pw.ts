@@ -2,7 +2,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 type Bounds = { x: number; y: number; width: number; height: number };
 type CameraTransform = { viewport: Bounds; origin: { x: number; y: number }; zoom: number; topLeftWorld: { x: number; y: number }; bottomRightWorld: { x: number; y: number } };
-type FixtureLayout = { viewport: { width: number; height: number }; status?: Bounds; interact?: Bounds; workshop?: Bounds; history?: Bounds; player?: { x: number; y: number }; camera: { x: number; y: number; width: number; height: number; zoom: number; scrollX: number; scrollY: number; worldView: Bounds }; floorCoverage: { minX: number; minY: number; maxX: number; maxY: number }; workshopModalBounds?: Bounds; workshopModalChildren?: Bounds[]; fixedUiCount: number; workshopOpen: boolean };
+type FixtureLayout = { viewport: { width: number; height: number }; status?: Bounds; interact?: Bounds; workshop?: Bounds; history?: Bounds; player?: { x: number; y: number }; camera: { x: number; y: number; width: number; height: number; zoom: number; scrollX: number; scrollY: number; worldView: Bounds }; floorCoverage: { minX: number; minY: number; maxX: number; maxY: number }; workshopModalBounds?: Bounds; workshopModalChildren?: Bounds[]; workshopPreviewRevision?: number; fixedUiCount: number; workshopOpen: boolean };
 type Diagnostics = {
   scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: 'ground' | 'elevated'; tabbyLayer: 'ground' | 'elevated'; houndLayer: 'ground' | 'elevated'; combatEventSequence: number; cameraX: number; cameraY: number; cameraTransform?: CameraTransform; controlledGun: string; jobId?: string; phase: string; completedInteractionIds: string[]; canExtract: boolean; extracted: boolean;
   combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostiles: number;
@@ -1109,10 +1109,13 @@ test('fixture resize keeps fixed controls, follow framing, and an open workshop 
     await page.keyboard.press('f');
     await expect.poll(async () => (await state(page)).workshopPreview).toBe('fit-f2-a');
     const beforeNarrowPreview = await state(page);
+    const beforeNarrowLayout = await layout(page);
     await page.setViewportSize({ width: 390, height: 844 });
     await assertSettled(390, 844);
     const afterNarrowPreview = await state(page);
+    const afterNarrowLayout = await layout(page);
     expect(afterNarrowPreview).toMatchObject({ workshopPreview: beforeNarrowPreview.workshopPreview, workshopCredits: beforeNarrowPreview.workshopCredits, workshopParts: beforeNarrowPreview.workshopParts, workshopMaterials: beforeNarrowPreview.workshopMaterials });
+    expect(afterNarrowLayout.workshopPreviewRevision).toBe(beforeNarrowLayout.workshopPreviewRevision);
     await capture(page, info, 'resize-desktop-narrow-preview-390x844');
     return;
   }

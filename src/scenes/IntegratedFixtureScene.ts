@@ -229,7 +229,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       failNextRecoveryWrite: () => { this.failNextRecoveryWrite = true; },
       rejectNextWriterLock: () => { this.rejectNextWriterLock = true; },
       ...(import.meta.env.VITE_VISUAL_TEST === '1' ? {
-        layout: () => ({ viewport: { width: this.scale.width, height: this.scale.height }, status: this.status?.getBounds(), interact: this.interactButton?.getBounds(), workshop: this.workshopButton?.getBounds(), history: this.historyButton?.getBounds(), player: this.controlledSprite() ? { x: this.controlledSprite()!.x, y: this.controlledSprite()!.y } : undefined, camera: { x: this.cameras.main.x, y: this.cameras.main.y, width: this.cameras.main.width, height: this.cameras.main.height, zoom: this.cameras.main.zoom, scrollX: this.cameras.main.scrollX, scrollY: this.cameras.main.scrollY, worldView: this.cameras.main.worldView }, floorCoverage: this.floorCoverage, workshopModalBounds: this.workshopModal?.getBounds(), workshopModalChildren: this.workshopModal?.list.map(child => (child as Phaser.GameObjects.GameObject & { getBounds(): Phaser.Geom.Rectangle }).getBounds()), fixedUiCount: this.children.list.filter((node) => (node as Phaser.GameObjects.GameObject & { scrollFactorX?: number }).scrollFactorX === 0).length, workshopOpen: !!this.workshopModal }),
+        layout: () => ({ viewport: { width: this.scale.width, height: this.scale.height }, status: this.status?.getBounds(), interact: this.interactButton?.getBounds(), workshop: this.workshopButton?.getBounds(), history: this.historyButton?.getBounds(), player: this.controlledSprite() ? { x: this.controlledSprite()!.x, y: this.controlledSprite()!.y } : undefined, camera: { x: this.cameras.main.x, y: this.cameras.main.y, width: this.cameras.main.width, height: this.cameras.main.height, zoom: this.cameras.main.zoom, scrollX: this.cameras.main.scrollX, scrollY: this.cameras.main.scrollY, worldView: this.cameras.main.worldView }, floorCoverage: this.floorCoverage, workshopModalBounds: this.workshopModal?.getBounds(), workshopModalChildren: this.workshopModal?.list.map(child => (child as Phaser.GameObjects.GameObject & { getBounds(): Phaser.Geom.Rectangle }).getBounds()), workshopPreviewRevision: this.workshopPreviewRevision, fixedUiCount: this.children.list.filter((node) => (node as Phaser.GameObjects.GameObject & { scrollFactorX?: number }).scrollFactorX === 0).length, workshopOpen: !!this.workshopModal }),
         pauseSimulation: () => { this.simulationPaused = true; },
         forceReplayTerminal: (outcome: 'success' | 'death') => this.forceReplayTerminal(outcome),
         forceReplayHostileClear: () => this.forceReplayHostileClear(),
@@ -313,7 +313,10 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       const id = `${x},${y}`;
       if (this.floorTiles.has(id)) continue;
       this.floorTiles.add(id);
-      this.add.image(x, y, floorKey).setDisplaySize(32, 32).setDepth(-3);
+      const tile = this.add.image(x, y, floorKey).setDisplaySize(32, 32).setDepth(-3);
+      // The initial world collection is excluded when the UI camera starts;
+      // tiles added after a resize must opt into that same world-only route.
+      this.registerWorld(tile);
       this.floorCoverage.minX = Math.min(this.floorCoverage.minX, x - 16); this.floorCoverage.minY = Math.min(this.floorCoverage.minY, y - 16);
       this.floorCoverage.maxX = Math.max(this.floorCoverage.maxX, x + 16); this.floorCoverage.maxY = Math.max(this.floorCoverage.maxY, y + 16);
     }
@@ -344,7 +347,14 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       // revision remain unchanged, so a preview still requires the same
       // normal confirmation and cannot mutate the ledger during a resize.
       const preview = this.workshopPreview;
-      if (preview) this.openWorkshop(preview); else this.openWorkshopMenu();
+      const previewRevision = this.workshopPreviewRevision;
+      if (preview) {
+        this.openWorkshop(preview);
+        // openWorkshop normally snapshots the current revision. This is a
+        // layout-only reconstruction, so keep the original optimistic
+        // transaction identity and let confirmation reject stale previews.
+        this.workshopPreviewRevision = previewRevision;
+      } else this.openWorkshopMenu();
     }
     this.historicalReplayModal?.setPosition(width / 2, 62);
     // Text labels have no controller object; their stable content keeps this
