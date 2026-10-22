@@ -24,6 +24,7 @@ import {
   moveFixtureTerrainPosition,
   operationCanSettle,
   resolveFixtureTakeover,
+  resolveIntegratedFixtureReplayContent,
   retryFixtureProfileAttempt,
   serializeIntegratedFixtureEnvelope,
   settleFixtureProfileAttempt,
@@ -102,7 +103,6 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private replayEnemies: Phaser.GameObjects.Arc[] = [];
   private replayTouchTarget?: Phaser.Math.Vector2;
   private replayEnvelopeBytes?: string;
-  private historicalReplayContentAvailable = false;
   private historicalReplayOutcome?: 'success' | 'death' | 'exit';
   private replayGeneration = 0;
   private combatFeedback = 'No hostile contact.';
@@ -164,7 +164,6 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       queueRetry: () => this.queueRetry(),
       openHistoricalReplay: () => this.openHistoricalReplay(),
       finishHistoricalReplay: (outcome: 'success' | 'death' | 'exit') => this.finishHistoricalReplay(outcome),
-      setHistoricalReplayContentAvailable: (available: boolean) => { this.historicalReplayContentAvailable = available; },
       prepareF01: () => this.prepareF01(),
       failNextStorageWrite: () => { this.failNextStorageWrite = true; },
       failNextRecoveryWrite: () => { this.failNextRecoveryWrite = true; },
@@ -262,7 +261,10 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const houndPosition = { x: this.replayHound.x / SCALE, z: this.replayHound.y / SCALE };
     const desired = { x: (this.replayLead.x - 15) / SCALE, z: this.replayLead.y / SCALE };
     const distance = Math.hypot(desired.x - houndPosition.x, desired.z - houndPosition.z);
-    if (distance > 0) this.replayHound.setPosition((houndPosition.x + (desired.x - houndPosition.x) / distance * Math.min(distance, SPEED * delta / 1000)) * SCALE, (houndPosition.z + (desired.z - houndPosition.z) / distance * Math.min(distance, SPEED * delta / 1000)) * SCALE);
+    if (distance > 0) {
+      const follow = moveFixtureTerrainPosition(houndPosition, { x: houndPosition.x + (desired.x - houndPosition.x) / distance * Math.min(distance, SPEED * delta / 1000), z: houndPosition.z + (desired.z - houndPosition.z) / distance * Math.min(distance, SPEED * delta / 1000) });
+      this.replayHound.setPosition(follow.position.x * SCALE, follow.position.z * SCALE);
+    }
     replay.setSquadPositions({ x: this.replayLead.x / SCALE, z: this.replayLead.y / SCALE }, { x: this.replayHound.x / SCALE, z: this.replayHound.y / SCALE });
     replay.advance(delta / 1000);
     this.syncReplayActors();
@@ -726,7 +728,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (!receipt) { this.combatFeedback = 'Historical replay unavailable: no retained fixture receipt.'; this.refreshStatus(); return false; }
     const record = receipt.replayRecord;
     if (!record || !record.loadout) { this.combatFeedback = 'Historical replay unavailable: this legacy receipt has no pinned original loadout.'; this.refreshStatus(); return false; }
-    const begun = beginHistoricalFixtureReplay(this.envelope.workshop, this.envelope.mission, receipt.id, { contentId: record.contentId, storyBranch: record.storyBranch, available: this.historicalReplayContentAvailable });
+    const begun = beginHistoricalFixtureReplay(this.envelope.workshop, this.envelope.mission, receipt.id, { contentId: record.contentId, storyBranch: record.storyBranch, available: resolveIntegratedFixtureReplayContent(record.contentId, record.storyBranch) });
     if (!begun.session) { this.combatFeedback = 'Historical replay unavailable: pinned content is not retained.'; this.refreshStatus(); return false; }
     this.historicalReplay = begun.session;
     this.replayGeneration += 1;
@@ -745,6 +747,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.replayLead = this.add.circle(tabby.position.x * SCALE, tabby.position.z * SCALE, 7, 0x71d8ff).setStrokeStyle(2, 0x24cec7).setDepth(16);
     this.replayHound = this.add.circle(hound.position.x * SCALE, hound.position.z * SCALE, 6, 0x84e6a0).setStrokeStyle(2, 0x24cec7).setDepth(16);
     this.replayEnemies = replayCombat.hostileStates().map(hostile => this.add.circle(hostile.position.x * SCALE, hostile.position.z * SCALE, 7, 0xef6b73).setStrokeStyle(2, 0xffd166).setDepth(16));
+    this.cameras.main.startFollow(this.replayLead, true, .15, .15);
     const panel = this.add.container(this.scale.width / 2, 62).setScrollFactor(0).setDepth(35);
     const width = Math.min(480, this.scale.width - 24);
     const background = this.add.rectangle(0, 0, width, 88, 0x101820, .98).setStrokeStyle(2, 0x24cec7);
@@ -759,7 +762,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (!this.historicalReplay) return false;
     const finished = finishHistoricalFixtureReplay(this.envelope.workshop, this.historicalReplay, outcome);
     const envelopeUnchanged = this.replayEnvelopeBytes === serializeIntegratedFixtureEnvelope(this.envelope);
-    this.historicalReplayModal?.destroy(); this.historicalReplayModal = undefined; this.replayLead?.destroy(); this.replayHound?.destroy(); this.replayEnemies.forEach(enemy => enemy.destroy()); this.replayLead = undefined; this.replayHound = undefined; this.replayEnemies = []; this.replayTouchTarget = undefined; this.lead?.setVisible(true); this.hound?.setVisible(true); this.enemies.forEach(enemy => enemy.setVisible(true)); this.historicalReplay = undefined; this.replayCombat = undefined; this.replayEnvelopeBytes = undefined; this.historicalReplayOutcome = outcome;
+    this.historicalReplayModal?.destroy(); this.historicalReplayModal = undefined; this.replayLead?.destroy(); this.replayHound?.destroy(); this.replayEnemies.forEach(enemy => enemy.destroy()); this.replayLead = undefined; this.replayHound = undefined; this.replayEnemies = []; this.replayTouchTarget = undefined; this.lead?.setVisible(true); this.hound?.setVisible(true); this.enemies.forEach(enemy => enemy.setVisible(true)); this.cameras.main.startFollow(this.controlledSprite()!, true, .15, .15); this.historicalReplay = undefined; this.replayCombat = undefined; this.replayEnvelopeBytes = undefined; this.historicalReplayOutcome = outcome;
     this.combatFeedback = finished.profileHashUnchanged && envelopeUnchanged ? `Historical replay ${outcome}; live profile unchanged.` : 'Historical replay closed: live envelope changed outside replay.';
     this.refreshStatus();
     return finished.profileHashUnchanged && envelopeUnchanged;

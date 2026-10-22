@@ -102,6 +102,12 @@ export const INTEGRATED_FIXTURE_JOBS: readonly FixtureJob[] = deepFreeze([
     requiresFiniteGroupClear: false,
   },
 ]);
+/** Immutable content binding for archived fixture replays.  Replay never
+ * treats a caller/debug flag as proof that historical authored content exists. */
+export function resolveIntegratedFixtureReplayContent(contentId: string, storyBranch: string): boolean {
+  return (contentId === 'fixture:MC-OPT-R01-01:v1' && storyBranch === 'MC-OPT-R01-01')
+    || (contentId === 'fixture:MC-OPT-F01-01:v1' && storyBranch === 'MC-OPT-F01-01');
+}
 
 export interface FixtureOperationState {
   readonly jobId: FixtureJobId;
@@ -367,7 +373,30 @@ function validFixtureReplayRecord(value: unknown, job: FixtureJobId): value is N
     && typeof record.contentId === 'string' && record.contentId.length > 0
     && record.storyBranch === job
     && validFixtureCombatSnapshot(record.startSnapshot, job, false)
-    && (record.loadout === undefined || fixtureSemanticEqual(deserializeIntegratedFixtureWorkshopProfile(record.loadout), record.loadout));
+    && (record.loadout === undefined || validArchivedReplayLoadout(record.loadout));
+}
+/** Strict enough for an immutable archived loadout without comparing its
+ * historical wallet/attempt ledger to the current live profile. */
+function validArchivedReplayLoadout(value: unknown): value is FixtureWorkshopProfile {
+  if (!value || typeof value !== 'object') return false;
+  const loadout = value as Partial<FixtureWorkshopProfile>;
+  const kinds = new Set(['R1', 'B1', 'B2', 'B3', 'F1', 'F2', 'P1', 'H1', 'C1', 'H2']);
+  const slots = new Set(['R', 'B', 'F', 'P', 'H', 'C']);
+  const guns = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'] as const;
+  if (loadout.version !== 'int-fb-profile-v2' || loadout.profileId !== 'INT-B1-PROFILE-01' || !Number.isSafeInteger(loadout.revision) || loadout.revision! < 0 || !loadout.wallet || !['credits', 'metal', 'circuits', 'cloth', 'flux'].every(key => Number.isFinite(loadout.wallet![key as keyof FixtureWallet]) && loadout.wallet![key as keyof FixtureWallet]! >= 0) || !Array.isArray(loadout.parts) || !loadout.gunSlots) return false;
+  if (!loadout.parts.every(part => !!part && typeof part.instanceId === 'string' && part.instanceId.length > 0 && kinds.has(part.kind) && slots.has(part.slot) && (part.family === 'TAB' || part.family === 'HOU') && (part.tier === null || part.tier === 1 || part.tier === 2 || part.tier === 3) && Number.isSafeInteger(part.version) && part.version > 0)) return false;
+  if (new Set(loadout.parts.map(part => part.instanceId)).size !== loadout.parts.length) return false;
+  const assigned: string[] = [];
+  for (const gun of guns) {
+    const slotsForGun = loadout.gunSlots[gun];
+    if (!slotsForGun) return false;
+    for (const slot of slots) {
+      const id = slotsForGun[slot as FixtureSlot]; const part = loadout.parts.find(candidate => candidate.instanceId === id);
+      if (!part || part.slot !== slot || part.family !== (gun.startsWith('TAB') ? 'TAB' : 'HOU')) return false;
+      assigned.push(id);
+    }
+  }
+  return new Set(assigned).size === assigned.length;
 }
 export function createIntegratedFixtureEnvelope(): FixturePersistentEnvelope {
   return Object.freeze({ version: INTEGRATED_FIXTURE_ENVELOPE_VERSION, mission: createIntegratedFixtureSave(), workshop: createIntegratedFixtureWorkshopProfile() });

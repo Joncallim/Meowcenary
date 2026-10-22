@@ -29,7 +29,7 @@ import {
   resolveFixtureGunProfile,
   beginFixtureAttempt, terminalFixtureAttempt, recoverFixtureFailure,
   beginFixtureProfileAttempt, failFixtureProfileAttempt, retryFixtureProfileAttempt, settleFixtureProfileAttempt,
-  createIntegratedFixtureEnvelope, deserializeIntegratedFixtureEnvelope, decodeIntegratedFixtureEnvelope, nextFixtureAttemptId, nextFixtureWorldEventId,
+  createIntegratedFixtureEnvelope, deserializeIntegratedFixtureEnvelope, decodeIntegratedFixtureEnvelope, nextFixtureAttemptId, nextFixtureWorldEventId, resolveIntegratedFixtureReplayContent,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
@@ -50,6 +50,24 @@ describe('INT-FB integrated browser-slice fixture', () => {
     expect(historicalFixtureMissionReplay(createIntegratedFixtureSave(), 'none')).toBeUndefined();
     const malformed = structuredClone(withRecord) as any; malformed.mission.receipts[0].replayRecord.contentId = '';
     expect(decodeIntegratedFixtureEnvelope(JSON.stringify(malformed))).toEqual({ state: 'invalid' });
+  });
+  it('rejects malformed archived loadouts without comparing their historical ledger to live state', () => {
+    const profile = createIntegratedFixtureWorkshopProfile(); const combat = new IntegratedFixtureCombat(profile); combat.beginJob('MC-OPT-F01-01');
+    const record = { version: 'int-fb-replay-v1' as const, contentId: 'fixture:MC-OPT-F01-01:v1', storyBranch: 'MC-OPT-F01-01', startSnapshot: combat.snapshot('tabby'), loadout: profile };
+    const settled = settleIntegratedFixtureEvent(createIntegratedFixtureSave(), 'MC-OPT-F01-01', 'event' as any, 'attempt' as any, record).save;
+    const envelope = { ...createIntegratedFixtureEnvelope(), mission: settled } as any;
+    const validHistoricalLedger = structuredClone(envelope); validHistoricalLedger.mission.receipts[0].replayRecord.loadout.attempts = [{ worldEventId: 'old-event', attemptId: 'old-attempt', terminal: 'victory', recoveryClaimed: false }];
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify(validHistoricalLedger))).toMatchObject({ state: 'valid' });
+    for (const mutate of [
+      (value: any) => { value.mission.receipts[0].replayRecord.loadout.parts[0].kind = 'BAD'; },
+      (value: any) => { value.mission.receipts[0].replayRecord.loadout.wallet.credits = -1; },
+      (value: any) => { value.mission.receipts[0].replayRecord.loadout.wallet.metal = Infinity; },
+      (value: any) => { value.mission.receipts[0].replayRecord.loadout.parts[1].instanceId = value.mission.receipts[0].replayRecord.loadout.parts[0].instanceId; },
+      (value: any) => { value.mission.receipts[0].replayRecord.loadout.gunSlots['TAB-B'].R = value.mission.receipts[0].replayRecord.loadout.gunSlots['TAB-A'].R; },
+    ]) { const invalid = structuredClone(envelope); mutate(invalid); expect(decodeIntegratedFixtureEnvelope(JSON.stringify(invalid))).toEqual({ state: 'invalid' }); }
+    expect(resolveIntegratedFixtureReplayContent('fixture:MC-OPT-F01-01:v1', 'MC-OPT-F01-01')).toBe(true);
+    expect(resolveIntegratedFixtureReplayContent('fixture:MC-OPT-F01-01:v2', 'MC-OPT-F01-01')).toBe(false);
+    expect(resolveIntegratedFixtureReplayContent('fixture:MC-OPT-F01-01:v1', 'MC-OPT-R01-01')).toBe(false);
   });
   it('fail-closes malformed nested and future persisted envelopes while valid history round-trips', () => {
     const valid = createIntegratedFixtureEnvelope();
