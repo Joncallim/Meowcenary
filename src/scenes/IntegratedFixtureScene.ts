@@ -253,6 +253,14 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.cameras.main.ignore(active);
   }
 
+  /** Dynamic actors are world-only too. The UI camera's initial exclusion is
+   * necessarily a snapshot, so later replay objects must opt in here rather
+   * than appearing a second time in fixed screen coordinates. */
+  private registerWorld(...nodes: Array<Phaser.GameObjects.GameObject | undefined>): void {
+    const active = nodes.filter((node): node is Phaser.GameObjects.GameObject => node !== undefined);
+    if (active.length) this.uiCamera?.ignore(active);
+  }
+
   /** Every fixed object created before the UI camera is established is marked
    * by scrollFactor=0. Route that complete set together, including labels. */
   private registerFixedUi(): void {
@@ -952,6 +960,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.replayLead = this.add.circle(tabby.position.x * SCALE, tabby.position.z * SCALE, 7, 0x71d8ff).setStrokeStyle(2, 0x24cec7).setDepth(16);
     this.replayHound = this.add.circle(hound.position.x * SCALE, hound.position.z * SCALE, 6, 0x84e6a0).setStrokeStyle(2, 0x24cec7).setDepth(16);
     this.replayEnemies = replayCombat.hostileStates().map(hostile => this.add.circle(hostile.position.x * SCALE, hostile.position.z * SCALE, 7, 0xef6b73).setStrokeStyle(2, 0xffd166).setDepth(16));
+    this.registerWorld(this.replayLead, this.replayHound, ...this.replayEnemies);
     this.cameras.main.startFollow(this.replayControlledActor === 'tabby' ? this.replayLead : this.replayHound, true, .15, .15);
     this.replayTakeoverPrompt = createUiText(this, this.scale.width / 2, this.scale.height / 2, 'ARCHIVED TABBY DOWN\nTAKE OVER AS HOUND', { fontFamily: 'Nunito, sans-serif', fontSize: '18px', color: '#fff', backgroundColor: '#34151bdd', align: 'center', padding: { x: 12, y: 10 } }).setOrigin(.5).setScrollFactor(0).setDepth(40).setVisible(false).setInteractive().on('pointerup', () => this.confirmTakeover());
     this.registerUi(this.replayTakeoverPrompt);
