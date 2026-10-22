@@ -2,6 +2,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 type Bounds = { x: number; y: number; width: number; height: number };
 type CameraTransform = { viewport: Bounds; origin: { x: number; y: number }; zoom: number; topLeftWorld: { x: number; y: number }; bottomRightWorld: { x: number; y: number } };
+type FixtureLayout = { viewport: { width: number; height: number }; status?: Bounds; interact?: Bounds; workshop?: Bounds; history?: Bounds; player?: { x: number; y: number }; camera: { x: number; y: number; width: number; height: number; zoom: number; scrollX: number; scrollY: number; worldView: Bounds }; fixedUiCount: number; workshopOpen: boolean };
 type Diagnostics = {
   scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: 'ground' | 'elevated'; tabbyLayer: 'ground' | 'elevated'; houndLayer: 'ground' | 'elevated'; combatEventSequence: number; cameraX: number; cameraY: number; cameraTransform?: CameraTransform; controlledGun: string; jobId?: string; phase: string; completedInteractionIds: string[]; canExtract: boolean; extracted: boolean;
   combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostiles: number;
@@ -10,7 +11,7 @@ type Diagnostics = {
   workshopMaterials: { metal: number; circuits: number; cloth: number }; standing: { rcc: number; fre: number }; houDossier: number; fluxQualificationRemainder: number; historicalReplayActive: boolean; historicalReplayOutcome?: 'success' | 'death' | 'exit'; worldEventId?: string; activeAttemptId?: string; attemptTerminal?: string;
   workshopOpen: boolean; workshopPreview?: string; settlementPending: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; loadBlocked: boolean; recoveryMessage: string; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
 };
-type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; forceReplayTerminal(outcome: 'success' | 'death'): boolean; forceReplayHostileClear(): boolean; forceReplayTabbyDown(): boolean; forceReplayHoundDown(): boolean; replayActiveGun(): { instanceId: string; supply: number } | undefined; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void; setTestMoveTarget(x: number, y: number): void; advanceTestFrame(delta: number): void; hasLiveTouchTarget(): boolean };
+type FixtureSeam = { diagnostics(): Diagnostics; layout(): FixtureLayout; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; forceReplayTerminal(outcome: 'success' | 'death'): boolean; forceReplayHostileClear(): boolean; forceReplayTabbyDown(): boolean; forceReplayHoundDown(): boolean; replayActiveGun(): { instanceId: string; supply: number } | undefined; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void; setTestMoveTarget(x: number, y: number): void; advanceTestFrame(delta: number): void; hasLiveTouchTarget(): boolean };
 type Globals = { __MEOWCENARY_INT_FB__?: FixtureSeam };
 type LateSeam = { diagnostics(): { scene: string; revision: number; parts: number; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly { commandId: string }[]; discoveries: readonly string[]; declaration: string }; commit(command: { commandId: string; expectedRevision: number; action: 'merge' | 'build'; inputIds?: readonly string[] }): boolean };
 
@@ -21,6 +22,24 @@ async function ready(page: Page): Promise<void> {
   await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.diagnostics().scene), { timeout: 15_000 }).toBe('IntegratedFixtureScene');
 }
 async function state(page: Page): Promise<Diagnostics> { return page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.diagnostics()); }
+async function layout(page: Page): Promise<FixtureLayout> { return page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.layout()); }
+function expectVisibleBounds(bounds: Bounds | undefined, viewport: { width: number; height: number }, name: string): void {
+  expect(bounds, `${name} exists`).toBeDefined();
+  expect(bounds!.x, `${name} left`).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y, `${name} top`).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width, `${name} right`).toBeLessThanOrEqual(viewport.width);
+  expect(bounds!.y + bounds!.height, `${name} bottom`).toBeLessThanOrEqual(viewport.height);
+}
+function expectFollowCentred(value: FixtureLayout): void {
+  expect(value.player, 'active follow target exists').toBeDefined();
+  const screenX = (value.player!.x - value.camera.worldView.x) * value.camera.zoom;
+  const screenY = (value.player!.y - value.camera.worldView.y) * value.camera.zoom;
+  // Phaser rounds the fitted phone worldView to quarter pixels on a
+  // portrait-return. Keep this tight enough to catch drift while accepting
+  // that renderer rounding is not a gameplay displacement.
+  expect(Math.abs(screenX - value.viewport.width / 2)).toBeLessThanOrEqual(2);
+  expect(Math.abs(screenY - value.viewport.height / 2)).toBeLessThanOrEqual(2);
+}
 function worldToScreen(diagnostic: Diagnostics, world: { x: number; y: number }): { x: number; y: number } {
   const transform = diagnostic.cameraTransform;
   if (!transform) throw new Error('INT-FB visual-test camera transform is unavailable');
@@ -1043,4 +1062,43 @@ test('ordinary B1 controls join two jobs with the directed safe-service workshop
   expect(reloadedWorkshop.gunSlots['TAB-A'].F).toMatch(/^INT-B1-TAB-F2-/);
   expect(reloadedWorkshop.gunSlots['TAB-A'].B).toMatch(/^INT-B1-TAB-B3-/);
   expect(reloadedWorkshop.parts.find((part: { instanceId: string }) => part.instanceId === 'INT-B1-TAB-B2-GIFT')).toMatchObject({ tier: 2, version: 2 });
+});
+
+test('fixture resize keeps fixed controls, follow framing, and an open workshop through rotate-return', async ({ page }, info) => {
+  test.setTimeout(60_000);
+  test.skip(!selectedProject(info), 'Resize coverage is retained for the reviewed desktop and phone viewports.');
+  await ready(page);
+  await page.keyboard.press('b');
+  await expect.poll(async () => (await state(page)).workshopOpen).toBe(true);
+  const initial = await layout(page);
+  const assertSettled = async (width: number, height: number) => {
+    await expect.poll(async () => {
+      const value = await layout(page);
+      return value.viewport.width === width && value.viewport.height === height && value.workshopOpen;
+    }, { timeout: 15_000 }).toBe(true);
+    const value = await layout(page);
+    expectVisibleBounds(value.status, value.viewport, 'status');
+    expectVisibleBounds(value.interact, value.viewport, 'INTERACT');
+    expectVisibleBounds(value.workshop, value.viewport, 'WORKSHOP');
+    expectVisibleBounds(value.history, value.viewport, 'HISTORY');
+    expectFollowCentred(value);
+    expect(value.fixedUiCount).toBe(initial.fixedUiCount);
+  };
+
+  if (info.project.name === 'desktop-1280x720') {
+    await page.setViewportSize({ width: 720, height: 1280 });
+    await assertSettled(720, 1280);
+    await capture(page, info, 'resize-desktop-720x1280-workshop-open');
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await assertSettled(1280, 720);
+    await capture(page, info, 'resize-desktop-return-1280x720-workshop-open');
+    return;
+  }
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(page.locator('#portrait-orientation-guard')).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('#portrait-orientation-guard')).toBeHidden();
+  await assertSettled(390, 844);
+  await capture(page, info, 'resize-phone-portrait-return-workshop-open');
 });

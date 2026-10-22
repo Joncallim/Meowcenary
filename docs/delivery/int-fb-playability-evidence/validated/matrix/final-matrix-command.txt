@@ -1,0 +1,2 @@
+VITE_VISUAL_TEST=1 npm run build
+MEOWCENARY_BROWSER_EXECUTABLE=/usr/bin/chromium npx playwright test browser-tests/integrated-fixture-recovery.pw.ts --project=desktop-1280x720 --project=phone-390x844 --reporter=json > /tmp/int-fb-final-matrix.json; status=$?; echo $status > /tmp/int-fb-final-matrix.exit; exit $status

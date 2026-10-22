@@ -1,0 +1,285 @@
+{
+  "config": {
+    "argv": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/workspace/Meowcenary/node_modules/.bin/playwright",
+      "test",
+      "browser-tests/integrated-fixture-recovery.pw.ts",
+      "--project=desktop-1280x720",
+      "--project=phone-390x844",
+      "--grep",
+      "fixture resize keeps",
+      "--reporter=json"
+    ],
+    "configFile": "/workspace/Meowcenary/playwright.config.ts",
+    "rootDir": "/workspace/Meowcenary/browser-tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/workspace/Meowcenary/browser-tests/rendererSetup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 2
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "phone-360x640",
+        "name": "phone-360x640",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "phone-390x844",
+        "name": "phone-390x844",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "phone-landscape-640x390",
+        "name": "phone-landscape-640x390",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "tablet-768x1024",
+        "name": "tablet-768x1024",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "tablet-landscape-1024x768",
+        "name": "tablet-landscape-1024x768",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "foldable-1114x720",
+        "name": "foldable-1114x720",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "desktop-1280x720",
+        "name": "desktop-1280x720",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "desktop-1920x1080",
+        "name": "desktop-1920x1080",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 2,
+    "webServer": {
+      "command": "npx vite preview --host 127.0.0.1 --port 4173",
+      "url": "http://127.0.0.1:4173",
+      "reuseExistingServer": false
+    }
+  },
+  "suites": [
+    {
+      "title": "integrated-fixture-recovery.pw.ts",
+      "file": "integrated-fixture-recovery.pw.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "fixture resize keeps fixed controls, follow framing, and an open workshop through rotate-return",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2116,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T12:14:50.673Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "resize-phone-portrait-return-workshop-open",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-phone-390x844/attachments/resize-phone-portrait-return-workshop-open-837fac29f72c92a56b9bce989d4b5fe2525f69c2.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-00b4960578440c1536ec",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 1067,
+          "column": 1
+        },
+        {
+          "title": "fixture resize keeps fixed controls, follow framing, and an open workshop through rotate-return",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2904,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T12:14:50.680Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "resize-desktop-720x1280-workshop-open",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-desktop-1280x720/attachments/resize-desktop-720x1280-workshop-open-a376dff9a06ce720d2399f06739b38c4ca265359.png"
+                    },
+                    {
+                      "name": "resize-desktop-return-1280x720-workshop-open",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-desktop-1280x720/attachments/resize-desktop-return-1280x720-workshop-open-309acdb601e356bd98dd21a11a31dd45dc3cf852.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-49e4412fe86fd5a2f96c",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 1067,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-22T12:14:46.291Z",
+    "duration": 7551.012,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

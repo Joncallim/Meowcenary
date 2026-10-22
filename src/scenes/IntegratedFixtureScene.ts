@@ -198,6 +198,11 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     // The world camera must not transform fixed controls; UI nodes are
     // registered after creation below and rendered only by this camera.
     this.registerFixedUi();
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this);
+    // Resize is a scene-owned listener in both production and visual builds.
+    // Keeping cleanup outside the visual seam prevents repeat scene starts
+    // from accumulating layout handlers in the playable build.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this));
     if (this.envelope.liveMission) this.restoreLiveMission(this.envelope.liveMission);
     this.refreshStatus();
     if (import.meta.env.VITE_VISUAL_TEST === '1') {
@@ -221,6 +226,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       failNextRecoveryWrite: () => { this.failNextRecoveryWrite = true; },
       rejectNextWriterLock: () => { this.rejectNextWriterLock = true; },
       ...(import.meta.env.VITE_VISUAL_TEST === '1' ? {
+        layout: () => ({ viewport: { width: this.scale.width, height: this.scale.height }, status: this.status?.getBounds(), interact: this.interactButton?.getBounds(), workshop: this.workshopButton?.getBounds(), history: this.historyButton?.getBounds(), player: this.controlledSprite() ? { x: this.controlledSprite()!.x, y: this.controlledSprite()!.y } : undefined, camera: { x: this.cameras.main.x, y: this.cameras.main.y, width: this.cameras.main.width, height: this.cameras.main.height, zoom: this.cameras.main.zoom, scrollX: this.cameras.main.scrollX, scrollY: this.cameras.main.scrollY, worldView: this.cameras.main.worldView }, fixedUiCount: this.children.list.filter((node) => (node as Phaser.GameObjects.GameObject & { scrollFactorX?: number }).scrollFactorX === 0).length, workshopOpen: !!this.workshopModal }),
         pauseSimulation: () => { this.simulationPaused = true; },
         forceReplayTerminal: (outcome: 'success' | 'death') => this.forceReplayTerminal(outcome),
         forceReplayHostileClear: () => this.forceReplayHostileClear(),
@@ -300,6 +306,41 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       this.add.image((occluder.x + occluder.width / 2) * SCALE, (occluder.z + occluder.depth / 2) * SCALE, key)
         .setDisplaySize(Math.max(28, occluder.width * SCALE), Math.max(28, occluder.depth * SCALE)).setDepth(4);
     }
+  }
+
+  /** Keep the fixed presentation in canvas coordinates when a device rotates
+   * or resizes, while retaining the live world and its follow target. */
+  private handleResize(gameSize: Phaser.Structs.Size): void {
+    const width = gameSize.width; const height = gameSize.height;
+    const camera = this.cameras.main;
+    camera.setViewport(0, 0, width, height);
+    const worldWidth = INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE;
+    const worldHeight = INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE;
+    const halfWidth = width / camera.zoom / 2; const halfHeight = height / camera.zoom / 2;
+    camera.setBounds(-halfWidth, -halfHeight, worldWidth + halfWidth * 2, worldHeight + halfHeight * 2);
+    this.uiCamera?.setViewport(0, 0, width, height).setScroll(0, 0).setZoom(1);
+    this.status?.setPosition(width / 2, 10).setWordWrapWidth(Math.min(420, width - 32), true);
+    this.swapButton?.setPosition(76, height - 48);
+    this.interactButton?.setPosition(width - 76, height - 48);
+    this.workshopButton?.setPosition(width / 2, height - 48);
+    this.historyButton?.setPosition(width / 2, height - 116);
+    this.takeoverPrompt?.setPosition(width / 2, height / 2);
+    this.replayTakeoverPrompt?.setPosition(width / 2, height / 2);
+    this.recoveryModal?.setPosition(width / 2, height / 2);
+    this.workshopModal?.setPosition(width / 2, height / 2);
+    this.historicalReplayModal?.setPosition(width / 2, 62);
+    // Text labels have no controller object; their stable content keeps this
+    // compact fixture layout declarative without rebuilding the scene.
+    for (const child of this.children.list) {
+      const text = child as Phaser.GameObjects.Text;
+      if (text.scrollFactorX !== 0 || typeof text.text !== 'string') continue;
+      if (text.text === 'SWAP\nQ') text.setPosition(76, height - 48);
+      else if (text.text === 'INTERACT\nE') text.setPosition(width - 76, height - 48);
+      else if (text.text === 'WORKSHOP\nB') text.setPosition(width / 2, height - 48);
+      else if (text.text === 'HISTORY REPLAY\nH') text.setPosition(width / 2, height - 116);
+    }
+    const follow = this.historicalReplay ? (this.replayControlledActor === 'tabby' ? this.replayLead : this.replayHound) : this.controlledSprite();
+    if (follow) camera.startFollow(follow, true, .15, .15);
   }
 
   update(_time: number, delta: number): void {
