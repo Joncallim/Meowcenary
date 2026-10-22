@@ -31,17 +31,22 @@ deployment, hosted-site change, or product-acceptance claim.
 | Evidence | Actual result | Qualification |
 | --- | --- | --- |
 | `npm run lint` | pass | Typecheck only. |
-| `npx vitest run tests/lateFixture.test.ts` | 17 passed | Pure range contact, workshop/lineage rules. |
+| `npx vitest run tests/lateFixture.test.ts` | 18 passed | Pure range contact, persisted feed lifecycle, workshop/lineage rules. |
 | Guarded build (`VITE_VISUAL_TEST=1 npm run build`) | pass | Visual test seams enabled only for browser evidence. |
 | Range focused browser set | 4 passed, 0 skipped | Actual control input covers full/falloff/outside contact, queued Confirm→Range cancellation, branch/missing/invalid recovery, denied storage. |
 | Full late browser file, desktop project | 26 passed, 2 skipped | Two phone/tablet-only layout cases are intentionally project-targeted skips. |
 | R01 ordinary browser route, desktop | 1 passed, 0 skipped | Real selection/movement/interact/extract controls; hostile clear is fixture combat behavior, not a human aim/playthrough claim. |
+| Full B1 integrated browser file, desktop + phone projects | 17 passed, 15 skipped | Exact current-source run. Skips are explicit project scoping (for example desktop-only or phone-only evidence), not converted passes. It covers B1 recovery/retry, purchase/fit/reload, objectives/extraction, terrain, replay isolation, and phone touch routes; several adversarial rows deliberately use test-only setup. |
 | Production `npm run build` + bundle scan | pass | No `__MEOWCENARY_INT_FB__`, `__MEOWCENARY_LATE_FIXTURE__`, or range test seam in built assets. |
 
 Earlier retained focused evidence on the preceding range checkpoint was 6
 executed / 3 project-targeted skips for the tablet/range subset and 2 executed
 (desktop + phone) for F01 recovery/retry/extraction. It is supporting evidence,
 not a substitute for the exact-head checks above.
+
+The 125ms stepped feed test brackets the configured F2 2.7-second refill: it
+observes empty at 2.625 seconds and restored at 2.75 seconds. It does not claim
+an exact sampled observation at 2.700 seconds.
 
 ## Limits and open gates
 
@@ -67,3 +72,6 @@ provider's established deployment history after an authorized deployment; no
 provider route is represented in this repository, so none was invoked or
 invented here. GitHub CLI PR-status lookup from this environment was denied by
 the GitHub GraphQL API, so PR/draft state is unverified rather than inferred.
+The exact attempted operation was `gh pr status --repo Joncallim/Meowcenary`;
+the credential-free error text was `Post "https://api.github.com/graphql":
+Forbidden`. No alternate connector lookup or retry was attempted.
