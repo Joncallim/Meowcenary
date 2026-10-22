@@ -239,6 +239,29 @@ export function historicalFixtureMissionReplay(save: FixtureMissionSave, receipt
   if (!receipt) return undefined;
   return Object.freeze({ receipt, text: `${fixtureDialogue(receipt.jobId, 'result')} Historical receipt: ${receipt.id}.` });
 }
+/** Caller-supplied retained content identity. The fixture does not invent a
+ * later story branch or substitute missing historical content. */
+export interface FixtureHistoricalReplayContent { readonly contentId: string; readonly storyBranch: string; readonly available: boolean; }
+export interface FixtureHistoricalReplaySession { readonly replaySessionId: string; readonly profileHash: string; readonly receipt: FixtureMissionReceipt; readonly contentId: string; readonly storyBranch: string; }
+function fixtureStableHash(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) { hash ^= value.charCodeAt(index); hash = Math.imul(hash, 0x01000193); }
+  return `fnv1a-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+/** This profile hash is a replay guard, not a security primitive. */
+export function fixtureWorkshopProfileHash(profile: FixtureWorkshopProfile): string { return fixtureStableHash(JSON.stringify(profile)); }
+export function beginHistoricalFixtureReplay(profile: FixtureWorkshopProfile, save: FixtureMissionSave, receiptId: string, content: FixtureHistoricalReplayContent): Readonly<{ session?: FixtureHistoricalReplaySession; reason?: 'receipt-unavailable' | 'pinned-content-unavailable' }> {
+  const receipt = save.receipts.find(candidate => candidate.id === receiptId);
+  if (!receipt) return Object.freeze({ reason: 'receipt-unavailable' });
+  if (!content.available || !content.contentId || !content.storyBranch) return Object.freeze({ reason: 'pinned-content-unavailable' });
+  const profileHash = fixtureWorkshopProfileHash(profile);
+  return Object.freeze({ session: Object.freeze({ replaySessionId: `int-fb:replay:${receipt.id}:${profileHash}`, profileHash, receipt: Object.freeze({ ...receipt }), contentId: content.contentId, storyBranch: content.storyBranch }) });
+}
+/** Completion is an observation only: any terminal route must retain the
+ * session's profile hash and cannot return a profile mutation. */
+export function finishHistoricalFixtureReplay(profile: FixtureWorkshopProfile, session: FixtureHistoricalReplaySession, outcome: 'success' | 'death' | 'exit'): Readonly<{ outcome: 'success' | 'death' | 'exit'; profileHashUnchanged: boolean }> {
+  return Object.freeze({ outcome, profileHashUnchanged: fixtureWorkshopProfileHash(profile) === session.profileHash });
+}
 
 export type FixtureRecoveryState = 'active' | 'takeover-required' | 'recovered' | 'lost';
 /** The survivor must explicitly continue after lead KO; recovery never modifies durable gear. */
@@ -284,10 +307,14 @@ export function retryFixtureProfileAttempt(profile: FixtureWorkshopProfile, worl
   if (ledger.attempts === profile.attempts) return Object.freeze({ profile, applied: false });
   return Object.freeze({ profile: freezeProfile({ ...profile, revision: profile.revision + 1, attempts: ledger.attempts, paidEventIds: ledger.paidEventIds }), applied: true });
 }
-export function settleFixtureProfileAttempt(profile: FixtureWorkshopProfile, attemptId: FixtureAttemptId): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean }> {
+/** Applies the canonical B1 success attribution once per certified job. The
+ * optional job identity keeps legacy callers compatible while the live scene
+ * provides it at its atomic mission/profile settlement boundary. */
+export function settleFixtureProfileAttempt(profile: FixtureWorkshopProfile, attemptId: FixtureAttemptId, jobId?: FixtureJobId): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean }> {
   const settled = settleFixtureAttempt({ attempts: profile.attempts, paidEventIds: profile.paidEventIds }, attemptId);
   if (!settled.applied) return Object.freeze({ profile, applied: false });
-  return Object.freeze({ profile: freezeProfile({ ...profile, revision: profile.revision + 1, attempts: settled.ledger.attempts, paidEventIds: settled.ledger.paidEventIds, wallet: { ...profile.wallet, credits: profile.wallet.credits + 1000, metal: profile.wallet.metal + 20, circuits: profile.wallet.circuits + 4, cloth: profile.wallet.cloth + 6 } }), applied: true });
+  const progression = jobId ? awardFixtureEventProgression(profile, jobId, settled.ledger.paidEventIds.at(-1)!) : profile;
+  return Object.freeze({ profile: freezeProfile({ ...progression, revision: profile.revision + 1, attempts: settled.ledger.attempts, paidEventIds: settled.ledger.paidEventIds, wallet: { ...progression.wallet, credits: progression.wallet.credits + 1000, metal: progression.wallet.metal + 20, circuits: progression.wallet.circuits + 4, cloth: progression.wallet.cloth + 6 } }), applied: true });
 }
 
 /** Persisted scene progress references the profile ledger; it never owns a second terminal state. */
@@ -371,15 +398,21 @@ export type FixtureGunId = 'TAB-A' | 'TAB-B' | 'HOU-A' | 'HOU-B';
 export type FixtureSlot = 'R' | 'B' | 'F' | 'P' | 'H' | 'C';
 export type FixtureWorkshopAction = 'discover-h2' | 'buy-f2' | 'claim-h2' | 'sell-h2' | 'build-b3' | 'develop-b2' | 'fit-f2-a' | 'fit-b3-a';
 export interface FixtureWallet { readonly credits: number; readonly metal: number; readonly circuits: number; readonly cloth: number; readonly flux: number; }
-export interface FixturePart { readonly instanceId: string; readonly kind: FixturePartKind; readonly family: 'TAB' | 'HOU'; readonly slot: FixtureSlot; readonly protectedBaseline: boolean; readonly sealedFactory: boolean; readonly tier: 1 | 2 | null; readonly refinement: 'Balanced' | null; readonly maker: string; readonly provenance: string; readonly version: number; }
+export interface FixtureWorkshopStamp { readonly serviceId: 'INT-FB-SERVICE-01'; readonly commandId: string; readonly definitionVersion: 'int-fb-definitions-v1'; readonly rulesVersion: 'int-fb-rules-v1'; }
+export interface FixturePart { readonly instanceId: string; readonly kind: FixturePartKind; readonly family: 'TAB' | 'HOU'; readonly slot: FixtureSlot; readonly protectedBaseline: boolean; readonly sealedFactory: boolean; readonly tier: 1 | 2 | null; readonly refinement: 'Balanced' | null; readonly maker: string; readonly provenance: string; readonly workshopStamp?: FixtureWorkshopStamp; readonly version: number; }
 export interface FixtureWorkshopReceipt { readonly commandId: string; readonly action: FixtureWorkshopAction | 'mission'; readonly revision: number; readonly outputIds: readonly string[]; }
-export interface FixtureWorkshopProfile { readonly version: 'int-fb-profile-v2'; readonly profileId: 'INT-B1-PROFILE-01'; readonly definitionVersion: 'int-fb-definitions-v1'; readonly rulesVersion: 'int-fb-rules-v1'; readonly revision: number; readonly wallet: FixtureWallet; readonly parts: readonly FixturePart[]; readonly gunSlots: Readonly<Record<FixtureGunId, Readonly<Record<FixtureSlot, string>>>>; readonly claims: readonly string[]; readonly receipts: readonly FixtureWorkshopReceipt[]; readonly discoveries: readonly string[]; readonly knownSchematics: readonly string[]; readonly capabilities: readonly string[]; readonly attempts: readonly FixtureAttemptRecord[]; readonly paidEventIds: readonly FixtureWorldEventId[]; }
+export interface FixtureStanding { readonly rcc: number; readonly fre: number; }
+export interface FixtureWorkshopManifest { readonly firstCaseComplete: true; readonly allSixIntroduced: true; readonly workshopIntroduction: true; readonly t2Capability: true; readonly mergeT3Locked: true; readonly t4Locked: true; readonly t5DirectManufactureLocked: true; readonly tabDossierComplete: true; readonly houDossierSelected: 0; readonly c012GiftClaimConsumed: true; readonly serviceId: 'INT-FB-SERVICE-01'; readonly factoryOfferIds: readonly string[]; }
+/** B1 retains only the selected Hound dossier count; later dossier branches
+ * remain outside this fixture rather than being fabricated here. */
+export interface FixtureWorkshopProfile { readonly version: 'int-fb-profile-v2'; readonly profileId: 'INT-B1-PROFILE-01'; readonly definitionVersion: 'int-fb-definitions-v1'; readonly rulesVersion: 'int-fb-rules-v1'; readonly revision: number; readonly wallet: FixtureWallet; readonly manifest: FixtureWorkshopManifest; readonly parts: readonly FixturePart[]; readonly gunSlots: Readonly<Record<FixtureGunId, Readonly<Record<FixtureSlot, string>>>>; readonly claims: readonly string[]; readonly receipts: readonly FixtureWorkshopReceipt[]; readonly discoveries: readonly string[]; readonly knownSchematics: readonly string[]; readonly capabilities: readonly string[]; readonly attempts: readonly FixtureAttemptRecord[]; readonly paidEventIds: readonly FixtureWorldEventId[]; readonly standing: FixtureStanding; readonly houDossier: number; readonly fluxQualificationRemainder: number; readonly progressionAwardedEventIds: readonly FixtureWorldEventId[]; }
 export interface FixtureWorkshopCommand { readonly profileId?: string; readonly commandId: string; readonly expectedRevision: number; readonly action: FixtureWorkshopAction; readonly partInstanceId?: string; }
 type SlotMap = Record<FixtureGunId, Record<FixtureSlot, string>>;
 const fixtureGuns: readonly FixtureGunId[] = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'];
 const fixtureSlots: readonly FixtureSlot[] = ['R', 'B', 'F', 'P', 'H', 'C'];
 const familyForGun = (gun: FixtureGunId): 'TAB' | 'HOU' => gun.slice(0, 3) as 'TAB' | 'HOU';
-const freezeProfile = (profile: Omit<FixtureWorkshopProfile, 'version'>): FixtureWorkshopProfile => Object.freeze({ version: 'int-fb-profile-v2', ...profile, paidEventIds: Object.freeze([...profile.paidEventIds]), attempts: Object.freeze(profile.attempts.map(attempt => Object.freeze({ ...attempt }))), wallet: Object.freeze({ ...profile.wallet }), parts: Object.freeze(profile.parts.map(part => Object.freeze({ ...part }))), gunSlots: Object.freeze(Object.fromEntries(fixtureGuns.map(gun => [gun, Object.freeze({ ...profile.gunSlots[gun] })])) as FixtureWorkshopProfile['gunSlots']), claims: Object.freeze([...profile.claims]), discoveries: Object.freeze([...profile.discoveries]), knownSchematics: Object.freeze([...profile.knownSchematics]), capabilities: Object.freeze([...profile.capabilities]), receipts: Object.freeze(profile.receipts.map(receipt => Object.freeze({ ...receipt, outputIds: Object.freeze([...receipt.outputIds]) }))) });
+const B1_MANIFEST: FixtureWorkshopManifest = Object.freeze({ firstCaseComplete: true, allSixIntroduced: true, workshopIntroduction: true, t2Capability: true, mergeT3Locked: true, t4Locked: true, t5DirectManufactureLocked: true, tabDossierComplete: true, houDossierSelected: 0, c012GiftClaimConsumed: true, serviceId: 'INT-FB-SERVICE-01', factoryOfferIds: Object.freeze(['INT-B1-OFFER-TAB-F2']) });
+const freezeProfile = (profile: Omit<FixtureWorkshopProfile, 'version'>): FixtureWorkshopProfile => Object.freeze({ version: 'int-fb-profile-v2', ...profile, manifest: Object.freeze({ ...profile.manifest, factoryOfferIds: Object.freeze([...profile.manifest.factoryOfferIds]) }), paidEventIds: Object.freeze([...profile.paidEventIds]), attempts: Object.freeze(profile.attempts.map(attempt => Object.freeze({ ...attempt }))), wallet: Object.freeze({ ...profile.wallet }), standing: Object.freeze({ ...profile.standing }), progressionAwardedEventIds: Object.freeze([...profile.progressionAwardedEventIds]), parts: Object.freeze(profile.parts.map(part => Object.freeze({ ...part, ...(part.workshopStamp ? { workshopStamp: Object.freeze({ ...part.workshopStamp }) } : {}) }))), gunSlots: Object.freeze(Object.fromEntries(fixtureGuns.map(gun => [gun, Object.freeze({ ...profile.gunSlots[gun] })])) as FixtureWorkshopProfile['gunSlots']), claims: Object.freeze([...profile.claims]), discoveries: Object.freeze([...profile.discoveries]), knownSchematics: Object.freeze([...profile.knownSchematics]), capabilities: Object.freeze([...profile.capabilities]), receipts: Object.freeze(profile.receipts.map(receipt => Object.freeze({ ...receipt, outputIds: Object.freeze([...receipt.outputIds]) }))) });
 export function createIntegratedFixtureWorkshopProfile(): FixtureWorkshopProfile {
   const parts: FixturePart[] = [];
   const gunSlots = {} as SlotMap;
@@ -394,7 +427,23 @@ export function createIntegratedFixtureWorkshopProfile(): FixtureWorkshopProfile
   }
   const gift: FixturePart = { instanceId: 'INT-B1-TAB-B2-GIFT', kind: 'B2', family: 'TAB', slot: 'B', protectedBaseline: false, sealedFactory: false, tier: 1, refinement: 'Balanced', maker: 'Needlebank Instruments', provenance: 'C01.2 first-barrel fixture grant', version: 1 };
   parts.push(gift); gunSlots['TAB-B'].B = gift.instanceId;
-  return freezeProfile({ profileId: 'INT-B1-PROFILE-01', definitionVersion: 'int-fb-definitions-v1', rulesVersion: 'int-fb-rules-v1', revision: 0, wallet: { credits: 3000, metal: 80, circuits: 16, cloth: 12, flux: 3 }, parts, gunSlots, claims: [], discoveries: [], knownSchematics: ['TAB-B2', 'TAB-B3'], capabilities: ['T2'], attempts: [], paidEventIds: [], receipts: [] });
+  return freezeProfile({ profileId: 'INT-B1-PROFILE-01', definitionVersion: 'int-fb-definitions-v1', rulesVersion: 'int-fb-rules-v1', revision: 0, wallet: { credits: 3000, metal: 80, circuits: 16, cloth: 12, flux: 3 }, manifest: B1_MANIFEST, standing: { rcc: 0, fre: 0 }, houDossier: 0, fluxQualificationRemainder: .25, progressionAwardedEventIds: [], parts, gunSlots, claims: [], discoveries: [], knownSchematics: ['TAB-B2', 'TAB-B3'], capabilities: ['T2'], attempts: [], paidEventIds: [], receipts: [] });
+}
+function progressionJobFromEventId(eventId: FixtureWorldEventId): FixtureJobId | undefined {
+  return (['MC-OPT-R01-01', 'MC-OPT-F01-01'] as const).find(jobId => eventId.includes(`:${jobId}:`));
+}
+function progressionState(eventIds: readonly FixtureWorldEventId[]): Readonly<{ houDossier: number; fluxQualificationRemainder: number; flux: number }> {
+  const qualified = eventIds.length;
+  return Object.freeze({ houDossier: Math.min(4, qualified), fluxQualificationRemainder: .25 + (qualified % 3), flux: Math.floor(qualified / 3) });
+}
+function standingForProgressionEvents(eventIds: readonly FixtureWorldEventId[]): FixtureStanding {
+  return Object.freeze({ rcc: eventIds.some(eventId => progressionJobFromEventId(eventId) === 'MC-OPT-R01-01') ? 10 : 0, fre: eventIds.some(eventId => progressionJobFromEventId(eventId) === 'MC-OPT-F01-01') ? 10 : 0 });
+}
+function awardFixtureEventProgression(profile: FixtureWorkshopProfile, jobId: FixtureJobId, worldEventId: FixtureWorldEventId): FixtureWorkshopProfile {
+  if (profile.progressionAwardedEventIds.includes(worldEventId)) return profile;
+  const progressionAwardedEventIds = [...profile.progressionAwardedEventIds, worldEventId];
+  const state = progressionState(progressionAwardedEventIds);
+  return freezeProfile({ ...profile, progressionAwardedEventIds, standing: { rcc: profile.standing.rcc + (jobId === 'MC-OPT-R01-01' && profile.standing.rcc === 0 ? 10 : 0), fre: profile.standing.fre + (jobId === 'MC-OPT-F01-01' && profile.standing.fre === 0 ? 10 : 0) }, houDossier: state.houDossier, fluxQualificationRemainder: state.fluxQualificationRemainder, wallet: { ...profile.wallet, flux: 3 + state.flux } });
 }
 function legalAttemptLedger(attempts: readonly FixtureAttemptRecord[], paidEventIds: readonly FixtureWorldEventId[]): boolean {
   const attemptIds = new Set<string>();
@@ -417,7 +466,17 @@ export function deserializeIntegratedFixtureWorkshopProfile(value: unknown): Fix
   const attempts = Array.isArray(raw.attempts) ? raw.attempts as FixtureAttemptRecord[] : [];
   const paidEventIds = Array.isArray(raw.paidEventIds) ? raw.paidEventIds as FixtureWorldEventId[] : [];
   if (!legalAttemptLedger(attempts, paidEventIds)) return createIntegratedFixtureWorkshopProfile();
-  const profile = freezeProfile({ profileId: raw.profileId, definitionVersion: raw.definitionVersion, rulesVersion: raw.rulesVersion, revision: raw.revision!, wallet, parts: raw.parts as FixturePart[], gunSlots: raw.gunSlots as FixtureWorkshopProfile['gunSlots'], claims: raw.claims as string[], discoveries: raw.discoveries as string[], knownSchematics: raw.knownSchematics as string[], capabilities: raw.capabilities as string[], attempts, paidEventIds, receipts: raw.receipts as FixtureWorkshopReceipt[] });
+  const rawRecord = raw as Record<string, unknown>;
+  const progressionAwardedEventIds = raw.progressionAwardedEventIds === undefined ? paidEventIds : raw.progressionAwardedEventIds;
+  if (!Array.isArray(progressionAwardedEventIds) || !progressionAwardedEventIds.every(eventId => typeof eventId === 'string' && paidEventIds.includes(eventId as FixtureWorldEventId)) || new Set(progressionAwardedEventIds).size !== progressionAwardedEventIds.length) return createIntegratedFixtureWorkshopProfile();
+  const migratedProgression = progressionState(progressionAwardedEventIds as FixtureWorldEventId[]);
+  const standing = raw.standing === undefined ? standingForProgressionEvents(progressionAwardedEventIds as FixtureWorldEventId[]) : raw.standing;
+  const houDossier = raw.houDossier === undefined ? migratedProgression.houDossier : raw.houDossier;
+  const fluxQualificationRemainder = raw.fluxQualificationRemainder === undefined ? migratedProgression.fluxQualificationRemainder : raw.fluxQualificationRemainder;
+  if (!standing || !Number.isInteger(standing.rcc) || !Number.isInteger(standing.fre) || standing.rcc < 0 || standing.fre < 0 || !Number.isInteger(houDossier) || houDossier < 0 || houDossier > 4 || !Number.isFinite(fluxQualificationRemainder) || fluxQualificationRemainder < 0 || fluxQualificationRemainder >= 3) return createIntegratedFixtureWorkshopProfile();
+  const manifest = raw.manifest === undefined ? B1_MANIFEST : raw.manifest;
+  if (!manifest || typeof manifest !== 'object' || (rawRecord.progressionAwardedJobIds !== undefined && raw.progressionAwardedEventIds === undefined)) return createIntegratedFixtureWorkshopProfile();
+  const profile = freezeProfile({ profileId: raw.profileId, definitionVersion: raw.definitionVersion, rulesVersion: raw.rulesVersion, revision: raw.revision!, wallet, manifest: manifest as FixtureWorkshopManifest, standing, houDossier, fluxQualificationRemainder, progressionAwardedEventIds: progressionAwardedEventIds as FixtureWorldEventId[], parts: raw.parts as FixturePart[], gunSlots: raw.gunSlots as FixtureWorkshopProfile['gunSlots'], claims: raw.claims as string[], discoveries: raw.discoveries as string[], knownSchematics: raw.knownSchematics as string[], capabilities: raw.capabilities as string[], attempts, paidEventIds, receipts: raw.receipts as FixtureWorkshopReceipt[] });
   return legalSlots(profile) && new Set(profile.parts.map(candidate => candidate.instanceId)).size === profile.parts.length ? profile : createIntegratedFixtureWorkshopProfile();
 }
 function part(profile: FixtureWorkshopProfile, instanceId: string): FixturePart | undefined { return profile.parts.find(candidate => candidate.instanceId === instanceId); }
@@ -441,11 +500,17 @@ export function commitFixtureWorkshop(profile: FixtureWorkshopProfile, command: 
   if (!legalSlots(profile)) return reject(profile, 'invalid-assignments');
   const wallet = profile.wallet;
   const next = (patch: Partial<Pick<FixtureWorkshopProfile, 'wallet' | 'parts' | 'gunSlots' | 'claims' | 'discoveries'>>, outputIds: readonly string[] = []) => {
-    const result = finish(profile, command.commandId, command.action, { profileId: profile.profileId, definitionVersion: profile.definitionVersion, rulesVersion: profile.rulesVersion, wallet: patch.wallet ?? wallet, parts: patch.parts ?? profile.parts, gunSlots: patch.gunSlots ?? profile.gunSlots, claims: patch.claims ?? profile.claims, discoveries: patch.discoveries ?? profile.discoveries, knownSchematics: profile.knownSchematics, capabilities: profile.capabilities, attempts: profile.attempts, paidEventIds: profile.paidEventIds }, outputIds);
+    const result = finish(profile, command.commandId, command.action, { profileId: profile.profileId, definitionVersion: profile.definitionVersion, rulesVersion: profile.rulesVersion, wallet: patch.wallet ?? wallet, manifest: profile.manifest, standing: profile.standing, houDossier: profile.houDossier, fluxQualificationRemainder: profile.fluxQualificationRemainder, progressionAwardedEventIds: profile.progressionAwardedEventIds, parts: patch.parts ?? profile.parts, gunSlots: patch.gunSlots ?? profile.gunSlots, claims: patch.claims ?? profile.claims, discoveries: patch.discoveries ?? profile.discoveries, knownSchematics: profile.knownSchematics, capabilities: profile.capabilities, attempts: profile.attempts, paidEventIds: profile.paidEventIds }, outputIds);
     return Object.freeze({ profile: result, applied: true, receipt: result.receipts.at(-1)! });
   };
   if (command.action === 'discover-h2') return profile.discoveries.includes('INT-LOOT-01') ? reject(profile, 'already-discovered') : next({ discoveries: [...profile.discoveries, 'INT-LOOT-01'] });
   if (command.action === 'buy-f2') {
+    if (!profile.manifest.factoryOfferIds.includes('INT-B1-OFFER-TAB-F2')) return reject(profile, 'offer-unavailable');
+    // The canonical catalogue is permanently available after its milestone,
+    // but this B1 fixture binds only one unit of stock. Do not claim it sold
+    // out or invent a replenishment schedule while later stock gates remain
+    // unbound.
+    if (profile.receipts.some(receipt => receipt.action === 'buy-f2')) return reject(profile, 'additional-fixture-stock-unbound');
     if (wallet.credits < 1650) return reject(profile, 'insufficient-credits');
     const output: FixturePart = { instanceId: `INT-B1-TAB-F2-${command.commandId}`, kind: 'F2', family: 'TAB', slot: 'F', protectedBaseline: false, sealedFactory: true, tier: null, refinement: null, maker: 'Rivetwake Heavy Works', provenance: 'fixture factory offer', version: 1 };
     return next({ wallet: { ...wallet, credits: wallet.credits - 1650 }, parts: [...profile.parts, output] }, [output.instanceId]);
@@ -460,7 +525,7 @@ export function commitFixtureWorkshop(profile: FixtureWorkshopProfile, command: 
   if (command.action === 'build-b3') {
     if (!profile.knownSchematics.includes('TAB-B3')) return reject(profile, 'unknown-schematic');
     if (wallet.credits < 1000 || wallet.metal < 40 || wallet.circuits < 8) return reject(profile, 'insufficient-resources');
-    const output: FixturePart = { instanceId: `INT-B1-TAB-B3-${command.commandId}`, kind: 'B3', family: 'TAB', slot: 'B', protectedBaseline: false, sealedFactory: false, tier: 1, refinement: 'Balanced', maker: 'Oddlot Cooperative', provenance: 'INT-FB-SERVICE-01', version: 1 };
+    const output: FixturePart = { instanceId: `INT-B1-TAB-B3-${command.commandId}`, kind: 'B3', family: 'TAB', slot: 'B', protectedBaseline: false, sealedFactory: false, tier: 1, refinement: 'Balanced', maker: 'Oddlot Cooperative', provenance: 'fixture workshop build', workshopStamp: { serviceId: profile.manifest.serviceId, commandId: command.commandId, definitionVersion: profile.definitionVersion, rulesVersion: profile.rulesVersion }, version: 1 };
     return next({ wallet: { ...wallet, credits: wallet.credits - 1000, metal: wallet.metal - 40, circuits: wallet.circuits - 8 }, parts: [...profile.parts, output] }, [output.instanceId]);
   }
   if (command.action === 'develop-b2') { const target = part(profile, 'INT-B1-TAB-B2-GIFT'); if (!profile.knownSchematics.includes('TAB-B2') || !profile.capabilities.includes('T2') || !target || target.sealedFactory || target.protectedBaseline || target.tier !== 1 || wallet.credits < 500 || wallet.metal < 20 || wallet.circuits < 4) return reject(profile, 'ineligible-develop'); return next({ wallet: { ...wallet, credits: wallet.credits - 500, metal: wallet.metal - 20, circuits: wallet.circuits - 4 }, parts: profile.parts.map(candidate => candidate.instanceId === target.instanceId ? { ...candidate, tier: 2, version: candidate.version + 1 } : candidate) }); }
@@ -483,7 +548,7 @@ export function commitAndPersistFixtureWorkshop(profile: FixtureWorkshopProfile,
 export function settleFixtureWorkshopMission(profile: FixtureWorkshopProfile, commandId: string): Readonly<{ profile: FixtureWorkshopProfile; applied: boolean }> {
   const prior = profile.receipts.find(receipt => receipt.commandId === commandId);
   if (prior) return Object.freeze({ profile, applied: false });
-  const result = finish(profile, commandId, 'mission', { profileId: profile.profileId, definitionVersion: profile.definitionVersion, rulesVersion: profile.rulesVersion, wallet: { ...profile.wallet, credits: profile.wallet.credits + 1000, metal: profile.wallet.metal + 20, circuits: profile.wallet.circuits + 4, cloth: profile.wallet.cloth + 6 }, parts: profile.parts, gunSlots: profile.gunSlots, claims: profile.claims, discoveries: profile.discoveries, knownSchematics: profile.knownSchematics, capabilities: profile.capabilities, attempts: profile.attempts, paidEventIds: profile.paidEventIds });
+  const result = finish(profile, commandId, 'mission', { profileId: profile.profileId, definitionVersion: profile.definitionVersion, rulesVersion: profile.rulesVersion, wallet: { ...profile.wallet, credits: profile.wallet.credits + 1000, metal: profile.wallet.metal + 20, circuits: profile.wallet.circuits + 4, cloth: profile.wallet.cloth + 6 }, manifest: profile.manifest, standing: profile.standing, houDossier: profile.houDossier, fluxQualificationRemainder: profile.fluxQualificationRemainder, progressionAwardedEventIds: profile.progressionAwardedEventIds, parts: profile.parts, gunSlots: profile.gunSlots, claims: profile.claims, discoveries: profile.discoveries, knownSchematics: profile.knownSchematics, capabilities: profile.capabilities, attempts: profile.attempts, paidEventIds: profile.paidEventIds });
   return Object.freeze({ profile: result, applied: true });
 }
 
@@ -671,7 +736,7 @@ export function fixturePositionsShareLayer(left: FixturePosition, right: Fixture
   return fixtureLayer(left) === fixtureLayer(right);
 }
 export type FixtureCombatantId = 'tabby' | 'hound' | 'r01-a' | 'r01-b' | 'f01-a' | 'f01-b';
-export interface FixtureWeaponSnapshot { readonly supply: number; readonly nextShotSeconds: number; readonly refillRemaining: number; }
+export interface FixtureWeaponSnapshot { readonly supply: number; readonly nextShotSeconds: number; readonly refillRemaining: number; /** Legacy snapshots begin at the first shot. */ readonly shotOffsetIndex?: number; }
 export interface FixtureCombatActorSnapshot {
   readonly id: FixtureCombatantId;
   readonly position: FixturePosition;
@@ -690,23 +755,30 @@ export interface FixtureCombatEvent {
   readonly targetId: FixtureCombatantId;
   readonly damage?: number;
   readonly targetHealth?: number;
+  /** B3 rotates one fired round through its authored lateral offsets. */
+  readonly shotOffsetDegrees?: number;
 }
 
 interface FixtureWeaponProfile {
   readonly id: string; readonly damage: number; readonly cycleSeconds: number;
-  readonly initialSetupSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly store: number; readonly refillSeconds: number;
+  readonly initialSetupSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly store: number; readonly refillSeconds: number; readonly shotOffsetDegrees: readonly number[]; readonly contactWidthMetres: number;
 }
-export interface FixtureResolvedGunProfile { readonly gunId: FixtureGunId; readonly store: number; readonly refillSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly setupSeconds: number; readonly coneMultiplier: number; readonly contactWidthMetres: number; }
+export interface FixtureResolvedGunProfile { readonly gunId: FixtureGunId; readonly store: number; readonly refillSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly setupSeconds: number; readonly coneMultiplier: number; readonly contactWidthMetres: number; readonly shotOffsetDegrees: readonly number[]; }
 /** Reads the actual six-slot assignment; no workshop choice may alter damage. */
 export function resolveFixtureGunProfile(profile: FixtureWorkshopProfile, gunId: FixtureGunId): FixtureResolvedGunProfile {
   const barrel = part(profile, profile.gunSlots[gunId].B)!;
   const feed = part(profile, profile.gunSlots[gunId].F)!;
-  const b2TierStep = barrel.kind === 'B2' && barrel.tier === 2 ? .03 : 0;
+  const structuralRange = barrel.kind === 'B2' ? 1.25 : barrel.kind === 'B3' ? .7 : 1;
+  // Engineering is .03 per tier step: B2 T2 is one step (1.25 × 1.03),
+  // while the late-fixture T3 vector carries two steps (1.25 × 1.06).
+  const engineeringRange = barrel.kind === 'B2' && barrel.tier === 2 ? .03 : 0;
+  const round = (value: number) => Math.round(value * 1e12) / 1e12;
   return Object.freeze({ gunId, store: feed.kind === 'F2' ? 18 : 12, refillSeconds: feed.kind === 'F2' ? 2.7 : 1.5,
-    fullRangeMetres: 12 * (barrel.kind === 'B2' ? 1.25 + b2TierStep : barrel.kind === 'B3' ? .7 : 1), maxRangeMetres: 24,
-    setupSeconds: .1 * (barrel.kind === 'B2' ? 1.25 : 1), coneMultiplier: barrel.kind === 'B2' ? .65 : barrel.kind === 'B3' ? 1.6 : 1, contactWidthMetres: barrel.kind === 'B2' ? .02 : barrel.kind === 'B3' ? .24 : .1 });
+    fullRangeMetres: round(12 * structuralRange * (1 + Math.min(.40, engineeringRange))), maxRangeMetres: round(24 * structuralRange * (1 + Math.min(.40, engineeringRange))),
+    setupSeconds: .1 * (barrel.kind === 'B2' ? 1.25 : 1), coneMultiplier: barrel.kind === 'B2' ? .65 : barrel.kind === 'B3' ? 1.6 : 1, contactWidthMetres: barrel.kind === 'B2' ? .02 : barrel.kind === 'B3' ? .24 : .1,
+    shotOffsetDegrees: Object.freeze(barrel.kind === 'B3' ? [-6, 0, 6] : [0]) });
 }
-interface FixtureWeaponState { readonly instanceId: string; readonly profile: FixtureWeaponProfile; supply: number; nextShotSeconds: number; refillRemaining: number; }
+interface FixtureWeaponState { readonly instanceId: string; readonly profile: FixtureWeaponProfile; supply: number; nextShotSeconds: number; refillRemaining: number; shotOffsetIndex: number; }
 interface FixtureActorState {
   readonly id: FixtureCombatantId; readonly team: 'squad' | 'hostile';
   position: FixturePosition; health: number; maxHealth: number; readonly radius: number;
@@ -714,13 +786,13 @@ interface FixtureActorState {
 }
 
 const TABBY_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
-  id: 'TAB-service-pistol', damage: 30, cycleSeconds: 0.25, initialSetupSeconds: 0.1, fullRangeMetres: 12, maxRangeMetres: 24, store: 12, refillSeconds: 1.5,
+  id: 'TAB-service-pistol', damage: 30, cycleSeconds: 0.25, initialSetupSeconds: 0.1, fullRangeMetres: 12, maxRangeMetres: 24, store: 12, refillSeconds: 1.5, shotOffsetDegrees: Object.freeze([0]), contactWidthMetres: .1,
 });
 const HOUND_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
-  id: 'HOU-service-coil-smg', damage: 14, cycleSeconds: 0.1, initialSetupSeconds: 0.1, fullRangeMetres: 8, maxRangeMetres: 18, store: 30, refillSeconds: 1.5,
+  id: 'HOU-service-coil-smg', damage: 14, cycleSeconds: 0.1, initialSetupSeconds: 0.1, fullRangeMetres: 8, maxRangeMetres: 18, store: 30, refillSeconds: 1.5, shotOffsetDegrees: Object.freeze([0]), contactWidthMetres: .1,
 });
 const HOSTILE_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
-  id: 'fixture-hostile-rifle', damage: 7, cycleSeconds: 1, initialSetupSeconds: 0.5, fullRangeMetres: 10, maxRangeMetres: 16, store: 99, refillSeconds: 1.5,
+  id: 'fixture-hostile-rifle', damage: 7, cycleSeconds: 1, initialSetupSeconds: 0.5, fullRangeMetres: 10, maxRangeMetres: 16, store: 99, refillSeconds: 1.5, shotOffsetDegrees: Object.freeze([0]), contactWidthMetres: .1,
 });
 
 function expectedFixtureCombatants(jobId: FixtureJobId): readonly FixtureCombatantId[] {
@@ -748,7 +820,8 @@ function validFixtureCombatSnapshot(value: unknown, jobId: FixtureJobId, finiteE
       && Array.isArray(weapons) && weapons.length === weaponCount
       && weapons.every(weapon => Number.isFinite(weapon.supply) && weapon.supply >= 0 && weapon.supply <= 1_000
         && Number.isFinite(weapon.nextShotSeconds) && weapon.nextShotSeconds >= 0 && weapon.nextShotSeconds <= 10
-        && Number.isFinite(weapon.refillRemaining) && weapon.refillRemaining >= 0 && weapon.refillRemaining <= 10)
+        && Number.isFinite(weapon.refillRemaining) && weapon.refillRemaining >= 0 && weapon.refillRemaining <= 10
+        && (weapon.shotOffsetIndex === undefined || (Number.isInteger(weapon.shotOffsetIndex) && weapon.shotOffsetIndex >= 0 && weapon.shotOffsetIndex <= 2)))
       && (!finiteEnemyGroupCleared || !hostile || actor.health === 0);
   });
 }
@@ -795,15 +868,15 @@ export class IntegratedFixtureCombat {
   private ownedDesignationId?: FixtureCombatantId;
 
   constructor(profile = createIntegratedFixtureWorkshopProfile()) {
-    const weaponFor = (gunId: FixtureGunId): FixtureWeaponProfile => { const resolved = resolveFixtureGunProfile(profile, gunId); return { ...TABBY_FIXTURE_GUN, id: `int-fb:${gunId}`, store: resolved.store, refillSeconds: resolved.refillSeconds, initialSetupSeconds: resolved.setupSeconds, fullRangeMetres: resolved.fullRangeMetres, maxRangeMetres: resolved.maxRangeMetres }; };
+    const weaponFor = (gunId: FixtureGunId): FixtureWeaponProfile => { const resolved = resolveFixtureGunProfile(profile, gunId); return { ...TABBY_FIXTURE_GUN, id: `int-fb:${gunId}`, store: resolved.store, refillSeconds: resolved.refillSeconds, initialSetupSeconds: resolved.setupSeconds, fullRangeMetres: resolved.fullRangeMetres, maxRangeMetres: resolved.maxRangeMetres, contactWidthMetres: resolved.contactWidthMetres, shotOffsetDegrees: resolved.shotOffsetDegrees }; };
     const tabA = weaponFor('TAB-A'); const tabB = weaponFor('TAB-B');
     this.add('tabby', 'squad', { x: 8, z: 11 }, 100, 0.4, tabA);
-    this.actors.get('tabby')!.weapons.push({ instanceId: 'int-fb:TAB-B', profile: tabB, supply: tabB.store, nextShotSeconds: tabB.initialSetupSeconds, refillRemaining: 0 });
+    this.actors.get('tabby')!.weapons.push({ instanceId: 'int-fb:TAB-B', profile: tabB, supply: tabB.store, nextShotSeconds: tabB.initialSetupSeconds, refillRemaining: 0, shotOffsetIndex: 0 });
     this.add('hound', 'squad', { x: 6.5, z: 11 }, 100, 0.4, HOUND_FIXTURE_GUN, 2);
   }
 
   private add(id: FixtureCombatantId, team: 'squad' | 'hostile', position: FixturePosition, health: number, radius: number, weapon?: FixtureWeaponProfile, gunCount = 1): void {
-    const weapons = weapon ? Array.from({ length: gunCount }, (_, index) => ({ instanceId: `int-fb:${id}:gun-${index + 1}`, profile: weapon, supply: weapon.store, nextShotSeconds: weapon.initialSetupSeconds, refillRemaining: 0 })) : [];
+    const weapons = weapon ? Array.from({ length: gunCount }, (_, index) => ({ instanceId: `int-fb:${id}:gun-${index + 1}`, profile: weapon, supply: weapon.store, nextShotSeconds: weapon.initialSetupSeconds, refillRemaining: 0, shotOffsetIndex: 0 })) : [];
     this.actors.set(id, { id, team, position: freezeFixturePosition(position), health, maxHealth: health, radius, weapons, activeGunIndex: 0 });
   }
 
@@ -835,7 +908,7 @@ export class IntegratedFixtureCombat {
       health: actor.health,
       maxHealth: actor.maxHealth,
       activeGunIndex: actor.activeGunIndex,
-      weapons: actor.weapons.map(weapon => ({ supply: weapon.supply, nextShotSeconds: weapon.nextShotSeconds, refillRemaining: weapon.refillRemaining })),
+      weapons: actor.weapons.map(weapon => ({ supply: weapon.supply, nextShotSeconds: weapon.nextShotSeconds, refillRemaining: weapon.refillRemaining, shotOffsetIndex: weapon.shotOffsetIndex })),
     })) });
   }
   /** Restores only a validated snapshot matching the job's authored roster. */
@@ -855,6 +928,7 @@ export class IntegratedFixtureCombat {
         target.supply = weapon.supply;
         target.nextShotSeconds = weapon.nextShotSeconds;
         target.refillRemaining = weapon.refillRemaining;
+        target.shotOffsetIndex = (weapon.shotOffsetIndex ?? 0) % target.profile.shotOffsetDegrees.length;
       });
     }
     this.ownedDesignationId = undefined;
@@ -923,10 +997,15 @@ export class IntegratedFixtureCombat {
     const anchor = Math.hypot(target.position.x - source.position.x, target.position.z - source.position.z);
     const damage = fixtureRangeDamage(Math.max(0, anchor - target.radius), gun.profile.damage, gun.profile.fullRangeMetres, gun.profile.maxRangeMetres);
     if (damage <= 0) return;
+    const shotOffsetDegrees = gun.profile.shotOffsetDegrees[gun.shotOffsetIndex] ?? 0;
+    gun.shotOffsetIndex = (gun.shotOffsetIndex + 1) % gun.profile.shotOffsetDegrees.length;
     gun.supply -= 1;
     if (gun.supply === 0) gun.refillRemaining = gun.profile.refillSeconds;
+    const lateralMiss = Math.abs(Math.sin(shotOffsetDegrees * Math.PI / 180) * anchor) > target.radius + gun.profile.contactWidthMetres;
+    this.events.push(Object.freeze({ type: 'weapon-fired', sourceId: source.id, targetId: target.id, damage: lateralMiss ? 0 : damage, shotOffsetDegrees }));
+    if (lateralMiss) return;
     target.health = Math.max(0, target.health - damage);
-    this.events.push(Object.freeze({ type: 'weapon-fired', sourceId: source.id, targetId: target.id, damage }), Object.freeze({
+    this.events.push(Object.freeze({
       type: target.team === 'hostile' ? 'enemy-damaged' : 'actor-damaged', sourceId: source.id, targetId: target.id, damage, targetHealth: target.health,
     }));
     if (target.health === 0) this.events.push(Object.freeze({ type: target.team === 'hostile' ? 'enemy-defeated' : 'actor-defeated', sourceId: source.id, targetId: target.id }));

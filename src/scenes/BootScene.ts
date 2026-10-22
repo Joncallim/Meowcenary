@@ -160,6 +160,6 @@ export class BootScene extends Phaser.Scene {
 
     if (started !== undefined) performanceProbe?.record('boot.create', started);
     const fixtureRoute = new URLSearchParams(globalThis.location?.search ?? '').get('fixture');
-    this.scene.start(fixtureRoute === 'int-fb' ? SceneKey.IntegratedFixture : SceneKey.Menu);
+    this.scene.start(fixtureRoute === 'int-fb' ? SceneKey.IntegratedFixture : fixtureRoute === 'int-late' ? SceneKey.LateFixture : SceneKey.Menu);
   }
 }

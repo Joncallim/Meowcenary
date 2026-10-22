@@ -19,6 +19,7 @@ import {
   settleIntegratedFixtureJob,
   settleIntegratedFixtureEvent,
   historicalFixtureMissionReplay,
+  beginHistoricalFixtureReplay, finishHistoricalFixtureReplay, fixtureWorkshopProfileHash,
   resolveFixtureTakeover,
   createIntegratedFixtureWorkshopProfile,
   commitFixtureWorkshop,
@@ -134,6 +135,8 @@ it('resolves baseline and F2 capacities/refill timing from exact fitted instance
   profile = commitFixtureWorkshop(profile, { commandId: 'fit', expectedRevision: profile.revision, action: 'fit-f2-a', partInstanceId: 'INT-B1-TAB-F2-buy' }).profile;
   expect(resolveFixtureGunProfile(profile, 'TAB-A')).toMatchObject({ store: 18, refillSeconds: 2.7 });
   expect(resolveFixtureGunProfile(profile, 'TAB-B')).toMatchObject({ store: 12, refillSeconds: 1.5, fullRangeMetres: 15 });
+  profile = commitFixtureWorkshop(profile, { commandId: 'develop-range', expectedRevision: profile.revision, action: 'develop-b2' }).profile;
+  expect(resolveFixtureGunProfile(profile, 'TAB-B')).toMatchObject({ fullRangeMetres: 15.45, maxRangeMetres: 30.9 });
 });
 
 it('uses F2’s real 18-shot store and blocks fire until its 2.7s per-instance refill completes', () => {
@@ -145,6 +148,27 @@ it('uses F2’s real 18-shot store and blocks fire until its 2.7s per-instance r
   expect(fired).toHaveLength(18); expect(combat.activeGun('tabby').supply).toBe(0);
   expect(combat.advance(2.69).filter(event => event.type === 'weapon-fired' && event.sourceId === 'tabby')).toHaveLength(0);
   combat.advance(.02); expect(combat.activeGun('tabby').supply).toBe(18);
+});
+
+it('cycles TAB-B3 shots through -6, 0 and +6 degrees without creating extra bullets', () => {
+  let profile = settleFixtureWorkshopMission(createIntegratedFixtureWorkshopProfile(), 'b3-fund').profile;
+  profile = commitFixtureWorkshop(profile, { commandId: 'build-b3', expectedRevision: profile.revision, action: 'build-b3' }).profile;
+  profile = commitFixtureWorkshop(profile, { commandId: 'fit-b3', expectedRevision: profile.revision, action: 'fit-b3-a', partInstanceId: 'INT-B1-TAB-B3-build-b3' }).profile;
+  expect(resolveFixtureGunProfile(profile, 'TAB-A').shotOffsetDegrees).toEqual([-6, 0, 6]);
+  const combat = new IntegratedFixtureCombat(profile);
+  combat.beginJob('MC-OPT-R01-01');
+  combat.setFixtureHostileHealth('r01-a', 10_000);
+  combat.setSquadPositions({ x: 34, z: 38 }, { x: 0, z: 0 });
+  const fired = combat.advance(.61).filter(event => event.type === 'weapon-fired' && event.sourceId === 'tabby');
+  expect(fired).toHaveLength(3);
+  expect(fired.map(event => event.shotOffsetDegrees)).toEqual([-6, 0, 6]);
+  expect(combat.activeGun('tabby').supply).toBe(9);
+  const snapshot = combat.snapshot('tabby');
+  const resumed = new IntegratedFixtureCombat(profile);
+  resumed.restoreJob('MC-OPT-R01-01', false);
+  expect(resumed.restore(snapshot, 'MC-OPT-R01-01', false)).toBe(true);
+  const next = resumed.advance(.25).find(event => event.type === 'weapon-fired' && event.sourceId === 'tabby');
+  expect(next?.shotOffsetDegrees).toBe(-6);
 });
 
 it('keeps two gun instances distinct and never emits both during a swap', () => {
@@ -352,6 +376,19 @@ it('keeps a prior isolated receipt readable without importing a normal game save
   expect(historicalFixtureMissionReplay(restored, 'int-fb:MC-OPT-F01-01:settlement')?.text).toContain('Historical receipt');
 });
 
+it('pins historical replay to a separate receipt snapshot and leaves the live profile unchanged', () => {
+  const profile = createIntegratedFixtureWorkshopProfile();
+  const settled = settleIntegratedFixtureEvent(createIntegratedFixtureSave(), 'MC-OPT-R01-01', 'int-fb:event:MC-OPT-R01-01:replay' as any, 'int-fb:attempt:replay' as any).save;
+  const before = fixtureWorkshopProfileHash(profile);
+  const unavailable = beginHistoricalFixtureReplay(profile, settled, settled.receipts[0]!.id, { contentId: 'retained-r01', storyBranch: 'original-r01', available: false });
+  expect(unavailable).toEqual({ reason: 'pinned-content-unavailable' });
+  const replay = beginHistoricalFixtureReplay(profile, settled, settled.receipts[0]!.id, { contentId: 'retained-r01', storyBranch: 'original-r01', available: true }).session!;
+  expect(replay).toMatchObject({ profileHash: before, receipt: settled.receipts[0], contentId: 'retained-r01', storyBranch: 'original-r01' });
+  expect(replay.receipt).not.toBe(settled.receipts[0]);
+  for (const outcome of ['success', 'death', 'exit'] as const) expect(finishHistoricalFixtureReplay(profile, replay, outcome)).toEqual({ outcome, profileHashUnchanged: true });
+  expect(fixtureWorkshopProfileHash(profile)).toBe(before);
+});
+
 it('commits the directed B1 workshop ledger as unique, full-slot transactions', () => {
   let p = createIntegratedFixtureWorkshopProfile();
   expect(p.parts).toHaveLength(25);
@@ -377,11 +414,62 @@ it('commits the directed B1 workshop ledger as unique, full-slot transactions', 
   expect(p.gunSlots['TAB-A']).toMatchObject({ B: 'INT-B1-TAB-B3-build-1', F: 'INT-B1-TAB-F2-buy-1' });
   expect(p.gunSlots['TAB-B'].B).toBe('INT-B1-TAB-B2-GIFT');
   expect(p.parts.find(part => part.instanceId === 'INT-B1-TAB-B2-GIFT')).toMatchObject({ tier: 2, version: 2, provenance: 'C01.2 first-barrel fixture grant' });
+  expect(p.parts.find(part => part.instanceId === 'INT-B1-TAB-B3-build-1')?.workshopStamp).toEqual({ serviceId: 'INT-FB-SERVICE-01', commandId: 'build-1', definitionVersion: 'int-fb-definitions-v1', rulesVersion: 'int-fb-rules-v1' });
   expect(Object.values(p.gunSlots).flatMap(gun => Object.values(gun))).toHaveLength(24);
   expect(new Set(Object.values(p.gunSlots).flatMap(gun => Object.values(gun))).size).toBe(24);
   expect(p.parts.some(part => part.instanceId === 'INT-B1-TAB-A-B-BASE')).toBe(true);
   expect(p.parts.some(part => part.instanceId === 'INT-B1-TAB-A-F-BASE')).toBe(true);
   expect(commitFixtureWorkshop(p, { commandId: 'develop-1', expectedRevision: p.revision, action: 'develop-b2' })).toMatchObject({ applied: false, reason: 'duplicate-command' });
+});
+
+it('attributes the canonical B1 ledger once per event and never on a failed or replayed attempt', () => {
+  let p = createIntegratedFixtureWorkshopProfile();
+  expect(p).toMatchObject({ wallet: { credits: 3000, metal: 80, circuits: 16, cloth: 12, flux: 3 }, manifest: { firstCaseComplete: true, allSixIntroduced: true, workshopIntroduction: true, t2Capability: true, mergeT3Locked: true, t4Locked: true, t5DirectManufactureLocked: true, tabDossierComplete: true, houDossierSelected: 0, c012GiftClaimConsumed: true, serviceId: 'INT-FB-SERVICE-01', factoryOfferIds: ['INT-B1-OFFER-TAB-F2'] }, standing: { rcc: 0, fre: 0 }, houDossier: 0, fluxQualificationRemainder: .25 });
+  p = commitFixtureWorkshop(p, { commandId: 'buy-directed', expectedRevision: p.revision, action: 'buy-f2' }).profile;
+  expect(p.wallet.credits).toBe(1350);
+  const r01Event = 'int-fb:event:MC-OPT-R01-01:1' as any;
+  const r01Attempt = 'int-fb:attempt:r01:1' as any;
+  p = beginFixtureProfileAttempt(p, r01Event, r01Attempt).profile;
+  p = settleFixtureProfileAttempt(p, r01Attempt, 'MC-OPT-R01-01').profile;
+  expect(p).toMatchObject({ wallet: { credits: 2350, metal: 100, circuits: 20, cloth: 18, flux: 3 }, standing: { rcc: 10, fre: 0 }, houDossier: 1, fluxQualificationRemainder: 1.25 });
+  const afterR01 = JSON.stringify(p);
+  expect(settleFixtureProfileAttempt(p, r01Attempt, 'MC-OPT-R01-01')).toMatchObject({ applied: false, profile: p });
+  expect(JSON.stringify(p)).toBe(afterR01);
+  p = commitFixtureWorkshop(p, { commandId: 'discover-directed', expectedRevision: p.revision, action: 'discover-h2' }).profile;
+  p = commitFixtureWorkshop(p, { commandId: 'claim-directed', expectedRevision: p.revision, action: 'claim-h2' }).profile;
+  p = commitFixtureWorkshop(p, { commandId: 'sell-directed', expectedRevision: p.revision, action: 'sell-h2' }).profile;
+  p = commitFixtureWorkshop(p, { commandId: 'build-directed', expectedRevision: p.revision, action: 'build-b3' }).profile;
+  p = commitFixtureWorkshop(p, { commandId: 'develop-directed', expectedRevision: p.revision, action: 'develop-b2' }).profile;
+  expect(p.wallet).toEqual({ credits: 1390, metal: 40, circuits: 8, cloth: 18, flux: 3 });
+  const repeatEvent = 'int-fb:event:MC-OPT-R01-01:2' as any;
+  const failedAttempt = 'int-fb:attempt:r01:2' as any;
+  p = beginFixtureProfileAttempt(p, repeatEvent, failedAttempt).profile;
+  p = failFixtureProfileAttempt(p, failedAttempt).profile;
+  expect(p).toMatchObject({ wallet: { credits: 1251, metal: 40, circuits: 8, cloth: 18, flux: 3 }, standing: { rcc: 10, fre: 0 }, houDossier: 1, fluxQualificationRemainder: 1.25 });
+  const retry = 'int-fb:attempt:r01:3' as any;
+  p = retryFixtureProfileAttempt(p, repeatEvent, retry).profile;
+  p = settleFixtureProfileAttempt(p, retry, 'MC-OPT-R01-01').profile;
+  expect(p).toMatchObject({ wallet: { credits: 2251, metal: 60, circuits: 12, cloth: 24, flux: 3 }, standing: { rcc: 10, fre: 0 }, houDossier: 2, fluxQualificationRemainder: 2.25 });
+  const f01Event = 'int-fb:event:MC-OPT-F01-01:1' as any;
+  const f01Attempt = 'int-fb:attempt:f01:1' as any;
+  p = beginFixtureProfileAttempt(p, f01Event, f01Attempt).profile;
+  p = settleFixtureProfileAttempt(p, f01Attempt, 'MC-OPT-F01-01').profile;
+  expect(p).toMatchObject({ wallet: { flux: 4 }, standing: { rcc: 10, fre: 10 }, houDossier: 3, fluxQualificationRemainder: .25 });
+});
+
+it('keeps failed workshop confirmations and legacy-profile migration from inventing progression', () => {
+  const p = createIntegratedFixtureWorkshopProfile();
+  const before = JSON.stringify(p);
+  const impoverished = { ...p, wallet: { ...p.wallet, credits: 999 } };
+  const impoverishedBefore = JSON.stringify(impoverished);
+  const rejected = commitFixtureWorkshop(impoverished, { commandId: 'unfunded-build', expectedRevision: impoverished.revision, action: 'build-b3' });
+  expect(rejected).toMatchObject({ applied: false, reason: 'insufficient-resources', profile: impoverished });
+  expect(JSON.stringify(impoverished)).toBe(impoverishedBefore);
+  expect(JSON.stringify(p)).toBe(before);
+  const legacy = { ...p } as Record<string, unknown>;
+  delete legacy.manifest; delete legacy.standing; delete legacy.houDossier; delete legacy.fluxQualificationRemainder; delete legacy.progressionAwardedEventIds;
+  const restored = deserializeIntegratedFixtureWorkshopProfile(legacy);
+  expect(restored).toMatchObject({ standing: { rcc: 0, fre: 0 }, houDossier: 0, fluxQualificationRemainder: .25 });
 });
 
 it('rejects stale commands without changing the snapshot and replays the original receipt', () => {
@@ -396,13 +484,13 @@ it('rejects stale commands without changing the snapshot and replays the origina
   expect(JSON.stringify(first.profile)).toBe(before);
 });
 
-it('keeps separate paid outputs distinct and rejects malformed persisted workshop snapshots', () => {
+it('binds only the evidenced F2 fixture stock and rejects malformed persisted workshop snapshots', () => {
   let p = createIntegratedFixtureWorkshopProfile();
   p = settleFixtureWorkshopMission(p, 'mission-funding').profile;
   const one = commitFixtureWorkshop(p, { commandId: 'buy-one', expectedRevision: p.revision, action: 'buy-f2' }); p = one.profile;
   const two = commitFixtureWorkshop(p, { commandId: 'buy-two', expectedRevision: p.revision, action: 'buy-f2' });
-  expect(two.receipt!.outputIds[0]).not.toBe(one.receipt!.outputIds[0]);
-  expect(two.profile.parts.filter(part => part.kind === 'F2')).toHaveLength(2);
+  expect(two).toMatchObject({ applied: false, reason: 'additional-fixture-stock-unbound', profile: p });
+  expect(p.parts.filter(part => part.kind === 'F2')).toHaveLength(1);
   expect(deserializeIntegratedFixtureWorkshopProfile({ version: 'int-fb-profile-v2', revision: 1, wallet: { credits: 1 }, parts: [], gunSlots: {}, claims: [], receipts: [] }).revision).toBe(0);
 });
 

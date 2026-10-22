@@ -5,11 +5,12 @@ type Diagnostics = {
   scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: 'ground' | 'elevated'; tabbyLayer: 'ground' | 'elevated'; houndLayer: 'ground' | 'elevated'; combatEventSequence: number; cameraX: number; cameraY: number; controlledGun: string; jobId?: string; phase: string; completedInteractionIds: string[]; canExtract: boolean; extracted: boolean;
   combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostiles: number;
   checkpoint?: { revision: number; controlledActor: 'tabby' | 'hound'; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostileHealths: number[] }; workshopCredits: number; workshopParts: number;
-  workshopMaterials: { metal: number; circuits: number; cloth: number }; worldEventId?: string; activeAttemptId?: string; attemptTerminal?: string;
+  workshopMaterials: { metal: number; circuits: number; cloth: number }; standing: { rcc: number; fre: number }; houDossier: number; fluxQualificationRemainder: number; historicalReplayActive: boolean; historicalReplayOutcome?: 'success' | 'death' | 'exit'; worldEventId?: string; activeAttemptId?: string; attemptTerminal?: string;
   workshopOpen: boolean; settlementPending: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
 };
-type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void };
+type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; setHistoricalReplayContentAvailable(available: boolean): void; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void };
 type Globals = { __MEOWCENARY_INT_FB__?: FixtureSeam };
+type LateSeam = { diagnostics(): { scene: string; revision: number; parts: number; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly { commandId: string }[]; discoveries: readonly string[]; declaration: string }; commit(command: { commandId: string; expectedRevision: number; action: 'merge' | 'build'; inputIds?: readonly string[] }): boolean };
 
 function selectedProject(info: TestInfo): boolean { return info.project.name === 'desktop-1280x720' || info.project.name === 'phone-390x844'; }
 async function ready(page: Page): Promise<void> {
@@ -190,11 +191,25 @@ test('F01 recovery/retry/extraction is persisted by the live Phaser scene', asyn
   expect(await state(page)).toMatchObject({ activeAttemptId: activated.activeAttemptId, workshopCredits: recovered.workshopCredits, recoveryFee: 250 });
   const retryAfterFailure = await state(page);
   expect(retryAfterFailure.retryControl).toBeDefined();
-  await tap(page, info, retryAfterFailure.retryControl!);
+  // Queue two real retry callbacks against one recovered attempt. The owner
+  // gets the lock first; the stale tab must freeze rather than turning the
+  // freshly created attempt into a second retry.
+  const staleRetryTab = await page.context().newPage();
+  await ready(staleRetryTab);
+  await expect.poll(async () => (await state(staleRetryTab)).recoveryMode).toBe('recovered');
+  await holdFixtureWriter(page);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueRetry())).toBe(true);
+  expect(await staleRetryTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueRetry())).toBe(true);
+  await releaseFixtureWriter(page);
   await expect.poll(async () => {
     const value = await state(page);
-    return value.recoveryMode === 'none' && value.combatActive && value.activeAttemptId !== activated.activeAttemptId && value.worldEventId === activated.worldEventId;
+    return value.recoveryMode === 'none' && value.combatActive && value.activeAttemptId !== activated.activeAttemptId;
   }, { timeout: 15_000 }).toBe(true);
+  const ownerRetry = await state(page);
+  await expect.poll(async () => !(await state(staleRetryTab)).combatActive).toBe(true);
+  expect(await state(staleRetryTab)).toMatchObject({ workshopCredits: recovered.workshopCredits, receiptIds: recovered.receiptIds });
+  expect(ownerRetry.workshopCredits).toBe(recovered.workshopCredits);
+  await staleRetryTab.close();
   const retried = await state(page);
   expect(retried.attemptTerminal).toBe('active');
   if (phoneViewport) {
@@ -221,23 +236,72 @@ test('F01 recovery/retry/extraction is persisted by the live Phaser scene', asyn
     return !value.extracted && value.attemptTerminal === 'active' && value.canExtract;
   }, { timeout: 15_000 }).toBe(true);
   expect((await state(page)).workshopCredits).toBe(recovered.workshopCredits);
+  // Hold the real named writer lock so the queued extraction has a durable,
+  // observable boundary before the competing KO is injected.
+  await holdFixtureWriter(page);
   await page.keyboard.press('e');
   // Establish that the actual extraction transaction is queued before
   // injecting the KO; key dispatch alone is not a transaction boundary.
   await expect.poll(async () => (await state(page)).settlementPending).toBe(true);
   // A KO arriving after a valid extraction request cannot replace committed victory.
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceSquadDefeat())).toBe(true);
-  await expect.poll(async () => (await state(page)).extracted, { timeout: 15_000 }).toBe(true);
+  await releaseFixtureWriter(page);
+  await expect.poll(async () => {
+    const value = await state(page);
+    return value.extracted ? 'extracted' : `pending=${value.settlementPending}; recovery=${value.recoveryMode}; terminal=${value.attemptTerminal}; credits=${value.workshopCredits}; receipts=${value.receiptIds.length}; paid=${value.paidEventIds.length}`;
+  }, { timeout: 15_000 }).toBe('extracted');
   const complete = await state(page);
   expect(complete.workshopCredits).toBe(startingWallet.credits - 250 + 1000);
   expect(complete.paidEventIds).toContain(activated.worldEventId!);
   expect(complete.receiptIds).toHaveLength(1);
+  expect(complete).toMatchObject({ standing: { rcc: 0, fre: 10 }, houDossier: 1, fluxQualificationRemainder: 1.25 });
+  // Historical replay is entered through its visible H control and may only
+  // observe a pinned receipt. Every terminal route leaves the complete live
+  // envelope byte-identical; unavailable pinned content refuses entry.
+  const durableBeforeReplay = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'));
+  await page.keyboard.press('h');
+  await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.finishHistoricalReplay('success'))).toBe(true);
+  await expect.poll(async () => (await state(page)).historicalReplayOutcome).toBe('success');
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.finishHistoricalReplay('death'))).toBe(true);
+  expect(await state(page)).toMatchObject({ historicalReplayActive: false, historicalReplayOutcome: 'death' });
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
+  await page.keyboard.press('Escape');
+  expect(await state(page)).toMatchObject({ historicalReplayActive: false, historicalReplayOutcome: 'exit' });
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
+  expect(await page.evaluate(() => { const seam = (globalThis as Globals).__MEOWCENARY_INT_FB__!; seam.setHistoricalReplayContentAvailable(false); return seam.openHistoricalReplay(); })).toBe(false);
+  expect(await state(page)).toMatchObject({ historicalReplayActive: false });
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
   await capture(page, info, 'f01-event-delivered');
   await page.keyboard.press('e');
   expect(await state(page)).toMatchObject({ workshopCredits: complete.workshopCredits, receiptIds: complete.receiptIds, paidEventIds: complete.paidEventIds });
   await page.reload();
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__)), { timeout: 15_000 }).toBe(true);
   expect(await state(page)).toMatchObject({ receiptIds: complete.receiptIds, paidEventIds: complete.paidEventIds, workshopCredits: complete.workshopCredits });
+  // The separate Chapter-5 screen starts only from its own key. A visible
+  // merge confirmation persists before refresh; stale, duplicate, and fitted
+  // donor attempts cannot mutate it or the retained B1 envelope.
+  const b1BeforeLate = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'));
+  await page.goto('/?fixture=int-late');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__)), { timeout: 15_000 }).toBe(true);
+  const late = () => page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.diagnostics());
+  expect(await late()).toMatchObject({ scene: 'LateFixtureScene', revision: 0, parts: 29, declaration: 'This is a later workshop test save with Chapter 5 capability already unlocked. Your earlier test save is unchanged.' });
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'bad-fitted', expectedRevision: 0, action: 'merge', inputIds: ['INT-LATE-TAB-B-B', 'INT-LATE-DONOR-B3-T2'] }))).toBe(false);
+  await page.keyboard.press('m');
+  await expect.poll(async () => (await late()).revision).toBe(1);
+  expect((await late()).receipts).toMatchObject([{ commandId: 'late:merge:0', action: 'merge', outputIds: ['INT-LATE-TAB-B-HM-late:merge:0'] }]);
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'late:merge:0', expectedRevision: 1, action: 'merge', inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] }))).toBe(false);
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'stale-build', expectedRevision: 0, action: 'build' }))).toBe(false);
+  await page.keyboard.press('u');
+  await expect.poll(async () => (await late()).revision).toBe(2);
+  expect(await late()).toMatchObject({ parts: 29, wallet: { credits: 1000, metal: 20, circuits: 4 }, discoveries: ['TAB-B-HM'] });
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__)), { timeout: 15_000 }).toBe(true);
+  await expect.poll(async () => (await late()).revision).toBe(2);
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(b1BeforeLate);
 });
 
 test('recovery reload displays the persisted non-capped fee', async ({ page }, info) => {
@@ -324,6 +388,7 @@ test('active reload retains partial combat and a Hound takeover without reviving
   // the winner's counters or mutate wallet, objective, or settlement state.
   expect(await staleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceSquadDefeat())).toBe(true);
   expect(await staleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueRequiredObjective())).toBe(true);
+  expect(await staleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueGroupClear())).toBe(true);
   expect(await staleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueExtraction())).toBe(true);
   const walletBeforeStaleQueue = (await state(page)).workshopCredits;
   const receiptsBeforeStaleQueue = (await state(page)).receiptIds;
@@ -336,13 +401,16 @@ test('active reload retains partial combat and a Hound takeover without reviving
   expect(frozenWallet).toBe(walletBeforeStaleQueue);
   expect(await staleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceSquadDefeat())).toBe(false);
   await staleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.surrender());
-  expect(await state(staleTab)).toMatchObject({ workshopCredits: frozenWallet, receiptIds: receiptsBeforeStaleQueue, completedInteractionIds: [] });
+  expect(await state(staleTab)).toMatchObject({ workshopCredits: frozenWallet, receiptIds: receiptsBeforeStaleQueue, completedInteractionIds: [], groupCleared: false });
   await staleTab.close();
   // Rejected writer acquisition must release the checkpoint flag so the next
   // control mutation can publish normally.
-  const revisionBeforeReject = (await state(page)).checkpoint!.revision;
   const gunBeforeReject = (await state(page)).controlledGun;
   await holdFixtureWriter(page);
+  // A periodic checkpoint can legally finish while this test is acquiring the
+  // lock. Capture only once the lock is owned, so the injected rejection is
+  // measured against the latest durable state rather than a stale observation.
+  const revisionBeforeReject = (await state(page)).checkpoint!.revision;
   await page.evaluate(() => {
     const seam = (globalThis as Globals).__MEOWCENARY_INT_FB__!;
     seam.rejectNextWriterLock();
@@ -359,19 +427,32 @@ test('active reload retains partial combat and a Hound takeover without reviving
   // A profile-only discovery refresh may observe a newer durable envelope,
   // but it must retain this stale tab's old live revision. Its following
   // combat checkpoint therefore freezes instead of borrowing new counters.
+  const profileStaleTab = await page.context().newPage();
+  await ready(profileStaleTab);
+  // Stage service access through the ordinary movement route while this tab
+  // is current. Its checkpoint can settle, then the owner reloads that
+  // durable state before creating the revision that makes this tab stale.
+  await moveAlong(profileStaleTab, [{ x: 650, y: 220 }, { x: 530, y: 220 }, { x: 350, y: 200 }, { x: 300, y: 80 }, { x: 80, y: 110 }]);
+  await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.pauseSimulation());
+  await page.reload();
+  await ready(page);
   await holdFixtureWriter(page);
   const profileBaseline = (await state(page)).checkpoint!.revision;
   const walletBeforeProfileRefresh = (await state(page)).workshopCredits;
-  await page.keyboard.press('q');
-  const profileStaleTab = await page.context().newPage();
-  await ready(profileStaleTab);
   expect((await state(profileStaleTab)).checkpoint!.revision).toBe(profileBaseline);
-  expect(await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueWorkshopConflict())).toBe(true);
-  expect(await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueDiscovery())).toBe(true);
-  expect(await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prolongCombat())).toBe(true);
+  // Establish a definite owner write before admitting stale-tab callbacks.
+  // The old arrangement queued both tabs behind one lock and allowed lock
+  // scheduling—not the live-attempt fence—to decide which write won.
+  await page.keyboard.press('q');
   await releaseFixtureWriter(page);
   await expect.poll(async () => (await state(page)).checkpoint!.revision).toBeGreaterThan(profileBaseline);
   const profileOwnerRevision = (await state(page)).checkpoint!.revision;
+  // This seam only invokes confirmation; service access was established by
+  // the ordinary route before ownership became stale.
+  expect(await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueWorkshopConfirmation())).toBe(true);
+  expect(await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueWorkshopConflict())).toBe(true);
+  expect(await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueDiscovery())).toBe(true);
+  expect(await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prolongCombat())).toBe(true);
   await expect.poll(async () => !(await state(profileStaleTab)).combatActive).toBe(true);
   expect((await state(profileStaleTab)).checkpoint!.revision).toBe(profileBaseline);
   expect((await state(profileStaleTab)).workshopCredits).toBe(walletBeforeProfileRefresh);

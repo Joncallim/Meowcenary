@@ -1,0 +1,143 @@
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
+
+type Part = { id: string; kind: string; tier: number | null; assignedTo?: string };
+type Receipt = { commandId: string; action: string; outputIds: readonly string[] };
+type Diagnostics = { scene: string; revision: number; parts: number; partRecords: readonly Part[]; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly Receipt[]; discoveries: readonly string[]; pinnedEarlierHistory: { receiptIds: readonly string[]; paidEventIds: readonly string[]; h2State: string }; currentH2State: string; declaration: string; message: string };
+type LateSeam = { diagnostics(): Diagnostics; commit(command: { commandId: string; expectedRevision: number; action: 'develop' | 'merge' | 'build'; inputIds?: readonly string[] }): boolean; reset(keep?: boolean): void };
+type B1Seam = { prepareF01(): boolean };
+
+const b1Key = 'meowcenary:int-fb:v1:profile';
+const lateKey = 'meowcenary:int-late:v1:profile';
+const seam = (page: Page) => page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__);
+const diagnostics = (page: Page) => page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.diagnostics());
+
+async function openLate(page: Page, info: TestInfo, h2: 'none' | 'kept' | 'sold' = 'none'): Promise<string> {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Late fixture has dedicated desktop runtime evidence; other viewport projects are intentionally not executed here.');
+  await page.goto('/?fixture=int-fb');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_INT_FB__?: unknown }).__MEOWCENARY_INT_FB__))).toBe(true);
+  // Seed through B1's ordinary activation transaction, then retain its exact
+  // serialized envelope while entering the separate late route.
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_INT_FB__: B1Seam }).__MEOWCENARY_INT_FB__.prepareF01())).toBe(true);
+  await expect.poll(() => page.evaluate(key => localStorage.getItem(key), b1Key)).not.toBeNull();
+  if (h2 !== 'none') await page.evaluate(state => {
+    const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+    raw.workshop.discoveries.push('INT-LOOT-01');
+    raw.workshop.claims.push('INT-LOOT-01');
+    if (state === 'kept') raw.workshop.parts.push({ instanceId: 'INT-B1-HOU-H2-LOOT', kind: 'H2', family: 'HOU', slot: 'H', protectedBaseline: false, sealedFactory: false, tier: 1, refinement: 'Balanced', maker: 'Kestrel Cut Assembly', provenance: 'integration loot fixture', version: 1 });
+    else raw.workshop.receipts.push({ commandId: 'chosen-b1-sold-h2', action: 'sell-h2', revision: raw.workshop.revision, outputIds: [] });
+    localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw));
+  }, h2);
+  const b1 = await page.evaluate(key => localStorage.getItem(key)!, b1Key);
+  await page.evaluate(key => localStorage.removeItem(key), lateKey);
+  await page.goto('/?fixture=int-late');
+  await expect(page.locator('canvas')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
+  expect(await diagnostics(page)).toMatchObject({ scene: 'LateFixtureScene', revision: 0, parts: h2 === 'kept' ? 30 : 29, declaration: 'This is a later workshop test save with Chapter 5 capability already unlocked. Your earlier test save is unchanged.' });
+  return b1;
+}
+async function expectB1Unchanged(page: Page, before: string): Promise<void> { expect(await page.evaluate(key => localStorage.getItem(key), b1Key)).toBe(before); }
+async function waitLateReload(page: Page): Promise<void> { await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true); }
+
+test('late UI confirms merge before presentation and reloads its single persisted result', async ({ page }, info) => {
+  const b1 = await openLate(page, info);
+  await page.keyboard.press('m');
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  expect(await diagnostics(page)).toMatchObject({ parts: 28, discoveries: ['TAB-B-HM'], message: 'Confirmed merge; receipt persisted before presentation.', receipts: [{ commandId: 'late:merge:0', action: 'merge', outputIds: ['INT-LATE-TAB-B-HM-late:merge:0'] }] });
+  const stored = await page.evaluate(key => localStorage.getItem(key), lateKey);
+  await page.reload();
+  await waitLateReload(page);
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(stored);
+  expect((await diagnostics(page)).partRecords.filter(part => part.kind === 'B-HM')).toHaveLength(1);
+  await expectB1Unchanged(page, b1);
+});
+
+test('late UI rejects duplicate delivery, stale revision, and fitted donor merge without mutation', async ({ page }, info) => {
+  const b1 = await openLate(page, info);
+  const initial = await diagnostics(page);
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'fitted-donor', expectedRevision: 0, action: 'merge', inputIds: ['INT-LATE-TAB-B-B', 'INT-LATE-DONOR-B3-T2'] }))).toBe(false);
+  expect(await diagnostics(page)).toMatchObject({ revision: initial.revision, parts: initial.parts });
+  await page.keyboard.press('m');
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  const afterMerge = await diagnostics(page);
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'late:merge:0', expectedRevision: 1, action: 'merge', inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] }))).toBe(false);
+  expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'stale-build', expectedRevision: 0, action: 'build' }))).toBe(false);
+  expect(await diagnostics(page)).toMatchObject({ revision: afterMerge.revision, parts: afterMerge.parts, receipts: afterMerge.receipts });
+  await expectB1Unchanged(page, b1);
+});
+
+test('late UI develops an unassigned donor and persists its exact debit', async ({ page }, info) => {
+  const b1 = await openLate(page, info);
+  await page.keyboard.press('d');
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  expect(await diagnostics(page)).toMatchObject({ wallet: { credits: 2500, metal: 80, circuits: 16 }, receipts: [{ commandId: 'late:develop:0', action: 'develop' }] });
+  expect((await diagnostics(page)).partRecords.find(part => part.id === 'INT-LATE-DONOR-B2-T2')).toMatchObject({ kind: 'B2', tier: 3 });
+  await page.reload();
+  await waitLateReload(page);
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await expectB1Unchanged(page, b1);
+});
+
+test('late UI manufactures a distinct discovered Balanced B-HM after merge', async ({ page }, info) => {
+  const b1 = await openLate(page, info);
+  await page.keyboard.press('m');
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await page.keyboard.press('u');
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
+  const result = await diagnostics(page);
+  expect(result).toMatchObject({ parts: 29, wallet: { credits: 1000, metal: 20, circuits: 4 }, discoveries: ['TAB-B-HM'] });
+  expect(result.partRecords.filter(part => part.kind === 'B-HM').map(part => part.id)).toEqual(['INT-LATE-TAB-B-HM-late:merge:0', 'INT-LATE-TAB-B-HM-late:build:1']);
+  expect(result.partRecords.filter(part => part.kind === 'B-HM').every(part => part.tier === 3 && !part.assignedTo)).toBe(true);
+  await expectB1Unchanged(page, b1);
+});
+
+test('late UI visibly records retaining both donors without consuming either', async ({ page }, info) => {
+  const b1 = await openLate(page, info);
+  await page.keyboard.press('n');
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  const result = await diagnostics(page);
+  expect(result).toMatchObject({ parts: 29, receipts: [{ commandId: 'late:retain:0', action: 'retain-donors' }] });
+  expect(result.partRecords.map(part => part.id)).toContain('INT-LATE-DONOR-B2-T2');
+  expect(result.partRecords.map(part => part.id)).toContain('INT-LATE-DONOR-B3-T2');
+  await page.reload(); await waitLateReload(page);
+  expect(await diagnostics(page)).toMatchObject({ revision: 1, parts: 29 });
+  await expectB1Unchanged(page, b1);
+});
+
+test('late UI carries a kept B1 H2 history, then records an isolated late sale without re-claiming', async ({ page }, info) => {
+  const b1 = await openLate(page, info, 'kept');
+  expect(await diagnostics(page)).toMatchObject({ parts: 30, pinnedEarlierHistory: { h2State: 'kept' }, currentH2State: 'kept' });
+  await page.keyboard.press('s');
+  await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  expect(await diagnostics(page)).toMatchObject({ parts: 29, wallet: { credits: 3540 }, currentH2State: 'sold', receipts: [{ commandId: 'late:sell-h2:0', action: 'sell-h2' }] });
+  await page.reload(); await waitLateReload(page);
+  expect(await diagnostics(page)).toMatchObject({ currentH2State: 'sold', pinnedEarlierHistory: { h2State: 'kept' } });
+  await expectB1Unchanged(page, b1);
+});
+
+test('late UI carries a sold B1 H2 history without restoring or re-claiming loot', async ({ page }, info) => {
+  const b1 = await openLate(page, info, 'sold');
+  expect(await diagnostics(page)).toMatchObject({ parts: 29, pinnedEarlierHistory: { h2State: 'sold' }, currentH2State: 'sold' });
+  await page.keyboard.press('s');
+  await expect.poll(async () => (await diagnostics(page)).message).toBe('Confirmation rejected: not-sellable.');
+  expect(await diagnostics(page)).toMatchObject({ revision: 0, parts: 29, currentH2State: 'sold' });
+  await page.reload(); await waitLateReload(page);
+  expect(await diagnostics(page)).toMatchObject({ currentH2State: 'sold', pinnedEarlierHistory: { h2State: 'sold' } });
+  await expectB1Unchanged(page, b1);
+});
+
+test('late UI fail-closes malformed persisted saves without changing late or B1 bytes', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Dedicated corruption evidence runs once on desktop.');
+  const variants = ['{bad-json', JSON.stringify({ version: 'unsupported' }), JSON.stringify({ version: 'int-late-v1', revision: 0, wallet: { credits: -1, metal: 0, circuits: 0, cloth: 0, flux: 0 }, parts: [], receipts: [], pinnedEarlierHistory: { receiptIds: [], paidEventIds: [], h2State: 'unavailable' } }), JSON.stringify({ version: 'int-late-v1', revision: 0, wallet: { credits: 1, metal: 0, circuits: 0, cloth: 0, flux: 0 }, parts: [{ id: 'x', assignedTo: 'TAB-A', family: 'TAB', slot: 'B' }, { id: 'y', assignedTo: 'TAB-A', family: 'TAB', slot: 'B' }], receipts: [], pinnedEarlierHistory: { receiptIds: [], paidEventIds: [], h2State: 'unavailable' } })];
+  for (const raw of variants) {
+    await page.goto('/?fixture=int-fb');
+    await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_INT_FB__?: unknown }).__MEOWCENARY_INT_FB__))).toBe(true);
+    const b1 = await page.evaluate(value => { const b1 = localStorage.getItem('meowcenary:int-fb:v1:profile') ?? 'b1-preserved'; localStorage.setItem('meowcenary:int-fb:v1:profile', b1); localStorage.setItem('meowcenary:int-late:v1:profile', value); return b1; }, raw);
+    await page.goto('/?fixture=int-late');
+    await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
+    expect(await diagnostics(page)).toMatchObject({ blocked: true, message: expect.stringContaining('preserved unchanged') });
+    expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'blocked', expectedRevision: 0, action: 'merge', inputIds: [] }))).toBe(false);
+    expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-late:v1:profile'))).toBe(raw);
+    expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(b1);
+  }
+});
