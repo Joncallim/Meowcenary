@@ -34,7 +34,7 @@ workshop state. Listener teardown is scene-owned in production as well as in
 the visual-test build.
 
 The targeted visual regression ran from the immutable visual build with system
-Chromium at clean source `49af44c8789eeb3f9a8e6776ab1943266c10d946`:
+Chromium at clean source `fe07b7bf314f7fdf95d55a27d7cd1067f3e096ef`:
 
 `MEOWCENARY_BROWSER_EXECUTABLE=/usr/bin/chromium npx playwright test browser-tests/integrated-fixture-recovery.pw.ts --project=desktop-1280x720 --project=phone-390x844 --grep 'fixture resize keeps' --reporter=json`
 
