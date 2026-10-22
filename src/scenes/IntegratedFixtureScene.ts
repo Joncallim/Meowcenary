@@ -178,16 +178,23 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const halfHeight = this.scale.height / camera.zoom / 2;
     camera.setBounds(-halfWidth, -halfHeight, width + halfWidth * 2, height + halfHeight * 2);
     this.renderJunkyardPresentation(width, height);
-    const colors: Readonly<Record<string, number>> = { safe: 0x285943, road: 0x39495a, ramp: 0x7b6c4a, bridge: 0x815a3a, underpass: 0x26313d, tunnel: 0x1a1d2a, pocket: 0x49354e };
+    // Material/tone separates legal routes from surrounding junkyard floor;
+    // this is presentation only, while the pure terrain model keeps authority.
+    const colors: Readonly<Record<string, number>> = { safe: 0x285943, road: 0x3b566b, ramp: 0x9a7540, bridge: 0x785136, underpass: 0x172330, tunnel: 0x101722, pocket: 0x50364f };
     for (const surface of INTEGRATED_FIXTURE_SURFACES) {
       this.add.rectangle((surface.x + surface.width / 2) * SCALE, (surface.z + surface.depth / 2) * SCALE,
-        surface.width * SCALE, surface.depth * SCALE, colors[surface.kind] ?? 0x555555, .24).setStrokeStyle(1, surface.kind === 'ramp' ? 0xf6c85f : 0x7da4a8).setDepth(surface.elevation > 0 ? 2 : 1);
-      if (surface.kind === 'ramp' || surface.kind === 'safe') createUiText(this, (surface.x + .5) * SCALE, (surface.z + .5) * SCALE, surface.kind === 'ramp' ? 'RAMP ↑' : 'SAFE SERVICE', { fontFamily: 'Nunito, sans-serif', fontSize: '11px', color: '#f7f1d5', backgroundColor: '#101820aa', padding: { x: 3, y: 2 } }).setDepth(surface.elevation > 0 ? 3 : 2);
+        surface.width * SCALE, surface.depth * SCALE, colors[surface.kind] ?? 0x555555, .62).setStrokeStyle(2, surface.kind === 'ramp' ? 0xf6c85f : surface.kind === 'underpass' || surface.kind === 'tunnel' ? 0x31495d : 0x9bb8c7).setDepth(surface.elevation > 0 ? 2 : 1);
+      const label = surface.kind === 'ramp' ? 'RAMP ↑' : surface.kind === 'safe' ? 'SAFE SERVICE' : surface.kind === 'bridge' ? 'RAISED DECK' : surface.kind === 'underpass' ? 'UNDERPASS' : undefined;
+      if (label) createUiText(this, (surface.x + .5) * SCALE, (surface.z + .5) * SCALE, label, { fontFamily: 'Nunito, sans-serif', fontSize: '11px', color: '#f7f1d5', backgroundColor: '#101820dd', padding: { x: 3, y: 2 } }).setDepth(surface.elevation > 0 ? 3 : 2);
     }
     // Solid cover remains collision-authoritative in the pure fixture model.
     // Its generated junkyard prop is the visible affordance; do not paint
     // debug collision blocks over that scenery in the playable route.
-    for (const point of INTEGRATED_FIXTURE_POINTS) this.add.circle(point.x * SCALE, point.z * SCALE, 5, point.role === 'service' ? 0x3ee8a9 : 0xffd166).setStrokeStyle(1, 0x0b1118).setDepth(5);
+    for (const point of INTEGRATED_FIXTURE_POINTS) {
+      this.add.circle(point.x * SCALE, point.z * SCALE, 6, point.role === 'service' ? 0x3ee8a9 : 0xffd166).setStrokeStyle(2, 0x0b1118).setDepth(5);
+      const label = point.role === 'offer-terminal' ? 'OFFER · INTERACT' : point.role === 'spawn' ? 'MISSION ENTRY' : point.role === 'extraction' ? 'EXTRACT' : point.role === 'interaction' ? 'OBJECTIVE' : point.role === 'discovery' ? 'SALVAGE' : undefined;
+      if (label) createUiText(this, point.x * SCALE, point.z * SCALE - 15, label, { fontFamily: 'Nunito, sans-serif', fontSize: '10px', color: '#fff3bd', backgroundColor: '#101820dd', padding: { x: 3, y: 2 } }).setOrigin(.5).setDepth(5);
+    }
     this.lead = this.add.sprite(SAFE_POSITION.tabby.x, SAFE_POSITION.tabby.y, 'art-character-scrap-tabby', 0).setDisplaySize(28, 28).setDepth(6);
     this.hound = this.add.sprite(SAFE_POSITION.hound.x, SAFE_POSITION.hound.y, 'art-character-bolt-hound', 0).setDisplaySize(28, 28).setDepth(6);
     this.enemies = [this.add.sprite(350, 380, 'art-enemy-junk-rusher', 0).setDisplaySize(26, 26), this.add.sprite(370, 400, 'art-enemy-junk-rusher', 0).setDisplaySize(26, 26)];
