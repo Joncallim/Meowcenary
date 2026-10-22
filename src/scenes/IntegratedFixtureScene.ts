@@ -430,6 +430,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.refreshStatus();
   }
   private confirmTakeover(): void {
+    if (this.historicalReplay) { this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
     if (this.ownershipLost || !this.lead || !this.hound || this.recoveryMode !== 'none' || resolveFixtureTakeover(this.combat.actorHealth('tabby'), this.combat.actorHealth('hound'), false) !== 'takeover-required') return;
     this.controlledActor = 'hound'; this.cameras.main.startFollow(this.hound, true, .15, .15); this.takeoverPrompt?.setVisible(false);
     this.combatFeedback = 'Hound has taken control. Hound now drives movement, interaction, service access, and gun swaps.'; this.persistCombatCheckpoint(); this.refreshStatus();
@@ -633,6 +634,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   }
 
   private openWorkshopMenu(): void {
+    if (this.historicalReplay) { this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
     if (this.ownershipLost || this.recoveryMode !== 'none') return;
     if (!this.atService()) { this.combatFeedback = `Workshop unavailable: move ${this.actorName()} to safe service.`; this.refreshStatus(); return; }
     this.workshopPreview = undefined; this.workshopPreviewRevision = undefined; this.workshopModal?.destroy();

@@ -195,8 +195,8 @@ test('queued workshop confirmation aborts when replay opens before writer acquis
   await holdFixtureWriter(page); try {
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueWorkshopConfirmation())).toBe(true);
     await page.keyboard.press('h'); await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(true);
-    const liveBefore = await state(page); await page.keyboard.press('q'); await page.keyboard.press('e');
-    expect(await state(page)).toMatchObject({ controlledGun: liveBefore.controlledGun, controlledActor: liveBefore.controlledActor, phase: liveBefore.phase, tabbyPosition: liveBefore.tabbyPosition, houndPosition: liveBefore.houndPosition });
+    const liveBefore = await state(page); await page.keyboard.press('q'); await page.keyboard.press('e'); await page.keyboard.press('b'); await page.keyboard.press('t');
+    expect(await state(page)).toMatchObject({ controlledGun: liveBefore.controlledGun, controlledActor: liveBefore.controlledActor, phase: liveBefore.phase, workshopOpen: liveBefore.workshopOpen, tabbyPosition: liveBefore.tabbyPosition, houndPosition: liveBefore.houndPosition });
     await page.keyboard.press('Escape'); await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(false);
   } finally { await releaseFixtureWriter(page); }
   await page.evaluate(() => navigator.locks.request('meowcenary:int-fb:v1:writer', { mode: 'exclusive' }, async () => undefined));
