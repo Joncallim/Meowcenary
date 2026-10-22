@@ -4,11 +4,12 @@ type Bounds = { x: number; y: number; width: number; height: number };
 type Diagnostics = {
   scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: 'ground' | 'elevated'; tabbyLayer: 'ground' | 'elevated'; houndLayer: 'ground' | 'elevated'; combatEventSequence: number; cameraX: number; cameraY: number; controlledGun: string; jobId?: string; phase: string; completedInteractionIds: string[]; canExtract: boolean; extracted: boolean;
   combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostiles: number;
+  replay?: { x: number; y: number; controlledActor: 'tabby' | 'hound'; cameraActor?: 'tabby' | 'hound'; layer: 'ground' | 'elevated'; tabbyLayer: 'ground' | 'elevated'; houndLayer: 'ground' | 'elevated'; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; trailLength: number; completedInteractionIds: string[]; groupCleared: boolean; canExtract: boolean; hostiles: number; takeoverControl?: Bounds };
   checkpoint?: { revision: number; controlledActor: 'tabby' | 'hound'; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostileHealths: number[] }; workshopCredits: number; workshopParts: number;
   workshopMaterials: { metal: number; circuits: number; cloth: number }; standing: { rcc: number; fre: number }; houDossier: number; fluxQualificationRemainder: number; historicalReplayActive: boolean; historicalReplayOutcome?: 'success' | 'death' | 'exit'; worldEventId?: string; activeAttemptId?: string; attemptTerminal?: string;
   workshopOpen: boolean; workshopPreview?: string; settlementPending: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; loadBlocked: boolean; recoveryMessage: string; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
 };
-type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; forceReplayTerminal(outcome: 'success' | 'death'): boolean; replayActiveGun(): { instanceId: string; supply: number } | undefined; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void };
+type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; forceReplayTerminal(outcome: 'success' | 'death'): boolean; forceReplayHostileClear(): boolean; forceReplayTabbyDown(): boolean; forceReplayHoundDown(): boolean; replayActiveGun(): { instanceId: string; supply: number } | undefined; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void };
 type Globals = { __MEOWCENARY_INT_FB__?: FixtureSeam };
 type LateSeam = { diagnostics(): { scene: string; revision: number; parts: number; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly { commandId: string }[]; discoveries: readonly string[]; declaration: string }; commit(command: { commandId: string; expectedRevision: number; action: 'merge' | 'build'; inputIds?: readonly string[] }): boolean };
 
@@ -56,6 +57,36 @@ async function moveAxis(page: Page, axis: 'x' | 'y', target: number): Promise<vo
 }
 async function moveAlong(page: Page, points: readonly { x: number; y: number }[]): Promise<void> {
   for (const point of points) await moveTo(page, point.x, point.y);
+}
+async function moveReplayTo(page: Page, x: number, y: number): Promise<void> {
+  const before = await state(page);
+  if (!before.replay) throw new Error('archived replay is not active');
+  const screen = { x: x - before.cameraX, y: y - before.cameraY };
+  await page.mouse.move(screen.x, screen.y);
+  await page.mouse.down();
+  try {
+    await expect.poll(async () => {
+      const replay = (await state(page)).replay;
+      return !!replay && Math.hypot(replay.x - x, replay.y - y) < 9;
+    }, { timeout: 30_000, intervals: [50, 100, 200] }).toBe(true);
+  } catch (error) {
+    const current = await state(page);
+    throw new Error(`moveReplayTo stalled: target=${x},${y}; screen=${screen.x},${screen.y}; before=${before.replay?.x},${before.replay?.y},layer=${before.replay?.layer},camera=${before.cameraX},${before.cameraY}; current=${current.replay?.x},${current.replay?.y},layer=${current.replay?.layer},tabby=${current.replay?.tabbyLayer},hound=${current.replay?.houndLayer},camera=${current.cameraX},${current.cameraY}; ${error instanceof Error ? error.message : String(error)}`);
+  } finally { await page.mouse.up(); }
+}
+async function moveReplayAlong(page: Page, points: readonly { x: number; y: number }[]): Promise<void> {
+  for (const point of points) await moveReplayTo(page, point.x, point.y);
+}
+async function settleReplayFollower(page: Page): Promise<void> {
+  try {
+    await expect.poll(async () => {
+      const replay = (await state(page)).replay;
+      return !!replay && Math.hypot(replay.tabbyPosition.x - replay.houndPosition.x, replay.tabbyPosition.y - replay.houndPosition.y) < 26;
+    }, { timeout: 30_000, intervals: [50, 100, 200] }).toBe(true);
+  } catch (error) {
+    const replay = (await state(page)).replay;
+    throw new Error(`replay follower did not settle: tabby=${replay?.tabbyPosition.x},${replay?.tabbyPosition.y},${replay?.tabbyLayer}; hound=${replay?.houndPosition.x},${replay?.houndPosition.y},${replay?.houndLayer}; ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 /** Sends actual Chromium touch contacts through the same pointer-hold route a
  * phone uses. This is browser evidence only, not a physical-device verdict. */
@@ -232,6 +263,118 @@ test('recordless historical receipt refuses replay without changing the decoded 
   const sessionBefore = await state(page);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(false);
   expect(await state(page)).toMatchObject({ historicalReplayActive: false, workshopCredits: sessionBefore.workshopCredits, receiptIds: sessionBefore.receiptIds, paidEventIds: sessionBefore.paidEventIds });
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(before);
+});
+
+test('archived replay requires objectives and extraction without mutating the live envelope', async ({ page }, info) => {
+  test.setTimeout(120_000);
+  test.skip(info.project.name !== 'desktop-1280x720', 'Dedicated desktop archived mission lifecycle evidence.');
+  await ready(page);
+  await activate(page, '2', { x: 670, y: 390 });
+  // Retain the production activation record as a settled receipt solely to
+  // enter archived playback; the replay actions below are normal inputs.
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+    const replayRecord = raw.liveMission?.replayRecord;
+    if (!replayRecord) throw new Error('real activation did not capture replay record');
+    raw.mission.receipts.push({ id: 'int-fb:test:archived-f01', jobId: 'MC-OPT-F01-01', worldEventId: 'archived-event', attemptId: 'archived-attempt', recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6, replayRecord });
+    delete raw.liveMission;
+    localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw));
+  });
+  await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+  const before = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+  const liveBefore = await state(page);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
+  await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(true);
+  // A downed archived Tabby cannot be moved. The visible takeover button is
+  // pointer/touch-routed, then moves the archived camera to Hound.
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayTabbyDown())).toBe(true);
+  await expect.poll(async () => (await state(page)).replay?.takeoverControl).toBeTruthy();
+  const downed = (await state(page)).replay!;
+  await page.mouse.move(900, 500); await page.mouse.down(); await page.waitForTimeout(300); await page.mouse.up();
+  expect((await state(page)).replay).toMatchObject({ x: downed.x, y: downed.y, controlledActor: 'tabby' });
+  await page.keyboard.press('t');
+  await expect.poll(async () => (await state(page)).replay?.controlledActor).toBe('hound');
+  expect((await state(page)).replay).toMatchObject({ cameraActor: 'hound' });
+  // Re-entering the same immutable record exercises the on-screen
+  // pointer/touch route independently of the keyboard shortcut.
+  await page.keyboard.press('Escape'); await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(false);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayTabbyDown())).toBe(true);
+  await expect.poll(async () => (await state(page)).replay?.takeoverControl).toBeTruthy();
+  await tap(page, info, (await state(page)).replay!.takeoverControl!);
+  await expect.poll(async () => (await state(page)).replay?.controlledActor).toBe('hound');
+  expect((await state(page)).replay).toMatchObject({ cameraActor: 'hound' });
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayHostileClear())).toBe(true);
+  await expect.poll(async () => (await state(page)).replay?.groupCleared).toBe(true);
+  expect((await state(page)).replay).toMatchObject({ canExtract: false, completedInteractionIds: [] });
+  // Clear alone cannot complete the archived contract or settle the live one.
+  await moveReplayTo(page, 690, 490); await page.keyboard.press('e');
+  expect(await state(page)).toMatchObject({ historicalReplayActive: true, replay: { canExtract: false, completedInteractionIds: [] } });
+  await moveReplayTo(page, 550, 410); await page.keyboard.press('e');
+  await expect.poll(async () => (await state(page)).replay?.completedInteractionIds).toContain('INT-FB-F01-DISPUTED-LOT');
+  await expect.poll(async () => (await state(page)).replay?.canExtract).toBe(true);
+  await moveReplayTo(page, 690, 490); await page.keyboard.press('e');
+  await expect.poll(async () => (await state(page)).historicalReplayOutcome).toBe('success');
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(before);
+  expect(await state(page)).toMatchObject({ workshopCredits: liveBefore.workshopCredits, receiptIds: liveBefore.receiptIds, paidEventIds: liveBefore.paidEventIds, historicalReplayActive: false });
+});
+
+test('archived R01 preserves terrain layers, collision, camera, and living-actor rules', async ({ page }, info) => {
+  // Two living actors traverse the same slow world-unit ramp in both
+  // directions; this is an integration budget, not a relaxed assertion.
+  test.setTimeout(180_000);
+  test.skip(info.project.name !== 'desktop-1280x720', 'Reference desktop establishes archived terrain traversal; phone is reported separately.');
+  await ready(page);
+  await activate(page, '1', { x: 370, y: 380 });
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+    const replayRecord = raw.liveMission?.replayRecord;
+    if (!replayRecord) throw new Error('real R01 activation did not capture replay record');
+    raw.mission.receipts.push({ id: 'int-fb:test:archived-r01', jobId: 'MC-OPT-R01-01', worldEventId: 'archived-r01-event', attemptId: 'archived-r01-attempt', recipientId: 'rcc-dispatch', credits: 1000, metal: 20, circuits: 4, cloth: 6, replayRecord });
+    delete raw.liveMission;
+    localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw));
+  });
+  await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+  const before = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
+  await expect.poll(async () => (await state(page)).replay?.cameraActor).toBe('tabby');
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayHostileClear())).toBe(true);
+  // The ramp owns its transition at z=16: approach from the road at z=8,
+  // then cross its authored boundary rather than trying to climb from the
+  // ground underpass at z=20.
+  for (const point of [{ x: 370, y: 100 }, { x: 400, y: 80 }, { x: 400, y: 210 }, { x: 530, y: 220 }]) {
+    await moveReplayTo(page, point.x, point.y);
+  }
+  const ascentSamples: string[] = [];
+  try {
+    await expect.poll(async () => {
+      const replay = (await state(page)).replay;
+      if (replay) ascentSamples.push(`trail=${replay.trailLength};tabby=${replay.tabbyPosition.x.toFixed(1)},${replay.tabbyPosition.y.toFixed(1)},${replay.tabbyLayer};hound=${replay.houndPosition.x.toFixed(1)},${replay.houndPosition.y.toFixed(1)},${replay.houndLayer}`);
+      return replay?.tabbyLayer === 'elevated' && replay.houndLayer === 'elevated';
+    }, { timeout: 30_000 }).toBe(true);
+  } catch (error) {
+    throw new Error(`archived ascent did not elevate both actors: ${ascentSamples.join(' | ')}; ${error instanceof Error ? error.message : String(error)}`);
+  }
+  // The bridge edge is authored collision: neither living archived actor can
+  // enter the unsupported gap below it.
+  await page.mouse.move(530 - (await state(page)).cameraX, 320 - (await state(page)).cameraY); await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up();
+  const blocked = (await state(page)).replay!;
+  expect(blocked.tabbyPosition.y).toBeLessThan(260); expect(blocked.houndPosition.y).toBeLessThan(260);
+  for (const point of [{ x: 530, y: 220 }, { x: 400, y: 210 }, { x: 400, y: 80 }, { x: 370, y: 100 }, { x: 370, y: 380 }]) {
+    await moveReplayTo(page, point.x, point.y);
+  }
+  await expect.poll(async () => {
+    const replay = (await state(page)).replay;
+    return replay?.tabbyLayer === 'ground' && replay.houndLayer === 'ground';
+  }, { timeout: 15_000 }).toBe(true);
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayHoundDown())).toBe(true);
+  const downed = (await state(page)).replay!;
+  await moveReplayTo(page, downed.x - 20, downed.y - 20);
+  expect((await state(page)).replay).toMatchObject({ cameraActor: 'tabby', houndPosition: downed.houndPosition });
+  await page.keyboard.press('Escape');
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(before);
 });
 
