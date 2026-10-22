@@ -6,7 +6,7 @@ type Diagnostics = {
   combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostiles: number;
   checkpoint?: { revision: number; controlledActor: 'tabby' | 'hound'; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostileHealths: number[] }; workshopCredits: number; workshopParts: number;
   workshopMaterials: { metal: number; circuits: number; cloth: number }; standing: { rcc: number; fre: number }; houDossier: number; fluxQualificationRemainder: number; historicalReplayActive: boolean; historicalReplayOutcome?: 'success' | 'death' | 'exit'; worldEventId?: string; activeAttemptId?: string; attemptTerminal?: string;
-  workshopOpen: boolean; settlementPending: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
+  workshopOpen: boolean; settlementPending: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; loadBlocked: boolean; recoveryMessage: string; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
 };
 type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; setHistoricalReplayContentAvailable(available: boolean): void; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void };
 type Globals = { __MEOWCENARY_INT_FB__?: FixtureSeam };
@@ -116,6 +116,26 @@ async function activate(page: Page, job: '1' | '2', spawn: { x: number; y: numbe
   }, { timeout: 15_000 }).toBe(true);
   return state(page);
 }
+
+test('invalid persisted B1 envelopes are visibly blocked and remain byte-identical after ordinary actions', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'One desktop recovery proof covers malformed, future, and incomplete persisted B1 envelopes.');
+  const cases = [
+    '{malformed-json',
+    JSON.stringify({ version: 'int-fb-envelope-future' }),
+    JSON.stringify({ version: 'int-fb-envelope-v3', mission: { version: 'int-fb-v2', seed: 'int-fb-post-chapter-2', receipts: [] }, workshop: { version: 'int-fb-profile-v2' } }),
+  ];
+  for (const raw of cases) {
+    await page.goto('/?fixture=int-fb');
+    await page.evaluate(value => localStorage.setItem('meowcenary:int-fb:v1:profile', value), raw);
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__)), { timeout: 15_000 }).toBe(true);
+    await expect.poll(async () => (await state(page)).loadBlocked, { timeout: 15_000 }).toBe(true);
+    expect((await state(page)).recoveryMessage).toContain('preserved unchanged');
+    expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prepareF01())).toBe(true);
+    await page.waitForTimeout(100);
+    expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(raw);
+  }
+});
 
 test('F01 recovery/retry/extraction is persisted by the live Phaser scene', async ({ page }, info) => {
   test.setTimeout(60_000);

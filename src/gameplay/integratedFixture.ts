@@ -344,6 +344,7 @@ export interface FixturePersistentEnvelope {
   readonly workshop: FixtureWorkshopProfile;
   readonly liveMission?: FixtureLiveMission;
 }
+export type FixtureEnvelopeDecode = Readonly<{ state: 'absent' } | { state: 'invalid' } | { state: 'valid'; envelope: FixturePersistentEnvelope }>;
 export function createIntegratedFixtureEnvelope(): FixturePersistentEnvelope {
   return Object.freeze({ version: INTEGRATED_FIXTURE_ENVELOPE_VERSION, mission: createIntegratedFixtureSave(), workshop: createIntegratedFixtureWorkshopProfile() });
 }
@@ -378,6 +379,52 @@ export function deserializeIntegratedFixtureEnvelope(value: string | null): Fixt
     const liveMission = validLiveMission(raw.liveMission, workshop) ? Object.freeze({ ...raw.liveMission, checkpointRevision: raw.liveMission.checkpointRevision ?? 0, ownerEpoch: raw.liveMission.ownerEpoch ?? 0, completedInteractionIds: Object.freeze([...raw.liveMission.completedInteractionIds]), ...(raw.liveMission.combatSnapshot ? { combatSnapshot: freezeFixtureCombatSnapshot(raw.liveMission.combatSnapshot) } : {}) }) : undefined;
     return Object.freeze({ version: INTEGRATED_FIXTURE_ENVELOPE_VERSION, mission, workshop, ...(liveMission ? { liveMission } : {}) });
   } catch { return createIntegratedFixtureEnvelope(); }
+}
+/** Fail-closed browser boundary. Only absence may create a new B1 fixture. */
+export function decodeIntegratedFixtureEnvelope(value: string | null): FixtureEnvelopeDecode {
+  if (value === null) return Object.freeze({ state: 'absent' });
+  try {
+    const raw = JSON.parse(value) as { version?: string; mission?: unknown; workshop?: unknown; liveMission?: unknown };
+    if (raw.version !== INTEGRATED_FIXTURE_ENVELOPE_VERSION && raw.version !== 'int-fb-envelope-v2') return Object.freeze({ state: 'invalid' });
+    const workshop = raw.workshop as Record<string, unknown> | undefined;
+    const mission = raw.mission as Record<string, unknown> | undefined;
+    const manifest = workshop?.manifest as Record<string, unknown> | undefined;
+    const requiredWorkshopArrays = ['parts', 'claims', 'receipts', 'discoveries', 'knownSchematics', 'capabilities', 'attempts', 'paidEventIds', 'progressionAwardedEventIds'];
+    const requiredManifestBooleans = ['firstCaseComplete', 'allSixIntroduced', 'workshopIntroduction', 't2Capability', 'mergeT3Locked', 't4Locked', 't5DirectManufactureLocked', 'tabDossierComplete', 'c012GiftClaimConsumed'];
+    const record = (candidate: unknown): candidate is Record<string, unknown> => !!candidate && typeof candidate === 'object' && !Array.isArray(candidate);
+    const nonEmpty = (candidate: unknown): candidate is string => typeof candidate === 'string' && candidate.length > 0;
+    const jobId = (candidate: unknown): candidate is FixtureJobId => candidate === 'MC-OPT-R01-01' || candidate === 'MC-OPT-F01-01';
+    const partKinds: readonly FixturePartKind[] = ['R1', 'B1', 'F1', 'P1', 'H1', 'C1', 'B2', 'F2', 'H2', 'B3'];
+    const slots: readonly FixtureSlot[] = ['R', 'B', 'F', 'P', 'H', 'C'];
+    const guns: readonly FixtureGunId[] = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'];
+    if (!mission || typeof mission !== 'object' || mission.version !== INTEGRATED_FIXTURE_VERSION || mission.seed !== 'int-fb-post-chapter-2' || !Array.isArray(mission.receipts)
+      || !mission.receipts.every(receipt => record(receipt) && nonEmpty(receipt.id) && jobId(receipt.jobId) && nonEmpty(receipt.worldEventId) && nonEmpty(receipt.attemptId) && receipt.recipientId === (receipt.jobId === 'MC-OPT-R01-01' ? 'rcc-dispatch' : 'fre-broker') && receipt.credits === 1000 && receipt.metal === 20 && receipt.circuits === 4 && receipt.cloth === 6)
+      || !workshop || typeof workshop !== 'object' || !manifest || typeof manifest !== 'object'
+      || !requiredWorkshopArrays.every(key => Array.isArray(workshop[key]))
+      || !requiredManifestBooleans.every(key => typeof manifest[key] === 'boolean')
+      || !Array.isArray(manifest.factoryOfferIds) || !manifest.factoryOfferIds.every(nonEmpty) || !nonEmpty(manifest.serviceId)
+      || !workshop.gunSlots || typeof workshop.gunSlots !== 'object' || !workshop.wallet || typeof workshop.wallet !== 'object') return Object.freeze({ state: 'invalid' });
+    const wallet = workshop.wallet as Record<string, unknown>;
+    const parts = workshop.parts as readonly unknown[];
+    const gunSlots = workshop.gunSlots as Record<string, unknown>;
+    const rawPartsById = new Map(parts.filter(record).map(candidate => [candidate.instanceId, candidate] as const));
+    const assignedIds = guns.flatMap(gun => slots.map(slot => (gunSlots[gun] as Record<string, unknown> | undefined)?.[slot]));
+    if (workshop.version !== 'int-fb-profile-v2' || workshop.profileId !== 'INT-B1-PROFILE-01' || workshop.definitionVersion !== 'int-fb-definitions-v1' || workshop.rulesVersion !== 'int-fb-rules-v1'
+      || !Number.isInteger(workshop.revision) || (workshop.revision as number) < 0
+      || !['credits', 'metal', 'circuits', 'cloth', 'flux'].every(key => Number.isFinite(wallet[key]) && (wallet[key] as number) >= 0)
+      || !parts.every(candidate => record(candidate) && nonEmpty(candidate.instanceId) && partKinds.includes(candidate.kind as FixturePartKind) && (candidate.family === 'TAB' || candidate.family === 'HOU') && slots.includes(candidate.slot as FixtureSlot) && typeof candidate.protectedBaseline === 'boolean' && typeof candidate.sealedFactory === 'boolean' && (candidate.tier === null || candidate.tier === 1 || candidate.tier === 2) && (candidate.refinement === null || candidate.refinement === 'Balanced') && nonEmpty(candidate.maker) && nonEmpty(candidate.provenance) && Number.isInteger(candidate.version) && (candidate.version as number) > 0)
+      || new Set(parts.map(candidate => (candidate as Record<string, unknown>).instanceId)).size !== parts.length
+      || !guns.every(gun => record(gunSlots[gun]) && slots.every(slot => nonEmpty((gunSlots[gun] as Record<string, unknown>)[slot])))
+      || new Set(assignedIds).size !== assignedIds.length || !guns.every(gun => slots.every(slot => { const candidate = rawPartsById.get((gunSlots[gun] as Record<string, unknown>)[slot] as string); return candidate?.family === (gun.startsWith('TAB') ? 'TAB' : 'HOU') && candidate.slot === slot; }))
+      || ![...(workshop.claims as unknown[]), ...(workshop.discoveries as unknown[]), ...(workshop.knownSchematics as unknown[]), ...(workshop.capabilities as unknown[]), ...(workshop.paidEventIds as unknown[]), ...(workshop.progressionAwardedEventIds as unknown[])].every(nonEmpty)
+      || !(workshop.receipts as unknown[]).every(receipt => record(receipt) && nonEmpty(receipt.commandId) && Number.isInteger(receipt.revision) && (receipt.revision as number) > 0 && Array.isArray(receipt.outputIds) && receipt.outputIds.every(nonEmpty))
+      || !(workshop.attempts as unknown[]).every(attempt => record(attempt) && nonEmpty(attempt.worldEventId) && nonEmpty(attempt.attemptId) && (attempt.terminal === 'active' || attempt.terminal === 'victory' || attempt.terminal === 'failure') && typeof attempt.recoveryClaimed === 'boolean')) return Object.freeze({ state: 'invalid' });
+    const envelope = deserializeIntegratedFixtureEnvelope(value);
+    // The legacy decoder seeds on bad nested values; reject those by requiring
+    // every required persisted branch and live attempt to survive decoding.
+    if (!raw.mission || !raw.workshop || (raw.liveMission !== undefined && !envelope.liveMission)) return Object.freeze({ state: 'invalid' });
+    return Object.freeze({ state: 'valid', envelope });
+  } catch { return Object.freeze({ state: 'invalid' }); }
 }
 export function serializeIntegratedFixtureEnvelope(envelope: FixturePersistentEnvelope): string { return JSON.stringify(envelope); }
 export function nextFixtureWorldEventId(profile: FixtureWorkshopProfile, jobId: FixtureJobId): FixtureWorldEventId {

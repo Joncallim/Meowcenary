@@ -29,10 +29,24 @@ import {
   resolveFixtureGunProfile,
   beginFixtureAttempt, terminalFixtureAttempt, recoverFixtureFailure,
   beginFixtureProfileAttempt, failFixtureProfileAttempt, retryFixtureProfileAttempt, settleFixtureProfileAttempt,
-  createIntegratedFixtureEnvelope, deserializeIntegratedFixtureEnvelope, nextFixtureAttemptId, nextFixtureWorldEventId,
+  createIntegratedFixtureEnvelope, deserializeIntegratedFixtureEnvelope, decodeIntegratedFixtureEnvelope, nextFixtureAttemptId, nextFixtureWorldEventId,
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
+  it('fail-closes malformed nested and future persisted envelopes while valid history round-trips', () => {
+    const valid = createIntegratedFixtureEnvelope();
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify(valid))).toMatchObject({ state: 'valid', envelope: { mission: valid.mission, workshop: valid.workshop } });
+    expect(decodeIntegratedFixtureEnvelope('{bad')).toEqual({ state: 'invalid' });
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify({ ...valid, version: 'future' }))).toEqual({ state: 'invalid' });
+    const missingOffers = structuredClone(valid) as typeof valid; delete (missingOffers.workshop.manifest as { factoryOfferIds?: unknown }).factoryOfferIds;
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify(missingOffers))).toEqual({ state: 'invalid' });
+    const badWallet = structuredClone(valid) as any; badWallet.workshop.wallet.credits = -1;
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify(badWallet))).toEqual({ state: 'invalid' });
+    const badPart = structuredClone(valid) as any; badPart.workshop.parts[0].instanceId = '';
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify(badPart))).toEqual({ state: 'invalid' });
+    const badReceipt = structuredClone(valid) as any; badReceipt.mission.receipts = [{ id: 'bad', jobId: 'MC-OPT-R01-01', worldEventId: '', attemptId: '', recipientId: 'rcc-dispatch', credits: 1, metal: 20, circuits: 4, cloth: 6 }];
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify(badReceipt))).toEqual({ state: 'invalid' });
+  });
   it('pins the 80 by 64 metre authored test envelope and validates every reference', () => {
     expect(INTEGRATED_FIXTURE_ENVELOPE).toEqual({ widthMetres: 80, heightMetres: 64 });
     expect(validateIntegratedFixture()).toEqual([]);
