@@ -9,7 +9,7 @@ type Diagnostics = {
   workshopMaterials: { metal: number; circuits: number; cloth: number }; standing: { rcc: number; fre: number }; houDossier: number; fluxQualificationRemainder: number; historicalReplayActive: boolean; historicalReplayOutcome?: 'success' | 'death' | 'exit'; worldEventId?: string; activeAttemptId?: string; attemptTerminal?: string;
   workshopOpen: boolean; workshopPreview?: string; settlementPending: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; loadBlocked: boolean; recoveryMessage: string; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
 };
-type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; forceReplayTerminal(outcome: 'success' | 'death'): boolean; forceReplayHostileClear(): boolean; forceReplayTabbyDown(): boolean; forceReplayHoundDown(): boolean; replayActiveGun(): { instanceId: string; supply: number } | undefined; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void };
+type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; forceReplayTerminal(outcome: 'success' | 'death'): boolean; forceReplayHostileClear(): boolean; forceReplayTabbyDown(): boolean; forceReplayHoundDown(): boolean; replayActiveGun(): { instanceId: string; supply: number } | undefined; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void; setTestMoveTarget(x: number, y: number): void; advanceTestFrame(delta: number): void };
 type Globals = { __MEOWCENARY_INT_FB__?: FixtureSeam };
 type LateSeam = { diagnostics(): { scene: string; revision: number; parts: number; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly { commandId: string }[]; discoveries: readonly string[]; declaration: string }; commit(command: { commandId: string; expectedRevision: number; action: 'merge' | 'build'; inputIds?: readonly string[] }): boolean };
 
@@ -113,6 +113,19 @@ async function touchMoveTo(page: Page, target: { x: number; y: number }): Promis
 async function touchMoveAlong(page: Page, points: readonly { x: number; y: number }[]): Promise<void> {
   for (const point of points) await touchMoveTo(page, point);
 }
+async function touchReplayTo(page: Page, target: { x: number; y: number }): Promise<void> {
+  const cdp = await page.context().newCDPSession(page); let active = false;
+  try {
+    for (let tick = 0; tick < 180; tick += 1) {
+      const current = await state(page); const replay = current.replay;
+      if (replay && Math.hypot(replay.x - target.x, replay.y - target.y) < 9) return;
+      await cdp.send('Input.dispatchTouchEvent', { type: active ? 'touchMove' : 'touchStart', touchPoints: [{ x: Math.max(8, Math.min(382, target.x - current.cameraX)), y: Math.max(8, Math.min(836, target.y - current.cameraY)), id: 1 }] }); active = true;
+      await page.waitForTimeout(40);
+    }
+    const current = await state(page);
+    throw new Error(`touch replay route did not reach ${target.x},${target.y}; replay=${current.replay?.x.toFixed(1)},${current.replay?.y.toFixed(1)} layer=${current.replay?.layer}; active=${current.historicalReplayActive}; outcome=${current.historicalReplayOutcome}; camera=${current.cameraX.toFixed(1)},${current.cameraY.toFixed(1)}`);
+  } finally { if (active) await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await cdp.detach(); }
+}
 async function tap(page: Page, info: TestInfo, bounds: Bounds): Promise<void> {
   const x = bounds.x + bounds.width / 2;
   const y = bounds.y + bounds.height / 2;
@@ -156,6 +169,25 @@ async function activate(page: Page, job: '1' | '2', spawn: { x: number; y: numbe
   }, { timeout: 15_000 }).toBe(true);
   return state(page);
 }
+
+test('archived movement matches live world-unit displacement for an equal frame', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Reference desktop frame-parity evidence.');
+  await ready(page);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prepareF01())).toBe(true);
+  await expect.poll(async () => (await state(page)).activeAttemptId).toBeTruthy();
+  await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.pauseSimulation());
+  const liveBefore = await state(page);
+  await page.evaluate(() => { const seam = (globalThis as Globals).__MEOWCENARY_INT_FB__!; seam.setTestMoveTarget(200, 110); seam.advanceTestFrame(100); });
+  const liveAfter = await state(page);
+  const liveDistance = Math.hypot(liveAfter.x - liveBefore.x, liveAfter.y - liveBefore.y);
+  await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); const replayRecord = raw.liveMission?.replayRecord; if (!replayRecord) throw new Error('activation record missing'); raw.mission.receipts.push({ id: 'int-fb:test:rate', jobId: 'MC-OPT-F01-01', worldEventId: 'rate-event', attemptId: 'rate-attempt', recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6, replayRecord }); delete raw.liveMission; localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw)); });
+  await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+  await page.evaluate(() => { const seam = (globalThis as Globals).__MEOWCENARY_INT_FB__!; seam.pauseSimulation(); if (!seam.openHistoricalReplay()) throw new Error('replay unavailable'); seam.setTestMoveTarget(200, 110); seam.advanceTestFrame(100); });
+  const replay = (await state(page)).replay!;
+  const replayDistance = Math.hypot(replay.x - 80, replay.y - 110);
+  expect(replayDistance).toBeCloseTo(liveDistance, 5);
+  expect(Math.hypot(replay.tabbyPosition.x - replay.houndPosition.x, replay.tabbyPosition.y - replay.houndPosition.y)).toBeLessThanOrEqual(27);
+});
 
 test('invalid persisted B1 envelopes are visibly blocked and remain byte-identical after ordinary actions', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop-1280x720', 'One desktop recovery proof covers malformed, future, and incomplete persisted B1 envelopes.');
@@ -311,6 +343,10 @@ test('archived replay requires objectives and extraction without mutating the li
   // Clear alone cannot complete the archived contract or settle the live one.
   await moveReplayTo(page, 690, 490); await page.keyboard.press('e');
   expect(await state(page)).toMatchObject({ historicalReplayActive: true, replay: { canExtract: false, completedInteractionIds: [] } });
+  // This retry snapshot begins at safe service. Follow the authored road,
+  // ramp/bridge approach into F01 rather than cutting a diagonal through
+  // unsupported terrain.
+  // This record starts at F01 spawn, so the objective is in the same pocket.
   await moveReplayTo(page, 550, 410); await page.keyboard.press('e');
   await expect.poll(async () => (await state(page)).replay?.completedInteractionIds).toContain('INT-FB-F01-DISPUTED-LOT');
   await expect.poll(async () => (await state(page)).replay?.canExtract).toBe(true);
@@ -318,6 +354,38 @@ test('archived replay requires objectives and extraction without mutating the li
   await expect.poll(async () => (await state(page)).historicalReplayOutcome).toBe('success');
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(before);
   expect(await state(page)).toMatchObject({ workshopCredits: liveBefore.workshopCredits, receiptIds: liveBefore.receiptIds, paidEventIds: liveBefore.paidEventIds, historicalReplayActive: false });
+});
+
+test('phone replay completes through touch controls without mutating live state', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone-390x844', 'Dedicated phone touch-only replay evidence.');
+  test.setTimeout(120_000);
+  await ready(page);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prepareF01())).toBe(true);
+  await expect.poll(async () => (await state(page)).activeAttemptId).toBeTruthy();
+  await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); const replayRecord = raw.liveMission?.replayRecord; if (!replayRecord) throw new Error('record missing'); raw.mission.receipts.push({ id: 'int-fb:test:phone', jobId: 'MC-OPT-F01-01', worldEventId: 'phone-event', attemptId: 'phone-attempt', recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6, replayRecord }); delete raw.liveMission; localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw)); });
+  await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+  const before = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayTabbyDown())).toBe(true);
+  await expect.poll(async () => (await state(page)).replay?.takeoverControl).toBeTruthy();
+  const downed = (await state(page)).replay!;
+  await page.touchscreen.tap(76, (page.viewportSize()?.height ?? 844) - 48);
+  expect((await state(page)).replay).toMatchObject({ x: downed.x, y: downed.y, controlledActor: 'tabby' });
+  await page.touchscreen.tap(downed.takeoverControl!.x + downed.takeoverControl!.width / 2, downed.takeoverControl!.y + downed.takeoverControl!.height / 2);
+  await expect.poll(async () => (await state(page)).replay?.controlledActor).toBe('hound');
+  const beforeSwap = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.replayActiveGun()!.instanceId);
+  await page.touchscreen.tap(76, (page.viewportSize()?.height ?? 844) - 48);
+  await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.replayActiveGun()!.instanceId)).not.toBe(beforeSwap);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayHostileClear())).toBe(true);
+  // Avoid the fixed archived EXIT panel (top y<132) while following the
+  // authored safe-service approach entirely through touch contacts.
+  await touchReplayTo(page, { x: 300, y: 150 }); await touchReplayTo(page, { x: 350, y: 200 }); await touchReplayTo(page, { x: 530, y: 220 }); await touchReplayTo(page, { x: 650, y: 220 }); await touchReplayTo(page, { x: 670, y: 390 }); await touchReplayTo(page, { x: 550, y: 410 });
+  expect((await state(page)).cameraX).toBeGreaterThan(0);
+  await page.touchscreen.tap((page.viewportSize()?.width ?? 390) - 76, (page.viewportSize()?.height ?? 844) - 48);
+  await expect.poll(async () => (await state(page)).replay?.completedInteractionIds).toContain('INT-FB-F01-DISPUTED-LOT');
+  await touchReplayTo(page, { x: 690, y: 490 }); await page.touchscreen.tap((page.viewportSize()?.width ?? 390) - 76, (page.viewportSize()?.height ?? 844) - 48);
+  await expect.poll(async () => (await state(page)).historicalReplayOutcome).toBe('success');
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(before);
 });
 
 test('archived R01 preserves terrain layers, collision, camera, and living-actor rules', async ({ page }, info) => {
@@ -398,8 +466,8 @@ test('held writer rejects corruption after a non-live workshop preview', async (
 
 test('F01 recovery/retry/extraction is persisted by the live Phaser scene', async ({ page }, info) => {
   // Recovery, retry, post-settlement return travel, live workshop mutation,
-  // and three replay terminal paths are one integration flow. Keep its budget
-  // bounded, but above the original pre-replay-only 60 second allowance.
+  // and three replay terminal paths are one integration flow. With archived
+  // movement now rate-matched to live movement, 120 seconds is sufficient.
   test.setTimeout(120_000);
   test.skip(!selectedProject(info), 'Focused scene evidence is captured on one desktop and one touch viewport.');
   await ready(page);
@@ -566,7 +634,15 @@ test('F01 recovery/retry/extraction is persisted by the live Phaser scene', asyn
   await page.keyboard.press('g'); await page.keyboard.press('Enter'); await page.keyboard.press('1');
   await page.waitForTimeout(100);
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
-  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayTerminal('success'))).toBe(true);
+  // Clear is deliberately not a terminal shortcut: archived E must record
+  // the pinned objective and then extract through the replay operation.
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayHostileClear())).toBe(true);
+  await expect.poll(async () => (await state(page)).replay?.groupCleared).toBe(true);
+  // This retry record starts at safe service, requiring the authored tunnel
+  // and spawn approach before entering the F01 pocket.
+  await moveReplayAlong(page, [{ x: 300, y: 80 }, { x: 350, y: 200 }, { x: 530, y: 220 }, { x: 650, y: 220 }, { x: 670, y: 390 }, { x: 550, y: 410 }]); await page.keyboard.press('e');
+  await expect.poll(async () => (await state(page)).replay?.completedInteractionIds).toContain('INT-FB-F01-DISPUTED-LOT');
+  await moveReplayTo(page, 690, 490); await page.keyboard.press('e');
   await expect.poll(async () => (await state(page)).historicalReplayOutcome).toBe('success');
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);

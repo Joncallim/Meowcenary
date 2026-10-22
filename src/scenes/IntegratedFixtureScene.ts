@@ -184,7 +184,12 @@ export class IntegratedFixtureScene extends Phaser.Scene {
         forceReplayHostileClear: () => this.forceReplayHostileClear(),
         forceReplayTabbyDown: () => this.forceReplayTabbyDown(),
         forceReplayHoundDown: () => this.forceReplayHoundDown(),
-        replayActiveGun: () => this.replayCombat?.activeGun('tabby'),
+        setTestMoveTarget: (x: number, y: number) => {
+          if (this.historicalReplay) this.replayTouchTarget = new Phaser.Math.Vector2(x, y);
+          else this.touchTarget = new Phaser.Math.Vector2(x, y);
+        },
+        advanceTestFrame: (delta: number) => this.update(0, delta),
+        replayActiveGun: () => this.replayCombat?.activeGun(this.replayControlledActor),
       } : {}),
     } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_INT_FB__; });
@@ -278,7 +283,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (x === 0 && y === 0 && this.replayTouchTarget) { x = this.replayTouchTarget.x - controlled.x; y = this.replayTouchTarget.y - controlled.y; }
     const length = Math.hypot(x, y);
     if (length > 0) {
-      const next = moveFixtureTerrainPosition({ x: controlled.x / SCALE, z: controlled.y / SCALE, layer: this.replayLayers[this.replayControlledActor] }, { x: controlled.x / SCALE + x / length * SPEED * delta / 1000 / SCALE, z: controlled.y / SCALE + y / length * SPEED * delta / 1000 / SCALE });
+      const next = moveFixtureTerrainPosition({ x: controlled.x / SCALE, z: controlled.y / SCALE, layer: this.replayLayers[this.replayControlledActor] }, { x: controlled.x / SCALE + x / length * SPEED * SCALE * delta / 1000 / SCALE, z: controlled.y / SCALE + y / length * SPEED * SCALE * delta / 1000 / SCALE });
       controlled.setPosition(next.position.x * SCALE, next.position.z * SCALE); this.replayLayers[this.replayControlledActor] = next.position.layer ?? 'ground';
       if (this.replayControlledActor === 'tabby') {
         const previous = this.replayLeaderTrail.at(-1);
@@ -290,7 +295,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       const desired = this.replayLeaderTrail[0] ?? { x: (this.replayLead.x - 15) / SCALE, z: this.replayLead.y / SCALE, layer: this.replayLayers.tabby };
       const distance = Math.hypot(desired.x - houndPosition.x, desired.z - houndPosition.z);
       if (distance > 0) {
-        const follow = moveFixtureTerrainPosition(houndPosition, { x: houndPosition.x + (desired.x - houndPosition.x) / distance * Math.min(distance, SPEED * delta / 1000 / SCALE), z: houndPosition.z + (desired.z - houndPosition.z) / distance * Math.min(distance, SPEED * delta / 1000 / SCALE) });
+        const follow = moveFixtureTerrainPosition(houndPosition, { x: houndPosition.x + (desired.x - houndPosition.x) / distance * Math.min(distance, SPEED * SCALE * delta / 1000 / SCALE), z: houndPosition.z + (desired.z - houndPosition.z) / distance * Math.min(distance, SPEED * SCALE * delta / 1000 / SCALE) });
         this.replayHound.setPosition(follow.position.x * SCALE, follow.position.z * SCALE); this.replayLayers.hound = follow.position.layer ?? 'ground';
       }
       const currentHound = { x: this.replayHound.x / SCALE, z: this.replayHound.y / SCALE };
@@ -316,15 +321,17 @@ export class IntegratedFixtureScene extends Phaser.Scene {
 
   private createControls(): void {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.historicalReplay) {
-        if (this.replayTakeoverPrompt?.visible && this.replayTakeoverPrompt.getBounds().contains(pointer.x, pointer.y)) this.confirmTakeover();
-        else this.replayTouchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY);
-        return;
-      }
       const contains = (control: Phaser.GameObjects.Rectangle | undefined) => {
         const bounds = this.controlBounds(control);
         return !!bounds && pointer.x >= bounds.x && pointer.x <= bounds.x + bounds.width && pointer.y >= bounds.y && pointer.y <= bounds.y + bounds.height;
       };
+      if (this.historicalReplay) {
+        if (this.replayTakeoverPrompt?.visible && this.replayTakeoverPrompt.getBounds().contains(pointer.x, pointer.y)) this.confirmTakeover();
+        else if (contains(this.swapButton)) this.swapGun();
+        else if (contains(this.interactButton)) this.interactHistoricalReplay();
+        else this.replayTouchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY);
+        return;
+      }
       if (contains(this.swapButton)) { this.swapGun(); return; }
       if (contains(this.interactButton)) { this.interact(); return; }
       if (contains(this.workshopButton)) { this.openWorkshopMenu(); return; }
@@ -575,10 +582,16 @@ export class IntegratedFixtureScene extends Phaser.Scene {
    * live play, but its only outputs are the isolated replay lifecycle and UI. */
   private interactHistoricalReplay(): void {
     const operation = this.replayOperation;
+    const replay = this.replayCombat;
     const controlled = this.replayControlledActor === 'tabby' ? this.replayLead : this.replayHound;
     const jobId = operation?.snapshot().jobId;
     const job = jobId && INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === jobId);
-    if (!operation || !controlled || !job) return;
+    if (!operation || !replay || !controlled || !job) return;
+    if (replay.actorHealth(this.replayControlledActor) <= 0) {
+      this.combatFeedback = 'Archived controlled actor is down; take over before interacting.';
+      this.refreshStatus();
+      return;
+    }
     const nearby = INTEGRATED_FIXTURE_POINTS.find(point => fixturePointLayer(point) === this.replayLayers[this.replayControlledActor]
       && Math.hypot(point.x * SCALE - controlled.x, point.z * SCALE - controlled.y) < 38);
     if (nearby?.role === 'interaction') {
