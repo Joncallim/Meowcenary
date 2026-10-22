@@ -110,10 +110,12 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   create(): void {
     const errors = validateIntegratedFixture();
     if (errors.length) throw new Error(`INT-FB fixture invalid: ${errors.join(',')}`);
-    const decoded = decodeIntegratedFixtureEnvelope(localStorage.getItem(INTEGRATED_FIXTURE_ENVELOPE_KEY));
+    let decoded;
+    try { decoded = decodeIntegratedFixtureEnvelope(localStorage.getItem(INTEGRATED_FIXTURE_ENVELOPE_KEY)); }
+    catch { decoded = Object.freeze({ state: 'invalid' as const }); this.combatFeedback = 'B1 fixture storage could not be read. No change was made; restore access and reload.'; }
     this.loadBlocked = decoded.state === 'invalid';
     this.envelope = decoded.state === 'valid' ? decoded.envelope : createIntegratedFixtureEnvelope();
-    if (this.loadBlocked) this.combatFeedback = 'Stored B1 fixture save is invalid and was preserved unchanged. Restore a trusted backup before continuing.';
+    if (this.loadBlocked && !this.combatFeedback) this.combatFeedback = 'Stored B1 fixture save is invalid and was preserved unchanged. Restore a trusted backup before continuing.';
     this.combat = new IntegratedFixtureCombat(this.envelope.workshop);
 
     const width = INTEGRATED_FIXTURE_ENVELOPE.widthMetres * SCALE;

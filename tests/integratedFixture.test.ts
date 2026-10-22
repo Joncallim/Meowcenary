@@ -36,6 +36,9 @@ describe('INT-FB integrated browser-slice fixture', () => {
   it('fail-closes malformed nested and future persisted envelopes while valid history round-trips', () => {
     const valid = createIntegratedFixtureEnvelope();
     expect(decodeIntegratedFixtureEnvelope(JSON.stringify(valid))).toMatchObject({ state: 'valid', envelope: { mission: valid.mission, workshop: valid.workshop } });
+    const { receipts, ...workshopRest } = valid.workshop;
+    const reordered = { version: valid.version, workshop: { receipts, ...workshopRest, wallet: { flux: valid.workshop.wallet.flux, cloth: valid.workshop.wallet.cloth, circuits: valid.workshop.wallet.circuits, metal: valid.workshop.wallet.metal, credits: valid.workshop.wallet.credits } }, mission: valid.mission };
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify(reordered))).toMatchObject({ state: 'valid', envelope: { workshop: valid.workshop } });
     expect(decodeIntegratedFixtureEnvelope('{bad')).toEqual({ state: 'invalid' });
     expect(decodeIntegratedFixtureEnvelope(JSON.stringify({ ...valid, version: 'future' }))).toEqual({ state: 'invalid' });
     const missingOffers = structuredClone(valid) as typeof valid; delete (missingOffers.workshop.manifest as { factoryOfferIds?: unknown }).factoryOfferIds;

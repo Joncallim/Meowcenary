@@ -137,6 +137,33 @@ test('invalid persisted B1 envelopes are visibly blocked and remain byte-identic
   }
 });
 
+test('absent B1 storage persists its first activation and rejects corruption without reseeding', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Dedicated first-write and corruption evidence runs once on desktop.');
+  await page.goto('/?fixture=int-fb');
+  await page.evaluate(() => localStorage.removeItem('meowcenary:int-fb:v1:profile'));
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__)), { timeout: 15_000 }).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prepareF01())).toBe(true);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')), { timeout: 15_000 }).not.toBeNull();
+  const first = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__)), { timeout: 15_000 }).toBe(true);
+  await expect.poll(async () => (await state(page)).activeAttemptId, { timeout: 15_000 }).toBeDefined();
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+    raw.workshop.standing.rcc = -1;
+    localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw));
+  });
+  const corrupt = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__)), { timeout: 15_000 }).toBe(true);
+  await expect.poll(async () => (await state(page)).loadBlocked, { timeout: 15_000 }).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prepareF01())).toBe(true);
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(corrupt);
+  expect(corrupt).not.toBe(first);
+});
+
 test('F01 recovery/retry/extraction is persisted by the live Phaser scene', async ({ page }, info) => {
   test.setTimeout(60_000);
   test.skip(!selectedProject(info), 'Focused scene evidence is captured on one desktop and one touch viewport.');

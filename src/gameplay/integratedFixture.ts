@@ -345,6 +345,14 @@ export interface FixturePersistentEnvelope {
   readonly liveMission?: FixtureLiveMission;
 }
 export type FixtureEnvelopeDecode = Readonly<{ state: 'absent' } | { state: 'invalid' } | { state: 'valid'; envelope: FixturePersistentEnvelope }>;
+function fixtureSemanticEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+  if (Array.isArray(left) || Array.isArray(right)) return Array.isArray(left) && Array.isArray(right) && left.length === right.length && left.every((item, index) => fixtureSemanticEqual(item, right[index]));
+  const leftRecord = left as Record<string, unknown>; const rightRecord = right as Record<string, unknown>;
+  const leftKeys = Object.keys(leftRecord); const rightKeys = Object.keys(rightRecord);
+  return leftKeys.length === rightKeys.length && leftKeys.every(key => Object.prototype.hasOwnProperty.call(rightRecord, key) && fixtureSemanticEqual(leftRecord[key], rightRecord[key]));
+}
 export function createIntegratedFixtureEnvelope(): FixturePersistentEnvelope {
   return Object.freeze({ version: INTEGRATED_FIXTURE_ENVELOPE_VERSION, mission: createIntegratedFixtureSave(), workshop: createIntegratedFixtureWorkshopProfile() });
 }
@@ -426,7 +434,7 @@ export function decodeIntegratedFixtureEnvelope(value: string | null): FixtureEn
       // A successful decode must never be a legacy seed in disguise. The
       // legacy reader remains for compatibility-only callers, but the durable
       // browser boundary accepts no silently repaired workshop branch.
-      || JSON.stringify(envelope.workshop) !== JSON.stringify(raw.workshop)) return Object.freeze({ state: 'invalid' });
+      || !fixtureSemanticEqual(envelope.workshop, raw.workshop)) return Object.freeze({ state: 'invalid' });
     return Object.freeze({ state: 'valid', envelope });
   } catch { return Object.freeze({ state: 'invalid' }); }
 }
