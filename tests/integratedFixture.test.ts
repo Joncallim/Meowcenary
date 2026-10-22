@@ -35,11 +35,18 @@ import {
 describe('INT-FB integrated browser-slice fixture', () => {
   it('persists a versioned activation replay record while legacy receipts remain recordless', () => {
     const combat = new IntegratedFixtureCombat(createIntegratedFixtureWorkshopProfile()); combat.beginJob('MC-OPT-F01-01');
-    const record = { version: 'int-fb-replay-v1' as const, contentId: 'fixture:MC-OPT-F01-01:v1', storyBranch: 'MC-OPT-F01-01', startSnapshot: combat.snapshot('tabby') };
+  const record = { version: 'int-fb-replay-v1' as const, contentId: 'fixture:MC-OPT-F01-01:v1', storyBranch: 'MC-OPT-F01-01', startSnapshot: combat.snapshot('tabby'), loadout: createIntegratedFixtureWorkshopProfile() };
     const settled = settleIntegratedFixtureEvent(createIntegratedFixtureSave(), 'MC-OPT-F01-01', 'event' as any, 'attempt' as any, record).save;
+  const restoredCombat = new IntegratedFixtureCombat(record.loadout); restoredCombat.beginJob('MC-OPT-F01-01');
+  expect(restoredCombat.restore(record.startSnapshot, 'MC-OPT-F01-01', false)).toBe(true);
     expect(settled.receipts[0]!.replayRecord).toMatchObject({ version: 'int-fb-replay-v1', contentId: record.contentId, storyBranch: record.storyBranch });
     const envelope = createIntegratedFixtureEnvelope(); const withRecord = { ...envelope, mission: settled };
     expect(decodeIntegratedFixtureEnvelope(JSON.stringify(withRecord))).toMatchObject({ state: 'valid' });
+  const decoded = decodeIntegratedFixtureEnvelope(JSON.stringify(withRecord));
+  if (decoded.state !== 'valid') throw new Error('record unexpectedly rejected');
+  const persistedRecord = decoded.envelope.mission.receipts[0]!.replayRecord!;
+  const persistedCombat = new IntegratedFixtureCombat(persistedRecord.loadout!); persistedCombat.beginJob('MC-OPT-F01-01');
+  expect(persistedCombat.restore(persistedRecord.startSnapshot, 'MC-OPT-F01-01', false)).toBe(true);
     expect(historicalFixtureMissionReplay(createIntegratedFixtureSave(), 'none')).toBeUndefined();
     const malformed = structuredClone(withRecord) as any; malformed.mission.receipts[0].replayRecord.contentId = '';
     expect(decodeIntegratedFixtureEnvelope(JSON.stringify(malformed))).toEqual({ state: 'invalid' });
@@ -410,12 +417,14 @@ it('keeps a prior isolated receipt readable without importing a normal game save
 
 it('pins historical replay to a separate receipt snapshot and leaves the live profile unchanged', () => {
   const profile = createIntegratedFixtureWorkshopProfile();
-  const settled = settleIntegratedFixtureEvent(createIntegratedFixtureSave(), 'MC-OPT-R01-01', 'int-fb:event:MC-OPT-R01-01:replay' as any, 'int-fb:attempt:replay' as any).save;
+  const combat = new IntegratedFixtureCombat(profile); combat.beginJob('MC-OPT-R01-01');
+  const record = { version: 'int-fb-replay-v1' as const, contentId: 'fixture:MC-OPT-R01-01:v1', storyBranch: 'MC-OPT-R01-01', startSnapshot: combat.snapshot('tabby'), loadout: profile };
+  const settled = settleIntegratedFixtureEvent(createIntegratedFixtureSave(), 'MC-OPT-R01-01', 'int-fb:event:MC-OPT-R01-01:replay' as any, 'int-fb:attempt:replay' as any, record).save;
   const before = fixtureWorkshopProfileHash(profile);
-  const unavailable = beginHistoricalFixtureReplay(profile, settled, settled.receipts[0]!.id, { contentId: 'retained-r01', storyBranch: 'original-r01', available: false });
+  const unavailable = beginHistoricalFixtureReplay(profile, settled, settled.receipts[0]!.id, { contentId: record.contentId, storyBranch: record.storyBranch, available: false });
   expect(unavailable).toEqual({ reason: 'pinned-content-unavailable' });
-  const replay = beginHistoricalFixtureReplay(profile, settled, settled.receipts[0]!.id, { contentId: 'retained-r01', storyBranch: 'original-r01', available: true }).session!;
-  expect(replay).toMatchObject({ profileHash: before, receipt: settled.receipts[0], contentId: 'retained-r01', storyBranch: 'original-r01' });
+  const replay = beginHistoricalFixtureReplay(profile, settled, settled.receipts[0]!.id, { contentId: record.contentId, storyBranch: record.storyBranch, available: true }).session!;
+  expect(replay).toMatchObject({ profileHash: before, receipt: settled.receipts[0], contentId: record.contentId, storyBranch: record.storyBranch });
   expect(replay.receipt).not.toBe(settled.receipts[0]);
   for (const outcome of ['success', 'death', 'exit'] as const) expect(finishHistoricalFixtureReplay(profile, replay, outcome)).toEqual({ outcome, profileHashUnchanged: true });
   expect(fixtureWorkshopProfileHash(profile)).toBe(before);

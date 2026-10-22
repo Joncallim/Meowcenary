@@ -94,6 +94,14 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private workshopModal?: Phaser.GameObjects.Container;
   private historicalReplayModal?: Phaser.GameObjects.Container;
   private historicalReplay?: FixtureHistoricalReplaySession;
+  private replayCombat?: IntegratedFixtureCombat;
+  /** Replay actors are deliberately distinct display objects: the archived
+   * simulation must never move, hide, or otherwise mutate the live attempt. */
+  private replayLead?: Phaser.GameObjects.Arc;
+  private replayHound?: Phaser.GameObjects.Arc;
+  private replayEnemies: Phaser.GameObjects.Arc[] = [];
+  private replayTouchTarget?: Phaser.Math.Vector2;
+  private replayEnvelopeBytes?: string;
   private historicalReplayContentAvailable = false;
   private historicalReplayOutcome?: 'success' | 'death' | 'exit';
   private replayGeneration = 0;
@@ -161,13 +169,18 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       failNextStorageWrite: () => { this.failNextStorageWrite = true; },
       failNextRecoveryWrite: () => { this.failNextRecoveryWrite = true; },
       rejectNextWriterLock: () => { this.rejectNextWriterLock = true; },
-      ...(import.meta.env.VITE_VISUAL_TEST === '1' ? { pauseSimulation: () => { this.simulationPaused = true; } } : {}),
+      ...(import.meta.env.VITE_VISUAL_TEST === '1' ? {
+        pauseSimulation: () => { this.simulationPaused = true; },
+        forceReplayTerminal: (outcome: 'success' | 'death') => this.forceReplayTerminal(outcome),
+        replayActiveGun: () => this.replayCombat?.activeGun('tabby'),
+      } : {}),
     } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_INT_FB__; });
   }
 
   update(_time: number, delta: number): void {
-    if (!this.lead || !this.hound || this.simulationPaused || this.historicalReplay) return;
+    if (this.historicalReplay) { this.updateHistoricalReplay(delta); return; }
+    if (!this.lead || !this.hound || this.simulationPaused) return;
     if (this.ownershipLost || this.recoveryMode !== 'none' || this.activationWriting || this.progressWriting || this.settlementPending) return;
     if (this.combatActive) {
       const before = resolveFixtureTakeover(this.combat.actorHealth('tabby'), this.combat.actorHealth('hound'), this.controlledActor === 'hound');
@@ -227,9 +240,46 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.refreshStatus();
   }
 
+  /** Advances only the archived combat instance.  Completion is derived from
+   * actual archived actors, never from a player-facing result button. */
+  private updateHistoricalReplay(delta: number): void {
+    // Visual-test pause is already guarded at seam exposure; it pauses the
+    // archived simulation too without creating an ordinary-build control.
+    if (this.simulationPaused) return;
+    const replay = this.replayCombat;
+    if (!replay || !this.replayLead || !this.replayHound) return;
+    let x = 0; let y = 0;
+    if (this.keys?.left?.isDown || this.input.keyboard?.addKey('A').isDown) x -= 1;
+    if (this.keys?.right?.isDown || this.input.keyboard?.addKey('D').isDown) x += 1;
+    if (this.keys?.up?.isDown || this.input.keyboard?.addKey('W').isDown) y -= 1;
+    if (this.keys?.down?.isDown || this.input.keyboard?.addKey('S').isDown) y += 1;
+    if (x === 0 && y === 0 && this.replayTouchTarget) { x = this.replayTouchTarget.x - this.replayLead.x; y = this.replayTouchTarget.y - this.replayLead.y; }
+    const length = Math.hypot(x, y);
+    if (length > 0) {
+      const next = moveFixtureTerrainPosition({ x: this.replayLead.x / SCALE, z: this.replayLead.y / SCALE }, { x: this.replayLead.x / SCALE + x / length * SPEED * delta / 1000 / SCALE, z: this.replayLead.y / SCALE + y / length * SPEED * delta / 1000 / SCALE });
+      this.replayLead.setPosition(next.position.x * SCALE, next.position.z * SCALE);
+    }
+    const houndPosition = { x: this.replayHound.x / SCALE, z: this.replayHound.y / SCALE };
+    const desired = { x: (this.replayLead.x - 15) / SCALE, z: this.replayLead.y / SCALE };
+    const distance = Math.hypot(desired.x - houndPosition.x, desired.z - houndPosition.z);
+    if (distance > 0) this.replayHound.setPosition((houndPosition.x + (desired.x - houndPosition.x) / distance * Math.min(distance, SPEED * delta / 1000)) * SCALE, (houndPosition.z + (desired.z - houndPosition.z) / distance * Math.min(distance, SPEED * delta / 1000)) * SCALE);
+    replay.setSquadPositions({ x: this.replayLead.x / SCALE, z: this.replayLead.y / SCALE }, { x: this.replayHound.x / SCALE, z: this.replayHound.y / SCALE });
+    replay.advance(delta / 1000);
+    this.syncReplayActors();
+    if (replay.isGroupCleared()) this.finishHistoricalReplay('success');
+    else if (replay.actorHealth('tabby') <= 0 && replay.actorHealth('hound') <= 0) this.finishHistoricalReplay('death');
+  }
+
+  private syncReplayActors(): void {
+    const replay = this.replayCombat;
+    if (!replay) return;
+    const hostiles = replay.hostileStates();
+    this.replayEnemies.forEach((enemy, index) => { const hostile = hostiles[index]; if (!hostile) { enemy.setVisible(false); return; } enemy.setVisible(hostile.health > 0).setPosition(hostile.position.x * SCALE, hostile.position.z * SCALE); });
+  }
+
   private createControls(): void {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.historicalReplay) return;
+      if (this.historicalReplay) { this.replayTouchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); return; }
       const contains = (control: Phaser.GameObjects.Rectangle | undefined) => {
         const bounds = this.controlBounds(control);
         return !!bounds && pointer.x >= bounds.x && pointer.x <= bounds.x + bounds.width && pointer.y >= bounds.y && pointer.y <= bounds.y + bounds.height;
@@ -239,8 +289,9 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       if (contains(this.workshopButton)) { this.openWorkshopMenu(); return; }
       this.touchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY);
     });
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (pointer.isDown) this.touchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); });
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (pointer.isDown) { if (this.historicalReplay) this.replayTouchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); else this.touchTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); } });
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (this.historicalReplay) { this.replayTouchTarget = undefined; return; }
       this.touchTarget = undefined;
       // Container children keep their own local transforms; route the fixed
       // recovery controls through the shared logical pointer path as well so
@@ -422,7 +473,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.combatFeedback = `${jobId} inspected. Accept it at the offer terminal.`; this.refreshStatus();
   }
   private swapGun(): void {
-    if (this.historicalReplay) { this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
+    if (this.historicalReplay) { const swapped = this.replayCombat?.swapActiveGun('tabby'); this.combatFeedback = swapped ? 'Historical replay: Tabby switched archived weapon.' : 'Historical replay weapon swap unavailable.'; this.refreshStatus(); return; }
     if (this.ownershipLost || this.recoveryMode !== 'none' || this.settlementPending) return;
     const swapped = this.combat.swapActiveGun(this.controlledActor);
     this.combatFeedback = swapped ? `${this.actorName()} switched to ${this.combat.activeGun(this.controlledActor).instanceId}; 0.30s swap preparation.` : 'Gun swap unavailable.';
@@ -495,7 +546,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       nextCombat.beginJob(jobId);
       if (this.lead && this.hound) nextCombat.setSquadPositions(this.spriteTerrainPosition('tabby'), this.spriteTerrainPosition('hound'));
       const startSnapshot = nextCombat.snapshot(this.controlledActor);
-      const liveMission: FixtureLiveMission = Object.freeze({ jobId, worldEventId, attemptId, completedInteractionIds: Object.freeze([]), finiteEnemyGroupCleared: false, recoveryRequired: false, checkpointRevision: 0, ownerEpoch: 0, combatSnapshot: startSnapshot, replayRecord: Object.freeze({ version: 'int-fb-replay-v1', contentId: `fixture:${jobId}:v1`, storyBranch: jobId, startSnapshot }) });
+      const liveMission: FixtureLiveMission = Object.freeze({ jobId, worldEventId, attemptId, completedInteractionIds: Object.freeze([]), finiteEnemyGroupCleared: false, recoveryRequired: false, checkpointRevision: 0, ownerEpoch: 0, combatSnapshot: startSnapshot, replayRecord: Object.freeze({ version: 'int-fb-replay-v1', contentId: `fixture:${jobId}:v1`, storyBranch: jobId, startSnapshot, loadout: begun.profile }) });
       const candidate: FixturePersistentEnvelope = Object.freeze({ ...durable, workshop: begun.profile, liveMission });
       try { this.writeEnvelope(candidate); }
       catch { this.activationWriting = false; this.combatFeedback = 'Activation storage failed; no event or attempt was created.'; this.refreshStatus(); return; }
@@ -578,7 +629,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       const nextCombat = new IntegratedFixtureCombat(retry.profile);
       nextCombat.beginJob(live!.jobId);
       nextCombat.setSquadPositions({ x: SAFE_POSITION.tabby.x / SCALE, z: SAFE_POSITION.tabby.y / SCALE, layer: 'ground' }, { x: SAFE_POSITION.hound.x / SCALE, z: SAFE_POSITION.hound.y / SCALE, layer: 'ground' });
-      const nextLive: FixtureLiveMission = Object.freeze({ jobId: live!.jobId, worldEventId: live!.worldEventId, attemptId, completedInteractionIds: Object.freeze([]), finiteEnemyGroupCleared: false, recoveryRequired: false, checkpointRevision: 0, ownerEpoch: live!.ownerEpoch + 1, combatSnapshot: nextCombat.snapshot('tabby') });
+      const startSnapshot = nextCombat.snapshot('tabby');
+      const nextLive: FixtureLiveMission = Object.freeze({ jobId: live!.jobId, worldEventId: live!.worldEventId, attemptId, completedInteractionIds: Object.freeze([]), finiteEnemyGroupCleared: false, recoveryRequired: false, checkpointRevision: 0, ownerEpoch: live!.ownerEpoch + 1, combatSnapshot: startSnapshot, replayRecord: Object.freeze({ version: 'int-fb-replay-v1', contentId: `fixture:${live!.jobId}:v1`, storyBranch: live!.jobId, startSnapshot, loadout: retry.profile }) });
       const candidate: FixturePersistentEnvelope = Object.freeze({ ...durable!, workshop: retry.profile, liveMission: nextLive });
       try { this.writeEnvelope(candidate); }
       catch { this.recoveryMode = 'recovered'; this.combatFeedback = 'Retry storage failed; the prior recovery remains ready and no new attempt was started.'; this.showRecoveryControls(); this.refreshStatus(); return; }
@@ -617,6 +669,11 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       try { this.writeEnvelope(candidate); }
       catch { this.settlementPending = false; this.combatFeedback = 'Settlement storage failed; extraction remains active for a safe retry.'; this.refreshStatus(); return; }
       this.assignEnvelope(candidate); this.extracted = this.operation.extract(); this.combatActive = false; this.activeWorldEventId = undefined; this.activeAttemptId = undefined; this.settlementPending = false;
+      // A committed victory remains authoritative even if a same-batch KO
+      // arrived afterwards. The completed world has no live mission to
+      // recover, so restore only the scene-local service presentation rather
+      // than leaving the player unable to move a downed controlled actor.
+      this.combat = new IntegratedFixtureCombat(candidate.workshop); this.restoreSafeState();
       this.combatFeedback = `${fixtureDialogue(jobId, 'result')} Event delivery, wallet reward, and B1 progression saved.`; this.refreshStatus();
     }, () => { this.settlementPending = false; });
   }
@@ -667,16 +724,33 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (this.historicalReplay || this.activeMission()) return false;
     const receipt = this.envelope.mission.receipts.at(-1);
     if (!receipt) { this.combatFeedback = 'Historical replay unavailable: no retained fixture receipt.'; this.refreshStatus(); return false; }
-    const begun = beginHistoricalFixtureReplay(this.envelope.workshop, this.envelope.mission, receipt.id, { contentId: `fixture:${receipt.jobId}`, storyBranch: receipt.jobId, available: this.historicalReplayContentAvailable });
+    const record = receipt.replayRecord;
+    if (!record || !record.loadout) { this.combatFeedback = 'Historical replay unavailable: this legacy receipt has no pinned original loadout.'; this.refreshStatus(); return false; }
+    const begun = beginHistoricalFixtureReplay(this.envelope.workshop, this.envelope.mission, receipt.id, { contentId: record.contentId, storyBranch: record.storyBranch, available: this.historicalReplayContentAvailable });
     if (!begun.session) { this.combatFeedback = 'Historical replay unavailable: pinned content is not retained.'; this.refreshStatus(); return false; }
     this.historicalReplay = begun.session;
     this.replayGeneration += 1;
-    const panel = this.add.container(this.scale.width / 2, this.scale.height / 2).setScrollFactor(0).setDepth(35);
+    const replayCombat = new IntegratedFixtureCombat(record.loadout);
+    // restore() intentionally requires the authored roster. Build it from
+    // the pinned job before applying the recorded actor/cooldown snapshot.
+    replayCombat.beginJob(receipt.jobId);
+    if (!replayCombat.restore(record.startSnapshot, receipt.jobId, false)) { this.historicalReplay = undefined; this.combatFeedback = 'Historical replay unavailable: recorded snapshot cannot be restored.'; this.refreshStatus(); return false; }
+    this.replayCombat = replayCombat;
+    this.replayEnvelopeBytes = serializeIntegratedFixtureEnvelope(this.envelope);
+    // Do not repurpose live actors: archived sprites are new scene objects
+    // restored from the recorded start snapshot, while live state stays put.
+    const actors = new Map(record.startSnapshot.actors.map(actor => [actor.id, actor]));
+    const tabby = actors.get('tabby')!; const hound = actors.get('hound')!;
+    this.lead?.setVisible(false); this.hound?.setVisible(false); this.enemies.forEach(enemy => enemy.setVisible(false));
+    this.replayLead = this.add.circle(tabby.position.x * SCALE, tabby.position.z * SCALE, 7, 0x71d8ff).setStrokeStyle(2, 0x24cec7).setDepth(16);
+    this.replayHound = this.add.circle(hound.position.x * SCALE, hound.position.z * SCALE, 6, 0x84e6a0).setStrokeStyle(2, 0x24cec7).setDepth(16);
+    this.replayEnemies = replayCombat.hostileStates().map(hostile => this.add.circle(hostile.position.x * SCALE, hostile.position.z * SCALE, 7, 0xef6b73).setStrokeStyle(2, 0xffd166).setDepth(16));
+    const panel = this.add.container(this.scale.width / 2, 62).setScrollFactor(0).setDepth(35);
     const width = Math.min(480, this.scale.width - 24);
-    const background = this.add.rectangle(0, 0, width, 270, 0x101820, .98).setStrokeStyle(2, 0x24cec7);
-    const copy = createUiText(this, 0, -78, `HISTORICAL REPLAY — READ ONLY\n${receipt.id}\nPinned ${begun.session.contentId} · profile ${begun.session.profileHash}\nNo wallet, receipt, standing, claim, or world writes.`, { align: 'center', fontSize: '14px', color: '#fff', wordWrap: { width: width - 32 } }).setOrigin(.5);
-    const exit = this.add.rectangle(0, 62, 140, 44, 0x7393d8).setInteractive().on('pointerup', () => this.finishHistoricalReplay('exit'));
-    panel.add([background, copy, exit, createUiText(this, 0, 62, 'EXIT / ESC', { fontSize: '13px', color: '#071018' }).setOrigin(.5)]);
+    const background = this.add.rectangle(0, 0, width, 88, 0x101820, .98).setStrokeStyle(2, 0x24cec7);
+    const copy = createUiText(this, -80, 0, `ARCHIVED REPLAY · ${receipt.id}\nPinned ${begun.session.contentId}\nMove / Q swaps archived gun`, { align: 'left', fontSize: '12px', color: '#fff', wordWrap: { width: width - 170 } }).setOrigin(.5);
+    const exit = this.add.rectangle(width / 2 - 62, 0, 100, 40, 0x7393d8).setInteractive().on('pointerup', () => this.finishHistoricalReplay('exit'));
+    panel.add([background, copy, exit, createUiText(this, width / 2 - 62, 0, 'EXIT\nESC', { fontSize: '12px', color: '#071018', align: 'center' }).setOrigin(.5)]);
     this.historicalReplayModal = panel;
     this.combatFeedback = 'Historical replay is pinned and read-only.'; this.refreshStatus();
     return true;
@@ -684,10 +758,24 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean {
     if (!this.historicalReplay) return false;
     const finished = finishHistoricalFixtureReplay(this.envelope.workshop, this.historicalReplay, outcome);
-    this.historicalReplayModal?.destroy(); this.historicalReplayModal = undefined; this.historicalReplay = undefined; this.historicalReplayOutcome = outcome;
-    this.combatFeedback = finished.profileHashUnchanged ? `Historical replay ${outcome}; live profile unchanged.` : 'Historical replay closed: live profile hash changed outside replay.';
+    const envelopeUnchanged = this.replayEnvelopeBytes === serializeIntegratedFixtureEnvelope(this.envelope);
+    this.historicalReplayModal?.destroy(); this.historicalReplayModal = undefined; this.replayLead?.destroy(); this.replayHound?.destroy(); this.replayEnemies.forEach(enemy => enemy.destroy()); this.replayLead = undefined; this.replayHound = undefined; this.replayEnemies = []; this.replayTouchTarget = undefined; this.lead?.setVisible(true); this.hound?.setVisible(true); this.enemies.forEach(enemy => enemy.setVisible(true)); this.historicalReplay = undefined; this.replayCombat = undefined; this.replayEnvelopeBytes = undefined; this.historicalReplayOutcome = outcome;
+    this.combatFeedback = finished.profileHashUnchanged && envelopeUnchanged ? `Historical replay ${outcome}; live profile unchanged.` : 'Historical replay closed: live envelope changed outside replay.';
     this.refreshStatus();
-    return finished.profileHashUnchanged;
+    return finished.profileHashUnchanged && envelopeUnchanged;
+  }
+  /** Visual-test-only terminal setup; updateHistoricalReplay still performs
+   * the terminal detection and closes the isolated session. */
+  private forceReplayTerminal(outcome: 'success' | 'death'): boolean {
+    if (import.meta.env.VITE_VISUAL_TEST !== '1' || !this.replayCombat) return false;
+    if (outcome === 'success') {
+      this.replayCombat.setFixtureSquadHealth('tabby', 100);
+      this.replayCombat.setFixtureSquadHealth('hound', 100);
+      for (const hostile of this.replayCombat.hostileStates()) this.replayCombat.setFixtureHostileHealth(hostile.id, 0);
+    } else { this.replayCombat.setFixtureSquadHealth('tabby', 0); this.replayCombat.setFixtureSquadHealth('hound', 0); }
+    this.simulationPaused = false;
+    this.updateHistoricalReplay(16);
+    return true;
   }
   private confirmWorkshop(): void {
     const action = this.workshopPreview;

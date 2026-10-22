@@ -8,7 +8,7 @@ type Diagnostics = {
   workshopMaterials: { metal: number; circuits: number; cloth: number }; standing: { rcc: number; fre: number }; houDossier: number; fluxQualificationRemainder: number; historicalReplayActive: boolean; historicalReplayOutcome?: 'success' | 'death' | 'exit'; worldEventId?: string; activeAttemptId?: string; attemptTerminal?: string;
   workshopOpen: boolean; workshopPreview?: string; settlementPending: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; loadBlocked: boolean; recoveryMessage: string; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
 };
-type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; setHistoricalReplayContentAvailable(available: boolean): void; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void };
+type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; queueRequiredObjective(): boolean; queueGroupClear(): boolean; queueExtraction(): boolean; queueDiscovery(): boolean; queueWorkshopConflict(): boolean; queueWorkshopConfirmation(): boolean; queueRetry(): boolean; openHistoricalReplay(): boolean; finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean; forceReplayTerminal(outcome: 'success' | 'death'): boolean; replayActiveGun(): { instanceId: string; supply: number } | undefined; setHistoricalReplayContentAvailable(available: boolean): void; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void; pauseSimulation(): void };
 type Globals = { __MEOWCENARY_INT_FB__?: FixtureSeam };
 type LateSeam = { diagnostics(): { scene: string; revision: number; parts: number; wallet: { credits: number; metal: number; circuits: number }; receipts: readonly { commandId: string }[]; discoveries: readonly string[]; declaration: string }; commit(command: { commandId: string; expectedRevision: number; action: 'merge' | 'build'; inputIds?: readonly string[] }): boolean };
 
@@ -25,13 +25,22 @@ async function moveTo(page: Page, x: number, y: number): Promise<void> {
     await moveAxis(page, 'y', y);
     return;
   }
-  await page.mouse.move(x, y);
+  const before = await state(page);
+  // Phaser pointer coordinates are screen-relative while test destinations
+  // are authored world coordinates. Account for follow-camera scroll exactly
+  // as the touch route below does.
+  const screen = { x: x - before.cameraX, y: y - before.cameraY };
+  await page.mouse.move(screen.x, screen.y);
   await page.mouse.down();
   try {
+    let last = before;
     await expect.poll(async () => {
-      const current = await state(page);
-      return Math.hypot(current.x - x, current.y - y) < 9;
+      last = await state(page);
+      return Math.hypot(last.x - x, last.y - y) < 9;
     }, { timeout: 15_000, intervals: [50, 100, 200] }).toBe(true);
+  } catch (error) {
+    const current = await state(page);
+    throw new Error(`moveTo stalled: worldTarget=${x},${y}; screenTarget=${screen.x},${screen.y}; before=${before.x},${before.y},layer=${before.layer},camera=${before.cameraX},${before.cameraY}; current=${current.x},${current.y},layer=${current.layer},phase=${current.phase},camera=${current.cameraX},${current.cameraY}; ${error instanceof Error ? error.message : String(error)}`);
   } finally { await page.mouse.up(); }
 }
 async function moveAxis(page: Page, axis: 'x' | 'y', target: number): Promise<void> {
@@ -187,14 +196,18 @@ test('queued workshop confirmation aborts when replay opens before writer acquis
   test.skip(info.project.name !== 'desktop-1280x720', 'Dedicated desktop replay writer evidence.');
   await ready(page); expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prepareF01())).toBe(true);
   await expect.poll(() => page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')), { timeout: 15_000 }).not.toBeNull();
-  // Seed a retained receipt without changing live storage through the replay path.
-  await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); raw.mission.receipts.push({ id: 'int-fb:test:settlement', jobId: 'MC-OPT-F01-01', worldEventId: 'test-event', attemptId: 'test-attempt', recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6 }); delete raw.liveMission; localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw)); });
+  // Test-only settlement uses the activation's real recorded snapshot/loadout;
+  // legacy receipt-only history is deliberately replay-unavailable.
+  await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); const replayRecord = raw.liveMission?.replayRecord; if (!replayRecord) throw new Error('activation did not retain replay record'); raw.mission.receipts.push({ id: 'int-fb:test:settlement', jobId: 'MC-OPT-F01-01', worldEventId: 'test-event', attemptId: 'test-attempt', recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6, replayRecord }); delete raw.liveMission; localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw)); });
   await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+  expect(await state(page)).toMatchObject({ loadBlocked: false, historicalReplayActive: false, activeAttemptId: undefined });
   await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.setHistoricalReplayContentAvailable(true));
+  await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.pauseSimulation());
+  expect(await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); const receipt = raw.mission.receipts.at(-1); return { hasRecord: Boolean(receipt?.replayRecord), hasLoadout: Boolean(receipt?.replayRecord?.loadout), contentId: receipt?.replayRecord?.contentId, storyBranch: receipt?.replayRecord?.storyBranch, jobId: receipt?.jobId }; })).toEqual({ hasRecord: true, hasLoadout: true, contentId: 'fixture:MC-OPT-F01-01:v1', storyBranch: 'MC-OPT-F01-01', jobId: 'MC-OPT-F01-01' });
   const before = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
   await holdFixtureWriter(page); try {
     expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueWorkshopConfirmation())).toBe(true);
-    await page.keyboard.press('h'); await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(true);
+    expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true); await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(true);
     const liveBefore = await state(page); await page.keyboard.press('q'); await page.keyboard.press('e'); await page.keyboard.press('b'); await page.keyboard.press('t');
     expect(await state(page)).toMatchObject({ controlledGun: liveBefore.controlledGun, controlledActor: liveBefore.controlledActor, phase: liveBefore.phase, workshopOpen: liveBefore.workshopOpen, tabbyPosition: liveBefore.tabbyPosition, houndPosition: liveBefore.houndPosition });
     await page.keyboard.press('Escape'); await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(false);
@@ -202,6 +215,26 @@ test('queued workshop confirmation aborts when replay opens before writer acquis
   await page.evaluate(() => navigator.locks.request('meowcenary:int-fb:v1:writer', { mode: 'exclusive' }, async () => undefined));
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(before);
   await page.keyboard.press('Escape'); await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(false);
+});
+
+test('recordless historical receipt refuses replay without changing the decoded live profile', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Dedicated desktop legacy-receipt refusal evidence.');
+  await ready(page);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prepareF01())).toBe(true);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')), { timeout: 15_000 }).not.toBeNull();
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+    raw.mission.receipts.push({ id: 'int-fb:legacy:receipt', jobId: 'MC-OPT-F01-01', worldEventId: 'legacy-event', attemptId: 'legacy-attempt', recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6 });
+    delete raw.liveMission;
+    localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw));
+  });
+  await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+  await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.setHistoricalReplayContentAvailable(true));
+  const before = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+  const sessionBefore = await state(page);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(false);
+  expect(await state(page)).toMatchObject({ historicalReplayActive: false, workshopCredits: sessionBefore.workshopCredits, receiptIds: sessionBefore.receiptIds, paidEventIds: sessionBefore.paidEventIds });
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(before);
 });
 
 test('held writer rejects corruption after a non-live workshop preview', async ({ page }, info) => {
@@ -223,7 +256,10 @@ test('held writer rejects corruption after a non-live workshop preview', async (
 });
 
 test('F01 recovery/retry/extraction is persisted by the live Phaser scene', async ({ page }, info) => {
-  test.setTimeout(60_000);
+  // Recovery, retry, post-settlement return travel, live workshop mutation,
+  // and three replay terminal paths are one integration flow. Keep its budget
+  // bounded, but above the original pre-replay-only 60 second allowance.
+  test.setTimeout(120_000);
   test.skip(!selectedProject(info), 'Focused scene evidence is captured on one desktop and one touch viewport.');
   await ready(page);
   const phoneViewport = info.project.name === 'phone-390x844';
@@ -360,6 +396,25 @@ test('F01 recovery/retry/extraction is persisted by the live Phaser scene', asyn
   expect(complete.paidEventIds).toContain(activated.worldEventId!);
   expect(complete.receiptIds).toHaveLength(1);
   expect(complete).toMatchObject({ standing: { rcc: 0, fre: 10 }, houDossier: 1, fluxQualificationRemainder: 1.25 });
+  const retryReceipt = await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!);
+    const receipt = raw.mission.receipts.at(-1);
+    return { receipt, attempts: raw.workshop.attempts, paid: raw.workshop.paidEventIds };
+  });
+  expect(retryReceipt.receipt).toMatchObject({ worldEventId: activated.worldEventId, credits: 1000, replayRecord: { version: 'int-fb-replay-v1', contentId: 'fixture:MC-OPT-F01-01:v1', storyBranch: 'MC-OPT-F01-01' } });
+  expect(retryReceipt.receipt.replayRecord.startSnapshot.actors).toHaveLength(4);
+  expect(retryReceipt.receipt.replayRecord.loadout.parts).toHaveLength(25);
+  expect(retryReceipt.attempts.filter((attempt: any) => attempt.worldEventId === activated.worldEventId && attempt.terminal === 'victory')).toHaveLength(1);
+  expect(retryReceipt.paid).toEqual([activated.worldEventId]);
+  // Change the live loadout through the normal safe-service workshop UI after
+  // settlement. The archived record must continue to resolve its original F1.
+  expect(await state(page)).toMatchObject({ tabbyHealth: 100, houndHealth: 100, tabbyPosition: { x: 80, y: 110 }, houndPosition: { x: 65, y: 110 }, recoveryMode: 'none' });
+  await page.keyboard.press('b'); await expect.poll(async () => (await state(page)).workshopOpen).toBe(true);
+  const workshopCanvas = page.locator('canvas'); const workshopBox = await workshopCanvas.boundingBox(); if (!workshopBox) throw new Error('canvas unavailable');
+  await page.mouse.click(workshopBox.x + 550 * workshopBox.width / 1280, workshopBox.y + 295 * workshopBox.height / 720); await expect.poll(async () => (await state(page)).workshopPreview).toBe('buy-f2'); await page.keyboard.press('Enter'); await expect.poll(async () => (await state(page)).workshopCredits).toBe(complete.workshopCredits - 1650);
+  await page.keyboard.press('f'); await expect.poll(async () => (await state(page)).workshopPreview).toBe('fit-f2-a'); await page.keyboard.press('Enter'); await expect.poll(async () => (await state(page)).workshopPreview).toBeUndefined();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!).workshop.gunSlots['TAB-A'].F)).toMatch(/TAB-F2/);
+  const postWorkshop = await state(page);
   // Historical replay is entered through its visible H control and may only
   // observe a pinned receipt. Every terminal route leaves the complete live
   // envelope byte-identical; unavailable pinned content refuses entry.
@@ -367,14 +422,15 @@ test('F01 recovery/retry/extraction is persisted by the live Phaser scene', asyn
   await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.setHistoricalReplayContentAvailable(true));
   await page.keyboard.press('h');
   await expect.poll(async () => (await state(page)).historicalReplayActive).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.replayActiveGun())).toMatchObject({ supply: 12 });
   await page.keyboard.press('g'); await page.keyboard.press('Enter'); await page.keyboard.press('1');
   await page.waitForTimeout(100);
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
-  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.finishHistoricalReplay('success'))).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayTerminal('success'))).toBe(true);
   await expect.poll(async () => (await state(page)).historicalReplayOutcome).toBe('success');
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
-  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.finishHistoricalReplay('death'))).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayTerminal('death'))).toBe(true);
   expect(await state(page)).toMatchObject({ historicalReplayActive: false, historicalReplayOutcome: 'death' });
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
@@ -386,10 +442,10 @@ test('F01 recovery/retry/extraction is persisted by the live Phaser scene', asyn
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(durableBeforeReplay);
   await capture(page, info, 'f01-event-delivered');
   await page.keyboard.press('e');
-  expect(await state(page)).toMatchObject({ workshopCredits: complete.workshopCredits, receiptIds: complete.receiptIds, paidEventIds: complete.paidEventIds });
+  expect(await state(page)).toMatchObject({ workshopCredits: postWorkshop.workshopCredits, receiptIds: postWorkshop.receiptIds, paidEventIds: postWorkshop.paidEventIds });
   await page.reload();
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__)), { timeout: 15_000 }).toBe(true);
-  expect(await state(page)).toMatchObject({ receiptIds: complete.receiptIds, paidEventIds: complete.paidEventIds, workshopCredits: complete.workshopCredits });
+  expect(await state(page)).toMatchObject({ receiptIds: postWorkshop.receiptIds, paidEventIds: postWorkshop.paidEventIds, workshopCredits: postWorkshop.workshopCredits });
   // The separate Chapter-5 screen starts only from its own key. A visible
   // merge confirmation persists before refresh; stale, duplicate, and fitted
   // donor attempts cannot mutate it or the retained B1 envelope.

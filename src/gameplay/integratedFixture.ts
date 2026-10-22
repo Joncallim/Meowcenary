@@ -182,7 +182,7 @@ export interface FixtureMissionReceipt {
   readonly cloth: 6;
   /** New attempts retain their actual activation snapshot; older receipts
    * intentionally omit this and are replay-unavailable. */
-  readonly replayRecord?: Readonly<{ version: 'int-fb-replay-v1'; contentId: string; storyBranch: string; startSnapshot: FixtureCombatSnapshot }>;
+  readonly replayRecord?: Readonly<{ version: 'int-fb-replay-v1'; contentId: string; storyBranch: string; startSnapshot: FixtureCombatSnapshot; /** Exact resolved workshop/loadout at activation. Older snapshot-only records stay unavailable. */ loadout?: FixtureWorkshopProfile }>;
 }
 export interface FixtureMissionSave {
   readonly version: typeof INTEGRATED_FIXTURE_VERSION;
@@ -255,8 +255,8 @@ function fixtureStableHash(value: string): string {
 export function fixtureWorkshopProfileHash(profile: FixtureWorkshopProfile): string { return fixtureStableHash(JSON.stringify(profile)); }
 export function beginHistoricalFixtureReplay(profile: FixtureWorkshopProfile, save: FixtureMissionSave, receiptId: string, content: FixtureHistoricalReplayContent): Readonly<{ session?: FixtureHistoricalReplaySession; reason?: 'receipt-unavailable' | 'pinned-content-unavailable' }> {
   const receipt = save.receipts.find(candidate => candidate.id === receiptId);
-  if (!receipt) return Object.freeze({ reason: 'receipt-unavailable' });
-  if (!content.available || !content.contentId || !content.storyBranch) return Object.freeze({ reason: 'pinned-content-unavailable' });
+  if (!receipt || !receipt.replayRecord) return Object.freeze({ reason: 'receipt-unavailable' });
+  if (!content.available || !content.contentId || !content.storyBranch || content.contentId !== receipt.replayRecord.contentId || content.storyBranch !== receipt.replayRecord.storyBranch) return Object.freeze({ reason: 'pinned-content-unavailable' });
   const profileHash = fixtureWorkshopProfileHash(profile);
   return Object.freeze({ session: Object.freeze({ replaySessionId: `int-fb:replay:${receipt.id}:${profileHash}`, profileHash, receipt: Object.freeze({ ...receipt }), contentId: content.contentId, storyBranch: content.storyBranch }) });
 }
@@ -357,6 +357,18 @@ function fixtureSemanticEqual(left: unknown, right: unknown): boolean {
   const leftKeys = Object.keys(leftRecord); const rightKeys = Object.keys(rightRecord);
   return leftKeys.length === rightKeys.length && leftKeys.every(key => Object.prototype.hasOwnProperty.call(rightRecord, key) && fixtureSemanticEqual(leftRecord[key], rightRecord[key]));
 }
+/** A replay record is durable evidence, not an optional UI hint.  Validate the
+ * same shape for the unfinished attempt and its eventual receipt so malformed
+ * live metadata can never be promoted into a save that rejects on reload. */
+function validFixtureReplayRecord(value: unknown, job: FixtureJobId): value is NonNullable<FixtureMissionReceipt['replayRecord']> {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Partial<NonNullable<FixtureMissionReceipt['replayRecord']>>;
+  return record.version === 'int-fb-replay-v1'
+    && typeof record.contentId === 'string' && record.contentId.length > 0
+    && record.storyBranch === job
+    && validFixtureCombatSnapshot(record.startSnapshot, job, false)
+    && (record.loadout === undefined || fixtureSemanticEqual(deserializeIntegratedFixtureWorkshopProfile(record.loadout), record.loadout));
+}
 export function createIntegratedFixtureEnvelope(): FixturePersistentEnvelope {
   return Object.freeze({ version: INTEGRATED_FIXTURE_ENVELOPE_VERSION, mission: createIntegratedFixtureSave(), workshop: createIntegratedFixtureWorkshopProfile() });
 }
@@ -370,7 +382,8 @@ function validLiveMission(value: unknown, profile: FixtureWorkshopProfile): valu
     || (live.ownerEpoch !== undefined && (!Number.isSafeInteger(live.ownerEpoch) || live.ownerEpoch < 0))
     || (live.recoveryFee !== undefined && (!Number.isInteger(live.recoveryFee) || live.recoveryFee < 0 || live.recoveryFee > 250))
     || (!live.recoveryRequired && live.recoveryFee !== undefined)
-    || (live.combatSnapshot !== undefined && !validFixtureCombatSnapshot(live.combatSnapshot, live.jobId, live.finiteEnemyGroupCleared))) return false;
+    || (live.combatSnapshot !== undefined && !validFixtureCombatSnapshot(live.combatSnapshot, live.jobId, live.finiteEnemyGroupCleared))
+    || (live.replayRecord !== undefined && !validFixtureReplayRecord(live.replayRecord, live.jobId))) return false;
   const job = INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === live.jobId)!;
   if (!live.completedInteractionIds.every(id => job.requiredInteractionIds.includes(id))) return false;
   const attempt = profile.attempts.find(candidate => candidate.attemptId === live.attemptId && candidate.worldEventId === live.worldEventId);
@@ -388,7 +401,7 @@ export function deserializeIntegratedFixtureEnvelope(value: string | null): Fixt
     if (raw.version !== INTEGRATED_FIXTURE_ENVELOPE_VERSION && raw.version !== 'int-fb-envelope-v2') return createIntegratedFixtureEnvelope();
     const mission = deserializeIntegratedFixtureSave(JSON.stringify(raw.mission));
     const workshop = deserializeIntegratedFixtureWorkshopProfile(raw.workshop);
-    const liveMission = validLiveMission(raw.liveMission, workshop) ? Object.freeze({ ...raw.liveMission, checkpointRevision: raw.liveMission.checkpointRevision ?? 0, ownerEpoch: raw.liveMission.ownerEpoch ?? 0, completedInteractionIds: Object.freeze([...raw.liveMission.completedInteractionIds]), ...(raw.liveMission.combatSnapshot ? { combatSnapshot: freezeFixtureCombatSnapshot(raw.liveMission.combatSnapshot) } : {}) }) : undefined;
+    const liveMission = validLiveMission(raw.liveMission, workshop) ? Object.freeze({ ...raw.liveMission, checkpointRevision: raw.liveMission.checkpointRevision ?? 0, ownerEpoch: raw.liveMission.ownerEpoch ?? 0, completedInteractionIds: Object.freeze([...raw.liveMission.completedInteractionIds]), ...(raw.liveMission.combatSnapshot ? { combatSnapshot: freezeFixtureCombatSnapshot(raw.liveMission.combatSnapshot) } : {}), ...(raw.liveMission.replayRecord ? { replayRecord: Object.freeze({ ...raw.liveMission.replayRecord, startSnapshot: freezeFixtureCombatSnapshot(raw.liveMission.replayRecord.startSnapshot) }) } : {}) }) : undefined;
     return Object.freeze({ version: INTEGRATED_FIXTURE_ENVELOPE_VERSION, mission, workshop, ...(liveMission ? { liveMission } : {}) });
   } catch { return createIntegratedFixtureEnvelope(); }
 }
@@ -410,7 +423,7 @@ export function decodeIntegratedFixtureEnvelope(value: string | null): FixtureEn
     const slots: readonly FixtureSlot[] = ['R', 'B', 'F', 'P', 'H', 'C'];
     const guns: readonly FixtureGunId[] = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'];
     if (!mission || typeof mission !== 'object' || mission.version !== INTEGRATED_FIXTURE_VERSION || mission.seed !== 'int-fb-post-chapter-2' || !Array.isArray(mission.receipts)
-      || !mission.receipts.every(receipt => record(receipt) && nonEmpty(receipt.id) && jobId(receipt.jobId) && nonEmpty(receipt.worldEventId) && nonEmpty(receipt.attemptId) && receipt.recipientId === (receipt.jobId === 'MC-OPT-R01-01' ? 'rcc-dispatch' : 'fre-broker') && receipt.credits === 1000 && receipt.metal === 20 && receipt.circuits === 4 && receipt.cloth === 6 && (receipt.replayRecord === undefined || (record(receipt.replayRecord) && receipt.replayRecord.version === 'int-fb-replay-v1' && nonEmpty(receipt.replayRecord.contentId) && receipt.replayRecord.storyBranch === receipt.jobId && validFixtureCombatSnapshot(receipt.replayRecord.startSnapshot, receipt.jobId, false))))
+      || !mission.receipts.every(receipt => record(receipt) && nonEmpty(receipt.id) && jobId(receipt.jobId) && nonEmpty(receipt.worldEventId) && nonEmpty(receipt.attemptId) && receipt.recipientId === (receipt.jobId === 'MC-OPT-R01-01' ? 'rcc-dispatch' : 'fre-broker') && receipt.credits === 1000 && receipt.metal === 20 && receipt.circuits === 4 && receipt.cloth === 6 && (receipt.replayRecord === undefined || validFixtureReplayRecord(receipt.replayRecord, receipt.jobId)))
       || !workshop || typeof workshop !== 'object' || !manifest || typeof manifest !== 'object'
       || !requiredWorkshopArrays.every(key => Array.isArray(workshop[key]))
       || !requiredManifestBooleans.every(key => typeof manifest[key] === 'boolean')
@@ -1015,7 +1028,7 @@ export class IntegratedFixtureCombat {
   public isGroupCleared(): boolean { return ![...this.actors.values()].some(actor => actor.team === 'hostile' && actor.health > 0); }
   public actorHealth(id: FixtureCombatantId): number { return this.actors.get(id)?.health ?? 0; }
   /** Test fixture only: keeps a valid authored hostile contact alive for cadence/refill proofs. */
-  public setFixtureHostileHealth(id: FixtureCombatantId, health: number): void { const actor = this.actors.get(id); if (actor?.team === 'hostile' && Number.isFinite(health) && health > 0 && health <= 10_000) { actor.maxHealth = health; actor.health = health; } }
+  public setFixtureHostileHealth(id: FixtureCombatantId, health: number): void { const actor = this.actors.get(id); if (actor?.team === 'hostile' && Number.isFinite(health) && health >= 0 && health <= 10_000) { if (health > 0) actor.maxHealth = health; actor.health = health; } }
   /** Test fixture only: drives the real scene recovery branch without faking its persistence. */
   public setFixtureSquadHealth(id: 'tabby' | 'hound', health: number): void { const actor = this.actors.get(id); if (actor && Number.isFinite(health) && health >= 0) actor.health = Math.min(actor.maxHealth, health); }
   public hostileStates(): readonly Readonly<{ id: FixtureCombatantId; position: FixturePosition; health: number }>[] {
