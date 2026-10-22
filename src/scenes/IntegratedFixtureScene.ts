@@ -494,7 +494,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       const nextCombat = new IntegratedFixtureCombat(begun.profile);
       nextCombat.beginJob(jobId);
       if (this.lead && this.hound) nextCombat.setSquadPositions(this.spriteTerrainPosition('tabby'), this.spriteTerrainPosition('hound'));
-      const liveMission: FixtureLiveMission = Object.freeze({ jobId, worldEventId, attemptId, completedInteractionIds: Object.freeze([]), finiteEnemyGroupCleared: false, recoveryRequired: false, checkpointRevision: 0, ownerEpoch: 0, combatSnapshot: nextCombat.snapshot(this.controlledActor) });
+      const startSnapshot = nextCombat.snapshot(this.controlledActor);
+      const liveMission: FixtureLiveMission = Object.freeze({ jobId, worldEventId, attemptId, completedInteractionIds: Object.freeze([]), finiteEnemyGroupCleared: false, recoveryRequired: false, checkpointRevision: 0, ownerEpoch: 0, combatSnapshot: startSnapshot, replayRecord: Object.freeze({ version: 'int-fb-replay-v1', contentId: `fixture:${jobId}:v1`, storyBranch: jobId, startSnapshot }) });
       const candidate: FixturePersistentEnvelope = Object.freeze({ ...durable, workshop: begun.profile, liveMission });
       try { this.writeEnvelope(candidate); }
       catch { this.activationWriting = false; this.combatFeedback = 'Activation storage failed; no event or attempt was created.'; this.refreshStatus(); return; }
@@ -608,7 +609,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       if (live!.recoveryRequired || !operationCanSettle({ jobId: live!.jobId, completedInteractionIds: live!.completedInteractionIds, finiteEnemyGroupCleared: live!.finiteEnemyGroupCleared, extractionConfirmed: true })) {
         this.settlementPending = false; this.combatFeedback = 'Extraction changed before it could be committed; it remains active.'; this.refreshStatus(); return;
       }
-      const receipt = settleIntegratedFixtureEvent(durable!.mission, jobId, live!.worldEventId, live!.attemptId);
+      const receipt = settleIntegratedFixtureEvent(durable!.mission, jobId, live!.worldEventId, live!.attemptId, live!.replayRecord);
       if (!receipt.applied) { this.settlementPending = false; this.combatFeedback = 'This world event was already delivered; no cargo can reappear.'; this.refreshStatus(); return; }
       const settlement = settleFixtureProfileAttempt(durable!.workshop, live!.attemptId, live!.jobId);
       if (!settlement.applied) { this.settlementPending = false; this.combatFeedback = durable!.workshop.paidEventIds.includes(live!.worldEventId) ? 'This world event was already delivered; no cargo can reappear.' : 'Settlement was rejected; extraction remains active.'; this.refreshStatus(); return; }

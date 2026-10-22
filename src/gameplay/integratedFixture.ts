@@ -180,6 +180,9 @@ export interface FixtureMissionReceipt {
   readonly metal: 20;
   readonly circuits: 4;
   readonly cloth: 6;
+  /** New attempts retain their actual activation snapshot; older receipts
+   * intentionally omit this and are replay-unavailable. */
+  readonly replayRecord?: Readonly<{ version: 'int-fb-replay-v1'; contentId: string; storyBranch: string; startSnapshot: FixtureCombatSnapshot }>;
 }
 export interface FixtureMissionSave {
   readonly version: typeof INTEGRATED_FIXTURE_VERSION;
@@ -194,11 +197,11 @@ export function createIntegratedFixtureSave(): FixtureMissionSave {
  * job definition.  A new event may pay; a repeat callback for one delivered
  * event cannot recreate its cargo or receipt.
  */
-export function settleIntegratedFixtureEvent(save: FixtureMissionSave, jobId: FixtureJobId, worldEventId: FixtureWorldEventId, attemptId: FixtureAttemptId): Readonly<{ save: FixtureMissionSave; receipt: FixtureMissionReceipt; applied: boolean }> {
+export function settleIntegratedFixtureEvent(save: FixtureMissionSave, jobId: FixtureJobId, worldEventId: FixtureWorldEventId, attemptId: FixtureAttemptId, replayRecord?: FixtureMissionReceipt['replayRecord']): Readonly<{ save: FixtureMissionSave; receipt: FixtureMissionReceipt; applied: boolean }> {
   const id = `int-fb:${worldEventId}:settlement`;
   const existing = save.receipts.find(receipt => receipt.id === id);
   if (existing) return Object.freeze({ save, receipt: existing, applied: false });
-  const receipt: FixtureMissionReceipt = Object.freeze({ id, jobId, worldEventId, attemptId, recipientId: jobId === 'MC-OPT-R01-01' ? 'rcc-dispatch' : 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6 });
+  const receipt: FixtureMissionReceipt = Object.freeze({ id, jobId, worldEventId, attemptId, recipientId: jobId === 'MC-OPT-R01-01' ? 'rcc-dispatch' : 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6, ...(replayRecord ? { replayRecord } : {}) });
   const next = Object.freeze({ version: INTEGRATED_FIXTURE_VERSION, seed: 'int-fb-post-chapter-2' as const, receipts: Object.freeze([...save.receipts, receipt]) });
   return Object.freeze({ save: next, receipt, applied: true });
 }
@@ -337,6 +340,7 @@ export interface FixtureLiveMission {
   /** Last atomic combat checkpoint for this unfinished attempt. It restores
    * the actual survivors rather than manufacturing a fresh squad on reload. */
   readonly combatSnapshot?: FixtureCombatSnapshot;
+  readonly replayRecord?: NonNullable<FixtureMissionReceipt['replayRecord']>;
 }
 export interface FixturePersistentEnvelope {
   readonly version: typeof INTEGRATED_FIXTURE_ENVELOPE_VERSION;
@@ -406,7 +410,7 @@ export function decodeIntegratedFixtureEnvelope(value: string | null): FixtureEn
     const slots: readonly FixtureSlot[] = ['R', 'B', 'F', 'P', 'H', 'C'];
     const guns: readonly FixtureGunId[] = ['TAB-A', 'TAB-B', 'HOU-A', 'HOU-B'];
     if (!mission || typeof mission !== 'object' || mission.version !== INTEGRATED_FIXTURE_VERSION || mission.seed !== 'int-fb-post-chapter-2' || !Array.isArray(mission.receipts)
-      || !mission.receipts.every(receipt => record(receipt) && nonEmpty(receipt.id) && jobId(receipt.jobId) && nonEmpty(receipt.worldEventId) && nonEmpty(receipt.attemptId) && receipt.recipientId === (receipt.jobId === 'MC-OPT-R01-01' ? 'rcc-dispatch' : 'fre-broker') && receipt.credits === 1000 && receipt.metal === 20 && receipt.circuits === 4 && receipt.cloth === 6)
+      || !mission.receipts.every(receipt => record(receipt) && nonEmpty(receipt.id) && jobId(receipt.jobId) && nonEmpty(receipt.worldEventId) && nonEmpty(receipt.attemptId) && receipt.recipientId === (receipt.jobId === 'MC-OPT-R01-01' ? 'rcc-dispatch' : 'fre-broker') && receipt.credits === 1000 && receipt.metal === 20 && receipt.circuits === 4 && receipt.cloth === 6 && (receipt.replayRecord === undefined || (record(receipt.replayRecord) && receipt.replayRecord.version === 'int-fb-replay-v1' && nonEmpty(receipt.replayRecord.contentId) && receipt.replayRecord.storyBranch === receipt.jobId && validFixtureCombatSnapshot(receipt.replayRecord.startSnapshot, receipt.jobId, false))))
       || !workshop || typeof workshop !== 'object' || !manifest || typeof manifest !== 'object'
       || !requiredWorkshopArrays.every(key => Array.isArray(workshop[key]))
       || !requiredManifestBooleans.every(key => typeof manifest[key] === 'boolean')

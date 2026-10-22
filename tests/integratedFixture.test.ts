@@ -33,6 +33,17 @@ import {
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
+  it('persists a versioned activation replay record while legacy receipts remain recordless', () => {
+    const combat = new IntegratedFixtureCombat(createIntegratedFixtureWorkshopProfile()); combat.beginJob('MC-OPT-F01-01');
+    const record = { version: 'int-fb-replay-v1' as const, contentId: 'fixture:MC-OPT-F01-01:v1', storyBranch: 'MC-OPT-F01-01', startSnapshot: combat.snapshot('tabby') };
+    const settled = settleIntegratedFixtureEvent(createIntegratedFixtureSave(), 'MC-OPT-F01-01', 'event' as any, 'attempt' as any, record).save;
+    expect(settled.receipts[0]!.replayRecord).toMatchObject({ version: 'int-fb-replay-v1', contentId: record.contentId, storyBranch: record.storyBranch });
+    const envelope = createIntegratedFixtureEnvelope(); const withRecord = { ...envelope, mission: settled };
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify(withRecord))).toMatchObject({ state: 'valid' });
+    expect(historicalFixtureMissionReplay(createIntegratedFixtureSave(), 'none')).toBeUndefined();
+    const malformed = structuredClone(withRecord) as any; malformed.mission.receipts[0].replayRecord.contentId = '';
+    expect(decodeIntegratedFixtureEnvelope(JSON.stringify(malformed))).toEqual({ state: 'invalid' });
+  });
   it('fail-closes malformed nested and future persisted envelopes while valid history round-trips', () => {
     const valid = createIntegratedFixtureEnvelope();
     expect(decodeIntegratedFixtureEnvelope(JSON.stringify(valid))).toMatchObject({ state: 'valid', envelope: { mission: valid.mission, workshop: valid.workshop } });
