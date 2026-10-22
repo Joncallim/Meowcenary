@@ -21,8 +21,8 @@ export class LateFixtureScene extends Phaser.Scene {
     this.status = createUiText(this, 24, 24, '', { fontFamily: 'Nunito, sans-serif', fontSize: '16px', color: '#fff', wordWrap: { width: this.scale.width - 48 } });
     const button = (x: number, y: number, label: string, run: () => void) => { const shape = this.add.rectangle(x, y, 180, 48, 0x3ee8a9).setInteractive(); shape.on('pointerup', run); createUiText(this, x, y, label, { fontSize: '13px', color: '#071018', align: 'center' }).setOrigin(.5); };
     button(120, 300, 'DEVELOP\nD', () => this.commit({ commandId: `late:develop:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'develop', inputIds: ['INT-LATE-DONOR-B2-T2'] }));
-    button(320, 300, 'MERGE\nM', () => this.commit({ commandId: `late:merge:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'merge', inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] }));
-    button(520, 300, 'BUILD\nU', () => this.commit({ commandId: `late:build:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'build' }));
+    button(320, 300, 'MERGE\nSAMPLE ON CONFIRM · M', () => this.commit({ commandId: `late:merge:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'merge', inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] }));
+    button(520, 300, 'BUILD\nBALANCED · U', () => this.commit({ commandId: `late:build:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'build' }));
     button(720, 300, 'FIT HM A\nF', () => { const output = this.profile.parts.find(part => part.kind === 'B-HM' && !part.assignedTo); if (output) this.commit({ commandId: `late:fit:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'fit', inputIds: [output.id], targetGun: 'TAB-A' }); });
     button(920, 300, 'RETAIN\nN', () => this.commit({ commandId: `late:retain:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'retain-donors' }));
     button(1120, 300, 'SELL H2\nS', () => this.commit({ commandId: `late:sell-h2:${this.profile.revision}`, expectedRevision: this.profile.revision, action: 'sell-h2' }));
@@ -78,7 +78,8 @@ export class LateFixtureScene extends Phaser.Scene {
       try { if (this.failNextStorageWrite) { this.failNextStorageWrite = false; throw new Error('forced late storage failure'); } localStorage.setItem(KEY, JSON.stringify(result.profile)); }
       catch { this.message = 'Late save storage failed; no change was made. Retry safely.'; this.render(); return; }
       this.profile = result.profile;
-      this.message = `Confirmed ${command.action}; receipt persisted before presentation.`;
+      const receipt = result.profile.receipts.at(-1);
+      this.message = `Confirmed ${command.action}${receipt?.refinement ? ` (${receipt.refinement})` : ''}; receipt persisted before presentation.`;
       this.render(); applied = true;
     }); } catch { this.message = 'Late save writer failed before publishing a change.'; this.render(); return false; }
     return applied;

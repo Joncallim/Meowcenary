@@ -188,7 +188,14 @@ export class IntegratedFixtureScene extends Phaser.Scene {
           if (this.historicalReplay) this.replayTouchTarget = new Phaser.Math.Vector2(x, y);
           else this.touchTarget = new Phaser.Math.Vector2(x, y);
         },
-        advanceTestFrame: (delta: number) => this.update(0, delta),
+        advanceTestFrame: (delta: number) => {
+          // Keep automatic frames paused for deterministic browser measurement,
+          // but advance this explicit frame through the real movement path.
+          const paused = this.simulationPaused;
+          this.simulationPaused = false;
+          this.update(0, delta);
+          this.simulationPaused = paused;
+        },
         replayActiveGun: () => this.replayCombat?.activeGun(this.replayControlledActor),
       } : {}),
     } });

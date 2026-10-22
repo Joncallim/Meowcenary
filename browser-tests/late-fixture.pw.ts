@@ -42,7 +42,7 @@ test('late UI confirms merge before presentation and reloads its single persiste
   const b1 = await openLate(page, info);
   await page.keyboard.press('m');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
-  expect(await diagnostics(page)).toMatchObject({ parts: 28, discoveries: ['TAB-B-HM'], message: 'Confirmed merge; receipt persisted before presentation.', receipts: [{ commandId: 'late:merge:0', action: 'merge', outputIds: ['INT-LATE-TAB-B-HM-late:merge:0'] }] });
+  expect(await diagnostics(page)).toMatchObject({ parts: 28, discoveries: ['TAB-B-HM'], message: expect.stringMatching(/^Confirmed merge \((LeanA25|Balanced50|LeanB25)\); receipt persisted before presentation\.$/), receipts: [{ commandId: 'late:merge:0', action: 'merge', outputIds: ['INT-LATE-TAB-B-HM-late:merge:0'], refinement: expect.stringMatching(/^(LeanA25|Balanced50|LeanB25)$/) }] });
   const stored = await page.evaluate(key => localStorage.getItem(key), lateKey);
   await page.reload();
   await waitLateReload(page);

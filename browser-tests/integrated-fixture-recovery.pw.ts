@@ -180,11 +180,13 @@ test('archived movement matches live world-unit displacement for an equal frame'
   await page.evaluate(() => { const seam = (globalThis as Globals).__MEOWCENARY_INT_FB__!; seam.setTestMoveTarget(200, 110); seam.advanceTestFrame(100); });
   const liveAfter = await state(page);
   const liveDistance = Math.hypot(liveAfter.x - liveBefore.x, liveAfter.y - liveBefore.y);
+  expect(liveDistance).toBeGreaterThan(10);
   await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); const replayRecord = raw.liveMission?.replayRecord; if (!replayRecord) throw new Error('activation record missing'); raw.mission.receipts.push({ id: 'int-fb:test:rate', jobId: 'MC-OPT-F01-01', worldEventId: 'rate-event', attemptId: 'rate-attempt', recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6, replayRecord }); delete raw.liveMission; localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw)); });
   await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
   await page.evaluate(() => { const seam = (globalThis as Globals).__MEOWCENARY_INT_FB__!; seam.pauseSimulation(); if (!seam.openHistoricalReplay()) throw new Error('replay unavailable'); seam.setTestMoveTarget(200, 110); seam.advanceTestFrame(100); });
   const replay = (await state(page)).replay!;
   const replayDistance = Math.hypot(replay.x - 80, replay.y - 110);
+  expect(replayDistance).toBeGreaterThan(10);
   expect(replayDistance).toBeCloseTo(liveDistance, 5);
   expect(Math.hypot(replay.tabbyPosition.x - replay.houndPosition.x, replay.tabbyPosition.y - replay.houndPosition.y)).toBeLessThanOrEqual(27);
 });
@@ -368,15 +370,31 @@ test('phone replay completes through touch controls without mutating live state'
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayTabbyDown())).toBe(true);
   await expect.poll(async () => (await state(page)).replay?.takeoverControl).toBeTruthy();
-  const downed = (await state(page)).replay!;
-  await page.touchscreen.tap(76, (page.viewportSize()?.height ?? 844) - 48);
-  expect((await state(page)).replay).toMatchObject({ x: downed.x, y: downed.y, controlledActor: 'tabby' });
-  await page.touchscreen.tap(downed.takeoverControl!.x + downed.takeoverControl!.width / 2, downed.takeoverControl!.y + downed.takeoverControl!.height / 2);
+  const takeover = (await state(page)).replay!;
+  await page.touchscreen.tap(takeover.takeoverControl!.x + takeover.takeoverControl!.width / 2, takeover.takeoverControl!.y + takeover.takeoverControl!.height / 2);
   await expect.poll(async () => (await state(page)).replay?.controlledActor).toBe('hound');
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayHostileClear())).toBe(true);
+  // Hound reaches the actual objective through phone touch movement. Freeze
+  // automatic frames only after downing it so INTERACT is tested in-range.
+  await touchReplayTo(page, { x: 300, y: 150 }); await touchReplayTo(page, { x: 350, y: 200 }); await touchReplayTo(page, { x: 530, y: 220 }); await touchReplayTo(page, { x: 650, y: 220 }); await touchReplayTo(page, { x: 670, y: 390 }); await touchReplayTo(page, { x: 550, y: 410 });
+  expect(await page.evaluate(() => { const seam = (globalThis as Globals).__MEOWCENARY_INT_FB__!; const changed = seam.forceReplayHoundDown(); seam.pauseSimulation(); return changed; })).toBe(true);
+  const downed = (await state(page)).replay!;
+  await page.touchscreen.tap((page.viewportSize()?.width ?? 390) - 76, (page.viewportSize()?.height ?? 844) - 48);
+  expect((await state(page)).replay).toMatchObject({ x: downed.x, y: downed.y, controlledActor: 'hound', completedInteractionIds: [] });
+  // Reload for an independent living-touch completion session. The actual
+  // gameplay path below remains touch-only; this reset avoids relying on a
+  // Phaser panel handler as evidence for a gameplay control.
+  await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.openHistoricalReplay())).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayTabbyDown())).toBe(true);
+  await expect.poll(async () => (await state(page)).replay?.takeoverControl).toBeTruthy();
+  const completionTakeover = (await state(page)).replay!;
+  await page.touchscreen.tap(completionTakeover.takeoverControl!.x + completionTakeover.takeoverControl!.width / 2, completionTakeover.takeoverControl!.y + completionTakeover.takeoverControl!.height / 2);
+  await expect.poll(async () => (await state(page)).replay?.controlledActor).toBe('hound');
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayHostileClear())).toBe(true);
   const beforeSwap = await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.replayActiveGun()!.instanceId);
   await page.touchscreen.tap(76, (page.viewportSize()?.height ?? 844) - 48);
   await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.replayActiveGun()!.instanceId)).not.toBe(beforeSwap);
-  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceReplayHostileClear())).toBe(true);
   // Avoid the fixed archived EXIT panel (top y<132) while following the
   // authored safe-service approach entirely through touch contacts.
   await touchReplayTo(page, { x: 300, y: 150 }); await touchReplayTo(page, { x: 350, y: 200 }); await touchReplayTo(page, { x: 530, y: 220 }); await touchReplayTo(page, { x: 650, y: 220 }); await touchReplayTo(page, { x: 670, y: 390 }); await touchReplayTo(page, { x: 550, y: 410 });
