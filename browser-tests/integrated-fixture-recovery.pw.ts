@@ -1,8 +1,9 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 type Bounds = { x: number; y: number; width: number; height: number };
+type CameraTransform = { viewport: Bounds; origin: { x: number; y: number }; zoom: number; topLeftWorld: { x: number; y: number }; bottomRightWorld: { x: number; y: number } };
 type Diagnostics = {
-  scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: 'ground' | 'elevated'; tabbyLayer: 'ground' | 'elevated'; houndLayer: 'ground' | 'elevated'; combatEventSequence: number; cameraX: number; cameraY: number; controlledGun: string; jobId?: string; phase: string; completedInteractionIds: string[]; canExtract: boolean; extracted: boolean;
+  scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: 'ground' | 'elevated'; tabbyLayer: 'ground' | 'elevated'; houndLayer: 'ground' | 'elevated'; combatEventSequence: number; cameraX: number; cameraY: number; cameraTransform?: CameraTransform; controlledGun: string; jobId?: string; phase: string; completedInteractionIds: string[]; canExtract: boolean; extracted: boolean;
   combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostiles: number;
   replay?: { x: number; y: number; controlledActor: 'tabby' | 'hound'; cameraActor?: 'tabby' | 'hound'; layer: 'ground' | 'elevated'; tabbyLayer: 'ground' | 'elevated'; houndLayer: 'ground' | 'elevated'; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; trailLength: number; completedInteractionIds: string[]; groupCleared: boolean; canExtract: boolean; hostiles: number; takeoverControl?: Bounds };
   checkpoint?: { revision: number; controlledActor: 'tabby' | 'hound'; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostileHealths: number[] }; workshopCredits: number; workshopParts: number;
@@ -20,6 +21,32 @@ async function ready(page: Page): Promise<void> {
   await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.diagnostics().scene), { timeout: 15_000 }).toBe('IntegratedFixtureScene');
 }
 async function state(page: Page): Promise<Diagnostics> { return page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.diagnostics()); }
+function worldToScreen(diagnostic: Diagnostics, world: { x: number; y: number }): { x: number; y: number } {
+  const transform = diagnostic.cameraTransform;
+  if (!transform) throw new Error('INT-FB visual-test camera transform is unavailable');
+  const { viewport, topLeftWorld, bottomRightWorld } = transform;
+  const worldWidth = bottomRightWorld.x - topLeftWorld.x;
+  const worldHeight = bottomRightWorld.y - topLeftWorld.y;
+  if (!(worldWidth > 0 && worldHeight > 0)) throw new Error(`invalid Phaser camera inverse span: ${worldWidth}x${worldHeight}`);
+  // The samples come from Camera.getWorldPoint at both viewport corners, so
+  // this is the actual Phaser inverse (viewport and origin/pivot included),
+  // not a hand-written world-minus-scroll approximation.
+  const screen = {
+    x: viewport.x + (world.x - topLeftWorld.x) * viewport.width / worldWidth,
+    y: viewport.y + (world.y - topLeftWorld.y) * viewport.height / worldHeight,
+  };
+  const recovered = {
+    x: topLeftWorld.x + (screen.x - viewport.x) * worldWidth / viewport.width,
+    y: topLeftWorld.y + (screen.y - viewport.y) * worldHeight / viewport.height,
+  };
+  expect(recovered.x).toBeCloseTo(world.x, 7);
+  expect(recovered.y).toBeCloseTo(world.y, 7);
+  return screen;
+}
+function clampToViewport(screen: { x: number; y: number }, transform: CameraTransform, inset = 8): { x: number; y: number } {
+  const { viewport } = transform;
+  return { x: Math.max(viewport.x + inset, Math.min(viewport.x + viewport.width - inset, screen.x)), y: Math.max(viewport.y + inset, Math.min(viewport.y + viewport.height - inset, screen.y)) };
+}
 async function moveTo(page: Page, x: number, y: number): Promise<void> {
   if ((page.viewportSize()?.width ?? 0) < 800 || x > (page.viewportSize()?.width ?? 0) || y > (page.viewportSize()?.height ?? 0)) {
     await moveAxis(page, 'x', x);
@@ -27,10 +54,17 @@ async function moveTo(page: Page, x: number, y: number): Promise<void> {
     return;
   }
   const before = await state(page);
-  // Phaser pointer coordinates are screen-relative while test destinations
-  // are authored world coordinates. Account for follow-camera scroll exactly
-  // as the touch route below does.
-  const screen = { x: x - before.cameraX, y: y - before.cameraY };
+  const screen = worldToScreen(before, { x, y });
+  const viewport = before.cameraTransform!.viewport;
+  // A genuine map target may render behind the compact bottom controls. Those
+  // controls correctly own their gesture, so retain the same world waypoint
+  // assertion through ordinary keyboard movement instead of clicking through
+  // the HUD into a different action.
+  if (screen.y >= viewport.y + viewport.height - 150) {
+    await moveAxis(page, 'x', x);
+    await moveAxis(page, 'y', y);
+    return;
+  }
   await page.mouse.move(screen.x, screen.y);
   await page.mouse.down();
   try {
@@ -46,7 +80,7 @@ async function moveTo(page: Page, x: number, y: number): Promise<void> {
 }
 async function moveAxis(page: Page, axis: 'x' | 'y', target: number): Promise<void> {
   const before = await state(page);
-  const key = axis === 'x' ? (target > before.x ? 'd' : 'a') : (target > before.y ? 's' : 'w');
+  const key = axis === 'x' ? (target > before.x ? 'ArrowRight' : 'ArrowLeft') : (target > before.y ? 'ArrowDown' : 'ArrowUp');
   await page.keyboard.down(key);
   try {
     await expect.poll(async () => {
@@ -61,7 +95,7 @@ async function moveAlong(page: Page, points: readonly { x: number; y: number }[]
 async function moveReplayTo(page: Page, x: number, y: number): Promise<void> {
   const before = await state(page);
   if (!before.replay) throw new Error('archived replay is not active');
-  const screen = { x: x - before.cameraX, y: y - before.cameraY };
+  const screen = worldToScreen(before, { x, y });
   await page.mouse.move(screen.x, screen.y);
   await page.mouse.down();
   try {
@@ -92,15 +126,14 @@ async function settleReplayFollower(page: Page): Promise<void> {
  * phone uses. This is browser evidence only, not a physical-device verdict. */
 async function touchMoveTo(page: Page, target: { x: number; y: number }): Promise<void> {
   const cdp = await page.context().newCDPSession(page);
-  const viewport = page.viewportSize()!;
   let active = false;
   try {
     for (let tick = 0; tick < 180; tick += 1) {
       const current = await state(page);
       if (Math.hypot(current.x - target.x, current.y - target.y) < 9) return;
-      const x = Math.max(8, Math.min(viewport.width - 8, target.x - current.cameraX));
-      const y = Math.max(8, Math.min(viewport.height - 8, target.y - current.cameraY));
-      await cdp.send('Input.dispatchTouchEvent', { type: active ? 'touchMove' : 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+      if (!current.cameraTransform) throw new Error('INT-FB visual-test camera transform is unavailable');
+      const screen = clampToViewport(worldToScreen(current, target), current.cameraTransform);
+      await cdp.send('Input.dispatchTouchEvent', { type: active ? 'touchMove' : 'touchStart', touchPoints: [{ x: screen.x, y: screen.y, id: 1 }] });
       active = true;
       await page.waitForTimeout(40);
     }
@@ -119,7 +152,9 @@ async function touchReplayTo(page: Page, target: { x: number; y: number }): Prom
     for (let tick = 0; tick < 180; tick += 1) {
       const current = await state(page); const replay = current.replay;
       if (replay && Math.hypot(replay.x - target.x, replay.y - target.y) < 9) return;
-      await cdp.send('Input.dispatchTouchEvent', { type: active ? 'touchMove' : 'touchStart', touchPoints: [{ x: Math.max(8, Math.min(382, target.x - current.cameraX)), y: Math.max(8, Math.min(836, target.y - current.cameraY)), id: 1 }] }); active = true;
+      if (!current.cameraTransform) throw new Error('INT-FB visual-test camera transform is unavailable');
+      const screen = clampToViewport(worldToScreen(current, target), current.cameraTransform);
+      await cdp.send('Input.dispatchTouchEvent', { type: active ? 'touchMove' : 'touchStart', touchPoints: [{ x: screen.x, y: screen.y, id: 1 }] }); active = true;
       await page.waitForTimeout(40);
     }
     const current = await state(page);
@@ -483,7 +518,8 @@ test('archived R01 preserves terrain layers, collision, camera, and living-actor
   }
   // The bridge edge is authored collision: neither living archived actor can
   // enter the unsupported gap below it.
-  await page.mouse.move(530 - (await state(page)).cameraX, 320 - (await state(page)).cameraY); await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up();
+  const blockedStart = await state(page);
+  await page.mouse.move(...Object.values(worldToScreen(blockedStart, { x: 530, y: 320 }))); await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up();
   const blocked = (await state(page)).replay!;
   expect(blocked.tabbyPosition.y).toBeLessThan(260); expect(blocked.houndPosition.y).toBeLessThan(260);
   for (const point of [{ x: 530, y: 220 }, { x: 400, y: 210 }, { x: 400, y: 80 }, { x: 370, y: 100 }, { x: 370, y: 380 }]) {
