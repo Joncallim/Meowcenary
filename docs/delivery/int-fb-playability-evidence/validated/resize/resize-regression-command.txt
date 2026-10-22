@@ -1,2 +1,2 @@
 VITE_VISUAL_TEST=1 npm run build
-MEOWCENARY_BROWSER_EXECUTABLE=/usr/bin/chromium npx playwright test browser-tests/integrated-fixture-recovery.pw.ts --project=desktop-1280x720 --project=phone-390x844 --grep 'fixture resize keeps' --reporter=json > /tmp/int-fb-resize-overscan.json 2> /tmp/int-fb-resize-overscan.stderr; status=$?; echo $status > /tmp/int-fb-resize-overscan.exit; exit $status
+MEOWCENARY_BROWSER_EXECUTABLE=/usr/bin/chromium npx playwright test browser-tests/integrated-fixture-recovery.pw.ts --project=desktop-1280x720 --project=phone-390x844 --grep 'fixture resize keeps' --reporter=json > /tmp/int-fb-resize-ownership.json 2> /tmp/int-fb-resize-ownership.stderr; status=$?; echo $status > /tmp/int-fb-resize-ownership.exit; exit $status

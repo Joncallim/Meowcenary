@@ -34,7 +34,7 @@ workshop state. Listener teardown is scene-owned in production as well as in
 the visual-test build.
 
 The targeted visual regression ran from the immutable visual build with system
-Chromium at clean source `fe07b7bf314f7fdf95d55a27d7cd1067f3e096ef`:
+Chromium at clean source `b0e2785a77b99f8bb2364fa87869d0f8ba6b0098`:
 
 `MEOWCENARY_BROWSER_EXECUTABLE=/usr/bin/chromium npx playwright test browser-tests/integrated-fixture-recovery.pw.ts --project=desktop-1280x720 --project=phone-390x844 --grep 'fixture resize keeps' --reporter=json`
 
@@ -45,6 +45,9 @@ bounds, live follow centring, stable fixed-UI count, and preserved workshop
 state. The desktop narrow leg opens a pending preview first, checks every
 modal child and the render-only floor overscan against the camera view, and
 proves the action, credits, parts, and materials are unchanged by resize.
+New floor tiles are registered world-only when they are added after a resize;
+the preview revision is also asserted unchanged so reflow cannot refresh a
+stale transaction identity.
 Its sanitized reporter JSON, exit status, command, and the separate
 production-build exit status are retained beside the inspected captures in
 `validated/resize/`.
