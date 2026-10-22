@@ -24,7 +24,9 @@ export async function readPhaserRendererFacts(page: Page) {
 }
 
 /** Fail before the matrix if the requested test driver silently falls back.
- * This page uses the normal visual-build Home and its real loader/frame owners. */
+ * Renderer framing still exercises the legacy presentation deliberately: the
+ * production root is now the integrated B1 slice, while `fixture=legacy`
+ * remains the explicit route for the retained Menu scene. */
 export default async function rendererSetup(config: FullConfig): Promise<void> {
   const mode = process.env.MEOWCENARY_BROWSER_RENDERER;
   const records: unknown[] = [];
@@ -33,7 +35,7 @@ export default async function rendererSetup(config: FullConfig): Promise<void> {
     let operationError: unknown;
     try {
       const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
-      await page.goto(`${config.projects[0].use.baseURL}/?visual-test=1`);
+      await page.goto(`${config.projects[0].use.baseURL}/?fixture=legacy&visual-test=1`);
       await page.waitForFunction(() => Boolean((globalThis as unknown as { __MEOWCENARY_VISUAL_TEST__?: unknown }).__MEOWCENARY_VISUAL_TEST__));
       const settled = await page.evaluate(() => (globalThis as unknown as {
         __MEOWCENARY_VISUAL_TEST__: { waitForMenuPresentation(): Promise<boolean> };

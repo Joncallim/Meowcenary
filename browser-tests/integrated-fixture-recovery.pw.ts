@@ -170,6 +170,16 @@ async function activate(page: Page, job: '1' | '2', spawn: { x: number; y: numbe
   return state(page);
 }
 
+test('root route opens the visible INT-FB proving ground rather than legacy Menu', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Root-route capture is retained at the reference desktop viewport.');
+  await page.goto('/');
+  await expect(page.locator('canvas')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__?.diagnostics().scene)).toBe('IntegratedFixtureScene');
+  await capture(page, info, 'root-int-fb-proving-ground');
+  await page.goto('/?fixture=legacy');
+  await expect.poll(() => page.evaluate(() => !Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+});
+
 test('archived movement matches live world-unit displacement for an equal frame', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop-1280x720', 'Reference desktop frame-parity evidence.');
   await ready(page);
