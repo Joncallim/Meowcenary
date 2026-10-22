@@ -837,6 +837,19 @@ export function fixturePointLayer(point: FixturePoint): FixtureLayer | undefined
   return FIXTURE_GROUND;
 }
 
+/** Stable nearest interactive marker on the actor's current authored layer. */
+export function nearestFixturePoint(points: readonly FixturePoint[], position: Readonly<{ x: number; z: number; layer: FixtureLayer }>, radius: number): FixturePoint | undefined {
+  let nearest: FixturePoint | undefined;
+  let nearestDistance = Infinity;
+  for (const point of points) {
+    if (fixturePointLayer(point) !== position.layer) continue;
+    const distance = Math.hypot(point.x - position.x, point.z - position.z);
+    if (distance >= radius || distance >= nearestDistance) continue;
+    nearest = point; nearestDistance = distance;
+  }
+  return nearest;
+}
+
 export function fixturePositionsShareLayer(left: FixturePosition, right: FixturePosition): boolean {
   return fixtureLayer(left) === fixtureLayer(right);
 }

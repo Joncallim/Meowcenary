@@ -1,0 +1,1898 @@
+{
+  "config": {
+    "argv": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/workspace/Meowcenary/node_modules/.bin/playwright",
+      "test",
+      "browser-tests/integrated-fixture-recovery.pw.ts",
+      "--project=desktop-1280x720",
+      "--project=phone-390x844",
+      "--reporter=json"
+    ],
+    "configFile": "/workspace/Meowcenary/playwright.config.ts",
+    "rootDir": "/workspace/Meowcenary/browser-tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/workspace/Meowcenary/browser-tests/rendererSetup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 2
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "phone-360x640",
+        "name": "phone-360x640",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "phone-390x844",
+        "name": "phone-390x844",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "phone-landscape-640x390",
+        "name": "phone-landscape-640x390",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "tablet-768x1024",
+        "name": "tablet-768x1024",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "tablet-landscape-1024x768",
+        "name": "tablet-landscape-1024x768",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "foldable-1114x720",
+        "name": "foldable-1114x720",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "desktop-1280x720",
+        "name": "desktop-1280x720",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/Meowcenary/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "desktop-1920x1080",
+        "name": "desktop-1920x1080",
+        "testDir": "/workspace/Meowcenary/browser-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.pw.ts"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 2,
+    "webServer": {
+      "command": "npx vite preview --host 127.0.0.1 --port 4173",
+      "url": "http://127.0.0.1:4173",
+      "reuseExistingServer": false
+    }
+  },
+  "suites": [
+    {
+      "title": "integrated-fixture-recovery.pw.ts",
+      "file": "integrated-fixture-recovery.pw.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "root route opens the visible INT-FB proving ground rather than legacy Menu",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Root-route capture is retained at the reference desktop viewport.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 242,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 241,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:42.875Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Root-route capture is retained at the reference desktop viewport.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 242,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-a1d6beed19a67d590fb1",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 241,
+          "column": 1
+        },
+        {
+          "title": "archived movement matches live world-unit displacement for an equal frame",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Reference desktop frame-parity evidence.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 252,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 142,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:43.305Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Reference desktop frame-parity evidence.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 252,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-6f08f9fe9aa01f418901",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 251,
+          "column": 1
+        },
+        {
+          "title": "invalid persisted B1 envelopes are visibly blocked and remain byte-identical after ordinary actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "One desktop recovery proof covers malformed, future, and incomplete persisted B1 envelopes.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 291,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 137,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:43.471Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "One desktop recovery proof covers malformed, future, and incomplete persisted B1 envelopes.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 291,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-58617abda435ef08c207",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 290,
+          "column": 1
+        },
+        {
+          "title": "absent B1 storage persists its first activation and rejects corruption without reseeding",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Dedicated first-write and corruption evidence runs once on desktop.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 311,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 153,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:43.621Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Dedicated first-write and corruption evidence runs once on desktop.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 311,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-e15e0683292e0b9fa977",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 310,
+          "column": 1
+        },
+        {
+          "title": "fresh B1 purchase, fit, and reload conserve the displaced barrel",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Dedicated desktop workshop persistence evidence.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 338,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 156,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:43.782Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Dedicated desktop workshop persistence evidence.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 338,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-bc40fd49b5c5acc8c6c8",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 337,
+          "column": 1
+        },
+        {
+          "title": "queued workshop confirmation aborts when replay opens before writer acquisition",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Dedicated desktop replay writer evidence.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 357,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 194,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:43.951Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Dedicated desktop replay writer evidence.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 357,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-8550f5a0e8c3c7c2921c",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 356,
+          "column": 1
+        },
+        {
+          "title": "recordless historical receipt refuses replay without changing the decoded live profile",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Dedicated desktop legacy-receipt refusal evidence.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 381,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 171,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:44.151Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Dedicated desktop legacy-receipt refusal evidence.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 381,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-3e3dfb00303fb7b2ed9d",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 380,
+          "column": 1
+        },
+        {
+          "title": "archived replay requires objectives and extraction without mutating the live envelope",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Dedicated desktop archived mission lifecycle evidence.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 401,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 144,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:44.332Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Dedicated desktop archived mission lifecycle evidence.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 401,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-76b95f9c473e42ffbebd",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 399,
+          "column": 1
+        },
+        {
+          "title": "phone replay completes through touch controls without mutating live state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 28042,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:44.492Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-a47cbc0a7e316f2798d7",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 457,
+          "column": 1
+        },
+        {
+          "title": "History hold-drag-release cannot leak a live target through replay entry and exit",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4034,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:12.543Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-b94183ac3eeb65204ca6",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 507,
+          "column": 1
+        },
+        {
+          "title": "archived R01 preserves terrain layers, collision, camera, and living-actor rules",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Reference desktop establishes archived terrain traversal; phone is reported separately.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 538,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 222,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:16.588Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Reference desktop establishes archived terrain traversal; phone is reported separately.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 538,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-f01a8b2d78d890ac83e8",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 534,
+          "column": 1
+        },
+        {
+          "title": "held writer rejects corruption after a non-live workshop preview",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Dedicated desktop held-lock corruption evidence.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 596,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 214,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:16.830Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Dedicated desktop held-lock corruption evidence.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 596,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-c3ba2c1e031690d3b984",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 595,
+          "column": 1
+        },
+        {
+          "title": "F01 recovery/retry/extraction is persisted by the live Phaser scene",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 22560,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:17.054Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "f01-recovery-safe-service",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-3b66c-ed-by-the-live-Phaser-scene-phone-390x844/attachments/f01-recovery-safe-service-166fddc6b7094d761e7d2f7206f6ebd77061c1df.png"
+                    },
+                    {
+                      "name": "f01-touch-traversal-extraction",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-3b66c-ed-by-the-live-Phaser-scene-phone-390x844/attachments/f01-touch-traversal-extraction-ee449aaa7c680bf5d596844b8542a411099d1284.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-0dc254104c6ba7468668",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 613,
+          "column": 1
+        },
+        {
+          "title": "recovery reload displays the persisted non-capped fee",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "The canonical fee receipt is exercised once on the desktop fixture route.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 838,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 236,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:39.639Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "The canonical fee receipt is exercised once on the desktop fixture route.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 838,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-838241173235d8a4b4ea",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 837,
+          "column": 1
+        },
+        {
+          "title": "active reload retains partial combat and a Hound takeover without reviving Tabby",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "The durable combat checkpoint is exercised once on the desktop fixture route.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 858,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 204,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:39.885Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "The durable combat checkpoint is exercised once on the desktop fixture route.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 858,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-d7e28830ac7f37cc5fff",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 856,
+          "column": 1
+        },
+        {
+          "title": "scene terrain blocks solids, transitions the ramp, and separates bridge combat from the underpass",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "The terrain contract is exercised on the reference desktop viewport.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 997,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 199,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:40.100Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "The terrain contract is exercised on the reference desktop viewport.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 997,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-00b759732d5b6a4846a9",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 995,
+          "column": 1
+        },
+        {
+          "title": "R01 browser route requires both markers, collection, finite clear, and extraction",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "The longer R01 route is captured once at the reference desktop viewport.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 1028,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 192,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:40.307Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "The longer R01 route is captured once at the reference desktop viewport.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 1028,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-b1ecd36c9fd3fd754ba8",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 1027,
+          "column": 1
+        },
+        {
+          "title": "ordinary B1 controls join two jobs with the directed safe-service workshop ledger",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Joined B1 ledger evidence is captured once at the desktop reference viewport.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 1059,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 232,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:40.516Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Joined B1 ledger evidence is captured once at the desktop reference viewport.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 1059,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-a3a73a3fdb06dc339825",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 1057,
+          "column": 1
+        },
+        {
+          "title": "fixture resize keeps fixed controls, follow framing, and an open workshop through rotate-return",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phone-390x844",
+              "projectName": "phone-390x844",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2278,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:40.753Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "resize-phone-portrait-return-workshop-open",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-phone-390x844/attachments/resize-phone-portrait-return-workshop-open-837fac29f72c92a56b9bce989d4b5fe2525f69c2.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-00b4960578440c1536ec",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 1097,
+          "column": 1
+        },
+        {
+          "title": "root route opens the visible INT-FB proving ground rather than legacy Menu",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2682,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:42.866Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "root-int-fb-proving-ground",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-13b6e-und-rather-than-legacy-Menu-desktop-1280x720/attachments/root-int-fb-proving-ground-822a906b03e4dc0fefedfd4c5a5e170666eb54b1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-d884e30d5e1debd8e7b2",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 241,
+          "column": 1
+        },
+        {
+          "title": "archived movement matches live world-unit displacement for an equal frame",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 4354,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:45.733Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-7cb89eb0dd4a570f10c8",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 251,
+          "column": 1
+        },
+        {
+          "title": "invalid persisted B1 envelopes are visibly blocked and remain byte-identical after ordinary actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 4225,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:50.111Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-7dd5d9f0c30d8499adc3",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 290,
+          "column": 1
+        },
+        {
+          "title": "absent B1 storage persists its first activation and rejects corruption without reseeding",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 3866,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:54.368Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-c03cff5007ec5b31a8df",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 310,
+          "column": 1
+        },
+        {
+          "title": "fresh B1 purchase, fit, and reload conserve the displaced barrel",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 4949,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:49:58.245Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-6ca20a37338a2995ff89",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 337,
+          "column": 1
+        },
+        {
+          "title": "queued workshop confirmation aborts when replay opens before writer acquisition",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 4722,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:03.212Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-0c8ae7e4eb931cf162a6",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 356,
+          "column": 1
+        },
+        {
+          "title": "recordless historical receipt refuses replay without changing the decoded live profile",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2959,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:07.945Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-82aaca84055dc0840aa5",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 380,
+          "column": 1
+        },
+        {
+          "title": "archived replay requires objectives and extraction without mutating the live envelope",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 29881,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:10.910Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-a722b117dc41db66fd56",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 399,
+          "column": 1
+        },
+        {
+          "title": "phone replay completes through touch controls without mutating live state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Dedicated phone touch-only replay evidence.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 458,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "skipped",
+                  "duration": 226,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:40.798Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Dedicated phone touch-only replay evidence.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 458,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-8fd965df6e7ad1cfa719",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 457,
+          "column": 1
+        },
+        {
+          "title": "History hold-drag-release cannot leak a live target through replay entry and exit",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Dedicated phone History gesture isolation evidence.",
+                  "location": {
+                    "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                    "line": 508,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "skipped",
+                  "duration": 154,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:41.044Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Dedicated phone History gesture isolation evidence.",
+                      "location": {
+                        "file": "/workspace/Meowcenary/browser-tests/integrated-fixture-recovery.pw.ts",
+                        "line": 508,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-bf46360afe5fe8426871",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 507,
+          "column": 1
+        },
+        {
+          "title": "archived R01 preserves terrain layers, collision, camera, and living-actor rules",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 25613,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:50:41.214Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-07911cffd0d797377e0d",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 534,
+          "column": 1
+        },
+        {
+          "title": "held writer rejects corruption after a non-live workshop preview",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2874,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:51:06.836Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-6812a85fd96c535904b6",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 595,
+          "column": 1
+        },
+        {
+          "title": "F01 recovery/retry/extraction is persisted by the live Phaser scene",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 52513,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:51:09.726Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "f01-recovery-safe-service",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-3b66c-ed-by-the-live-Phaser-scene-desktop-1280x720/attachments/f01-recovery-safe-service-4a879e38f6c3a7fe3aaec1cc70c47594b3ab8989.png"
+                    },
+                    {
+                      "name": "f01-event-delivered",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-3b66c-ed-by-the-live-Phaser-scene-desktop-1280x720/attachments/f01-event-delivered-25d4f962ca3de51e6a86702cf883623f0f61df4e.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-3409e3560129c6f7fe5b",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 613,
+          "column": 1
+        },
+        {
+          "title": "recovery reload displays the persisted non-capped fee",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 12922,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:52:02.262Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-1462a9e09d2c64a99739",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 837,
+          "column": 1
+        },
+        {
+          "title": "active reload retains partial combat and a Hound takeover without reviving Tabby",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 33618,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:52:15.194Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "f01-hound-takeover-reloaded",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-ab48b-over-without-reviving-Tabby-desktop-1280x720/attachments/f01-hound-takeover-reloaded-c2c682b675382634b2bc70ed66dce9b7f4f2b4ba.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-6dcefd9e399ba4f40c56",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 856,
+          "column": 1
+        },
+        {
+          "title": "scene terrain blocks solids, transitions the ramp, and separates bridge combat from the underpass",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 14882,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:52:48.821Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "terrain-layered-bridge-underpass",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-a555d-e-combat-from-the-underpass-desktop-1280x720/attachments/terrain-layered-bridge-underpass-8a7585a0d712daf35406f8955be2e4e63b2ebf02.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-faab49f9f5f20af9944a",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 995,
+          "column": 1
+        },
+        {
+          "title": "R01 browser route requires both markers, collection, finite clear, and extraction",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 18279,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:53:03.723Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "r01-markers-clear-extraction",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-70b7d-finite-clear-and-extraction-desktop-1280x720/attachments/r01-markers-clear-extraction-12dfbd4dbff798760a02634300c08574d2892447.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-82fce2087743e8f96d99",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 1027,
+          "column": 1
+        },
+        {
+          "title": "ordinary B1 controls join two jobs with the directed safe-service workshop ledger",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 43319,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:53:22.013Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-ebb83045ef1bd0aa89a5",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 1057,
+          "column": 1
+        },
+        {
+          "title": "fixture resize keeps fixed controls, follow framing, and an open workshop through rotate-return",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-1280x720",
+              "projectName": "desktop-1280x720",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2191,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T13:54:05.338Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "resize-desktop-720x1280-workshop-open",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-desktop-1280x720/attachments/resize-desktop-720x1280-workshop-open-a376dff9a06ce720d2399f06739b38c4ca265359.png"
+                    },
+                    {
+                      "name": "resize-desktop-return-1280x720-workshop-open",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-desktop-1280x720/attachments/resize-desktop-return-1280x720-workshop-open-309acdb601e356bd98dd21a11a31dd45dc3cf852.png"
+                    },
+                    {
+                      "name": "resize-desktop-narrow-preview-390x844",
+                      "contentType": "image/png",
+                      "path": "/workspace/Meowcenary/test-results/integrated-fixture-recover-7ed78-kshop-through-rotate-return-desktop-1280x720/attachments/resize-desktop-narrow-preview-390x844-d5f412277d72c9dcb9f7c84c0f460b1c49d91eb3.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "47fb1dd7db2bd57359ce-49e4412fe86fd5a2f96c",
+          "file": "integrated-fixture-recovery.pw.ts",
+          "line": 1097,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-22T13:49:38.570Z",
+    "duration": 269078.064,
+    "expected": 21,
+    "skipped": 17,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
