@@ -1,3 +1,5 @@
+> NONSHIPPING ART RESET BRANCH: legacy visual payloads are retired here. The hosted game and main are unchanged. Do not merge or deploy this incomplete branch. See [the Janet-owned art reset](docs/art/reset-2026-10-23/README.md) and its exact recovery manifest.
+
 # Meowcenary
 
 A browser-first roguelite survivor about heavily armed animal mercenaries fighting through a junkyard, collecting scrap, and turning increasingly stupid weapons into increasingly effective ones.
