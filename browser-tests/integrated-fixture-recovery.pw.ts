@@ -721,12 +721,12 @@ test('F01 recovery/retry/extraction is persisted by the live Phaser scene', asyn
   const late = () => page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.diagnostics());
   expect(await late()).toMatchObject({ scene: 'LateFixtureScene', revision: 0, parts: 29, declaration: 'This is a later workshop test save with Chapter 5 capability already unlocked. Your earlier test save is unchanged.' });
   expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'bad-fitted', expectedRevision: 0, action: 'merge', inputIds: ['INT-LATE-TAB-B-B', 'INT-LATE-DONOR-B3-T2'] }))).toBe(false);
-  await page.keyboard.press('m');
+  await page.keyboard.press('m'); await page.keyboard.press('Enter');
   await expect.poll(async () => (await late()).revision).toBe(1);
   expect((await late()).receipts).toMatchObject([{ commandId: 'late:merge:0', action: 'merge', outputIds: ['INT-LATE-TAB-B-HM-late:merge:0'] }]);
   expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'late:merge:0', expectedRevision: 1, action: 'merge', inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] }))).toBe(false);
   expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'stale-build', expectedRevision: 0, action: 'build' }))).toBe(false);
-  await page.keyboard.press('u');
+  await page.keyboard.press('u'); await page.keyboard.press('Enter');
   await expect.poll(async () => (await late()).revision).toBe(2);
   expect(await late()).toMatchObject({ parts: 29, wallet: { credits: 1000, metal: 20, circuits: 4 }, discoveries: ['TAB-B-HM'] });
   await page.reload();

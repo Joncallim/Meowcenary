@@ -203,9 +203,16 @@ describe('createUiText', () => {
     // The retired brief used modal helpers, so no direct factory site is removed.
     // Responsive Mercenary cards add two centralized text sites for the
     // compact/wide render block and its content-aware measurement probe.
-    // The INT-FB recovery overlay adds four semantic text owners: its heading,
-    // persistent recovery guidance, and the recover/retry commands.
-    expect(migratedSites).toHaveLength(71);
+    // INT-FB adds 20 explicit scene-owned labels (terrain/status, live and
+    // replay controls, recovery, workshop, and replay overlay); the isolated
+    // late workshop adds its status and generated action-label factory. Keep
+    // those owners separately counted so a later fixture addition cannot be
+    // disguised by changing one aggregate number.
+    const integratedFixtureSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/IntegratedFixtureScene.ts'));
+    const lateFixtureSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/LateFixtureScene.ts'));
+    expect(integratedFixtureSites).toHaveLength(20);
+    expect(lateFixtureSites).toHaveLength(2);
+    expect(migratedSites).toHaveLength(77);
     const introSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/ui/runStartIntroView.ts'));
     expect(introSites).toHaveLength(4);
 
