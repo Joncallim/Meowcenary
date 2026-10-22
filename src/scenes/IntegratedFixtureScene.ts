@@ -117,6 +117,10 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private floorTiles = new Set<string>();
   private floorCoverage = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
   private historicalReplayModal?: Phaser.GameObjects.Container;
+  private replayBannerBackground?: Phaser.GameObjects.Rectangle;
+  private replayBannerCopy?: Phaser.GameObjects.Text;
+  private replayBannerExit?: Phaser.GameObjects.Rectangle;
+  private replayBannerExitText?: Phaser.GameObjects.Text;
   private historicalReplay?: FixtureHistoricalReplaySession;
   private replayCombat?: IntegratedFixtureCombat;
   /** A separate instance of the same pure mission lifecycle used by live play.
@@ -366,11 +370,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     }
     // Reserve the top strip for mission/objective status; replay controls
     // occupy their own responsive row below it.
-    if (this.historicalReplayModal) {
-      this.historicalReplayModal.setPosition(width / 2, 126).setScale(1);
-      const bounds = this.historicalReplayModal.getBounds();
-      this.historicalReplayModal.setScale(Math.min(1, (width - 16) / bounds.width));
-    }
+    this.layoutReplayBanner(width);
     // Text labels have no controller object; their stable content keeps this
     // compact fixture layout declarative without rebuilding the scene.
     for (const child of this.children.list) {
@@ -1054,8 +1054,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const background = this.add.rectangle(0, 0, width, 88, 0x101820, .98).setStrokeStyle(2, 0x24cec7);
     const copy = createUiText(this, -80, 0, `ARCHIVED REPLAY · ${receipt.id}\nPinned ${begun.session.contentId}\nMove / E objectives & extract / Q swaps archived gun`, { align: 'left', fontSize: '12px', color: '#fff', wordWrap: { width: width - 170 } }).setOrigin(.5);
     const exit = this.add.rectangle(width / 2 - 62, 0, 100, 40, 0x7393d8).setInteractive().on('pointerup', () => this.finishHistoricalReplay('exit'));
-    panel.add([background, copy, exit, createUiText(this, width / 2 - 62, 0, 'EXIT\nESC', { fontSize: '12px', color: '#071018', align: 'center' }).setOrigin(.5)]);
-    this.historicalReplayModal = panel;
+    const exitText = createUiText(this, width / 2 - 62, 0, 'EXIT\nESC', { fontSize: '12px', color: '#071018', align: 'center' }).setOrigin(.5);
+    panel.add([background, copy, exit, exitText]); this.historicalReplayModal = panel; this.replayBannerBackground = background; this.replayBannerCopy = copy; this.replayBannerExit = exit; this.replayBannerExitText = exitText;
     this.registerUi(panel);
     this.combatFeedback = 'Historical replay is pinned and read-only.'; this.refreshStatus();
     return true;
@@ -1209,12 +1209,24 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const bounds = control.getBounds();
     return Object.freeze({ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height });
   }
+  private layoutReplayBanner(viewportWidth: number): void {
+    if (!this.historicalReplayModal || !this.replayBannerBackground || !this.replayBannerCopy || !this.replayBannerExit || !this.replayBannerExitText) return;
+    const width = Math.min(480, viewportWidth - 24); const height = 88;
+    const statusBottom = this.status?.getBounds().bottom ?? 0;
+    this.historicalReplayModal.setScale(1).setPosition(viewportWidth / 2, statusBottom + 12 + height / 2);
+    this.replayBannerBackground.setSize(width, height);
+    this.replayBannerCopy.setPosition(-80, 0).setWordWrapWidth(width - 170, true);
+    const exitX = width / 2 - 62;
+    this.replayBannerExit.setPosition(exitX, 0); this.replayBannerExitText.setPosition(exitX, 0);
+  }
+
   private refreshStatus(): void {
     if (this.historicalReplay && this.replayOperation && this.replayCombat) {
       const replay = this.replayOperation.snapshot();
       const job = replay.jobId && INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === replay.jobId);
       const hostiles = this.replayCombat.hostileStates().filter(hostile => hostile.health > 0).length;
       this.status?.setText(`ARCHIVED ${job?.id ?? 'fixture'} · ${replay.phase}\nObjectives ${replay.completedInteractionIds.length}/${job?.requiredInteractionIds.length ?? 0} · finite group ${replay.finiteEnemyGroupCleared ? 'clear' : `${hostiles} hostile(s)`}\n${this.replayOperation.canExtract() ? 'EXTRACTION READY — interact at the pinned extraction point.' : 'Complete the archived objectives, clear hostiles, then extract.'}\n${this.combatFeedback}`);
+      this.layoutReplayBanner(this.scale.width);
       return;
     }
     const job = this.jobId ? INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)! : undefined;
