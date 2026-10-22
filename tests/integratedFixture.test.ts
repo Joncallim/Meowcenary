@@ -281,7 +281,7 @@ it('round-trips the one live envelope without granting a historical receipt a mu
   const event = nextFixtureWorldEventId(envelope.workshop, 'MC-OPT-R01-01');
   const attempt = nextFixtureAttemptId(envelope.workshop, event);
   const begun = beginFixtureProfileAttempt(envelope.workshop, event, attempt).profile;
-  const stored = { ...envelope, workshop: begun, liveMission: { jobId: 'MC-OPT-R01-01' as const, worldEventId: event, attemptId: attempt, completedInteractionIds: ['INT-FB-R01-MARKER-A'], finiteEnemyGroupCleared: false, recoveryRequired: false } };
+  const stored = { ...envelope, workshop: begun, liveMission: { jobId: 'MC-OPT-R01-01' as const, worldEventId: event, attemptId: attempt, completedInteractionIds: ['INT-FB-R01-MARKER-A'], finiteEnemyGroupCleared: false, recoveryRequired: false, checkpointRevision: 0 } };
   const restored = deserializeIntegratedFixtureEnvelope(JSON.stringify(stored));
   expect(restored.liveMission).toEqual(stored.liveMission);
   expect(restored.workshop.attempts).toEqual(begun.attempts);
@@ -313,6 +313,7 @@ it('round-trips the exact active combat survivors instead of rebuilding a fresh 
       completedInteractionIds: [],
       finiteEnemyGroupCleared: false,
       recoveryRequired: false,
+      checkpointRevision: 0,
       combatSnapshot: snapshot,
     },
   };
@@ -322,6 +323,24 @@ it('round-trips the exact active combat survivors instead of rebuilding a fresh 
   resumed.restoreJob('MC-OPT-F01-01', false);
   expect(resumed.restore(restored.liveMission!.combatSnapshot!, 'MC-OPT-F01-01', false)).toBe(true);
   expect(resumed.snapshot('hound')).toEqual(snapshot);
+});
+
+it('migrates an active pre-revision envelope to checkpoint revision zero', () => {
+  const envelope = createIntegratedFixtureEnvelope();
+  const event = nextFixtureWorldEventId(envelope.workshop, 'MC-OPT-F01-01');
+  const attempt = nextFixtureAttemptId(envelope.workshop, event);
+  const workshop = beginFixtureProfileAttempt(envelope.workshop, event, attempt).profile;
+  const restored = deserializeIntegratedFixtureEnvelope(JSON.stringify({
+    ...envelope, workshop, liveMission: { jobId: 'MC-OPT-F01-01', worldEventId: event, attemptId: attempt, completedInteractionIds: [], finiteEnemyGroupCleared: false, recoveryRequired: false },
+  }));
+  expect(restored.liveMission?.checkpointRevision).toBe(0);
+});
+
+it('assigns the z16 ramp boundary to elevated traffic in both directions', () => {
+  expect(isFixtureTerrainPositionWalkable({ x: 40, z: 16, layer: 'ground' })).toBe(false);
+  expect(isFixtureTerrainPositionWalkable({ x: 40, z: 16, layer: 'elevated' })).toBe(true);
+  expect(moveFixtureTerrainPosition({ x: 40, z: 15.9, layer: 'ground' }, { x: 40, z: 16, layer: 'ground' }).position).toEqual({ x: 40, z: 16, layer: 'elevated' });
+  expect(moveFixtureTerrainPosition({ x: 40, z: 16, layer: 'elevated' }, { x: 40, z: 15.9, layer: 'elevated' }).position).toEqual({ x: 40, z: 15.9, layer: 'ground' });
 });
 
 it('keeps a prior isolated receipt readable without importing a normal game save', () => {

@@ -23,6 +23,7 @@ MEOWCENARY_BROWSER_EXECUTABLE=/usr/bin/chromium \
   --project=desktop-1280x720 --project=phone-390x844
 ```
 
-The recorded focused run passed all 10 selected project cases. The pinned
+The recorded focused run executed 6 selected project cases and skipped 4
+desktop-only cases on the phone project. The pinned
 software-rendered Chromium facts remain in the ordinary Playwright output;
 these three PNGs are the retained review subset.

@@ -4,11 +4,11 @@ type Bounds = { x: number; y: number; width: number; height: number };
 type Diagnostics = {
   scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: 'ground' | 'elevated'; tabbyLayer: 'ground' | 'elevated'; houndLayer: 'ground' | 'elevated'; combatEventSequence: number; cameraX: number; cameraY: number; controlledGun: string; jobId?: string; phase: string; completedInteractionIds: string[]; canExtract: boolean; extracted: boolean;
   combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostiles: number;
-  checkpoint?: { controlledActor: 'tabby' | 'hound'; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostileHealths: number[] }; workshopCredits: number; workshopParts: number;
+  checkpoint?: { revision: number; controlledActor: 'tabby' | 'hound'; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: { x: number; y: number }; houndPosition: { x: number; y: number }; hostileHealths: number[] }; workshopCredits: number; workshopParts: number;
   workshopMaterials: { metal: number; circuits: number; cloth: number }; worldEventId?: string; activeAttemptId?: string; attemptTerminal?: string;
   workshopOpen: boolean; recoveryMode: 'none' | 'writing' | 'write-failed' | 'recovered'; recoveryFee?: number; receiptIds: string[]; paidEventIds: string[]; takeoverControl?: Bounds; recoveryControl?: Bounds; retryControl?: Bounds;
 };
-type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void };
+type FixtureSeam = { diagnostics(): Diagnostics; surrender(): void; forceSquadDefeat(): boolean; forceTabbyDown(): boolean; prolongCombat(): boolean; prepareF01(): boolean; failNextStorageWrite(): void; failNextRecoveryWrite(): void; rejectNextWriterLock(): void };
 type Globals = { __MEOWCENARY_INT_FB__?: FixtureSeam };
 
 function selectedProject(info: TestInfo): boolean { return info.project.name === 'desktop-1280x720' || info.project.name === 'phone-390x844'; }
@@ -82,6 +82,22 @@ async function capture(page: Page, info: TestInfo, name: string): Promise<void> 
   const image = info.outputPath(`${name}.png`);
   await page.screenshot({ path: image });
   await info.attach(name, { path: image, contentType: 'image/png' });
+}
+async function holdFixtureWriter(page: Page): Promise<void> {
+  await page.evaluate(() => new Promise<void>(resolve => {
+    const target = globalThis as typeof globalThis & { __releaseFixtureWriter?: () => void };
+    navigator.locks.request('meowcenary:int-fb:v1:writer', { mode: 'exclusive' }, async () => {
+      resolve();
+      await new Promise<void>(release => { target.__releaseFixtureWriter = release; });
+    });
+  }));
+}
+async function releaseFixtureWriter(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const target = globalThis as typeof globalThis & { __releaseFixtureWriter?: () => void };
+    target.__releaseFixtureWriter?.();
+    delete target.__releaseFixtureWriter;
+  });
 }
 async function activate(page: Page, job: '1' | '2', spawn: { x: number; y: number }): Promise<Diagnostics> {
   await page.keyboard.press(job);
@@ -266,10 +282,15 @@ test('active reload retains partial combat and a Hound takeover without reviving
   expect(resumed.tabbyGunSupply).not.toBe(12);
   expect(resumed.checkpoint?.hostileHealths.some(health => health < 10_000)).toBe(true);
 
+  // A checkpoint queued before a takeover must capture after lock ownership,
+  // not restore Tabby's stale control snapshot once the lock is released.
+  await holdFixtureWriter(page);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prolongCombat())).toBe(true);
   expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceTabbyDown())).toBe(true);
   await expect.poll(async () => (await state(page)).takeoverControl).toBeDefined();
   const takeover = await state(page);
   await tap(page, info, takeover.takeoverControl!);
+  await releaseFixtureWriter(page);
   await expect.poll(async () => (await state(page)).checkpoint?.controlledActor).toBe('hound');
   const savedTakeover = (await state(page)).checkpoint!;
   await page.reload();
@@ -282,6 +303,29 @@ test('active reload retains partial combat and a Hound takeover without reviving
   expect(resumedTakeover.tabbyHealth).toBe(0);
   expect(resumedTakeover.houndPosition).toEqual(savedTakeover.houndPosition);
   expect(resumedTakeover.checkpoint?.controlledActor).toBe('hound');
+  // A stale second tab may read the active attempt, but its old checkpoint
+  // revision must not overwrite the fresh owner snapshot.
+  const staleTab = await page.context().newPage();
+  await ready(staleTab);
+  const staleRevision = (await state(staleTab)).checkpoint!.revision;
+  await page.keyboard.press('q');
+  await expect.poll(async () => (await state(page)).checkpoint?.revision).toBeGreaterThan(staleRevision);
+  const ownerRevision = (await state(page)).checkpoint!.revision;
+  expect(await staleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prolongCombat())).toBe(true);
+  await staleTab.waitForTimeout(100);
+  expect(await staleTab.evaluate(() => JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!).liveMission.checkpointRevision)).toBe(ownerRevision);
+  await staleTab.close();
+  // Rejected writer acquisition must release the checkpoint flag so the next
+  // control mutation can publish normally.
+  const revisionBeforeReject = resumedTakeover.checkpoint!.revision;
+  await page.evaluate(() => {
+    const seam = (globalThis as Globals).__MEOWCENARY_INT_FB__!;
+    seam.rejectNextWriterLock();
+    seam.prolongCombat();
+  });
+  await page.waitForTimeout(50);
+  await page.keyboard.press('q');
+  await expect.poll(async () => (await state(page)).checkpoint?.revision).toBeGreaterThan(revisionBeforeReject);
   await capture(page, info, 'f01-hound-takeover-reloaded');
 });
 

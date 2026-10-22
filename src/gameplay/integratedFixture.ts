@@ -298,6 +298,9 @@ export interface FixtureLiveMission {
   readonly completedInteractionIds: readonly string[];
   readonly finiteEnemyGroupCleared: boolean;
   readonly recoveryRequired: boolean;
+  /** Monotonic ownership token for combat snapshots. A stale tab may observe
+   * an active attempt, but cannot publish over a checkpoint it did not read. */
+  readonly checkpointRevision: number;
   /** Written in the same envelope transaction as the recovery debit. Older
    * isolated envelopes did not retain this display receipt. */
   readonly recoveryFee?: number;
@@ -320,6 +323,7 @@ function validLiveMission(value: unknown, profile: FixtureWorkshopProfile): valu
   if ((live.jobId !== 'MC-OPT-R01-01' && live.jobId !== 'MC-OPT-F01-01') || typeof live.worldEventId !== 'string' || !live.worldEventId
     || typeof live.attemptId !== 'string' || !live.attemptId || !Array.isArray(live.completedInteractionIds)
     || !live.completedInteractionIds.every(id => typeof id === 'string') || typeof live.finiteEnemyGroupCleared !== 'boolean' || typeof live.recoveryRequired !== 'boolean'
+    || (live.checkpointRevision !== undefined && (!Number.isSafeInteger(live.checkpointRevision) || live.checkpointRevision < 0))
     || (live.recoveryFee !== undefined && (!Number.isInteger(live.recoveryFee) || live.recoveryFee < 0 || live.recoveryFee > 250))
     || (!live.recoveryRequired && live.recoveryFee !== undefined)
     || (live.combatSnapshot !== undefined && !validFixtureCombatSnapshot(live.combatSnapshot, live.jobId, live.finiteEnemyGroupCleared))) return false;
@@ -340,7 +344,7 @@ export function deserializeIntegratedFixtureEnvelope(value: string | null): Fixt
     if (raw.version !== INTEGRATED_FIXTURE_ENVELOPE_VERSION && raw.version !== 'int-fb-envelope-v2') return createIntegratedFixtureEnvelope();
     const mission = deserializeIntegratedFixtureSave(JSON.stringify(raw.mission));
     const workshop = deserializeIntegratedFixtureWorkshopProfile(raw.workshop);
-    const liveMission = validLiveMission(raw.liveMission, workshop) ? Object.freeze({ ...raw.liveMission, completedInteractionIds: Object.freeze([...raw.liveMission.completedInteractionIds]), ...(raw.liveMission.combatSnapshot ? { combatSnapshot: freezeFixtureCombatSnapshot(raw.liveMission.combatSnapshot) } : {}) }) : undefined;
+    const liveMission = validLiveMission(raw.liveMission, workshop) ? Object.freeze({ ...raw.liveMission, checkpointRevision: raw.liveMission.checkpointRevision ?? 0, completedInteractionIds: Object.freeze([...raw.liveMission.completedInteractionIds]), ...(raw.liveMission.combatSnapshot ? { combatSnapshot: freezeFixtureCombatSnapshot(raw.liveMission.combatSnapshot) } : {}) }) : undefined;
     return Object.freeze({ version: INTEGRATED_FIXTURE_ENVELOPE_VERSION, mission, workshop, ...(liveMission ? { liveMission } : {}) });
   } catch { return createIntegratedFixtureEnvelope(); }
 }
@@ -567,8 +571,10 @@ function pointInFixtureSurface(position: FixturePosition, surface: FixtureSurfac
 function surfaceSupportsFixtureLayer(surface: FixtureSurface, position: FixturePosition, layer: FixtureLayer): boolean {
   if (!pointInFixtureSurface(position, surface)) return false;
   if (surface.kind === 'bridge') return layer === FIXTURE_ELEVATED;
+  // z=16 belongs to the elevated deck. Keeping the boundary single-owned
+  // makes ground→elevated and elevated→ground traversal deterministic.
   if (surface.kind === 'ramp') return layer === FIXTURE_GROUND
-    ? position.z <= RAMP_TRANSITION_Z
+    ? position.z < RAMP_TRANSITION_Z
     : position.z >= RAMP_TRANSITION_Z;
   return layer === FIXTURE_GROUND;
 }
@@ -577,7 +583,7 @@ function transitionFixtureLayer(from: FixturePosition, candidate: FixturePositio
   const ramp = INTEGRATED_FIXTURE_SURFACES.find(surface => surface.kind === 'ramp');
   if (!ramp || !pointInFixtureSurface(candidate, ramp)) return current;
   if (current === FIXTURE_GROUND && from.z < RAMP_TRANSITION_Z && candidate.z >= RAMP_TRANSITION_Z) return FIXTURE_ELEVATED;
-  if (current === FIXTURE_ELEVATED && from.z > RAMP_TRANSITION_Z && candidate.z <= RAMP_TRANSITION_Z) return FIXTURE_GROUND;
+  if (current === FIXTURE_ELEVATED && candidate.z < RAMP_TRANSITION_Z) return FIXTURE_GROUND;
   return current;
 }
 function fixturePositionInBounds(position: FixturePosition, bodyRadius: number): boolean {
