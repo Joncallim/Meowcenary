@@ -132,6 +132,10 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       forceSquadDefeat: () => this.forceSquadDefeat(),
       forceTabbyDown: () => this.forceTabbyDown(),
       prolongCombat: () => this.prolongCombat(),
+      queueRequiredObjective: () => this.queueRequiredObjective(),
+      queueExtraction: () => this.queueExtraction(),
+      queueDiscovery: () => this.queueDiscovery(),
+      queueWorkshopConflict: () => this.queueWorkshopConflict(),
       prepareF01: () => this.prepareF01(),
       failNextStorageWrite: () => { this.failNextStorageWrite = true; },
       failNextRecoveryWrite: () => { this.failNextRecoveryWrite = true; },
@@ -273,13 +277,18 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     void locks.request(`${INTEGRATED_FIXTURE_SAVE_KEY}:writer`, { mode: 'exclusive' }, callback).catch(rejected);
   }
   private assignEnvelope(envelope: FixturePersistentEnvelope): void { this.envelope = envelope; }
+  /** Profile and receipt refreshes must never let a stale combat scene adopt
+   * another tab's live revision. Reload is the only way to adopt that state. */
+  private refreshNonLiveEnvelope(envelope: FixturePersistentEnvelope): void {
+    this.envelope = Object.freeze({ ...this.envelope, mission: envelope.mission, workshop: envelope.workshop, liveMission: this.envelope.liveMission });
+  }
   private activeMission(): FixtureLiveMission | undefined { return this.envelope.liveMission; }
   private ownsLiveMission(durable: FixturePersistentEnvelope | undefined, current: FixtureLiveMission): boolean {
     const live = durable?.liveMission;
     return !!live && live.attemptId === current.attemptId && live.ownerEpoch === current.ownerEpoch && live.checkpointRevision === current.checkpointRevision;
   }
   private loseLiveOwnership(durable: FixturePersistentEnvelope | undefined): void {
-    if (durable) this.assignEnvelope(durable);
+    if (durable) this.refreshNonLiveEnvelope(durable);
     this.ownershipLost = true;
     this.combatActive = false;
     this.touchTarget = undefined;
@@ -358,6 +367,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.combatCheckpointWriting = true;
     this.combatCheckpointElapsed = 0;
     this.requestWriter('Combat checkpoint writer lock unavailable; the active attempt remains in this scene.', async () => {
+      if (this.ownershipLost) { this.combatCheckpointWriting = false; return; }
       const durable = this.readEnvelope(); const live = durable?.liveMission;
       const expected = this.activeMission();
       // Capture only while owning the writer. A queued checkpoint must not
@@ -463,6 +473,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (!current || this.progressWriting || !this.activeAttemptId || current.attemptId !== this.activeAttemptId) return;
     this.progressWriting = true;
     this.requestWriter('Objective writer lock unavailable; interaction was not recorded.', async () => {
+      if (this.ownershipLost) { this.progressWriting = false; return; }
       const durable = this.readEnvelope(); const live = durable?.liveMission;
       const expected = this.activeMission();
       if (!expected || expected.attemptId !== current.attemptId || !this.ownsLiveMission(durable, expected)) { this.progressWriting = false; this.loseLiveOwnership(durable); return; }
@@ -481,6 +492,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (!current || this.progressWriting || current.finiteEnemyGroupCleared) return;
     this.progressWriting = true;
     this.requestWriter('Objective writer lock unavailable; exit group remains unconfirmed.', async () => {
+      if (this.ownershipLost) { this.progressWriting = false; return; }
       const durable = this.readEnvelope(); const live = durable?.liveMission;
       const expected = this.activeMission();
       if (!expected || expected.attemptId !== current.attemptId || !this.ownsLiveMission(durable, expected)) { this.progressWriting = false; this.loseLiveOwnership(durable); return; }
@@ -500,6 +512,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (this.ownershipLost || !current || this.recoveryMode === 'writing' || this.recoveryMode === 'recovered' || this.settlementPending) return;
     this.recoveryMode = 'writing'; this.takeoverPrompt?.setVisible(false); this.showRecoveryControls(); this.combatFeedback = `${reason === 'surrender' ? 'Surrender' : 'Squad wipe'} is recording one recovery claim…`; this.refreshStatus();
     this.requestWriter('Recovery writer lock unavailable; no fee was taken.', async () => {
+      if (this.ownershipLost) { this.recoveryMode = 'none'; this.showRecoveryControls(); return; }
       const durable = this.readEnvelope(); const live = durable?.liveMission;
       const expected = this.activeMission();
       if (!expected || expected.attemptId !== current.attemptId || !this.ownsLiveMission(durable, expected)) { this.recoveryMode = 'none'; this.loseLiveOwnership(durable); return; }
@@ -519,6 +532,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (this.ownershipLost || !current || !current.recoveryRequired || this.recoveryMode !== 'recovered') return;
     this.recoveryMode = 'writing'; this.showRecoveryControls();
     this.requestWriter('Retry writer lock unavailable; the recovered event remains safe.', async () => {
+      if (this.ownershipLost) { this.recoveryMode = 'none'; this.showRecoveryControls(); return; }
       const durable = this.readEnvelope(); const live = durable?.liveMission;
       const expected = this.activeMission();
       if (!expected || expected.attemptId !== current.attemptId || !this.ownsLiveMission(durable, expected)) { this.recoveryMode = 'none'; this.loseLiveOwnership(durable); return; }
@@ -553,6 +567,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (this.ownershipLost || !current || this.settlementPending || current.recoveryRequired) return;
     this.settlementPending = true; this.combatFeedback = 'Committing event-aware extraction before publishing victory…'; this.refreshStatus();
     this.requestWriter('Settlement writer lock unavailable; extraction remains active.', async () => {
+      if (this.ownershipLost) { this.settlementPending = false; return; }
       const durable = this.readEnvelope(); const live = durable?.liveMission;
       const expected = this.activeMission();
       if (!expected || expected.attemptId !== current.attemptId || !this.ownsLiveMission(durable, expected)) { this.settlementPending = false; this.loseLiveOwnership(durable); return; }
@@ -573,18 +588,19 @@ export class IntegratedFixtureScene extends Phaser.Scene {
 
   private recordLootDiscovery(): void {
     this.requestWriter('Discovery writer lock unavailable; loot remains undiscovered.', async () => {
+      if (this.ownershipLost) return;
       const durable = this.readEnvelope();
       if (!durable) { this.combatFeedback = 'Discovery storage could not be read.'; this.refreshStatus(); return; }
       const profile = durable.workshop;
       const result = commitAndPersistFixtureWorkshop(profile, { profileId: profile.profileId, commandId: `world:discover-h2:${profile.revision}`, expectedRevision: profile.revision, action: 'discover-h2' }, candidate => this.writeEnvelope(Object.freeze({ ...durable, workshop: candidate })));
-      if (result.applied) { this.assignEnvelope(Object.freeze({ ...durable, workshop: result.profile })); this.combatFeedback = 'HOU-H2 integration loot discovered. Claim is now available at safe service.'; }
+      if (result.applied) { this.refreshNonLiveEnvelope(Object.freeze({ ...durable, workshop: result.profile })); this.combatFeedback = 'HOU-H2 integration loot discovered. Claim is now available at safe service.'; }
       else this.combatFeedback = result.reason === 'already-discovered' ? 'HOU-H2 discovery already recorded.' : `Discovery rejected: ${result.reason ?? 'invalid'}.`;
       this.refreshStatus();
     });
   }
 
   private openWorkshopMenu(): void {
-    if (this.recoveryMode !== 'none') return;
+    if (this.ownershipLost || this.recoveryMode !== 'none') return;
     if (!this.atService()) { this.combatFeedback = `Workshop unavailable: move ${this.actorName()} to safe service.`; this.refreshStatus(); return; }
     this.workshopPreview = undefined; this.workshopPreviewRevision = undefined; this.workshopModal?.destroy();
     const panel = this.add.container(this.scale.width / 2, this.scale.height / 2).setScrollFactor(0).setDepth(30);
@@ -611,14 +627,15 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const action = this.workshopPreview;
     if (!action || this.ownershipLost || this.recoveryMode !== 'none') return;
     this.requestWriter('Workshop writer lock unavailable; nothing changed.', async () => {
+      if (this.ownershipLost) { this.cancelWorkshop(); return; }
       const durable = this.readEnvelope();
       if (!durable) { this.cancelWorkshop(); this.combatFeedback = 'Workshop storage could not be read; nothing changed.'; this.refreshStatus(); return; }
+      if (this.workshopPreviewRevision !== durable.workshop.revision) { this.refreshNonLiveEnvelope(durable); this.cancelWorkshop(); this.combatFeedback = 'Workshop changed in another tab; review the refreshed profile before confirming.'; this.refreshStatus(); return; }
       if (!this.atService()) { this.cancelWorkshop(); this.combatFeedback = `Workshop confirmation rejected: ${this.actorName()} must be at safe service.`; this.refreshStatus(); return; }
-      if (this.workshopPreviewRevision !== durable.workshop.revision) { this.assignEnvelope(durable); this.cancelWorkshop(); this.combatFeedback = 'Workshop changed in another tab; review the refreshed profile before confirming.'; this.refreshStatus(); return; }
       const commandId = `ui:${action}:${durable.workshop.revision}`; const fitKind = action === 'fit-f2-a' ? 'F2' : action === 'fit-b3-a' ? 'B3' : undefined; const fitCandidates = fitKind ? durable.workshop.parts.filter(part => part.kind === fitKind) : []; const partInstanceId = fitCandidates.length === 1 ? fitCandidates[0].instanceId : undefined;
       const result = commitAndPersistFixtureWorkshop(durable.workshop, { profileId: durable.workshop.profileId, commandId, expectedRevision: durable.workshop.revision, action, partInstanceId }, candidate => this.writeEnvelope(Object.freeze({ ...durable, workshop: candidate })));
       if (!result.applied) { this.cancelWorkshop(); this.combatFeedback = result.reason === 'storage-failed' ? 'Workshop storage failed; no debit, item, or assignment was applied.' : `Workshop rejected: ${result.reason ?? 'invalid'}.`; this.refreshStatus(); return; }
-      this.assignEnvelope(Object.freeze({ ...durable, workshop: result.profile })); this.workshopPreview = undefined; this.workshopPreviewRevision = undefined; this.workshopModal?.destroy(); this.workshopModal = undefined; this.combatFeedback = `Workshop saved: ${action.replaceAll('-', ' ')} (receipt ${result.receipt!.commandId}).`; this.refreshStatus();
+      this.refreshNonLiveEnvelope(Object.freeze({ ...durable, workshop: result.profile })); this.workshopPreview = undefined; this.workshopPreviewRevision = undefined; this.workshopModal?.destroy(); this.workshopModal = undefined; this.combatFeedback = `Workshop saved: ${action.replaceAll('-', ' ')} (receipt ${result.receipt!.commandId}).`; this.refreshStatus();
     });
   }
 
@@ -633,6 +650,38 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     return true;
   }
   private forceTabbyDown(): boolean { if (!this.combatActive || !this.activeMission()) return false; this.combat.setFixtureSquadHealth('tabby', 0); return true; }
+  /** Browser seam: queues the ordinary objective writer without changing its
+   * durability or ownership checks. */
+  private queueRequiredObjective(): boolean {
+    const live = this.activeMission();
+    const job = live && INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === live.jobId);
+    const pointId = job?.requiredInteractionIds.find(id => !live!.completedInteractionIds.includes(id));
+    if (!pointId) return false;
+    this.recordInteraction(pointId);
+    return true;
+  }
+  /** Browser seam: queues the ordinary extraction writer; normal settlement
+   * eligibility remains checked inside that writer. */
+  private queueExtraction(): boolean {
+    const live = this.activeMission();
+    if (!live) return false;
+    this.settleAtExtraction(live.jobId);
+    return true;
+  }
+  /** Browser seam: queues the same discovery transaction used by the public
+   * spur, without bypassing its writer or profile-refresh code. */
+  private queueDiscovery(): boolean {
+    this.recordLootDiscovery();
+    return true;
+  }
+  /** Browser seam: queues the ordinary workshop conflict-refresh branch. */
+  private queueWorkshopConflict(): boolean {
+    if (!this.activeMission()) return false;
+    this.workshopPreview = 'fit-f2-a';
+    this.workshopPreviewRevision = this.envelope.workshop.revision - 1;
+    this.confirmWorkshop();
+    return true;
+  }
   /** Browser seam: preserves actual hostiles long enough to make a durable
    * partial-combat reload observable without changing normal combat rules. */
   private prolongCombat(): boolean {
