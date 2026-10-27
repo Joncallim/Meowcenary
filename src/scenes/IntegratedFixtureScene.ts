@@ -382,6 +382,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       const releaseHistoryGesture = this.historyGesture;
       this.historyGesture = false;
+      if (this.workshopModal || this.workshopMovementRearm) { this.touchTarget = undefined; return; }
       // Phaser only delivers a control's pointerup when the release remains
       // over that rectangle. Keep a History gesture owned through a drag so
       // it cannot turn into world movement; a release still activates its
@@ -586,6 +587,9 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.refreshStatus();
   }
   private confirmTakeover(): void {
+    // Both the prompt GameObject and the scene's fallback pointerup route
+    // reach this command. Neither may transfer control through a workshop.
+    if (this.workshopModal || this.workshopMovementRearm) return;
     if (this.historicalReplay) { const replay = this.replayCombat; if (replay && resolveFixtureTakeover(replay.actorHealth('tabby'), replay.actorHealth('hound'), this.replayControlledActor === 'hound') === 'takeover-required') { this.replayControlledActor = 'hound'; this.replayCameraActor = 'hound'; this.replayTakeoverPrompt?.setVisible(false); this.cameras.main.startFollow(this.replayHound!, true, .15, .15); this.combatFeedback = 'Archived Hound has taken control.'; this.refreshStatus(); } return; }
     if (this.ownershipLost || !this.lead || !this.hound || this.recoveryMode !== 'none' || resolveFixtureTakeover(this.combat.actorHealth('tabby'), this.combat.actorHealth('hound'), false) !== 'takeover-required') return;
     this.controlledActor = 'hound'; this.cameras.main.startFollow(this.hound, true, .15, .15); this.takeoverPrompt?.setVisible(false);

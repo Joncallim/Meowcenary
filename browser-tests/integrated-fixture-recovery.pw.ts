@@ -246,6 +246,46 @@ test('separate legitimate workshop previews can repeat a build', async ({ page }
   expect(saved.receipts.map((receipt: { commandId: string }) => receipt.commandId)).toEqual(['ui:build-b3:0', 'ui:build-b3:1']);
 });
 
+for (const panel of ['menu', 'preview'] as const) {
+test(`workshop ${panel} pointer input cannot confirm an overlapping takeover prompt`, async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Desktop modal takeover regression.');
+  const pageErrors: string[] = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+  await ready(page);
+  // Directed adversarial setup uses the ordinary activation and down-state
+  // owners, leaving both actors at the real safe-service positions.
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prepareF01())).toBe(true);
+  await expect.poll(async () => (await state(page)).combatActive).toBe(true);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceTabbyDown())).toBe(true);
+  await expect.poll(async () => (await state(page)).takeoverControl).toBeDefined();
+  const before = await state(page);
+  expect(before).toMatchObject({ x: 80, y: 110, controlledActor: 'tabby', tabbyHealth: 0 });
+  await page.keyboard.press(panel === 'preview' ? 'g' : 'b');
+  await expect.poll(async () => (await state(page)).workshopOpen).toBe(true);
+  await expect.poll(async () => (await state(page)).workshopPreview).toBe(panel === 'preview' ? 'build-b3' : undefined);
+  const prompt = (await state(page)).takeoverControl!;
+  const click = { x: prompt.x + prompt.width / 2, y: prompt.y + prompt.height / 2 };
+  // Pin actual overlap with the preview's background, away from its buttons.
+  expect(click.x).toBeGreaterThan(390); expect(click.x).toBeLessThan(890);
+  expect(click.y).toBeGreaterThan(250); expect(click.y).toBeLessThan(400);
+  const bytes = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'));
+  await page.mouse.click(click.x, click.y);
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  expect(await state(page)).toMatchObject({ controlledActor: 'tabby', workshopPreview: panel === 'preview' ? 'build-b3' : undefined, workshopOpen: true,
+    workshopCredits: before.workshopCredits, workshopParts: before.workshopParts, x: before.x, y: before.y });
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(bytes);
+  await capture(page, info, `takeover-fenced-by-workshop-${panel}`);
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => (await state(page)).workshopOpen).toBe(false);
+  await page.waitForTimeout(100); // A neutral frame rearms the normal prompt.
+  const restored = (await state(page)).takeoverControl!;
+  await tap(page, info, restored);
+  await expect.poll(async () => (await state(page)).controlledActor).toBe('hound');
+  expect(await state(page)).toMatchObject({ workshopCredits: before.workshopCredits, workshopParts: before.workshopParts, tabbyHealth: 0 });
+  expect(pageErrors).toEqual([]);
+});
+}
+
 async function activate(page: Page, job: '1' | '2', spawn: { x: number; y: number }): Promise<Diagnostics> {
   await page.keyboard.press(job);
   await expect.poll(async () => (await state(page)).jobId).toBe(job === '1' ? 'MC-OPT-R01-01' : 'MC-OPT-F01-01');
