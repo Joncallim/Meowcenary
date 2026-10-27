@@ -212,12 +212,16 @@ describe('createUiText', () => {
     const integratedFixtureSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/IntegratedFixtureScene.ts'));
     const lateFixtureSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/LateFixtureScene.ts'));
     const lateRangeSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/LateRangeScene.ts'));
-    const nonRangeSites = migratedSites.filter(node => !node.getSourceFile().fileName.endsWith('/scenes/LateRangeScene.ts'));
+    const junctionSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/JunctionSliceScene.ts'));
+    const baselineSites = migratedSites.filter(node => !node.getSourceFile().fileName.endsWith('/scenes/JunctionSliceScene.ts'));
+    const nonRangeSites = baselineSites.filter(node => !node.getSourceFile().fileName.endsWith('/scenes/LateRangeScene.ts'));
     expect(integratedFixtureSites).toHaveLength(20);
     expect(lateFixtureSites).toHaveLength(2);
     expect(lateRangeSites).toHaveLength(4);
     expect(nonRangeSites).toHaveLength(77);
-    expect(migratedSites).toHaveLength(81);
+    expect(junctionSites).toHaveLength(1);
+    expect(baselineSites).toHaveLength(81);
+    expect(migratedSites).toHaveLength(82);
     const introSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/ui/runStartIntroView.ts'));
     expect(introSites).toHaveLength(4);
 
