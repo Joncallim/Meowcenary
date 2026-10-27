@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Build the shipped Mercenary portraits from approved character concepts.
+"""Build the legacy baseline Mercenary portraits from selected concepts.
 
-The untouched selected board remains the provenance master.  This deterministic
-crop turns the selected character masters into eight consistently framed, runtime-sized
-cards and mirrors the result into an editable Pixelorama source plus Phaser
-atlas export.  It intentionally does not regenerate or reinterpret the art.
+The untouched selected boards remain provenance masters. This deterministic crop
+turns the historical eight-character baseline into consistently framed,
+runtime-sized cards and mirrors the result into an editable Pixelorama source
+plus Phaser atlas export. It intentionally does not regenerate or reinterpret
+the art. The digests protect technical provenance; they are not current visual
+authority or production/device acceptance.
 """
 
 from __future__ import annotations

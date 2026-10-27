@@ -1,5 +1,10 @@
 > NONSHIPPING ART RESET BRANCH: legacy visual payloads are retired here. The hosted game and main are unchanged. Do not merge or deploy this incomplete branch. See [the Janet-owned art reset](docs/art/reset-2026-10-23/README.md) and its exact recovery manifest.
 
+> **NON-PLAYABLE REDESIGN STATE:** this PR263 branch is intentionally not a
+> playable build while replacement art coverage is incomplete. Do not infer
+> player acceptance from mechanics, tests, or validators; replacement coverage
+> and the separate production/device acceptance gates must pass before merge.
+
 # Meowcenary
 
 A browser-first roguelite survivor about heavily armed animal mercenaries fighting through a junkyard, collecting scrap, and turning increasingly stupid weapons into increasingly effective ones.
@@ -8,7 +13,9 @@ Combat is automatic. The player controls movement, positioning, build choices, e
 
 ## Current state
 
-Meowcenary is a playable TypeScript/Phaser game with substantially more than the original combat prototype.
+The default branch contains a playable TypeScript/Phaser game with substantially
+more than the original combat prototype. This PR263 redesign branch is
+intentionally non-playable while retired legacy art awaits replacement coverage.
 
 Implemented systems include:
 
@@ -17,6 +24,7 @@ Implemented systems include:
 - a six-slot weapon rack with pickups, merging and tier progression
 - run upgrades and build variation
 - eight playable mercenaries with distinct stats, passives, abilities and unlocks
+  (the implemented Alpha 3 baseline cast; not the current design roster)
 - achievements and progression-linked unlocks
 - persistent gun parts / Gunsmith data
 - armour and equipment data
@@ -24,9 +32,25 @@ Implemented systems include:
 - keyboard, touch and controller input paths
 - local save/progression state
 - audio, effects, authored character/enemy art and a traversable Junkyard Lot
+  (implemented baseline world presentation)
 - automated tests, content validation and CI
 
 The game is still under active development. Some content catalogs and progression systems are further along in data/architecture than their final UI and polish.
+
+### Runtime baseline vs current design direction
+
+The repository currently implements the older Alpha 3 baseline: an eight-character
+cast, ten enemy roles and the Junkyard/Forge world presentation. Those runtime
+IDs, technical contracts and diagnostic evidence remain intact; this statement
+does not promote their art to current visual authority.
+
+The current design direction is tracked separately in the canonical design brief
+and current Figma review: six approved heroes (including Sable Skink, not the
+obsolete Viper), 30 proposed enemy roles and six proposed regions. The 24
+machine concepts are approved concept direction; the latest six organic
+redesign proposals are not final production art. Expanded environment records
+are specifications, not runtime assets. No roster, enemy, region or asset cutover
+is implied by this documentation distinction.
 
 ## Design
 

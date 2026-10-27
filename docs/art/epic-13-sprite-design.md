@@ -1,7 +1,7 @@
 # Epic 13 Sprite Visual Design Packet
 
-**Status:** implemented — AI-directed Pixelorama proving art is exported and
-wired into the Epic 13 runtime. This packet
+**Status:** historical implemented Epic 13 proving packet — AI-directed
+Pixelorama art was exported and wired into the legacy runtime. This packet
 supplements [`../architecture/epic-13-presentation-runtime.md`](../architecture/epic-13-presentation-runtime.md),
 the [visual style guide](style-guide.md), and the
 [character asset standard](character-asset-standard.md). If a production detail
@@ -15,11 +15,13 @@ The exact built-in generation prompts are retained in
 [`concepts/epic-13/generation-prompts.md`](concepts/epic-13/generation-prompts.md)
 for provenance and reproducibility.
 
-The final production decisions are summarized in
-[`concepts/epic-13/final-actor-direction.png`](concepts/epic-13/final-actor-direction.png)
-and [`concepts/epic-13/final-prop-direction.png`](concepts/epic-13/final-prop-direction.png).
+The historical Epic 13 final-direction PNGs were retired by PR263 and remain
+recoverable through `docs/art/reset-2026-10-23/retired-assets.json`; no retired
+image is current art authority.
 The seven builders translate those boards into deliberately simpler,
-phone-readable pixel clusters; the runtime sheets are authoritative.
+phone-readable pixel clusters; the runtime sheets were authoritative only for
+this legacy proving packet. Current design authority is the canonical design
+brief and current Figma review, not this old right-facing 48px direction.
 
 ## Shared visual language
 
@@ -97,7 +99,8 @@ the sheets.
 
 ## Scrap Tabby
 
-![Scrap Tabby concept](concepts/epic-13/scrap-tabby-concept.png)
+> Historical Scrap Tabby concept image retired by PR263; provenance is retained
+> in the recovery manifest and generation record.
 
 **Read:** balanced, resourceful, friendly, prepared.
 
@@ -117,7 +120,8 @@ Palette: amber `#f7c948`, cream `#fff3c4`, burnt orange `#c86b2b`, teal
 
 ## Bolt Hound
 
-![Bolt Hound concept](concepts/epic-13/bolt-hound-concept.png)
+> Historical Bolt Hound concept image retired by PR263; provenance is retained
+> in the recovery manifest and generation record.
 
 **Read:** wiry, eager, high-speed, fragile.
 
@@ -137,7 +141,8 @@ Palette: steel blue `#38bdf8`, pale cyan `#d6f7ff`, lime `#a3e635`, dark navy
 
 ## Dust Mite
 
-![Dust Mite concept](concepts/epic-13/dust-mite-concept.png)
+> Historical Dust Mite concept image retired by PR263; provenance is retained
+> in the recovery manifest and generation record.
 
 **Read:** numerous, twitchy, irritating, dangerous.
 
@@ -156,7 +161,8 @@ Palette: danger red `#ef4444`, coral `#f87171`, rust `#b9382f`, cream
 
 ## Junk Rusher
 
-![Junk Rusher concept](concepts/epic-13/junk-rusher-concept.png)
+> Historical Junk Rusher concept image retired by PR263; provenance is retained
+> in the recovery manifest and generation record.
 
 **Read:** winding, armed, directional, about to dash.
 
@@ -176,7 +182,8 @@ Palette: orange `#f97316`, dark rust `#9a3412`, cream `#fff3c4`, steel
 
 ## Trash Brute
 
-![Trash Brute concept](concepts/epic-13/trash-brute-concept.png)
+> Historical Trash Brute concept image retired by PR263; provenance is retained
+> in the recovery manifest and generation record.
 
 **Read:** slow, broad, heavy, hard to stop.
 
@@ -194,7 +201,8 @@ Palette: purple `#a855f7`, deep violet `#6d28d9`, cream `#fff3c4`, steel
 
 ## Scrap Shot
 
-![Scrap Shot concept](concepts/epic-13/scrap-shot-concept.png)
+> Historical Scrap Shot concept image retired by PR263; provenance is retained
+> in the recovery manifest and generation record.
 
 **Read:** fast improvised energy-charged scrap, generic across weapon families.
 
@@ -211,7 +219,8 @@ outline `#0a0f14`.
 
 ## XP Mote
 
-![XP Mote concept](concepts/epic-13/xp-mote-concept.png)
+> Historical XP Mote concept image retired by PR263; provenance is retained in
+> the recovery manifest and generation record.
 
 **Read:** inviting collectible energy, not currency or ammunition.
 
@@ -293,10 +302,11 @@ single horizontal row without trimming, preserving stable full-frame anchors.
   13's delivery record. Manual player-experience rows remain unverified until
   this export and browser review are complete.
 
-## Production approval rule
+## Historical proving-set rule
 
-The proving set is acceptable when every actor is recognizable from its black
+The historical proving set was acceptable when every actor was recognizable from its black
 silhouette, all seven remain distinct at runtime size, animations keep a fixed
 body center, the palettes separate cleanly on the dark arena, and the exported
 files are reproducible from the committed Lua scripts. Surface polish is useful;
-readability and reproducibility are mandatory.
+readability and reproducibility are mandatory. This diagnostic rule is not
+current production approval, device acceptance or an owner hold release.

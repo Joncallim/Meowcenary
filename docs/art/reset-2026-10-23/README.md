@@ -1,6 +1,8 @@
 # Meowcenary visual reset — 23 October 2026
 
-Status: nonshipping, Janet-owned replacement workflow. No new production art accepted.
+Status: nonshipping, intentionally non-playable redesign branch, Janet-owned
+replacement workflow. No new production art accepted until replacement coverage
+and the separate production/device acceptance gates pass.
 Corrected 22 October 2026, 17:28 UTC after Jonathan rejected the first Tabby studies.
 
 ## Current authority, not the obsolete boards

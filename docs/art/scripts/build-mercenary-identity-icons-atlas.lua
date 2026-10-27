@@ -1,5 +1,6 @@
 -- external-production-importer: build-mercenary-identity-concept-atlas.py
--- crops the selected 4x4 generated-source board into the production atlas.
+-- crops the historical selected 4x4 generated-source board into the legacy
+-- production atlas. Technical provenance only; not current roster authority.
 local output = "assets-src/characters/identity/source/mercenary-identity-icons-atlas.pxo"
 if app.open then
   local ok = os.execute("python3 docs/art/scripts/build-mercenary-identity-concept-atlas.py")

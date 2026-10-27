@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Build native enemy animation sources and the shared portrait atlas.
+"""Build the historical ten-role enemy baseline and shared portrait atlas.
 
-The checked-in selected ImageGen sheets are production masters. This builder
+The checked-in selected ImageGen sheets are historical baseline masters. This builder
 places their deliberately authored pixel-style 4x4 poses onto the native
 48/64px gameplay grid and derives a separate high-resolution portrait atlas
 for menus. The native Pixelorama projects remain the editable gameplay source
-of truth.
+of truth for that baseline. The builder preserves runtime-format and digest
+evidence; it does not establish current 30-role design authority or final
+production/device acceptance.
 """
 
 from __future__ import annotations
