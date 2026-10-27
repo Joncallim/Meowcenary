@@ -203,16 +203,25 @@ describe('createUiText', () => {
     // The retired brief used modal helpers, so no direct factory site is removed.
     // Responsive Mercenary cards add two centralized text sites for the
     // compact/wide render block and its content-aware measurement probe.
-    // INT-FB adds 20 explicit scene-owned labels (terrain/status, live and
-    // replay controls, recovery, workshop, and replay overlay); the isolated
-    // late workshop adds its status and generated action-label factory. Keep
-    // those owners separately counted so a later fixture addition cannot be
-    // disguised by changing one aggregate number.
+    // INT-FB adds 21 explicit scene-owned labels (terrain/status, live and
+    // replay controls, recovery, workshop, replay overlay and marker signage); the isolated
+    // late workshop adds its status and generated action-label factory. The
+    // existing range scene adds four sites: status, target label, fire and
+    // return. Count that owner separately and retain the 77-site non-range
+    // baseline plus the one marker-signage site; new sites cannot hide behind an unexplained aggregate.
     const integratedFixtureSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/IntegratedFixtureScene.ts'));
     const lateFixtureSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/LateFixtureScene.ts'));
-    expect(integratedFixtureSites).toHaveLength(20);
+    const lateRangeSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/LateRangeScene.ts'));
+    const junctionSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/JunctionSliceScene.ts'));
+    const baselineSites = migratedSites.filter(node => !node.getSourceFile().fileName.endsWith('/scenes/JunctionSliceScene.ts'));
+    const nonRangeSites = baselineSites.filter(node => !node.getSourceFile().fileName.endsWith('/scenes/LateRangeScene.ts'));
+    expect(integratedFixtureSites).toHaveLength(21);
     expect(lateFixtureSites).toHaveLength(2);
-    expect(migratedSites).toHaveLength(77);
+    expect(lateRangeSites).toHaveLength(4);
+    expect(nonRangeSites).toHaveLength(78);
+    expect(junctionSites).toHaveLength(1);
+    expect(baselineSites).toHaveLength(82);
+    expect(migratedSites).toHaveLength(83);
     const introSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/ui/runStartIntroView.ts'));
     expect(introSites).toHaveLength(4);
 
