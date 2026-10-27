@@ -840,7 +840,7 @@ export function fixturePointLayer(point: FixturePoint): FixtureLayer | undefined
 export function fixturePositionsShareLayer(left: FixturePosition, right: FixturePosition): boolean {
   return fixtureLayer(left) === fixtureLayer(right);
 }
-export type FixtureCombatantId = 'tabby' | 'hound' | 'r01-a' | 'r01-b' | 'f01-a' | 'f01-b' | 'range-full' | 'range-falloff' | 'range-outside';
+export type FixtureCombatantId = string;
 export interface FixtureWeaponSnapshot { readonly supply: number; readonly nextShotSeconds: number; readonly refillRemaining: number; /** Legacy snapshots begin at the first shot. */ readonly shotOffsetIndex?: number; }
 export interface FixtureCombatActorSnapshot {
   readonly id: FixtureCombatantId;
@@ -849,6 +849,8 @@ export interface FixtureCombatActorSnapshot {
   readonly maxHealth: number;
   readonly activeGunIndex: number;
   readonly weapons: readonly FixtureWeaponSnapshot[];
+  /** Optional bounded-encounter persistence; legacy job snapshots omit this. */
+  readonly retainedTargetId?: string;
 }
 export interface FixtureCombatSnapshot {
   readonly controlledActor: 'tabby' | 'hound';
@@ -867,6 +869,13 @@ export interface FixtureCombatEvent {
 export interface FixtureWeaponProfile {
   readonly id: string; readonly damage: number; readonly cycleSeconds: number;
   readonly initialSetupSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly store: number; readonly refillSeconds: number; readonly shotOffsetDegrees: readonly number[]; readonly contactWidthMetres: number;
+}
+export interface FixtureEncounterHostile {
+  readonly id: string;
+  readonly position: FixturePosition;
+  readonly health: number;
+  readonly radius: number;
+  readonly weapon: FixtureWeaponProfile;
 }
 export interface FixtureRangeTargetDefinition { readonly id: 'range-full' | 'range-falloff' | 'range-outside'; readonly position: FixturePosition; readonly health: number; readonly radius: number; }
 export interface FixtureResolvedGunProfile { readonly gunId: FixtureGunId; readonly store: number; readonly refillSeconds: number; readonly fullRangeMetres: number; readonly maxRangeMetres: number; readonly setupSeconds: number; readonly coneMultiplier: number; readonly contactWidthMetres: number; readonly shotOffsetDegrees: readonly number[]; }
@@ -897,7 +906,7 @@ const TABBY_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
 const HOUND_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
   id: 'HOU-service-coil-smg', damage: 14, cycleSeconds: 0.1, initialSetupSeconds: 0.1, fullRangeMetres: 8, maxRangeMetres: 18, store: 30, refillSeconds: 1.5, shotOffsetDegrees: Object.freeze([0]), contactWidthMetres: .1,
 });
-const HOSTILE_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
+export const HOSTILE_FIXTURE_GUN: FixtureWeaponProfile = Object.freeze({
   id: 'fixture-hostile-rifle', damage: 7, cycleSeconds: 1, initialSetupSeconds: 0.5, fullRangeMetres: 10, maxRangeMetres: 16, store: 99, refillSeconds: 1.5, shotOffsetDegrees: Object.freeze([0]), contactWidthMetres: .1,
 });
 
@@ -939,6 +948,7 @@ function freezeFixtureCombatSnapshot(snapshot: FixtureCombatSnapshot): FixtureCo
     maxHealth: actor.maxHealth,
     activeGunIndex: actor.activeGunIndex,
     weapons: Object.freeze(actor.weapons.map(weapon => Object.freeze({ ...weapon }))),
+    ...(actor.retainedTargetId === undefined ? {} : { retainedTargetId: actor.retainedTargetId }),
   }))) });
 }
 
@@ -973,7 +983,7 @@ export class IntegratedFixtureCombat {
   private readonly events: FixtureCombatEvent[] = [];
   private ownedDesignationId?: FixtureCombatantId;
 
-  constructor(profile = createIntegratedFixtureWorkshopProfile()) {
+  constructor(profile = createIntegratedFixtureWorkshopProfile(), private readonly lineOfSight = hasFixtureBallisticLineOfSight) {
     const weaponFor = (gunId: FixtureGunId): FixtureWeaponProfile => { const resolved = resolveFixtureGunProfile(profile, gunId); return { ...TABBY_FIXTURE_GUN, id: `int-fb:${gunId}`, store: resolved.store, refillSeconds: resolved.refillSeconds, initialSetupSeconds: resolved.setupSeconds, fullRangeMetres: resolved.fullRangeMetres, maxRangeMetres: resolved.maxRangeMetres, contactWidthMetres: resolved.contactWidthMetres, shotOffsetDegrees: resolved.shotOffsetDegrees }; };
     const tabA = weaponFor('TAB-A'); const tabB = weaponFor('TAB-B');
     this.add('tabby', 'squad', { x: 8, z: 11 }, 100, 0.4, tabA);
@@ -993,6 +1003,33 @@ export class IntegratedFixtureCombat {
     this.add(`${prefix}-a` as FixtureCombatantId, 'hostile', locations[0]!, 90, 0.4, HOSTILE_FIXTURE_GUN);
     this.add(`${prefix}-b` as FixtureCombatantId, 'hostile', locations[1]!, 90, 0.4, HOSTILE_FIXTURE_GUN);
     this.ownedDesignationId = undefined;
+  }
+  /** Data-driven bounded encounters reuse targeting, supply and contact rules.
+   * Legacy job setup/validation remains independently pinned above. */
+  public beginEncounter(hostiles: readonly FixtureEncounterHostile[]): void {
+    const ids = new Set<string>();
+    for (const hostile of hostiles) {
+      if (!hostile.id || hostile.id === 'tabby' || hostile.id === 'hound' || ids.has(hostile.id)
+        || !Number.isFinite(hostile.health) || hostile.health <= 0 || hostile.health > 10_000
+        || !Number.isFinite(hostile.radius) || hostile.radius <= 0 || hostile.radius > 10
+        || !Number.isFinite(hostile.position?.x) || !Number.isFinite(hostile.position?.z)
+        || hostile.position.x < 0 || hostile.position.x > INTEGRATED_FIXTURE_ENVELOPE.widthMetres
+        || hostile.position.z < 0 || hostile.position.z > INTEGRATED_FIXTURE_ENVELOPE.heightMetres
+        || (hostile.position.layer !== undefined && hostile.position.layer !== 'ground')
+        || !hostile.weapon || ![hostile.weapon.damage, hostile.weapon.cycleSeconds, hostile.weapon.refillSeconds, hostile.weapon.fullRangeMetres, hostile.weapon.maxRangeMetres].every(n => Number.isFinite(n) && n > 0)
+        || hostile.weapon.maxRangeMetres < hostile.weapon.fullRangeMetres
+        || !Number.isInteger(hostile.weapon.store) || hostile.weapon.store <= 0 || hostile.weapon.store > 1000
+        || !Number.isFinite(hostile.weapon.initialSetupSeconds) || hostile.weapon.initialSetupSeconds < 0 || hostile.weapon.initialSetupSeconds > 10 || hostile.weapon.refillSeconds > 10
+        || !Number.isFinite(hostile.weapon.contactWidthMetres) || hostile.weapon.contactWidthMetres < 0
+        || !Array.isArray(hostile.weapon.shotOffsetDegrees) || !hostile.weapon.shotOffsetDegrees.length || !hostile.weapon.shotOffsetDegrees.every(Number.isFinite))
+        throw new Error('Invalid bounded encounter actor');
+      ids.add(hostile.id);
+    }
+    for (const actor of [...this.actors.values()]) if (actor.team === 'hostile') this.actors.delete(actor.id);
+    for (const hostile of hostiles) this.add(hostile.id, 'hostile', hostile.position, hostile.health, hostile.radius,
+      Object.freeze({ ...hostile.weapon, shotOffsetDegrees: Object.freeze([...hostile.weapon.shotOffsetDegrees]) }));
+    this.ownedDesignationId = undefined;
+    this.events.length = 0;
   }
   /** Uses the ordinary combat owner with a caller-resolved weapon profile for
    * a read-only range fixture. It does not create a second firing model. */
@@ -1019,7 +1056,7 @@ export class IntegratedFixtureCombat {
     this.actors.get('hound')!.position = freezeFixturePosition(hound);
   }
   /** Durable checkpoint containing every combatant needed to resume this exact attempt. */
-  public snapshot(controlledActor: 'tabby' | 'hound'): FixtureCombatSnapshot {
+  public snapshot(controlledActor: 'tabby' | 'hound', includeTargetRetention = false): FixtureCombatSnapshot {
     return freezeFixtureCombatSnapshot({ controlledActor, actors: [...this.actors.values()].map(actor => ({
       id: actor.id,
       position: freezeFixturePosition(actor.position),
@@ -1027,6 +1064,7 @@ export class IntegratedFixtureCombat {
       maxHealth: actor.maxHealth,
       activeGunIndex: actor.activeGunIndex,
       weapons: actor.weapons.map(weapon => ({ supply: weapon.supply, nextShotSeconds: weapon.nextShotSeconds, refillRemaining: weapon.refillRemaining, shotOffsetIndex: weapon.shotOffsetIndex })),
+      ...(!includeTargetRetention || actor.retainedTargetId === undefined ? {} : { retainedTargetId: actor.retainedTargetId }),
     })) });
   }
   /** Restores only a validated snapshot matching the job's authored roster. */
@@ -1034,13 +1072,43 @@ export class IntegratedFixtureCombat {
     if (!validFixtureCombatSnapshot(snapshot, jobId, finiteEnemyGroupCleared)) return false;
     const expected = expectedFixtureCombatants(jobId);
     if (this.actors.size !== expected.length || expected.some(id => !this.actors.has(id))) return false;
+    if (snapshot.actors.some(saved => this.actors.get(saved.id)!.weapons.length !== saved.weapons.length)) return false;
+    this.applySnapshot(snapshot);
+    return true;
+  }
+  /** Strict restoration against this encounter's actual roster and profiles. */
+  public restoreEncounter(snapshot: FixtureCombatSnapshot): boolean {
+    if (!snapshot || (snapshot.controlledActor !== 'tabby' && snapshot.controlledActor !== 'hound')
+      || !Array.isArray(snapshot.actors) || snapshot.actors.length !== this.actors.size) return false;
+    const seen = new Set<string>();
+    for (const saved of snapshot.actors) {
+      const actor = this.actors.get(saved?.id);
+      if (!actor || seen.has(saved.id) || !saved.position || !Number.isFinite(saved.position.x) || !Number.isFinite(saved.position.z)
+        || saved.position.x < 0 || saved.position.x > INTEGRATED_FIXTURE_ENVELOPE.widthMetres
+        || saved.position.z < 0 || saved.position.z > INTEGRATED_FIXTURE_ENVELOPE.heightMetres
+        || (saved.position.layer !== undefined && saved.position.layer !== 'ground')
+        || saved.maxHealth !== actor.maxHealth || !Number.isFinite(saved.health) || saved.health < 0 || saved.health > saved.maxHealth
+        || !Number.isInteger(saved.activeGunIndex) || saved.activeGunIndex < 0 || saved.activeGunIndex >= actor.weapons.length
+        || !Array.isArray(saved.weapons) || saved.weapons.length !== actor.weapons.length
+        || (saved.retainedTargetId !== undefined && (!this.actors.has(saved.retainedTargetId) || this.actors.get(saved.retainedTargetId)!.team === actor.team))) return false;
+      seen.add(saved.id);
+      if (!saved.weapons.every((weapon: FixtureWeaponSnapshot, i: number) => !!weapon && Number.isInteger(weapon.supply) && weapon.supply >= 0 && weapon.supply <= actor.weapons[i]!.profile.store
+        && Number.isFinite(weapon.nextShotSeconds) && weapon.nextShotSeconds >= 0 && weapon.nextShotSeconds <= 10
+        && Number.isFinite(weapon.refillRemaining) && weapon.refillRemaining >= 0 && weapon.refillRemaining <= actor.weapons[i]!.profile.refillSeconds
+        && Number.isInteger(weapon.shotOffsetIndex ?? 0) && (weapon.shotOffsetIndex ?? 0) >= 0
+        && (weapon.shotOffsetIndex ?? 0) < actor.weapons[i]!.profile.shotOffsetDegrees.length)) return false;
+    }
+    this.applySnapshot(snapshot, true);
+    return true;
+  }
+  private applySnapshot(snapshot: FixtureCombatSnapshot, restoreTargetRetention = false): void {
     for (const saved of snapshot.actors) {
       const actor = this.actors.get(saved.id)!;
-      if (actor.weapons.length !== saved.weapons.length) return false;
       actor.position = freezeFixturePosition(saved.position);
       actor.maxHealth = saved.maxHealth;
       actor.health = saved.health;
       actor.activeGunIndex = saved.activeGunIndex;
+      if (restoreTargetRetention) actor.retainedTargetId = saved.retainedTargetId;
       saved.weapons.forEach((weapon, index) => {
         const target = actor.weapons[index]!;
         target.supply = weapon.supply;
@@ -1051,7 +1119,6 @@ export class IntegratedFixtureCombat {
     }
     this.ownedDesignationId = undefined;
     this.events.length = 0;
-    return true;
   }
   public designate(targetId: FixtureCombatantId | undefined): void { this.ownedDesignationId = targetId; }
   /** Exactly one equipped gun is active. Stored supply and cadence belong to each instance. */
@@ -1098,7 +1165,7 @@ export class IntegratedFixtureCombat {
     const opponents = [...this.actors.values()].filter(candidate => candidate.team !== source.team && candidate.health > 0);
     const candidates = opponents.map(candidate => {
       const anchor = Math.hypot(candidate.position.x - source.position.x, candidate.position.z - source.position.z);
-      return { actorId: candidate.id, revealed: true, ballisticLineOfSight: hasFixtureBallisticLineOfSight(source.position, candidate.position),
+      return { actorId: candidate.id, revealed: true, ballisticLineOfSight: this.lineOfSight(source.position, candidate.position),
         inRange: anchor <= source.weapons[source.activeGunIndex]!.profile.maxRangeMetres, muzzleToBodyAnchorMetres: anchor, muzzleToFirstContactMetres: Math.max(0, anchor - candidate.radius) };
     });
     const selected = selectHumanAutoTarget({

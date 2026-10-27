@@ -166,6 +166,6 @@ export class BootScene extends Phaser.Scene {
     // The hosted root now owns the reviewed B1 slice. The prior game remains
     // reachable deliberately at ?fixture=legacy; unknown fixture values keep
     // the historical Menu fallback rather than becoming new aliases.
-    this.scene.start(visualLegacyRoute ? SceneKey.Menu : fixtureRoute === null || fixtureRoute === 'int-fb' ? SceneKey.IntegratedFixture : fixtureRoute === 'int-late' || fixtureRoute === 'int-late-same-b2' ? SceneKey.LateFixture : fixtureRoute === 'int-late-range' ? SceneKey.LateRange : SceneKey.Menu);
+    this.scene.start(visualLegacyRoute ? SceneKey.Menu : fixtureRoute === 'junction' ? SceneKey.JunctionSlice : fixtureRoute === null || fixtureRoute === 'int-fb' ? SceneKey.IntegratedFixture : fixtureRoute === 'int-late' || fixtureRoute === 'int-late-same-b2' ? SceneKey.LateFixture : fixtureRoute === 'int-late-range' ? SceneKey.LateRange : SceneKey.Menu);
   }
 }

@@ -378,6 +378,7 @@ describe('BootScene loading and startup wiring', () => {
   it.each([
     ['', SceneKey.IntegratedFixture],
     ['?fixture=int-fb', SceneKey.IntegratedFixture],
+    ['?fixture=junction', SceneKey.JunctionSlice],
     ['?fixture=legacy', SceneKey.Menu],
     ['?fixture=unrecognized', SceneKey.Menu],
     ['?fixture=int-late', SceneKey.LateFixture],
@@ -401,6 +402,7 @@ describe('BootScene loading and startup wiring', () => {
     ['1', '?visual-test=0', SceneKey.IntegratedFixture],
     ['1', '?visual-test', SceneKey.IntegratedFixture],
     ['1', '?fixture=int-fb&visual-test=1', SceneKey.IntegratedFixture],
+    ['1', '?fixture=junction&visual-test=1', SceneKey.JunctionSlice],
     ['1', '?fixture=int-late&visual-test=1', SceneKey.LateFixture],
     ['1', '?fixture=int-late-range&visual-test=1', SceneKey.LateRange],
     ['1', '?fixture=legacy&visual-test=1', SceneKey.Menu],
