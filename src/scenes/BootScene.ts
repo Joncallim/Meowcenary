@@ -160,9 +160,12 @@ export class BootScene extends Phaser.Scene {
 
     if (started !== undefined) performanceProbe?.record('boot.create', started);
     const fixtureRoute = new URLSearchParams(globalThis.location?.search ?? '').get('fixture');
+    // Retain the explicit browser-test Menu entry while the ordinary root
+    // owns B1. A named fixture keeps its own route in every build.
+    const visualLegacyRoute = visualTestBuild && fixtureRoute === null;
     // The hosted root now owns the reviewed B1 slice. The prior game remains
     // reachable deliberately at ?fixture=legacy; unknown fixture values keep
     // the historical Menu fallback rather than becoming new aliases.
-    this.scene.start(fixtureRoute === null || fixtureRoute === 'int-fb' ? SceneKey.IntegratedFixture : fixtureRoute === 'int-late' || fixtureRoute === 'int-late-same-b2' ? SceneKey.LateFixture : fixtureRoute === 'int-late-range' ? SceneKey.LateRange : SceneKey.Menu);
+    this.scene.start(visualLegacyRoute ? SceneKey.Menu : fixtureRoute === null || fixtureRoute === 'int-fb' ? SceneKey.IntegratedFixture : fixtureRoute === 'int-late' || fixtureRoute === 'int-late-same-b2' ? SceneKey.LateFixture : fixtureRoute === 'int-late-range' ? SceneKey.LateRange : SceneKey.Menu);
   }
 }
