@@ -12,6 +12,14 @@ const lateKey = 'meowcenary:int-late:v1:profile';
 const seam = (page: Page) => page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__);
 const diagnostics = (page: Page) => page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.diagnostics());
 
+async function pressLateKey(page: Page, key: string): Promise<void> {
+  const frames = () => page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await page.keyboard.down(key);
+  try { await frames(); }
+  finally { await page.keyboard.up(key); }
+  await frames();
+}
+
 async function openLate(page: Page, info: TestInfo, h2: 'none' | 'kept' | 'sold' = 'none'): Promise<string> {
   test.skip(info.project.name !== 'desktop-1280x720', 'Late fixture has dedicated desktop runtime evidence; other viewport projects are intentionally not executed here.');
   await page.goto('/?fixture=int-fb');
@@ -124,9 +132,15 @@ test('explicit same-blueprint fixture offers its spare B2 donor without changing
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
   const b1Raw = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'));
   await page.goto('/?fixture=int-late-same-b2'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
-  await page.keyboard.press('m'); await page.keyboard.press('Escape'); await page.keyboard.press('m');
+  const before = await page.evaluate(() => localStorage.getItem('meowcenary:int-late:same-b2:v1:profile'));
+  await pressLateKey(page, 'm');
+  expect(await diagnostics(page)).toMatchObject({ revision: 0, receipts: [], message: expect.stringContaining('INT-LATE-DONOR-B2-T2@v1, INT-LATE-DONOR-B3-T2@v1') });
+  await pressLateKey(page, 'Escape');
+  expect(await diagnostics(page)).toMatchObject({ revision: 0, receipts: [], message: expect.stringContaining('Preview cancelled') });
+  expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-late:same-b2:v1:profile'))).toBe(before);
+  await pressLateKey(page, 'm');
   expect(await diagnostics(page)).toMatchObject({ message: expect.stringContaining('INT-LATE-DONOR-B2-T2@v1, INT-LATE-DONOR-B2-T2-SECOND@v1') });
-  await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await pressLateKey(page, 'Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
   expect((await diagnostics(page)).partRecords.some(part => part.kind === 'B2' && part.tier === 3)).toBe(true);
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-late:v1:profile'))).toBeNull();
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(b1Raw);
