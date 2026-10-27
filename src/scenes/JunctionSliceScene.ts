@@ -46,10 +46,10 @@ export class JunctionSliceScene extends Phaser.Scene {
     this.shots = []; this.labels = new Map(); this.buttons = [];
     this.cameras.main.setBackgroundColor('#101820');
     this.world = this.add.graphics(); this.hud = this.add.graphics().setDepth(10);
-    this.text(24, 16, 'JUNCTION VALE / dispatch workyard', 22).setWordWrapWidth(this.scale.width - 48).setDepth(11);
-    this.status = this.text(24, 46, '', 14).setWordWrapWidth(this.scale.width - 48).setDepth(11);
-    this.squad = [0, 1].map(index => this.text(24 + index * 330, 72, '', 14).setDepth(11));
-    this.hint = this.text(24, this.scale.height - 78, '', 13).setDepth(11);
+    this.label(24, 16, 'JUNCTION VALE / dispatch workyard', 22).setWordWrapWidth(this.scale.width - 48).setDepth(11);
+    this.status = this.label(24, 46, '', 14).setWordWrapWidth(this.scale.width - 48).setDepth(11);
+    this.squad = [0, 1].map(index => this.label(24 + index * 330, 72, '', 14).setDepth(11));
+    this.hint = this.label(24, this.scale.height - 78, '', 13).setDepth(11);
     this.controls = new InputController(this);
     this.controls.onAnyAction(edge => this.route(edge.action));
     try {
@@ -129,7 +129,7 @@ export class JunctionSliceScene extends Phaser.Scene {
     this.paint();
   }
 
-  private text(x: number, y: number, value: string, size = 15) {
+  private label(x: number, y: number, value: string, size = 15) {
     return createUiText(this, x, y, value, { fontFamily: 'Nunito, sans-serif', fontSize: size + 'px',
       color: '#edf3f4', wordWrap: { width: 320 } });
   }
@@ -156,7 +156,7 @@ export class JunctionSliceScene extends Phaser.Scene {
       const x = 24 + index * 184;
       const button = this.add.container(x, this.scale.height - 42).setDepth(12);
       const box = this.add.rectangle(0, 0, 172, 34, 0x294353).setOrigin(0, .5).setInteractive();
-      const copy = this.text(10, -10, label, 12);
+      const copy = this.label(10, -10, label, 12);
       this.bindButton(box, run, () => !this.panel && box.active);
       button.add([box, copy]); this.buttons.push(button);
     });
@@ -289,15 +289,15 @@ export class JunctionSliceScene extends Phaser.Scene {
     const panel = this.panel, width = Math.min(354, this.scale.width - 32);
     const root = this.add.container(this.scale.width - width - 16, 132).setDepth(30);
     root.add(this.add.rectangle(0, 0, width, this.scale.height - 148, 0x0a141c, .98).setOrigin(0).setStrokeStyle(2, 0x54c4b0));
-    root.add(this.text(18, 16, panel.title, 21));
-    const body = this.text(18, 54, panel.body, 14).setWordWrapWidth(width - 36); root.add(body);
+    root.add(this.label(18, 16, panel.title, 21));
+    const body = this.label(18, 54, panel.body, 14).setWordWrapWidth(width - 36); root.add(body);
     const start = Math.max(198, body.height + 74);
     panel.choices.forEach((choice, index) => {
       const y = start + index * 44;
       const box = this.add.rectangle(16, y, width - 32, 36, 0x263e4b).setOrigin(0).setInteractive();
       this.bindButton(box, choice.run, () => this.panel === panel);
       box.on('pointerover', () => { if (this.panel === panel) { panel.focus.setIndex(index); this.paintFocus(); } });
-      root.add([box, this.text(26, y + 7, choice.label, 12)]); this.focusBoxes.push(box);
+      root.add([box, this.label(26, y + 7, choice.label, 12)]); this.focusBoxes.push(box);
     });
     this.panelView = root; this.paintFocus();
   }
@@ -343,7 +343,7 @@ export class JunctionSliceScene extends Phaser.Scene {
     // blockout annotations, not native art or production actor sprites.
     const annotate = (key: string, x: number, y: number, value: string) => {
       let label = this.labels.get(key);
-      if (!label) { label = this.text(x, y, value, 12).setDepth(4); this.labels.set(key, label); }
+      if (!label) { label = this.label(x, y, value, 12).setDepth(4); this.labels.set(key, label); }
       label.setPosition(x, y).setText(value).setVisible(true);
     };
     annotate('dispatch', contact.x - 40, contact.y - 30, 'DISPATCH / SAFE');
