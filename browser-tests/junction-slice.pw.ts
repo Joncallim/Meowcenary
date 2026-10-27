@@ -59,8 +59,14 @@ test('first Junction outing fights, returns, cancels, buys, fits and reloads thr
   await moveX(page, 39);
   await expect.poll(async () => (await state(page)).state.phase, { timeout: 8000 }).toBe('return');
   expect((await state(page)).state.combat.actors.filter(a => a.id.startsWith('junction')).every(a => a.health === 0)).toBe(true);
-  await moveX(page, 8);
-  await moveAxis(page, 'z', 8);
+  // Each authoritative movement step can travel up to three world units.
+  // Approach the contact from the inside edge of its service circle so the
+  // next observed step cannot overshoot both axes outside that circle.
+  await moveX(page, 10);
+  await moveAxis(page, 'z', 10);
+  const returned = (await state(page)).state;
+  const position = returned.combat.actors.find(a => a.id === returned.controlledActor)!.position;
+  expect(Math.hypot(position.x - 8, position.z - 8)).toBeLessThanOrEqual(3.5);
   await key(page, 'Enter'); expect((await state(page)).panel).toBe('Return to dispatch');
   await key(page, 'Enter');
   await expect.poll(async () => (await state(page)).state.phase).toBe('complete');
