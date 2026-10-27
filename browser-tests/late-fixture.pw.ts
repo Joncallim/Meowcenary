@@ -49,7 +49,7 @@ async function waitLateReload(page: Page): Promise<void> { await expect.poll(() 
 
 test('late UI confirms merge before presentation and reloads its single persisted result', async ({ page }, info) => {
   const b1 = await openLate(page, info);
-  await page.keyboard.press('m'); await page.keyboard.press('Enter');
+  await pressLateKey(page, 'm'); await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
   expect(await diagnostics(page)).toMatchObject({ parts: 28, discoveries: ['TAB-B-HM'], message: expect.stringMatching(/^Confirmed merge \((LeanA25|Balanced50|LeanB25)\); receipt persisted before presentation\.$/), receipts: [{ commandId: 'late:merge:0', action: 'merge', outputIds: ['INT-LATE-TAB-B-HM-late:merge:0'], refinement: expect.stringMatching(/^(LeanA25|Balanced50|LeanB25)$/) }] });
   const stored = await page.evaluate(key => localStorage.getItem(key), lateKey);
@@ -63,27 +63,27 @@ test('late UI confirms merge before presentation and reloads its single persiste
 
 test('late preview Cancel is inert and Confirm persists exactly once', async ({ page }, info) => {
   const b1 = await openLate(page, info); const before = await page.evaluate(key => localStorage.getItem(key), lateKey);
-  await page.keyboard.press('m');
+  await pressLateKey(page, 'm');
   expect(await diagnostics(page)).toMatchObject({ revision: 0, receipts: [], message: expect.stringContaining('Preview merge') });
-  await page.keyboard.press('Escape');
+  await pressLateKey(page, 'Escape');
   expect(await diagnostics(page)).toMatchObject({ revision: 0, receipts: [], message: expect.stringContaining('Preview cancelled') });
   expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(before);
-  await page.keyboard.press('m'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await pressLateKey(page, 'm'); await pressLateKey(page, 'Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
   expect((await diagnostics(page)).receipts).toHaveLength(1); await page.reload(); await waitLateReload(page); expect((await diagnostics(page)).receipts).toHaveLength(1); await expectB1Unchanged(page, b1);
 });
 
 test('late Cancel fences a queued Confirm before the writer lock is released', async ({ page }, info) => {
   await openLate(page, info);
   const before = await page.evaluate(key => localStorage.getItem(key), lateKey);
-  await page.keyboard.press('m');
+  await pressLateKey(page, 'm');
   await page.evaluate(() => new Promise<void>(resolve => {
     const target = globalThis as typeof globalThis & { releaseLatePreview?: () => void };
     navigator.locks.request('meowcenary:int-late:v1:profile:writer', { mode: 'exclusive' }, async () => { resolve(); await new Promise<void>(release => { target.releaseLatePreview = release; }); });
   }));
   try {
-    await page.keyboard.press('Enter');
+    await pressLateKey(page, 'Enter');
     await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).pending?.some(lock => lock.name === 'meowcenary:int-late:v1:profile:writer') ?? false)).toBe(true);
-    await page.keyboard.press('Escape');
+    await pressLateKey(page, 'Escape');
     expect(await diagnostics(page)).toMatchObject({ revision: 0, receipts: [], message: expect.stringContaining('Preview cancelled') });
     await page.evaluate(() => (globalThis as typeof globalThis & { releaseLatePreview?: () => void }).releaseLatePreview?.());
     await page.evaluate(() => navigator.locks.request('meowcenary:int-late:v1:profile:writer', { mode: 'exclusive' }, async () => undefined));
@@ -96,16 +96,16 @@ test('late Cancel fences a queued Confirm before the writer lock is released', a
 
 test('late Build reloads through the modern zero-input receipt and permits a later fit', async ({ page }, info) => {
   await openLate(page, info);
-  await page.keyboard.press('m'); await page.keyboard.press('Enter');
+  await pressLateKey(page, 'm'); await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
-  await page.keyboard.press('u'); await page.keyboard.press('Enter');
+  await pressLateKey(page, 'u'); await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
   expect((await diagnostics(page)).receipts.at(-1)).toMatchObject({ action: 'build', inputIds: [], inputVersions: [] });
   await page.reload(); await waitLateReload(page);
   expect(await diagnostics(page)).toMatchObject({ revision: 2 });
-  await page.keyboard.press('f');
+  await pressLateKey(page, 'f');
   expect(await diagnostics(page)).toMatchObject({ message: expect.stringContaining('Preview fit') });
-  await page.keyboard.press('Enter');
+  await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(3);
 });
 
@@ -119,10 +119,10 @@ test('late Merge Select visibly reaches an eligible same-blueprint donor pair', 
     localStorage.setItem('meowcenary:int-late:v1:profile', JSON.stringify(raw));
   });
   await page.reload(); await waitLateReload(page);
-  await page.keyboard.press('m'); await page.keyboard.press('Escape'); // B2+B3
-  await page.keyboard.press('m');
+  await pressLateKey(page, 'm'); await pressLateKey(page, 'Escape'); // B2+B3
+  await pressLateKey(page, 'm');
   expect(await diagnostics(page)).toMatchObject({ message: expect.stringContaining('INT-LATE-DONOR-B2-T2@v1, INT-LATE-DONOR-B2-T2-SECOND@v1') });
-  await page.keyboard.press('Enter');
+  await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
   expect((await diagnostics(page)).partRecords.find(part => part.id === 'INT-LATE-TAB-B2-late:merge:1')).toMatchObject({ kind: 'B2', tier: 3 });
 });
@@ -149,10 +149,10 @@ test('explicit same-blueprint fixture offers its spare B2 donor without changing
 
 test('visible range route uses the persisted fitted HM range and returns without writes', async ({ page }, info) => {
   const b1 = await openLate(page, info);
-  await page.keyboard.press('m'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
-  await page.keyboard.press('f'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
+  await pressLateKey(page, 'm'); await pressLateKey(page, 'Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await pressLateKey(page, 'f'); await pressLateKey(page, 'Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
   const lateBefore = await page.evaluate(key => localStorage.getItem(key), lateKey);
-  await page.keyboard.press('r');
+  await pressLateKey(page, 'r');
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
   const initial = await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics());
   const structural = { LeanA25: .98475, Balanced50: .975, LeanB25: .9652499999999999 }[initial.range!.refinement]!;
@@ -163,27 +163,27 @@ test('visible range route uses the persisted fitted HM range and returns without
   // Each press advances the configured 125ms lifecycle: setup/cadence yields
   // one full contact then two falloff contacts; the authored 27m target is
   // outside max and remains untargetable by the shared selector.
-  for (let shot = 0; shot < 5; shot += 1) await page.keyboard.press('Space');
+  for (let shot = 0; shot < 5; shot += 1) await pressLateKey(page, 'Space');
   const after = await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics());
   expect(after.targets).toEqual([{ id: 'full', distance: 12, health: 0 }, { id: 'falloff', distance: 18, health: 0 }, { id: 'outside', distance: 27, health: 30 }]);
   expect(after.activeGun).toMatchObject({ supply: 15 });
   expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(lateBefore); await expectB1Unchanged(page, b1);
-  await page.keyboard.press('Escape'); await waitLateReload(page); expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(lateBefore);
+  await pressLateKey(page, 'Escape'); await waitLateReload(page); expect(await page.evaluate(key => localStorage.getItem(key), lateKey)).toBe(lateBefore);
 });
 
 test('range entry cancels a held workshop confirmation before it can write', async ({ page }, info) => {
   await openLate(page, info);
-  await page.keyboard.press('m'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
-  await page.keyboard.press('f'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
+  await pressLateKey(page, 'm'); await pressLateKey(page, 'Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await pressLateKey(page, 'f'); await pressLateKey(page, 'Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
   const before = await page.evaluate(key => localStorage.getItem(key), lateKey);
   await page.evaluate(() => new Promise<void>(resolve => {
     const target = globalThis as typeof globalThis & { releaseLateRangeWriter?: () => void };
     navigator.locks.request('meowcenary:int-late:v1:profile:writer', { mode: 'exclusive' }, async () => { resolve(); await new Promise<void>(release => { target.releaseLateRangeWriter = release; }); });
   }));
   try {
-    await page.keyboard.press('u'); await page.keyboard.press('Enter');
+    await pressLateKey(page, 'u'); await pressLateKey(page, 'Enter');
     await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).pending?.some(lock => lock.name === 'meowcenary:int-late:v1:profile:writer') ?? false)).toBe(true);
-    await page.keyboard.press('r');
+    await pressLateKey(page, 'r');
     await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
     await page.evaluate(() => (globalThis as typeof globalThis & { releaseLateRangeWriter?: () => void }).releaseLateRangeWriter?.());
     await page.evaluate(() => navigator.locks.request('meowcenary:int-late:v1:profile:writer', { mode: 'exclusive' }, async () => undefined));
@@ -194,16 +194,16 @@ test('range entry cancels a held workshop confirmation before it can write', asy
 test('range keeps its selected fixture profile and fails closed for missing or invalid saves', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop-1280x720', 'Range recovery evidence is captured once at the desktop reference viewport.');
   await openLate(page, info);
-  await page.keyboard.press('m'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
-  await page.keyboard.press('f'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
+  await pressLateKey(page, 'm'); await pressLateKey(page, 'Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await pressLateKey(page, 'f'); await pressLateKey(page, 'Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
   // The explicit same-B2 branch has a different profile/key and no HM. It
   // must refuse rather than silently reading the populated canonical key.
   await page.goto('/?fixture=int-late-same-b2'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
-  await page.keyboard.press('r'); expect(await diagnostics(page)).toMatchObject({ message: expect.stringContaining('B-HM T3 before') });
+  await pressLateKey(page, 'r'); expect(await diagnostics(page)).toMatchObject({ message: expect.stringContaining('B-HM T3 before') });
   await page.evaluate(key => localStorage.removeItem(key), lateKey);
   await page.goto('/?fixture=int-late-range'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
   expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: { diagnostics(): { recoveryMessage?: string } } }).__MEOWCENARY_LATE_RANGE__.diagnostics().recoveryMessage)).toContain('must be fitted first');
-  await page.keyboard.press('Escape'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: unknown }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
+  await pressLateKey(page, 'Escape'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: unknown }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
   await page.evaluate(() => localStorage.setItem('meowcenary:int-late:v1:profile', '{bad'));
   await page.goto('/?fixture=int-late-range'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
   expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: { diagnostics(): { recoveryMessage?: string } } }).__MEOWCENARY_LATE_RANGE__.diagnostics().recoveryMessage)).toContain('invalid or unsupported');
@@ -212,13 +212,13 @@ test('range keeps its selected fixture profile and fails closed for missing or i
 test('alternate same-B2 fixture enters and returns from its own fitted-HM range save', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop-1280x720', 'Alternate range evidence is captured once at the desktop reference viewport.');
   await page.goto('/?fixture=int-late-same-b2'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_FIXTURE__?: LateSeam }).__MEOWCENARY_LATE_FIXTURE__))).toBe(true);
-  await page.keyboard.press('m'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
-  await page.keyboard.press('f'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
+  await pressLateKey(page, 'm'); await pressLateKey(page, 'Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await pressLateKey(page, 'f'); await pressLateKey(page, 'Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
   const branchRaw = await page.evaluate(() => localStorage.getItem('meowcenary:int-late:same-b2:v1:profile'));
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-late:v1:profile'))).toBeNull();
-  await page.keyboard.press('r'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
+  await pressLateKey(page, 'r'); await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
   expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: LateRangeSeam }).__MEOWCENARY_LATE_RANGE__.diagnostics().range)).toBeDefined();
-  await page.keyboard.press('Escape'); await waitLateReload(page);
+  await pressLateKey(page, 'Escape'); await waitLateReload(page);
   expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-late:same-b2:v1:profile'))).toBe(branchRaw);
 });
 
@@ -228,7 +228,7 @@ test('range reports denied late storage and still offers Return', async ({ page 
   await page.goto('/?fixture=int-late-range');
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
   expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_RANGE__: { diagnostics(): { recoveryMessage?: string } } }).__MEOWCENARY_LATE_RANGE__.diagnostics().recoveryMessage)).toContain('could not be read');
-  await page.keyboard.press('Escape');
+  await pressLateKey(page, 'Escape');
   // The handler exists even on the failed range entry; the destination itself
   // may correctly report denied storage rather than fabricating a profile.
   await expect.poll(() => page.evaluate(() => !Boolean((globalThis as { __MEOWCENARY_LATE_RANGE__?: unknown }).__MEOWCENARY_LATE_RANGE__))).toBe(true);
@@ -269,7 +269,7 @@ test('late UI rejects duplicate delivery, stale revision, and fitted donor merge
   const initial = await diagnostics(page);
   expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'fitted-donor', expectedRevision: 0, action: 'merge', inputIds: ['INT-LATE-TAB-B-B', 'INT-LATE-DONOR-B3-T2'] }))).toBe(false);
   expect(await diagnostics(page)).toMatchObject({ revision: initial.revision, parts: initial.parts });
-  await page.keyboard.press('m'); await page.keyboard.press('Enter');
+  await pressLateKey(page, 'm'); await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
   const afterMerge = await diagnostics(page);
   expect(await page.evaluate(() => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'late:merge:0', expectedRevision: 1, action: 'merge', inputIds: ['INT-LATE-DONOR-B2-T2', 'INT-LATE-DONOR-B3-T2'] }))).toBe(false);
@@ -280,7 +280,7 @@ test('late UI rejects duplicate delivery, stale revision, and fitted donor merge
 
 test('late UI develops an unassigned donor and persists its exact debit', async ({ page }, info) => {
   const b1 = await openLate(page, info);
-  await page.keyboard.press('d'); await page.keyboard.press('Enter');
+  await pressLateKey(page, 'd'); await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
   expect(await diagnostics(page)).toMatchObject({ wallet: { credits: 2500, metal: 80, circuits: 16 }, receipts: [{ commandId: 'late:develop:0', action: 'develop' }] });
   expect((await diagnostics(page)).partRecords.find(part => part.id === 'INT-LATE-DONOR-B2-T2')).toMatchObject({ kind: 'B2', tier: 3 });
@@ -292,9 +292,9 @@ test('late UI develops an unassigned donor and persists its exact debit', async 
 
 test('late UI manufactures a distinct discovered Balanced B-HM after merge', async ({ page }, info) => {
   const b1 = await openLate(page, info);
-  await page.keyboard.press('m'); await page.keyboard.press('Enter');
+  await pressLateKey(page, 'm'); await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
-  await page.keyboard.press('u'); await page.keyboard.press('Enter');
+  await pressLateKey(page, 'u'); await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(2);
   const result = await diagnostics(page);
   expect(result).toMatchObject({ parts: 29, wallet: { credits: 1000, metal: 20, circuits: 4 }, discoveries: ['TAB-B-HM'] });
@@ -305,7 +305,7 @@ test('late UI manufactures a distinct discovered Balanced B-HM after merge', asy
 
 test('late UI visibly records retaining both donors without consuming either', async ({ page }, info) => {
   const b1 = await openLate(page, info);
-  await page.keyboard.press('n'); await page.keyboard.press('Enter');
+  await pressLateKey(page, 'n'); await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
   const result = await diagnostics(page);
   expect(result).toMatchObject({ parts: 29, receipts: [{ commandId: 'late:retain:0', action: 'retain-donors' }] });
@@ -319,7 +319,7 @@ test('late UI visibly records retaining both donors without consuming either', a
 test('late UI carries a kept B1 H2 history, then records an isolated late sale without re-claiming', async ({ page }, info) => {
   const b1 = await openLate(page, info, 'kept');
   expect(await diagnostics(page)).toMatchObject({ parts: 30, pinnedEarlierHistory: { h2State: 'kept' }, currentH2State: 'kept' });
-  await page.keyboard.press('s'); await page.keyboard.press('Enter');
+  await pressLateKey(page, 's'); await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
   expect(await diagnostics(page)).toMatchObject({ parts: 29, wallet: { credits: 3540 }, currentH2State: 'sold', receipts: [{ commandId: 'late:sell-h2:0', action: 'sell-h2' }] });
   await page.reload(); await waitLateReload(page);
@@ -330,7 +330,7 @@ test('late UI carries a kept B1 H2 history, then records an isolated late sale w
 test('late UI carries a sold B1 H2 history without restoring or re-claiming loot', async ({ page }, info) => {
   const b1 = await openLate(page, info, 'sold');
   expect(await diagnostics(page)).toMatchObject({ parts: 29, pinnedEarlierHistory: { h2State: 'sold' }, currentH2State: 'sold' });
-  await page.keyboard.press('s'); await page.keyboard.press('Enter');
+  await pressLateKey(page, 's'); await pressLateKey(page, 'Enter');
   await expect.poll(async () => (await diagnostics(page)).message).toBe('Confirmation rejected: not-sellable.');
   expect(await diagnostics(page)).toMatchObject({ revision: 0, parts: 29, currentH2State: 'sold' });
   await page.reload(); await waitLateReload(page);
@@ -426,7 +426,7 @@ test('late writer preserves malformed durable bytes injected while its lock is h
 });
 
 test('late fit displaces the prior barrel and reload retains unique slots', async ({ page }, info) => {
-  await openLate(page, info); await page.keyboard.press('m'); await page.keyboard.press('Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
+  await openLate(page, info); await pressLateKey(page, 'm'); await pressLateKey(page, 'Enter'); await expect.poll(async () => (await diagnostics(page)).revision).toBe(1);
   const hm = (await diagnostics(page)).partRecords.find(part => part.kind === 'B-HM')!.id;
   expect(await page.evaluate(id => (globalThis as { __MEOWCENARY_LATE_FIXTURE__: LateSeam }).__MEOWCENARY_LATE_FIXTURE__.commit({ commandId: 'fit-hm', expectedRevision: 1, action: 'fit', inputIds: [id], targetGun: 'TAB-A' }), hm)).toBe(true);
   await page.reload(); await waitLateReload(page); const parts = (await diagnostics(page)).partRecords; expect(parts.find(part => part.id === hm)?.assignedTo).toBe('TAB-A'); expect(parts.find(part => part.id === 'INT-LATE-TAB-A-B')?.assignedTo).toBeUndefined();

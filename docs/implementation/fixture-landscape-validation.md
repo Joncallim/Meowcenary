@@ -32,10 +32,10 @@ the audit command above continues to exercise their unchanged assertions.
 Any remediation needs its owning UI/art issue and actual viewport evidence.
 
 The remaining failures included an unframed late-workshop key sequence and
-the already isolated long recovery/profile test. The late test now admits each
-physical key edge across real browser frames and retains its exact B2+B2 donor,
-T3 output, revision and save-isolation expectations. It also verifies the first
-preview and cancellation before the second selection. This changes the test
+the already isolated long recovery/profile test. Late keyboard protocols now admit each
+physical key edge across real browser frames. The donor tests retain exact B2+B2 donor,
+T3 output, revision and save-isolation expectations. The explicit alternate-seed
+case also verifies the first preview and cancellation before the second selection. This changes the test
 driver, not donor order, costs, outcomes or the game keyboard implementation.
 
 The Junction route remains a weapons-only desktop blockout. Native controller,
