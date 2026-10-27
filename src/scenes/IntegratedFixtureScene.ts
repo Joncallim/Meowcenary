@@ -959,6 +959,10 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       const durable = this.readEnvelope();
       if (!durable) { this.cancelWorkshop(); this.combatFeedback = 'Workshop storage could not be read; nothing changed.'; this.refreshStatus(); return; }
       if (preview.revision !== durable.workshop.revision) { this.refreshNonLiveEnvelope(durable); this.cancelWorkshop(); this.combatFeedback = 'Workshop changed in another tab; review the refreshed profile before confirming.'; this.refreshStatus(); return; }
+      const live = this.activeMission();
+      if (live && !this.ownsLiveMission(durable, live)) {
+        this.cancelWorkshop(); this.loseLiveOwnership(durable); return;
+      }
       if (!this.atService()) { this.cancelWorkshop(); this.combatFeedback = `Workshop confirmation rejected: ${this.actorName()} must be at safe service.`; this.refreshStatus(); return; }
       const action = preview.action;
       const commandId = `ui:${action}:${durable.workshop.revision}`; const fitKind = action === 'fit-f2-a' ? 'F2' : action === 'fit-b3-a' ? 'B3' : undefined; const fitCandidates = fitKind ? durable.workshop.parts.filter(part => part.kind === fitKind) : []; const partInstanceId = fitCandidates.length === 1 ? fitCandidates[0].instanceId : undefined;
