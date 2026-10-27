@@ -1,5 +1,11 @@
 # Epic 13 Concept Generation Record
 
+> **ARCHIVE — PROVENANCE ONLY.** These prompts describe the historical Epic 13
+> five-actor/legacy right-facing concept pass. They are not the current
+> six-hero/30-role design authority, and generated studies do not establish
+> production or device acceptance. Keep them for prompt/hash provenance and
+> technical runtime-format context only.
+
 These seven reference boards were generated with Codex's built-in image
 generation tool. They are visual-design inputs only, never runtime assets,
 Pixelorama sources, or production exports.

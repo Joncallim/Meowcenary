@@ -57,12 +57,16 @@ aligned without erasing in-progress visual work.
 4. Keep the existing canvas size, frame count, tag ranges, and layer names.
    `notes` remains hidden. Character `weapon` and `shadow` layers remain hidden
    and empty until their owning systems are implemented.
-5. Polish silhouettes and motion against `epic-13-sprite-design.md` and the
-   concept boards. Check at native size, not only while enlarged.
+5. Polish silhouettes and motion against the applicable current design brief;
+   use `epic-13-sprite-design.md` and its concept boards only as historical
+   technical/provenance references. Check at native size, not only while enlarged.
 6. Save the `.pxo`, update its matching builder, then run the export script.
 7. Review the PNG in the real 390×844 game viewport before accepting the pass.
 
-The generated proving art passed the Epic 13 AI-led taste review at the real
-390×844 viewport. Pixelorama remains authoritative for future pixel edits; the
-builder is authoritative for repeatability. Human review is optional, not a
-delivery dependency.
+The generated proving art passed the historical Epic 13 AI-led taste review at
+the real 390×844 viewport. Pixelorama remains authoritative for future pixel
+edits; the builder is authoritative for repeatability. Independent secondary-
+agent concept review is permitted and may be useful, but production approval,
+physical-device acceptance and explicit holds remain separate gates. Human/owner
+review is therefore optional for exploratory concepts, not optional for those
+acceptance gates.

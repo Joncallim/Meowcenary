@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-// Converts a transparent 4x4 ImageGen sheet into the horizontal Pixelorama
-// spritesheet contract used by actor art.  The untouched ImageGen export stays
-// alongside the editable .pxo source so the imported artwork is auditable.
+// Legacy importer: converts a transparent 4x4 ImageGen sheet into the
+// horizontal Pixelorama spritesheet contract used by the old actor-art
+// baseline. The untouched export stays alongside the editable .pxo source for
+// auditability; import does not establish current visual authority or
+// production/device acceptance.
 import { deflateSync, inflateSync } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs';

@@ -1,6 +1,10 @@
 # Alpha 3 Art Production — V4 Orthogonal Review Closure
 
-**Status:** review/closure companion for Issue #167. Active implementation decisions are governed by `alpha-3-v4-product-art-delta.md` plus the final V4 architecture.
+**Status:** historical review/closure companion for Issue #167. At the time,
+implementation decisions were governed by `alpha-3-v4-product-art-delta.md`
+plus the final V4 architecture. This record preserves its catalog, provenance
+and technical findings; it is not current design authority or production/device
+acceptance.
 
 Read in this order:
 
@@ -14,6 +18,13 @@ Read in this order:
 **RC1 baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
 This note records what survived independent catalog, originality and scalability review. It does not resurrect superseded RC1 product/art requirements.
+
+Current design authority is the canonical design brief and Figma
+`tShp811r5SMBLbcNhbGZ4y`, hero frame `66:4`, page `66:2`: six approved heroes
+including Sable Skink, 30 proposed enemy roles and six proposed regions. The 24
+machine concepts are approved concept direction; the latest six organic
+redesign proposals are not final production art. The old eight-cast/ten-role
+Junkyard/Forge baseline remains implementation history only.
 
 ---
 
@@ -118,8 +129,8 @@ The RC1 matrix is historical inventory. V4 production explicitly changes it:
 # 6. Final cross-document checks
 
 - **Catalog identity:** exact stable-ID coverage is mandatory.
-- **Mercenaries:** all eight current Mercenaries have distinct actor silhouette directions; V4 additionally requires portrait/ability/passive presentation under scalable resources.
-- **Enemies/bosses:** ten current hostiles have distinct threat silhouettes; Compendium reuses final runtime sheets by default.
+- **Mercenaries:** the historical eight implemented Mercenaries have distinct actor silhouette directions; V4 additionally required portrait/ability/passive presentation under scalable resources.
+- **Enemies/bosses:** the historical ten implemented hostiles have distinct threat silhouettes; Compendium reuses the baseline runtime sheets by default.
 - **Combat art:** weapon tiers/held art/projectiles/pickups remain covered.
 - **Run-build art:** exact run-upgrade catalog remains covered.
 - **Loadout art:** 8 Set emblems, 32 piece icons, exact current Parts/slots/traits are production targets under V4 generic icon resources.
@@ -154,7 +165,8 @@ Compendium defeated discovery separately depends on the universal source-indepen
 
 ### Art/product planning
 
-**PASS**, subject to current repository data remaining implementation truth and the V4 delta being applied before production.
+**Historical planning PASS**, subject to the repository data and V4 delta at
+that time. This is not current production approval.
 
 ### RC1 authoring/resource/tooling implementation
 
