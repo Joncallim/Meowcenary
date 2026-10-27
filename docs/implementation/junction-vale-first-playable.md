@@ -116,10 +116,19 @@ the arena or reintroduce PR263-retired visuals as accepted replacements.
 
 The existing fixture polls raw movement and binds `S` to Sell as well as downward
 movement. It lacks controller/focus and ordinary pause/blur routing. Its workshop
-overlay is not an explicit movement/simulation fence. A queued workshop-confirm
-preview replacement is under independent review; do not treat a matching profile
-revision alone as proof of the player's current consent. These risks block blindly
-using the existing scene as the new desktop/controller slice.
+overlay is not an explicit movement/simulation fence. Independent browser review
+reproduced a P1 queued-confirm consent defect on `b19d25e`: hold the writer lock,
+confirm Buy F2, explicitly cancel, open Build B3 at the same revision without
+confirming it, then release the lock. The cancelled Buy F2 still spends 1,650
+Credits (3,000 → 1,350), adds one part and writes `ui:buy-f2:0`. PR262 contains the
+same vulnerable method, but only `b19d25e` was browser-reproduced. A future fix
+must capture a preview identity/generation and validate it inside the writer;
+profile revision alone does not prove current consent. The defect remains
+**unfixed**: the subsequent parent instruction limits this turn to independent
+checks and planning while references are blocked. No runtime file was changed.
+These risks block blindly using the existing scene as the new desktop/controller
+slice. Red trace/screenshots are retained at `/tmp/meow-first-slice-review/` in
+this execution environment as diagnostic engineering evidence, not visual canon.
 
 ## Reference blocker
 
