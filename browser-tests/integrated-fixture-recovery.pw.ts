@@ -153,6 +153,99 @@ async function releaseFixtureWriter(page: Page): Promise<void> {
     delete target.__releaseFixtureWriter;
   });
 }
+
+for (const interruption of ['back', 'cancel-button', 'close-menu', 'same-action', 'blur', 'shutdown'] as const) {
+  test(`queued workshop consent is revoked by ${interruption}`, async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop-1280x720', 'Desktop consent regression; no art or hardware acceptance.');
+    const pageErrors: string[] = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+    await ready(page);
+    const before = await state(page);
+    const beforeBytes = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'));
+    const buyPreview = async () => {
+      await page.keyboard.press('b');
+      await expect.poll(async () => (await state(page)).workshopOpen).toBe(true);
+      await page.mouse.click(550, 295);
+      await expect.poll(async () => (await state(page)).workshopPreview).toBe('buy-f2');
+    };
+    await buyPreview();
+    await holdFixtureWriter(page);
+    try {
+      await page.keyboard.press('Enter');
+      await expect.poll(() => page.evaluate(async () =>
+        (await navigator.locks.query()).pending?.some(lock => lock.name === 'meowcenary:int-fb:v1:writer') ?? false)).toBe(true);
+      if (interruption === 'cancel-button') await page.mouse.click(725, 425);
+      else if (interruption === 'close-menu') {
+        await page.keyboard.press('b');
+        await page.mouse.click(640, 495);
+      } else if (interruption === 'blur') await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+      else if (interruption === 'shutdown') {
+        // Exercise the actual scene lifecycle, retaining the queued Web Lock.
+        await page.evaluate(() => (globalThis as unknown as { __MEOWCENARY_INT_FB__: { restartScene(): void } }).__MEOWCENARY_INT_FB__.restartScene());
+        await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
+      } else await page.keyboard.press('Escape');
+      await expect.poll(async () => (await state(page)).workshopOpen).toBe(false);
+      if (interruption === 'blur') await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      if (interruption === 'same-action') await buyPreview();
+      else {
+        await page.keyboard.press('g');
+        await expect.poll(async () => (await state(page)).workshopPreview).toBe('build-b3');
+      }
+      await releaseFixtureWriter(page);
+      // A subsequent exclusive acquisition proves the older callback drained.
+      await page.evaluate(() => navigator.locks.request('meowcenary:int-fb:v1:writer', { mode: 'exclusive' }, async () => undefined));
+      expect(await state(page)).toMatchObject({ workshopCredits: before.workshopCredits,
+        workshopParts: before.workshopParts, workshopMaterials: before.workshopMaterials,
+        workshopPreview: interruption === 'same-action' ? 'buy-f2' : 'build-b3', workshopOpen: true });
+      expect(await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile'))).toBe(beforeBytes);
+      await capture(page, info, `consent-preserved-${interruption}`);
+      // Revocation does not disable the replacement's legitimate confirmation.
+      await page.keyboard.press('Enter');
+      await expect.poll(async () => (await state(page)).workshopCredits).toBe(interruption === 'same-action' ? 1350 : 2000);
+      const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!).workshop);
+      expect(saved.revision).toBe(1);
+      expect(saved.receipts).toHaveLength(1);
+      expect(saved.receipts[0].action).toBe(interruption === 'same-action' ? 'buy-f2' : 'build-b3');
+      expect(pageErrors).toEqual([]);
+    } finally { await releaseFixtureWriter(page); }
+  });
+}
+
+test('workshop modal fences world input and rearms movement after release', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Desktop modal input regression.');
+  await ready(page);
+  const before = await state(page);
+  await page.keyboard.press('b');
+  await expect.poll(async () => (await state(page)).workshopOpen).toBe(true);
+  await page.keyboard.down('d');
+  await page.keyboard.press('1'); await page.keyboard.press('q'); await page.keyboard.press('e');
+  await page.mouse.move(900, 550); await page.mouse.down();
+  await page.waitForTimeout(250);
+  expect(await state(page)).toMatchObject({ x: before.x, y: before.y, controlledGun: before.controlledGun, phase: before.phase });
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(250);
+  expect(await state(page)).toMatchObject({ x: before.x, y: before.y });
+  await page.mouse.up(); await page.keyboard.up('d');
+  await page.waitForTimeout(100);
+  await page.keyboard.down('d');
+  try { await expect.poll(async () => (await state(page)).x).toBeGreaterThan(before.x + 5); }
+  finally { await page.keyboard.up('d'); }
+});
+
+test('separate legitimate workshop previews can repeat a build', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop-1280x720', 'Desktop repeated-operation regression.');
+  await ready(page);
+  for (const credits of [2000, 1000]) {
+    await page.keyboard.press('g');
+    await expect.poll(async () => (await state(page)).workshopPreview).toBe('build-b3');
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await state(page)).workshopCredits).toBe(credits);
+  }
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!).workshop);
+  expect(saved.revision).toBe(2); expect(saved.receipts).toHaveLength(2);
+  expect(saved.receipts.map((receipt: { commandId: string }) => receipt.commandId)).toEqual(['ui:build-b3:0', 'ui:build-b3:1']);
+});
+
 async function activate(page: Page, job: '1' | '2', spawn: { x: number; y: number }): Promise<Diagnostics> {
   await page.keyboard.press(job);
   await expect.poll(async () => (await state(page)).jobId).toBe(job === '1' ? 'MC-OPT-R01-01' : 'MC-OPT-F01-01');
@@ -276,6 +369,14 @@ test('queued workshop confirmation aborts when replay opens before writer acquis
   await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); const replayRecord = raw.liveMission?.replayRecord; if (!replayRecord) throw new Error('activation did not retain replay record'); raw.mission.receipts.push({ id: 'int-fb:test:settlement', jobId: 'MC-OPT-F01-01', worldEventId: 'test-event', attemptId: 'test-attempt', recipientId: 'fre-broker', credits: 1000, metal: 20, circuits: 4, cloth: 6, replayRecord }); delete raw.liveMission; localStorage.setItem('meowcenary:int-fb:v1:profile', JSON.stringify(raw)); });
   await page.reload(); await expect.poll(() => page.evaluate(() => Boolean((globalThis as Globals).__MEOWCENARY_INT_FB__))).toBe(true);
   expect(await state(page)).toMatchObject({ loadBlocked: false, historicalReplayActive: false, activeAttemptId: undefined });
+  // The retained History GameObject has its own pointerup listener. A modal
+  // must fence that path as well as keyboard/global pointer routing.
+  await page.keyboard.press('b');
+  await expect.poll(async () => (await state(page)).workshopOpen).toBe(true);
+  await page.mouse.click(640, 604);
+  expect(await state(page)).toMatchObject({ workshopOpen: true, historicalReplayActive: false });
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(100); // Neutral frame rearms the ordinary world route.
   await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.pauseSimulation());
   expect(await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!); const receipt = raw.mission.receipts.at(-1); return { hasRecord: Boolean(receipt?.replayRecord), hasLoadout: Boolean(receipt?.replayRecord?.loadout), contentId: receipt?.replayRecord?.contentId, storyBranch: receipt?.replayRecord?.storyBranch, jobId: receipt?.jobId }; })).toEqual({ hasRecord: true, hasLoadout: true, contentId: 'fixture:MC-OPT-F01-01:v1', storyBranch: 'MC-OPT-F01-01', jobId: 'MC-OPT-F01-01' });
   const before = await page.evaluate(() => localStorage.getItem('meowcenary:int-fb:v1:profile')!);

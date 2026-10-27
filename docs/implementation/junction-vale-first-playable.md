@@ -1,7 +1,8 @@
 # Junction Vale first playable — bounded draft handoff
 
 27 October 2026. Status: repository/design assessment completed; visual-reference
-materialization blocked. No runtime implementation or visual acceptance claimed.
+materialization blocked. A separately authorized narrow purchase-consent and modal
+input correction is implemented for review; no first-area or visual acceptance claimed.
 This document records the boundary before significant code changes.
 
 ## Authority and preserved baselines
@@ -123,9 +124,14 @@ confirming it, then release the lock. The cancelled Buy F2 still spends 1,650
 Credits (3,000 → 1,350), adds one part and writes `ui:buy-f2:0`. PR262 contains the
 same vulnerable method, but only `b19d25e` was browser-reproduced. A future fix
 must capture a preview identity/generation and validate it inside the writer;
-profile revision alone does not prove current consent. The defect remains
-**unfixed**: the subsequent parent instruction limits this turn to independent
-checks and planning while references are blocked. No runtime file was changed.
+profile revision alone does not prove current consent. The subsequent parent
+handoff explicitly authorized this independent correctness fix. Queued callbacks
+now retain the immutable preview object and must still own that exact object at
+writer acquisition. Cancel, replacement, blur and shutdown revoke it; teardown
+does not render destroyed UI. Existing revision checks and durable command IDs
+remain intact. Separate fresh previews can still repeat a valid operation.
+Workshop review also fences simulation/world input and requires neutral movement
+after closing. The History button's direct pointer path is fenced too.
 These risks block blindly using the existing scene as the new desktop/controller
 slice. Red trace/screenshots are retained at `/tmp/meow-first-slice-review/` in
 this execution environment as diagnostic engineering evidence, not visual canon.
