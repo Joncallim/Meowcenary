@@ -374,4 +374,49 @@ describe('BootScene loading and startup wiring', () => {
     expect(args[1]).toBe(ctx.settings);
     expect(args[2]).toBe(ctx.data.audio);
   });
+
+  it.each([
+    ['', SceneKey.IntegratedFixture],
+    ['?fixture=int-fb', SceneKey.IntegratedFixture],
+    ['?fixture=junction', SceneKey.JunctionSlice],
+    ['?fixture=legacy', SceneKey.Menu],
+    ['?fixture=unrecognized', SceneKey.Menu],
+    ['?fixture=int-late', SceneKey.LateFixture],
+    ['?fixture=int-late-same-b2', SceneKey.LateFixture],
+    ['?fixture=int-late-range', SceneKey.LateRange],
+  ])('routes %s explicitly without losing the legacy fallback', (search, expected) => {
+    vi.stubGlobal('location', { search });
+    try {
+      const { boot, start } = createBoot();
+      boot.create();
+      expect(start).toHaveBeenCalledTimes(1);
+      expect(start).toHaveBeenCalledWith(expected);
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it.each([
+    [undefined, '?visual-test=1', SceneKey.IntegratedFixture],
+    ['0', '?visual-test=1', SceneKey.IntegratedFixture],
+    ['1', '?visual-test=1', SceneKey.Menu],
+    ['1', '', SceneKey.IntegratedFixture],
+    ['1', '?visual-test=0', SceneKey.IntegratedFixture],
+    ['1', '?visual-test', SceneKey.IntegratedFixture],
+    ['1', '?fixture=int-fb&visual-test=1', SceneKey.IntegratedFixture],
+    ['1', '?fixture=junction&visual-test=1', SceneKey.JunctionSlice],
+    ['1', '?fixture=int-late&visual-test=1', SceneKey.LateFixture],
+    ['1', '?fixture=int-late-range&visual-test=1', SceneKey.LateRange],
+    ['1', '?fixture=legacy&visual-test=1', SceneKey.Menu],
+  ])('routes build=%s query=%s through the guarded browser entry', (build, search, expected) => {
+    vi.stubEnv('VITE_VISUAL_TEST', build);
+    vi.stubGlobal('location', { search });
+    try {
+      const { boot, start } = createBoot();
+      boot.create();
+      expect(start).toHaveBeenCalledTimes(1);
+      expect(start).toHaveBeenCalledWith(expected);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  });
 });

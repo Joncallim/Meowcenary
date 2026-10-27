@@ -159,16 +159,13 @@ export class BootScene extends Phaser.Scene {
     this.registry.set(AUDIO_MANAGER_REGISTRY_KEY, audio);
 
     if (started !== undefined) performanceProbe?.record('boot.create', started);
-    const routeParams = new URLSearchParams(globalThis.location?.search ?? '');
-    const fixtureRoute = routeParams.get('fixture');
-    // Existing renderer/Menu specs deliberately request `?visual-test=1`
-    // without a fixture. Preserve that test-only legacy entry point; a
-    // production root (and a visual-build root with no query) remains B1.
-    const visualLegacyRoute = import.meta.env.VITE_VISUAL_TEST === '1'
-      && fixtureRoute === null && routeParams.has('visual-test');
+    const fixtureRoute = new URLSearchParams(globalThis.location?.search ?? '').get('fixture');
+    // Retain the explicit browser-test Menu entry while the ordinary root
+    // owns B1. A named fixture keeps its own route in every build.
+    const visualLegacyRoute = visualTestBuild && fixtureRoute === null;
     // The hosted root now owns the reviewed B1 slice. The prior game remains
     // reachable deliberately at ?fixture=legacy; unknown fixture values keep
     // the historical Menu fallback rather than becoming new aliases.
-    this.scene.start(!visualLegacyRoute && (fixtureRoute === null || fixtureRoute === 'int-fb') ? SceneKey.IntegratedFixture : fixtureRoute === 'int-late' || fixtureRoute === 'int-late-same-b2' ? SceneKey.LateFixture : fixtureRoute === 'int-late-range' ? SceneKey.LateRange : SceneKey.Menu);
+    this.scene.start(visualLegacyRoute ? SceneKey.Menu : fixtureRoute === 'junction' ? SceneKey.JunctionSlice : fixtureRoute === null || fixtureRoute === 'int-fb' ? SceneKey.IntegratedFixture : fixtureRoute === 'int-late' || fixtureRoute === 'int-late-same-b2' ? SceneKey.LateFixture : fixtureRoute === 'int-late-range' ? SceneKey.LateRange : SceneKey.Menu);
   }
 }

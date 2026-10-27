@@ -42,9 +42,6 @@ import {
   validateIntegratedFixture,
 } from '../gameplay/integratedFixture';
 import { createUiText } from '../ui/text';
-import { loadGameData } from '../systems/validation';
-import { DataAssetBundleRegistry } from '../systems/assetBundles';
-import { queueTextureResources } from '../systems/resourceLoader';
 
 const SCALE = 10;
 const SPEED = 12;
@@ -53,6 +50,7 @@ const SAFE_POSITION = Object.freeze({ tabby: { x: 80, y: 110 }, hound: { x: 65, 
 type RecoveryMode = 'none' | 'writing' | 'write-failed' | 'recovered';
 type FixtureLockManager = { request<T>(name: string, options: { mode: 'exclusive' }, callback: () => Promise<T>): Promise<T> };
 type FixtureControlBounds = Readonly<{ x: number; y: number; width: number; height: number }>;
+
 type FixtureCameraTransform = Readonly<{
   viewport: Readonly<{ x: number; y: number; width: number; height: number }>;
   origin: Readonly<{ x: number; y: number }>;
@@ -67,14 +65,16 @@ type FixtureCameraTransform = Readonly<{
  */
 export class IntegratedFixtureScene extends Phaser.Scene {
   private uiCamera?: Phaser.Cameras.Scene2D.Camera;
-  /** UI camera ownership is stable: the world camera never renders a fixed
-   * root, while the UI camera only excludes the world roots present at setup.
-   * Later modals are simply added as UI roots; they must not replace the
-   * existing fixed controls in either camera's ignore list. */
   private fixedUiRoots = new Set<Phaser.GameObjects.GameObject>();
-  private lead?: Phaser.GameObjects.Sprite;
-  private hound?: Phaser.GameObjects.Sprite;
-  private enemies: Phaser.GameObjects.Sprite[] = [];
+  private floorBackdrop?: Phaser.GameObjects.Rectangle;
+  private floorCoverage = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+  private replayBannerBackground?: Phaser.GameObjects.Rectangle;
+  private replayBannerCopy?: Phaser.GameObjects.Text;
+  private replayBannerExit?: Phaser.GameObjects.Rectangle;
+  private replayBannerExitText?: Phaser.GameObjects.Text;
+  private lead?: Phaser.GameObjects.Arc;
+  private hound?: Phaser.GameObjects.Arc;
+  private enemies: Phaser.GameObjects.Arc[] = [];
   private keys?: Phaser.Types.Input.Keyboard.CursorKeys;
   private touchTarget?: Phaser.Math.Vector2;
   private historyGesture = false;
@@ -110,17 +110,12 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private combatCheckpointWriting = false;
   private combatCheckpointElapsed = 0;
   private settlementPending = false;
-  private workshopPreview?: FixtureWorkshopAction;
-  private workshopPreviewRevision?: number;
+  /** Object identity represents one review/consent session, even when a later
+   * preview has the same action and profile revision. Never persist this token. */
+  private workshopPreview?: Readonly<{ action: FixtureWorkshopAction; revision: number }>;
   private workshopModal?: Phaser.GameObjects.Container;
-  /** Render-only tile positions. They deliberately exceed collision bounds. */
-  private floorTiles = new Set<string>();
-  private floorCoverage = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+  private workshopMovementRearm = false;
   private historicalReplayModal?: Phaser.GameObjects.Container;
-  private replayBannerBackground?: Phaser.GameObjects.Rectangle;
-  private replayBannerCopy?: Phaser.GameObjects.Text;
-  private replayBannerExit?: Phaser.GameObjects.Rectangle;
-  private replayBannerExitText?: Phaser.GameObjects.Text;
   private historicalReplay?: FixtureHistoricalReplaySession;
   private replayCombat?: IntegratedFixtureCombat;
   /** A separate instance of the same pure mission lifecycle used by live play.
@@ -152,16 +147,6 @@ export class IntegratedFixtureScene extends Phaser.Scene {
 
   constructor() { super(SceneKey.IntegratedFixture); }
 
-  /** B1 owns its small, authored terrain geometry, but its presentation uses
-   * the same manifest-bound core-junkyard physical bundle as live play. */
-  preload(): void {
-    const data = loadGameData();
-    const resources = new DataAssetBundleRegistry(data).resourcesForBundle('bundle:core-junkyard');
-    if (!resources) throw new Error('INT-FB requires bundle:core-junkyard');
-    const actorIds = new Set(['resource:character-scrap-tabby', 'resource:character-bolt-hound', 'resource:enemy-junk-rusher']);
-    queueTextureResources(this, [...resources, ...data.visualResources.filter(resource => actorIds.has(resource.id))]);
-  }
-
   create(): void {
     const errors = validateIntegratedFixture();
     if (errors.length) throw new Error(`INT-FB fixture invalid: ${errors.join(',')}`);
@@ -177,46 +162,49 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const height = INTEGRATED_FIXTURE_ENVELOPE.heightMetres * SCALE;
     const camera = this.cameras.main;
     camera.setBackgroundColor('#101820').setZoom(1.25);
-    // Extend bounds by half a visible viewport: following remains centred at
-    // authored world edges without changing collision/world coordinates.
     const halfWidth = this.scale.width / camera.zoom / 2;
     const halfHeight = this.scale.height / camera.zoom / 2;
     camera.setBounds(-halfWidth, -halfHeight, width + halfWidth * 2, height + halfHeight * 2);
-    this.renderJunkyardPresentation(width, height);
-    // Material/tone separates legal routes from surrounding junkyard floor;
-    // this is presentation only, while the pure terrain model keeps authority.
-    const colors: Readonly<Record<string, number>> = { safe: 0x285943, road: 0x3b566b, ramp: 0x9a7540, bridge: 0x785136, underpass: 0x172330, tunnel: 0x101722, pocket: 0x50364f };
+    this.ensureFloorOverscan(width, height);
+    const colors: Readonly<Record<string, number>> = { safe: 0x285943, road: 0x39495a, ramp: 0x7b6c4a, bridge: 0x815a3a, underpass: 0x26313d, tunnel: 0x1a1d2a, pocket: 0x49354e };
     for (const surface of INTEGRATED_FIXTURE_SURFACES) {
       this.add.rectangle((surface.x + surface.width / 2) * SCALE, (surface.z + surface.depth / 2) * SCALE,
-        surface.width * SCALE, surface.depth * SCALE, colors[surface.kind] ?? 0x555555, .62).setStrokeStyle(2, surface.kind === 'ramp' ? 0xf6c85f : surface.kind === 'underpass' || surface.kind === 'tunnel' ? 0x31495d : 0x9bb8c7).setDepth(surface.elevation > 0 ? 2 : 1);
-      const label = surface.kind === 'ramp' ? 'RAMP ↑' : surface.kind === 'safe' ? 'SAFE SERVICE' : surface.kind === 'bridge' ? 'RAISED DECK' : surface.kind === 'underpass' ? 'UNDERPASS' : undefined;
-      if (label) createUiText(this, (surface.x + .5) * SCALE, (surface.z + .5) * SCALE, label, { fontFamily: 'Nunito, sans-serif', fontSize: '11px', color: '#f7f1d5', backgroundColor: '#101820dd', padding: { x: 3, y: 2 } }).setDepth(surface.elevation > 0 ? 3 : 2);
+        surface.width * SCALE, surface.depth * SCALE, colors[surface.kind] ?? 0x555555, .95).setStrokeStyle(2, 0xb7d5da).setDepth(surface.elevation > 0 ? 2 : 1);
+      createUiText(this, (surface.x + .5) * SCALE, (surface.z + .5) * SCALE, `${surface.id.replace('INT-FB-', '')}${surface.elevation > 0 ? ' ↑' : ''}`, { fontFamily: 'Nunito, sans-serif', fontSize: '11px', color: '#e9f3f5' }).setDepth(surface.elevation > 0 ? 3 : 2);
     }
-    // Solid cover remains collision-authoritative in the pure fixture model.
-    // Its generated junkyard prop is the visible affordance; do not paint
-    // debug collision blocks over that scenery in the playable route.
+    for (const occluder of INTEGRATED_FIXTURE_OCCLUDERS) this.add.rectangle((occluder.x + occluder.width / 2) * SCALE, (occluder.z + occluder.depth / 2) * SCALE, occluder.width * SCALE, occluder.depth * SCALE, 0x101820, .95).setStrokeStyle(2, 0xef6b73).setDepth(4);
     for (const point of INTEGRATED_FIXTURE_POINTS) {
-      this.add.circle(point.x * SCALE, point.z * SCALE, 6, point.role === 'service' ? 0x3ee8a9 : 0xffd166).setStrokeStyle(2, 0x0b1118).setDepth(5);
+      this.add.circle(point.x * SCALE, point.z * SCALE, 5, point.role === 'service' ? 0x3ee8a9 : 0xffd166).setStrokeStyle(1, 0x0b1118).setDepth(5);
       const label = point.role === 'offer-terminal' ? 'OFFER · INTERACT' : point.role === 'spawn' ? 'MISSION ENTRY' : point.role === 'extraction' ? 'EXTRACT' : point.role === 'interaction' ? 'OBJECTIVE' : point.role === 'discovery' ? 'SALVAGE' : undefined;
       if (label) createUiText(this, point.x * SCALE, point.z * SCALE - 15, label, { fontFamily: 'Nunito, sans-serif', fontSize: '10px', color: '#fff3bd', backgroundColor: '#101820dd', padding: { x: 3, y: 2 } }).setOrigin(.5).setDepth(5);
     }
-    this.lead = this.add.sprite(SAFE_POSITION.tabby.x, SAFE_POSITION.tabby.y, 'art-character-scrap-tabby', 0).setDisplaySize(28, 28).setDepth(6);
-    this.hound = this.add.sprite(SAFE_POSITION.hound.x, SAFE_POSITION.hound.y, 'art-character-bolt-hound', 0).setDisplaySize(28, 28).setDepth(6);
-    this.enemies = [this.add.sprite(350, 380, 'art-enemy-junk-rusher', 0).setDisplaySize(26, 26), this.add.sprite(370, 400, 'art-enemy-junk-rusher', 0).setDisplaySize(26, 26)];
+    this.lead = this.add.circle(SAFE_POSITION.tabby.x, SAFE_POSITION.tabby.y, 7, 0x71d8ff).setStrokeStyle(2, 0xffffff).setDepth(6);
+    this.hound = this.add.circle(SAFE_POSITION.hound.x, SAFE_POSITION.hound.y, 6, 0x84e6a0).setStrokeStyle(2, 0xffffff).setDepth(6);
+    this.enemies = [this.add.circle(350, 380, 7, 0xef6b73), this.add.circle(370, 400, 7, 0xef6b73)];
     this.enemies.forEach(enemy => enemy.setVisible(false));
     this.status = createUiText(this, this.scale.width / 2, 10, '', { fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#fff', backgroundColor: '#101820d9', padding: { x: 8, y: 5 }, align: 'center', wordWrap: { width: Math.min(420, this.scale.width - 32) } }).setOrigin(.5, 0).setScrollFactor(0).setDepth(10);
     this.createControls();
     this.keys = this.input.keyboard?.createCursorKeys();
     this.installInputs();
+    const interruptWorkshop = () => this.cancelWorkshop();
+    this.game.events.on('blur', interruptWorkshop);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('blur', interruptWorkshop);
+      // Display objects may already be torn down when Systems emits shutdown.
+      // Revoke consent without rendering or destroying the old panel again.
+      this.workshopPreview = undefined;
+      this.workshopModal = undefined;
+      this.touchTarget = undefined;
+      this.historyGesture = false;
+      this.workshopMovementRearm = true;
+      this.fixedUiRoots.clear();
+      this.uiCamera = undefined;
+      this.floorBackdrop = undefined;
+    });
     this.cameras.main.startFollow(this.lead, true, .15, .15);
     this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height).setScroll(0, 0).setZoom(1);
-    // The world camera must not transform fixed controls; UI nodes are
-    // registered after creation below and rendered only by this camera.
     this.registerFixedUi();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this);
-    // Resize is a scene-owned listener in both production and visual builds.
-    // Keeping cleanup outside the visual seam prevents repeat scene starts
-    // from accumulating layout handlers in the playable build.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this));
     if (this.envelope.liveMission) this.restoreLiveMission(this.envelope.liveMission);
     this.refreshStatus();
@@ -241,7 +229,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       failNextRecoveryWrite: () => { this.failNextRecoveryWrite = true; },
       rejectNextWriterLock: () => { this.rejectNextWriterLock = true; },
       ...(import.meta.env.VITE_VISUAL_TEST === '1' ? {
-        layout: () => ({ viewport: { width: this.scale.width, height: this.scale.height }, status: this.status?.getBounds(), interact: this.interactButton?.getBounds(), workshop: this.workshopButton?.getBounds(), history: this.historyButton?.getBounds(), player: this.controlledSprite() ? { x: this.controlledSprite()!.x, y: this.controlledSprite()!.y } : undefined, camera: { x: this.cameras.main.x, y: this.cameras.main.y, width: this.cameras.main.width, height: this.cameras.main.height, zoom: this.cameras.main.zoom, scrollX: this.cameras.main.scrollX, scrollY: this.cameras.main.scrollY, worldView: this.cameras.main.worldView }, floorCoverage: this.floorCoverage, workshopModalBounds: this.workshopModal?.getBounds(), workshopModalChildren: this.workshopModal?.list.map(child => (child as Phaser.GameObjects.GameObject & { getBounds(): Phaser.Geom.Rectangle }).getBounds()), replayBanner: this.historicalReplayModal ? { scaleX: this.historicalReplayModal.scaleX, scaleY: this.historicalReplayModal.scaleY, container: { x: this.historicalReplayModal.x, y: this.historicalReplayModal.y }, background: this.replayBannerBackground?.getBounds(), backgroundGeometry: this.replayBannerBackground ? { y: this.replayBannerBackground.y, originY: this.replayBannerBackground.originY, height: this.replayBannerBackground.height, displayHeight: this.replayBannerBackground.displayHeight, scaleY: this.replayBannerBackground.scaleY } : undefined, copy: this.replayBannerCopy?.getBounds(), exit: this.replayBannerExit?.getBounds(), exitText: this.replayBannerExitText?.getBounds() } : undefined, workshopPreviewRevision: this.workshopPreviewRevision, fixedUiCount: this.children.list.filter((node) => (node as Phaser.GameObjects.GameObject & { scrollFactorX?: number }).scrollFactorX === 0).length, workshopOpen: !!this.workshopModal }),
+        layout: () => ({ viewport: { width: this.scale.width, height: this.scale.height }, status: this.status?.getBounds(), interact: this.interactButton?.getBounds(), workshop: this.workshopButton?.getBounds(), history: this.historyButton?.getBounds(), player: this.controlledSprite() ? { x: this.controlledSprite()!.x, y: this.controlledSprite()!.y } : undefined, camera: { x: this.cameras.main.x, y: this.cameras.main.y, width: this.cameras.main.width, height: this.cameras.main.height, zoom: this.cameras.main.zoom, scrollX: this.cameras.main.scrollX, scrollY: this.cameras.main.scrollY, worldView: this.cameras.main.worldView }, floorCoverage: this.floorCoverage, workshopModalBounds: this.workshopModal?.getBounds(), workshopModalChildren: this.workshopModal?.list.map(child => (child as Phaser.GameObjects.GameObject & { getBounds(): Phaser.Geom.Rectangle }).getBounds()), replayBanner: this.historicalReplayModal ? { scaleX: this.historicalReplayModal.scaleX, scaleY: this.historicalReplayModal.scaleY, container: { x: this.historicalReplayModal.x, y: this.historicalReplayModal.y }, background: this.replayBannerBackground?.getBounds(), backgroundGeometry: this.replayBannerBackground ? { y: this.replayBannerBackground.y, originY: this.replayBannerBackground.originY, height: this.replayBannerBackground.height, displayHeight: this.replayBannerBackground.displayHeight, scaleY: this.replayBannerBackground.scaleY } : undefined, copy: this.replayBannerCopy?.getBounds(), exit: this.replayBannerExit?.getBounds(), exitText: this.replayBannerExitText?.getBounds() } : undefined, workshopPreviewRevision: this.workshopPreview?.revision, fixedUiCount: this.children.list.filter((node) => (node as Phaser.GameObjects.GameObject & { scrollFactorX?: number }).scrollFactorX === 0).length, workshopOpen: !!this.workshopModal }),
         pauseSimulation: () => { this.simulationPaused = true; },
         forceReplayTerminal: (outcome: 'success' | 'death') => this.forceReplayTerminal(outcome),
         forceReplayHostileClear: () => this.forceReplayHostileClear(),
@@ -261,6 +249,10 @@ export class IntegratedFixtureScene extends Phaser.Scene {
         },
         hasLiveTouchTarget: () => this.touchTarget !== undefined,
         replayActiveGun: () => this.replayCombat?.activeGun(this.replayControlledActor),
+        restartScene: () => {
+          delete (globalThis as Record<string, unknown>).__MEOWCENARY_INT_FB__;
+          this.scene.restart();
+        },
       } : {}),
     } });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { delete (globalThis as Record<string, unknown>).__MEOWCENARY_INT_FB__; });
@@ -270,7 +262,11 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private registerUi(...nodes: Array<Phaser.GameObjects.GameObject | undefined>): void {
     const active = nodes.filter((node): node is Phaser.GameObjects.GameObject => node !== undefined);
     if (!active.length || !this.uiCamera) return;
-    active.forEach(node => this.fixedUiRoots.add(node));
+    active.forEach(node => {
+      if (this.fixedUiRoots.has(node)) return;
+      this.fixedUiRoots.add(node);
+      node.once('destroy', () => this.fixedUiRoots.delete(node));
+    });
     this.cameras.main.ignore(active);
   }
 
@@ -289,48 +285,22 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       const candidate = node as Phaser.GameObjects.GameObject & { scrollFactorX?: number; scrollFactorY?: number };
       return candidate.scrollFactorX === 0 && candidate.scrollFactorY === 0;
     });
-    fixed.forEach(node => this.fixedUiRoots.add(node));
-    this.cameras.main.ignore(fixed);
+    this.registerUi(...fixed);
     // This is intentionally a one-time world exclusion. registerUi() is
     // called for later modal roots, and must not hide the fixed HUD/controls.
     this.uiCamera?.ignore(this.children.list.filter(node => !this.fixedUiRoots.has(node)));
   }
 
-  /** Presentation only. The pure B1 surface/occluder functions remain the
-   * collision and layer authority; no legacy arena collision is imported. */
-  private renderJunkyardPresentation(width: number, height: number): void {
-    this.ensureFloorOverscan(width, height);
-    const propKeys = ['art-world-prop-tyre-pile', 'art-world-prop-crate', 'art-world-prop-engine-block', 'art-world-prop-scrap-heap'];
-    for (const [index, occluder] of INTEGRATED_FIXTURE_OCCLUDERS.entries()) {
-      const key = propKeys[index % propKeys.length]!;
-      if (!this.textures.exists(key)) throw new Error(`INT-FB required junkyard prop art is unavailable: ${key}`);
-      this.add.image((occluder.x + occluder.width / 2) * SCALE, (occluder.z + occluder.depth / 2) * SCALE, key)
-        .setDisplaySize(Math.max(28, occluder.width * SCALE), Math.max(28, occluder.depth * SCALE)).setDepth(4);
-    }
-  }
-
-  /** Adds only missing visual tiles for the current padded follow viewport.
-   * This never modifies the authored surface or collision model. */
+  /** Primitive diagnostic backdrop only; no retired terrain or actor assets.
+   * Its render envelope follows camera overscan, never collision geometry. */
   private ensureFloorOverscan(width: number, height: number): void {
-    const floorKey = 'art-world-junkyard-floor-base';
-    if (!this.textures.exists(floorKey)) throw new Error('INT-FB required junkyard floor art is unavailable');
-    const camera = this.cameras.main;
-    const padX = this.scale.width / camera.zoom / 2;
-    const padY = this.scale.height / camera.zoom / 2;
-    const startX = -Math.ceil(padX / 32) * 32 + 16;
-    const startY = -Math.ceil(padY / 32) * 32 + 16;
-    const endX = width + Math.ceil(padX / 32) * 32;
-    const endY = height + Math.ceil(padY / 32) * 32;
-    for (let y = startY; y < endY; y += 32) for (let x = startX; x < endX; x += 32) {
-      const id = `${x},${y}`;
-      if (this.floorTiles.has(id)) continue;
-      this.floorTiles.add(id);
-      const tile = this.add.image(x, y, floorKey).setDisplaySize(32, 32).setDepth(-3);
-      // The initial world collection is excluded when the UI camera starts;
-      // tiles added after a resize must opt into that same world-only route.
-      this.registerWorld(tile);
-      this.floorCoverage.minX = Math.min(this.floorCoverage.minX, x - 16); this.floorCoverage.minY = Math.min(this.floorCoverage.minY, y - 16);
-      this.floorCoverage.maxX = Math.max(this.floorCoverage.maxX, x + 16); this.floorCoverage.maxY = Math.max(this.floorCoverage.maxY, y + 16);
+    const padX = this.scale.width / this.cameras.main.zoom / 2;
+    const padY = this.scale.height / this.cameras.main.zoom / 2;
+    this.floorCoverage = { minX: -padX, minY: -padY, maxX: width + padX, maxY: height + padY };
+    if (this.floorBackdrop) this.floorBackdrop.setPosition(width / 2, height / 2).setDisplaySize(width + padX * 2, height + padY * 2);
+    else {
+      this.floorBackdrop = this.add.rectangle(width / 2, height / 2, width + padX * 2, height + padY * 2, 0x101820).setDepth(-3);
+      this.registerWorld(this.floorBackdrop);
     }
   }
 
@@ -355,17 +325,13 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.replayTakeoverPrompt?.setPosition(width / 2, height / 2);
     this.recoveryModal?.setPosition(width / 2, height / 2);
     if (this.workshopModal) {
-      // Recreate only visual controls at the new dimensions. The action and
-      // revision remain unchanged, so a preview still requires the same
-      // normal confirmation and cannot mutate the ledger during a resize.
+      // Resize is presentation-only: retain the exact immutable preview
+      // object captured by any queued writer. Rebuilding visual controls
+      // cannot create fresh consent or silently adopt a newer revision.
       const preview = this.workshopPreview;
-      const previewRevision = this.workshopPreviewRevision;
       if (preview) {
-        this.openWorkshop(preview);
-        // openWorkshop normally snapshots the current revision. This is a
-        // layout-only reconstruction, so keep the original optimistic
-        // transaction identity and let confirmation reject stale previews.
-        this.workshopPreviewRevision = previewRevision;
+        this.openWorkshop(preview.action);
+        this.workshopPreview = preview;
       } else this.openWorkshopMenu();
     }
     // Reserve the top strip for mission/objective status; replay controls
@@ -386,6 +352,15 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    // Workshop review owns input and simulation; closing it must not resume a
+    // movement key or world gesture that was held behind the panel.
+    if (this.workshopModal) return;
+    if (this.workshopMovementRearm) {
+      const movementHeld = ['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT']
+        .some(key => this.input.keyboard?.addKey(key).isDown);
+      if (movementHeld || this.input.activePointer.isDown) return;
+      this.workshopMovementRearm = false;
+    }
     if (this.historicalReplay) { this.updateHistoricalReplay(delta); return; }
     if (!this.lead || !this.hound || this.simulationPaused) return;
     if (this.ownershipLost || this.recoveryMode !== 'none' || this.activationWriting || this.progressWriting || this.settlementPending) return;
@@ -511,6 +486,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
 
   private createControls(): void {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.workshopModal || this.workshopMovementRearm) return;
       const contains = (control: Phaser.GameObjects.Rectangle | undefined) => {
         const bounds = this.controlBounds(control);
         return !!bounds && pointer.x >= bounds.x && pointer.x <= bounds.x + bounds.width && pointer.y >= bounds.y && pointer.y <= bounds.y + bounds.height;
@@ -528,10 +504,11 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       if (contains(this.workshopButton)) { this.openWorkshopMenu(); return; }
       this.touchTarget = this.mainWorldPoint(pointer);
     });
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (pointer.isDown && !this.historyGesture) { if (this.historicalReplay) this.replayTouchTarget = this.mainWorldPoint(pointer); else this.touchTarget = this.mainWorldPoint(pointer); } });
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (!this.workshopModal && !this.workshopMovementRearm && pointer.isDown && !this.historyGesture) { if (this.historicalReplay) this.replayTouchTarget = this.mainWorldPoint(pointer); else this.touchTarget = this.mainWorldPoint(pointer); } });
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       const releaseHistoryGesture = this.historyGesture;
       this.historyGesture = false;
+      if (this.workshopModal || this.workshopMovementRearm) { this.touchTarget = undefined; return; }
       // Phaser only delivers a control's pointerup when the release remains
       // over that rectangle. Keep a History gesture owned through a drag so
       // it cannot turn into world movement; a release still activates its
@@ -581,19 +558,22 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   }
 
   private installInputs(): void {
-    this.input.keyboard?.on('keydown-ONE', () => this.selectJob('MC-OPT-R01-01'));
-    this.input.keyboard?.on('keydown-TWO', () => this.selectJob('MC-OPT-F01-01'));
-    this.input.keyboard?.on('keydown-E', () => this.interact());
-    this.input.keyboard?.on('keydown-Q', () => this.swapGun());
-    this.input.keyboard?.on('keydown-T', () => this.confirmTakeover());
-    this.input.keyboard?.on('keydown-X', () => this.surrender());
-    this.input.keyboard?.on('keydown-R', () => this.beginRecovery('recovery retry'));
+    const worldAction = (command: () => void) => () => {
+      if (!this.workshopModal && !this.workshopMovementRearm) command();
+    };
+    this.input.keyboard?.on('keydown-ONE', worldAction(() => this.selectJob('MC-OPT-R01-01')));
+    this.input.keyboard?.on('keydown-TWO', worldAction(() => this.selectJob('MC-OPT-F01-01')));
+    this.input.keyboard?.on('keydown-E', worldAction(() => this.interact()));
+    this.input.keyboard?.on('keydown-Q', worldAction(() => this.swapGun()));
+    this.input.keyboard?.on('keydown-T', worldAction(() => this.confirmTakeover()));
+    this.input.keyboard?.on('keydown-X', worldAction(() => this.surrender()));
+    this.input.keyboard?.on('keydown-R', worldAction(() => this.beginRecovery('recovery retry')));
     this.input.keyboard?.on('keydown-B', () => this.openWorkshopMenu());
     this.input.keyboard?.on('keydown-F', () => this.openWorkshop('fit-f2-a'));
     this.input.keyboard?.on('keydown-G', () => this.openWorkshop('build-b3'));
     this.input.keyboard?.on('keydown-L', () => this.openWorkshop('claim-h2'));
     this.input.keyboard?.on('keydown-S', () => this.openWorkshop('sell-h2'));
-    this.input.keyboard?.on('keydown-H', () => this.openHistoricalReplay());
+    this.input.keyboard?.on('keydown-H', worldAction(() => this.openHistoricalReplay()));
     this.input.keyboard?.on('keydown-ENTER', () => { if (this.recoveryMode === 'recovered') this.retryEvent(); else this.confirmWorkshop(); });
     this.input.keyboard?.on('keydown-ESC', () => { if (this.historicalReplay) this.finishHistoricalReplay('exit'); else this.cancelWorkshop(); });
   }
@@ -741,14 +721,17 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.refreshStatus();
   }
   private confirmTakeover(): void {
+    // Both the prompt GameObject and the scene's fallback pointerup route
+    // reach this command. Neither may transfer control through a workshop.
+    if (this.workshopModal || this.workshopMovementRearm) return;
     if (this.historicalReplay) { const replay = this.replayCombat; if (replay && resolveFixtureTakeover(replay.actorHealth('tabby'), replay.actorHealth('hound'), this.replayControlledActor === 'hound') === 'takeover-required') { this.replayControlledActor = 'hound'; this.replayCameraActor = 'hound'; this.replayTakeoverPrompt?.setVisible(false); this.cameras.main.startFollow(this.replayHound!, true, .15, .15); this.combatFeedback = 'Archived Hound has taken control.'; this.refreshStatus(); } return; }
     if (this.ownershipLost || !this.lead || !this.hound || this.recoveryMode !== 'none' || resolveFixtureTakeover(this.combat.actorHealth('tabby'), this.combat.actorHealth('hound'), false) !== 'takeover-required') return;
     this.controlledActor = 'hound'; this.cameras.main.startFollow(this.hound, true, .15, .15); this.takeoverPrompt?.setVisible(false);
     this.combatFeedback = 'Hound has taken control. Hound now drives movement, interaction, service access, and gun swaps.'; this.persistCombatCheckpoint(); this.refreshStatus();
   }
   private showTakeoverPrompt(): void { this.takeoverPrompt?.setText('Tabby is down.\nContinue as Hound?\nT / TAP TAKE OVER').setVisible(true); this.refreshStatus(); }
-  private controlledSprite(): Phaser.GameObjects.Sprite | undefined { return this.controlledActor === 'tabby' ? this.lead : this.hound; }
-  private actorSprite(actor: 'tabby' | 'hound'): Phaser.GameObjects.Sprite | undefined { return actor === 'tabby' ? this.lead : this.hound; }
+  private controlledSprite(): Phaser.GameObjects.Arc | undefined { return this.controlledActor === 'tabby' ? this.lead : this.hound; }
+  private actorSprite(actor: 'tabby' | 'hound'): Phaser.GameObjects.Arc | undefined { return actor === 'tabby' ? this.lead : this.hound; }
   private actorLayer(actor: 'tabby' | 'hound'): FixtureLayer { return actor === 'tabby' ? this.tabbyLayer : this.houndLayer; }
   private spriteTerrainPosition(actor: 'tabby' | 'hound') {
     const sprite = this.actorSprite(actor);
@@ -767,9 +750,6 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (this.ownershipLost || this.recoveryMode !== 'none' || this.activationWriting || this.progressWriting || this.settlementPending) { this.combatFeedback = this.ownershipLost ? 'This tab is stale. Reload before taking over the attempt.' : 'Recovery or settlement is still pending; controls are locked until it finishes.'; this.refreshStatus(); return; }
     const actor = this.controlledSprite();
     if (!actor || this.combat.actorHealth(this.controlledActor) <= 0) return;
-    // Service and offer markers intentionally sit close together. Choose the
-    // nearest eligible marker rather than the declaration-order match, so a
-    // player standing on OFFER cannot have its interaction swallowed by SAFE.
     const nearby = nearestFixturePoint(INTEGRATED_FIXTURE_POINTS, { x: actor.x / SCALE, z: actor.y / SCALE, layer: this.actorLayer(this.controlledActor) }, 3.8);
     if (nearby?.role === 'discovery' && nearby.id === 'INT-FB-PUBLIC-SPUR') { this.recordLootDiscovery(); return; }
     if (!this.jobId) {
@@ -982,7 +962,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     if (this.historicalReplay) { this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
     if (this.ownershipLost || this.recoveryMode !== 'none') return;
     if (!this.atService()) { this.combatFeedback = `Workshop unavailable: move ${this.actorName()} to safe service.`; this.refreshStatus(); return; }
-    this.workshopPreview = undefined; this.workshopPreviewRevision = undefined; this.workshopModal?.destroy();
+    this.workshopPreview = undefined; this.workshopModal?.destroy();
+    this.touchTarget = undefined; this.historyGesture = false; this.workshopMovementRearm = true;
     const panel = this.add.container(this.scale.width / 2, this.scale.height / 2).setScrollFactor(0).setDepth(30);
     const actions: readonly [FixtureWorkshopAction, string][] = [['buy-f2', 'BUY F2'], ['fit-f2-a', 'FIT F2'], ['claim-h2', 'CLAIM H2'], ['sell-h2', 'SELL H2'], ['build-b3', 'BUILD B3'], ['fit-b3-a', 'FIT B3'], ['develop-b2', 'DEVELOP B2']];
     panel.add(this.add.rectangle(0, 0, Math.min(460, this.scale.width - 20), 330, 0x0b1118, .98).setStrokeStyle(2, 0xf6c85f));
@@ -993,7 +974,8 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   private openWorkshop(action: FixtureWorkshopAction): void {
     if (this.historicalReplay) { this.combatFeedback = 'Historical replay is read-only; live changes are blocked.'; this.refreshStatus(); return; }
     if (this.ownershipLost || !this.atService() || this.recoveryMode !== 'none') { this.combatFeedback = this.ownershipLost ? 'This tab is stale. Reload before changing the workshop.' : `Workshop unavailable: move ${this.actorName()} to safe service.`; this.refreshStatus(); return; }
-    this.workshopPreview = action; this.workshopPreviewRevision = this.envelope.workshop.revision; this.workshopModal?.destroy();
+    this.workshopPreview = Object.freeze({ action, revision: this.envelope.workshop.revision }); this.workshopModal?.destroy();
+    this.touchTarget = undefined; this.historyGesture = false; this.workshopMovementRearm = true;
     const labels: Record<FixtureWorkshopAction, string> = { 'discover-h2': 'Record HOU-H2 discovery', 'buy-f2': 'Buy TAB-F2 — 1650 Credits', 'fit-f2-a': 'Fit owned TAB-F2 to TAB-A — free', 'claim-h2': 'Claim discovered HOU-H2 — free', 'sell-h2': 'Sell unassigned HOU-H2 — +540 Credits', 'build-b3': 'Build TAB-B3 T1 — 1000 Credits / 40 Metal / 8 Circuits', 'fit-b3-a': 'Fit owned TAB-B3 to TAB-A — free', 'develop-b2': 'Develop gift TAB-B2 T1 → T2 — 500 Credits / 20 Metal / 4 Circuits' };
     const panel = this.add.container(this.scale.width / 2, this.scale.height / 2).setScrollFactor(0).setDepth(30);
     const background = this.add.rectangle(0, 0, Math.min(500, this.scale.width - 20), 220, 0x0b1118, .98).setStrokeStyle(2, 0x24cec7);
@@ -1003,12 +985,12 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     confirm.on('pointerup', () => this.confirmWorkshop()); cancel.on('pointerup', () => this.cancelWorkshop()); panel.add([background, text, confirm, cancel, yes, no]); this.workshopModal = panel; this.registerUi(panel);
     this.combatFeedback = `Preview ready: ${labels[action]}`; this.refreshStatus();
   }
-  private cancelWorkshop(): void { if (!this.workshopPreview && !this.workshopModal) return; this.workshopPreview = undefined; this.workshopPreviewRevision = undefined; this.workshopModal?.destroy(); this.workshopModal = undefined; this.combatFeedback = 'Workshop preview cancelled; nothing changed.'; this.refreshStatus(); }
+  private cancelWorkshop(): void { if (!this.workshopPreview && !this.workshopModal) return; this.workshopPreview = undefined; this.workshopModal?.destroy(); this.workshopModal = undefined; this.touchTarget = undefined; this.workshopMovementRearm = true; this.combatFeedback = 'Workshop preview cancelled; nothing changed.'; this.refreshStatus(); }
   /** Opens an explicitly read-only view over a durable historical receipt.
    * Live missions remain live; replay is only available once the fixture has
    * a retained result and never writes the profile or mission envelope. */
   private openHistoricalReplay(): boolean {
-    if (this.historicalReplay || this.activeMission()) return false;
+    if (this.workshopModal || this.workshopMovementRearm || this.historicalReplay || this.activeMission()) return false;
     const receipt = this.envelope.mission.receipts.at(-1);
     if (!receipt) { this.combatFeedback = 'Historical replay unavailable: no retained fixture receipt.'; this.refreshStatus(); return false; }
     const record = receipt.replayRecord;
@@ -1060,11 +1042,24 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     this.combatFeedback = 'Historical replay is pinned and read-only.'; this.refreshStatus();
     return true;
   }
+  private layoutReplayBanner(viewportWidth: number): void {
+    if (!this.historicalReplayModal || !this.replayBannerBackground || !this.replayBannerCopy || !this.replayBannerExit || !this.replayBannerExitText) return;
+    const width = Math.min(480, viewportWidth - 24);
+    this.replayBannerCopy.setWordWrapWidth(width - 170, true);
+    const height = Math.max(88, this.replayBannerCopy.height + 24);
+    const statusBottom = this.status?.getBounds().bottom ?? 0;
+    this.historicalReplayModal.setScale(1).setPosition(viewportWidth / 2, statusBottom + 12 + height / 2);
+    this.replayBannerBackground.setSize(width, height);
+    this.replayBannerCopy.setPosition(-80, 0);
+    const exitX = width / 2 - 62;
+    this.replayBannerExit.setPosition(exitX, 0); this.replayBannerExitText.setPosition(exitX, 0);
+  }
+
   private finishHistoricalReplay(outcome: 'success' | 'death' | 'exit'): boolean {
     if (!this.historicalReplay) return false;
     const finished = finishHistoricalFixtureReplay(this.envelope.workshop, this.historicalReplay, outcome);
     const envelopeUnchanged = this.replayEnvelopeBytes === serializeIntegratedFixtureEnvelope(this.envelope);
-    this.historicalReplayModal?.destroy(); this.historicalReplayModal = undefined; this.replayTakeoverPrompt?.destroy(); this.replayTakeoverPrompt = undefined; this.replayLead?.destroy(); this.replayHound?.destroy(); this.replayEnemies.forEach(enemy => enemy.destroy()); this.replayLead = undefined; this.replayHound = undefined; this.replayEnemies = []; this.replayLeaderTrail = []; this.replayTouchTarget = undefined; this.lead?.setVisible(true); this.hound?.setVisible(true); this.enemies.forEach(enemy => enemy.setVisible(true)); this.cameras.main.startFollow(this.controlledSprite()!, true, .15, .15); this.historicalReplay = undefined; this.replayCombat = undefined; this.replayOperation = undefined; this.replayCameraActor = undefined; this.replayEnvelopeBytes = undefined; this.historicalReplayOutcome = outcome;
+    this.historicalReplayModal?.destroy(); this.historicalReplayModal = undefined; this.replayBannerBackground = undefined; this.replayBannerCopy = undefined; this.replayBannerExit = undefined; this.replayBannerExitText = undefined; this.replayTakeoverPrompt?.destroy(); this.replayTakeoverPrompt = undefined; this.replayLead?.destroy(); this.replayHound?.destroy(); this.replayEnemies.forEach(enemy => enemy.destroy()); this.replayLead = undefined; this.replayHound = undefined; this.replayEnemies = []; this.replayLeaderTrail = []; this.replayTouchTarget = undefined; this.lead?.setVisible(true); this.hound?.setVisible(true); this.enemies.forEach(enemy => enemy.setVisible(true)); this.cameras.main.startFollow(this.controlledSprite()!, true, .15, .15); this.historicalReplay = undefined; this.replayCombat = undefined; this.replayOperation = undefined; this.replayCameraActor = undefined; this.replayEnvelopeBytes = undefined; this.historicalReplayOutcome = outcome;
     this.combatFeedback = finished.profileHashUnchanged && envelopeUnchanged ? `Historical replay ${outcome}; live profile unchanged.` : 'Historical replay closed: live envelope changed outside replay.';
     this.refreshStatus();
     return finished.profileHashUnchanged && envelopeUnchanged;
@@ -1103,18 +1098,22 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     return true;
   }
   private confirmWorkshop(): void {
-    const action = this.workshopPreview;
-    if (!action || this.ownershipLost || this.recoveryMode !== 'none') return;
+    const preview = this.workshopPreview;
+    if (!preview || this.ownershipLost || this.recoveryMode !== 'none') return;
     this.requestWriter('Workshop writer lock unavailable; nothing changed.', async () => {
+      // A queued writer owns only the exact preview that was confirmed. Cancel,
+      // replacement, blur and shutdown revoke it without affecting a new panel.
+      if (this.workshopPreview !== preview) return;
       if (this.ownershipLost) { this.cancelWorkshop(); return; }
       const durable = this.readEnvelope();
       if (!durable) { this.cancelWorkshop(); this.combatFeedback = 'Workshop storage could not be read; nothing changed.'; this.refreshStatus(); return; }
-      if (this.workshopPreviewRevision !== durable.workshop.revision) { this.refreshNonLiveEnvelope(durable); this.cancelWorkshop(); this.combatFeedback = 'Workshop changed in another tab; review the refreshed profile before confirming.'; this.refreshStatus(); return; }
+      if (preview.revision !== durable.workshop.revision) { this.refreshNonLiveEnvelope(durable); this.cancelWorkshop(); this.combatFeedback = 'Workshop changed in another tab; review the refreshed profile before confirming.'; this.refreshStatus(); return; }
       if (!this.atService()) { this.cancelWorkshop(); this.combatFeedback = `Workshop confirmation rejected: ${this.actorName()} must be at safe service.`; this.refreshStatus(); return; }
+      const action = preview.action;
       const commandId = `ui:${action}:${durable.workshop.revision}`; const fitKind = action === 'fit-f2-a' ? 'F2' : action === 'fit-b3-a' ? 'B3' : undefined; const fitCandidates = fitKind ? durable.workshop.parts.filter(part => part.kind === fitKind) : []; const partInstanceId = fitCandidates.length === 1 ? fitCandidates[0].instanceId : undefined;
       const result = commitAndPersistFixtureWorkshop(durable.workshop, { profileId: durable.workshop.profileId, commandId, expectedRevision: durable.workshop.revision, action, partInstanceId }, candidate => this.writeEnvelope(Object.freeze({ ...durable, workshop: candidate })));
       if (!result.applied) { this.cancelWorkshop(); this.combatFeedback = result.reason === 'storage-failed' ? 'Workshop storage failed; no debit, item, or assignment was applied.' : `Workshop rejected: ${result.reason ?? 'invalid'}.`; this.refreshStatus(); return; }
-      this.refreshNonLiveEnvelope(Object.freeze({ ...durable, workshop: result.profile })); this.workshopPreview = undefined; this.workshopPreviewRevision = undefined; this.workshopModal?.destroy(); this.workshopModal = undefined; this.combatFeedback = `Workshop saved: ${action.replaceAll('-', ' ')} (receipt ${result.receipt!.commandId}).`; this.refreshStatus();
+      this.refreshNonLiveEnvelope(Object.freeze({ ...durable, workshop: result.profile })); this.workshopPreview = undefined; this.workshopModal?.destroy(); this.workshopModal = undefined; this.combatFeedback = `Workshop saved: ${action.replaceAll('-', ' ')} (receipt ${result.receipt!.commandId}).`; this.refreshStatus();
     });
   }
 
@@ -1163,8 +1162,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
   /** Browser seam: queues the ordinary workshop conflict-refresh branch. */
   private queueWorkshopConflict(): boolean {
     if (!this.activeMission()) return false;
-    this.workshopPreview = 'fit-f2-a';
-    this.workshopPreviewRevision = this.envelope.workshop.revision - 1;
+    this.workshopPreview = Object.freeze({ action: 'fit-f2-a', revision: this.envelope.workshop.revision - 1 });
     this.confirmWorkshop();
     return true;
   }
@@ -1173,8 +1171,7 @@ export class IntegratedFixtureScene extends Phaser.Scene {
    * ownership after acquiring the writer lock. */
   private queueWorkshopConfirmation(): boolean {
     if (!this.atService() || this.ownershipLost || this.recoveryMode !== 'none') return false;
-    this.workshopPreview = 'build-b3';
-    this.workshopPreviewRevision = this.envelope.workshop.revision;
+    this.workshopPreview = Object.freeze({ action: 'build-b3', revision: this.envelope.workshop.revision });
     this.confirmWorkshop();
     return true;
   }
@@ -1209,19 +1206,6 @@ export class IntegratedFixtureScene extends Phaser.Scene {
     const bounds = control.getBounds();
     return Object.freeze({ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height });
   }
-  private layoutReplayBanner(viewportWidth: number): void {
-    if (!this.historicalReplayModal || !this.replayBannerBackground || !this.replayBannerCopy || !this.replayBannerExit || !this.replayBannerExitText) return;
-    const width = Math.min(480, viewportWidth - 24);
-    this.replayBannerCopy.setWordWrapWidth(width - 170, true);
-    const height = Math.max(88, this.replayBannerCopy.height + 24);
-    const statusBottom = this.status?.getBounds().bottom ?? 0;
-    this.historicalReplayModal.setScale(1).setPosition(viewportWidth / 2, statusBottom + 12 + height / 2);
-    this.replayBannerBackground.setSize(width, height);
-    this.replayBannerCopy.setPosition(-80, 0);
-    const exitX = width / 2 - 62;
-    this.replayBannerExit.setPosition(exitX, 0); this.replayBannerExitText.setPosition(exitX, 0);
-  }
-
   private refreshStatus(): void {
     if (this.historicalReplay && this.replayOperation && this.replayCombat) {
       const replay = this.replayOperation.snapshot();
@@ -1232,10 +1216,9 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       return;
     }
     const job = this.jobId ? INTEGRATED_FIXTURE_JOBS.find(candidate => candidate.id === this.jobId)! : undefined;
-    const hostiles = this.combat.hostileStates().filter(hostile => hostile.health > 0).length; const phase = this.operation.snapshot().phase;
-    this.status?.setText(job
-      ? `${job.id} · ${phase}${this.extracted ? ' · COMPLETE' : ''}\nObjectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · ${this.groupCleared ? 'hostiles clear' : `${hostiles} hostile(s)`}` : ''}\n${this.combatFeedback}`
-      : `B1 PROVING GROUND · Choose R01 [1] or F01 [2]\nMove with WASD/touch · INTERACT E · workshop at SAFE SERVICE`);
+    const hostiles = this.combat.hostileStates().filter(hostile => hostile.health > 0).length; const tabbyGun = this.combat.activeGun('tabby'); const phase = this.operation.snapshot().phase; const mission = this.activeMission(); const eventLine = mission ? `\nEvent ${mission.worldEventId} · Attempt ${mission.attemptId}` : '';
+    const progress = `RCC ${this.envelope.workshop.standing.rcc} · FRE ${this.envelope.workshop.standing.fre} · HOU dossier ${this.envelope.workshop.houDossier}/4 · Flux ${this.envelope.workshop.wallet.flux} + ${this.envelope.workshop.fluxQualificationRemainder.toFixed(2)}/3`;
+    this.status?.setText(job ? `INT-FB ${job.id} · ${phase}${eventLine}\n${this.extracted ? `COMPLETE — event receipt and progression saved\n${progress}` : `Objectives ${this.completed.size}/${job.requiredInteractionIds.length}${job.requiresFiniteGroupClear ? ` · exit group ${this.groupCleared ? 'clear' : this.combatActive ? `${hostiles} hostile(s)` : 'activate at spawn'}` : ' · extraction allowed'}\nTAB ${this.combat.actorHealth('tabby').toFixed(0)} HP · ${tabbyGun.instanceId.split(':').at(-1)} ${tabbyGun.supply} · HOU ${this.combat.actorHealth('hound').toFixed(0)} HP\n${this.combatFeedback}\nMove to offer/markers/spawn/extraction; tap INTERACT or E; swap ${this.actorName()} gun with Q; surrender X`}` : `INT-FB proving ground\n${this.envelope.mission.receipts.length} isolated event receipt(s) loaded · ${progress}\n${this.combatFeedback}\nChoose R01 (1 / left side) or F01 (2 / right side). WASD/arrows or touch-hold to move.`);
   }
   public diagnostics(): Readonly<{ scene: string; x: number; y: number; controlledActor: 'tabby' | 'hound'; layer: FixtureLayer; tabbyLayer: FixtureLayer; houndLayer: FixtureLayer; combatEventSequence: number; cameraX: number; cameraY: number; cameraTransform?: FixtureCameraTransform; controlledGun: string; jobId?: FixtureJobId; phase: string; completedInteractionIds: readonly string[]; canExtract: boolean; extracted: boolean; combatActive: boolean; groupCleared: boolean; tabbyHealth: number; houndHealth: number; tabbyGun: string; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: Readonly<{ x: number; y: number }>; houndPosition: Readonly<{ x: number; y: number }>; hostiles: number; replay?: Readonly<{ x: number; y: number; controlledActor: 'tabby' | 'hound'; cameraActor?: 'tabby' | 'hound'; layer: FixtureLayer; tabbyLayer: FixtureLayer; houndLayer: FixtureLayer; tabbyPosition: Readonly<{ x: number; y: number }>; houndPosition: Readonly<{ x: number; y: number }>; trailLength: number; completedInteractionIds: readonly string[]; groupCleared: boolean; canExtract: boolean; hostiles: number; takeoverControl?: FixtureControlBounds }>; checkpoint?: Readonly<{ revision: number; controlledActor: 'tabby' | 'hound'; tabbyHealth: number; houndHealth: number; tabbyGunSupply: number; houndGunSupply: number; tabbyPosition: Readonly<{ x: number; y: number }>; houndPosition: Readonly<{ x: number; y: number }>; hostileHealths: readonly number[] }>; workshopRevision: number; workshopCredits: number; workshopParts: number; workshopMaterials: Readonly<{ metal: number; circuits: number; cloth: number }>; standing: Readonly<{ rcc: number; fre: number }>; houDossier: number; fluxQualificationRemainder: number; historicalReplayActive: boolean; historicalReplayOutcome?: 'success' | 'death' | 'exit'; workshopPreview?: FixtureWorkshopAction; workshopOpen: boolean; settlementPending: boolean; worldEventId?: FixtureWorldEventId; activeAttemptId?: FixtureAttemptId; attemptTerminal?: string; recoveryMode: RecoveryMode; recoveryFee?: number; receiptIds: readonly string[]; paidEventIds: readonly FixtureWorldEventId[]; loadBlocked: boolean; recoveryMessage: string; takeoverControl?: FixtureControlBounds; recoveryControl?: FixtureControlBounds; retryControl?: FixtureControlBounds }> {
     const attempt = this.activeAttemptId ? this.envelope.workshop.attempts.find(candidate => candidate.attemptId === this.activeAttemptId) : undefined;
@@ -1283,6 +1266,6 @@ export class IntegratedFixtureScene extends Phaser.Scene {
       const bottomRight = camera.getWorldPoint(camera.x + camera.width, camera.y + camera.height);
       return Object.freeze({ viewport: Object.freeze({ x: camera.x, y: camera.y, width: camera.width, height: camera.height }), origin: Object.freeze({ x: camera.originX, y: camera.originY }), zoom: camera.zoom, topLeftWorld: Object.freeze({ x: topLeft.x, y: topLeft.y }), bottomRightWorld: Object.freeze({ x: bottomRight.x, y: bottomRight.y }) });
     })() : undefined;
-    return Object.freeze({ scene: this.scene.key, x: this.controlledSprite()?.x ?? 0, y: this.controlledSprite()?.y ?? 0, controlledActor: this.controlledActor, layer: this.actorLayer(this.controlledActor), tabbyLayer: this.tabbyLayer, houndLayer: this.houndLayer, combatEventSequence: this.combatEventSequence, cameraX: camera.scrollX, cameraY: camera.scrollY, cameraTransform, controlledGun: this.combat.activeGun(this.controlledActor).instanceId, jobId: this.jobId, completedInteractionIds: Object.freeze([...this.completed]), canExtract: this.operation.canExtract(), extracted: this.extracted, phase: this.operation.snapshot().phase, combatActive: this.combatActive, groupCleared: this.groupCleared, tabbyHealth: this.combat.actorHealth('tabby'), houndHealth: this.combat.actorHealth('hound'), tabbyGun: this.combat.activeGun('tabby').instanceId, tabbyGunSupply: this.combat.activeGun('tabby').supply, houndGunSupply: this.combat.activeGun('hound').supply, tabbyPosition: Object.freeze({ x: this.lead?.x ?? 0, y: this.lead?.y ?? 0 }), houndPosition: Object.freeze({ x: this.hound?.x ?? 0, y: this.hound?.y ?? 0 }), hostiles: this.combat.hostileStates().filter(hostile => hostile.health > 0).length, replay, checkpoint, workshopRevision: this.envelope.workshop.revision, workshopCredits: this.envelope.workshop.wallet.credits, workshopParts: this.envelope.workshop.parts.length, workshopMaterials: Object.freeze({ metal: this.envelope.workshop.wallet.metal, circuits: this.envelope.workshop.wallet.circuits, cloth: this.envelope.workshop.wallet.cloth }), standing: this.envelope.workshop.standing, houDossier: this.envelope.workshop.houDossier, fluxQualificationRemainder: this.envelope.workshop.fluxQualificationRemainder, historicalReplayActive: !!this.historicalReplay, historicalReplayOutcome: this.historicalReplayOutcome, workshopPreview: this.workshopPreview, workshopOpen: !!this.workshopModal, settlementPending: this.settlementPending, worldEventId: this.activeWorldEventId, activeAttemptId: this.activeAttemptId, attemptTerminal: attempt?.terminal, recoveryMode: this.recoveryMode, recoveryFee: this.recoveryFee, receiptIds: Object.freeze(this.envelope.mission.receipts.map(receipt => receipt.id)), paidEventIds: this.envelope.workshop.paidEventIds, loadBlocked: this.loadBlocked, recoveryMessage: this.loadBlocked ? this.combatFeedback : '', takeoverControl: takeoverBounds && this.takeoverPrompt?.visible ? Object.freeze({ x: takeoverBounds.x, y: takeoverBounds.y, width: takeoverBounds.width, height: takeoverBounds.height }) : undefined, recoveryControl: this.controlBounds(this.recoveryButton), retryControl: this.controlBounds(this.retryButton) });
+    return Object.freeze({ scene: this.scene.key, x: this.controlledSprite()?.x ?? 0, y: this.controlledSprite()?.y ?? 0, controlledActor: this.controlledActor, layer: this.actorLayer(this.controlledActor), tabbyLayer: this.tabbyLayer, houndLayer: this.houndLayer, combatEventSequence: this.combatEventSequence, cameraX: camera.scrollX, cameraY: camera.scrollY, cameraTransform, controlledGun: this.combat.activeGun(this.controlledActor).instanceId, jobId: this.jobId, completedInteractionIds: Object.freeze([...this.completed]), canExtract: this.operation.canExtract(), extracted: this.extracted, phase: this.operation.snapshot().phase, combatActive: this.combatActive, groupCleared: this.groupCleared, tabbyHealth: this.combat.actorHealth('tabby'), houndHealth: this.combat.actorHealth('hound'), tabbyGun: this.combat.activeGun('tabby').instanceId, tabbyGunSupply: this.combat.activeGun('tabby').supply, houndGunSupply: this.combat.activeGun('hound').supply, tabbyPosition: Object.freeze({ x: this.lead?.x ?? 0, y: this.lead?.y ?? 0 }), houndPosition: Object.freeze({ x: this.hound?.x ?? 0, y: this.hound?.y ?? 0 }), hostiles: this.combat.hostileStates().filter(hostile => hostile.health > 0).length, replay, checkpoint, workshopRevision: this.envelope.workshop.revision, workshopCredits: this.envelope.workshop.wallet.credits, workshopParts: this.envelope.workshop.parts.length, workshopMaterials: Object.freeze({ metal: this.envelope.workshop.wallet.metal, circuits: this.envelope.workshop.wallet.circuits, cloth: this.envelope.workshop.wallet.cloth }), standing: this.envelope.workshop.standing, houDossier: this.envelope.workshop.houDossier, fluxQualificationRemainder: this.envelope.workshop.fluxQualificationRemainder, historicalReplayActive: !!this.historicalReplay, historicalReplayOutcome: this.historicalReplayOutcome, workshopPreview: this.workshopPreview?.action, workshopOpen: !!this.workshopModal, settlementPending: this.settlementPending, worldEventId: this.activeWorldEventId, activeAttemptId: this.activeAttemptId, attemptTerminal: attempt?.terminal, recoveryMode: this.recoveryMode, recoveryFee: this.recoveryFee, receiptIds: Object.freeze(this.envelope.mission.receipts.map(receipt => receipt.id)), paidEventIds: this.envelope.workshop.paidEventIds, loadBlocked: this.loadBlocked, recoveryMessage: this.loadBlocked ? this.combatFeedback : '', takeoverControl: takeoverBounds && this.takeoverPrompt?.visible ? Object.freeze({ x: takeoverBounds.x, y: takeoverBounds.y, width: takeoverBounds.width, height: takeoverBounds.height }) : undefined, recoveryControl: this.controlBounds(this.recoveryButton), retryControl: this.controlBounds(this.retryButton) });
   }
 }

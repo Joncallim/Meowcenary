@@ -5,6 +5,7 @@ export const SceneKey = {
   IntegratedFixture: 'IntegratedFixtureScene',
   LateFixture: 'LateFixtureScene',
   LateRange: 'LateRangeScene',
+  JunctionSlice: 'JunctionSliceScene',
 } as const;
 
 export type SceneKey = (typeof SceneKey)[keyof typeof SceneKey];

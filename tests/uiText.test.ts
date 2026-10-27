@@ -204,25 +204,24 @@ describe('createUiText', () => {
     // Responsive Mercenary cards add two centralized text sites for the
     // compact/wide render block and its content-aware measurement probe.
     // INT-FB adds 21 explicit scene-owned labels (terrain/status, live and
-    // replay controls, recovery, workshop, replay overlay, and the
-    // point-signage owner for OFFER/objective/extraction readability); the isolated
+    // replay controls, recovery, workshop, replay overlay and marker signage); the isolated
     // late workshop adds its status and generated action-label factory. The
-    // later range fixture adds four factory sites: status, the repeated fixed
-    // target label, the fire control, and the return control. Keep these
-    // owners separately counted so a fixture
-    // addition cannot be disguised by changing an aggregate number.
+    // existing range scene adds four sites: status, target label, fire and
+    // return. Count that owner separately and retain the 77-site non-range
+    // baseline plus the one marker-signage site; new sites cannot hide behind an unexplained aggregate.
     const integratedFixtureSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/IntegratedFixtureScene.ts'));
     const lateFixtureSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/LateFixtureScene.ts'));
     const lateRangeSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/LateRangeScene.ts'));
-    const nonRangeSites = migratedSites.filter(node => !node.getSourceFile().fileName.endsWith('/scenes/LateRangeScene.ts'));
+    const junctionSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/scenes/JunctionSliceScene.ts'));
+    const baselineSites = migratedSites.filter(node => !node.getSourceFile().fileName.endsWith('/scenes/JunctionSliceScene.ts'));
+    const nonRangeSites = baselineSites.filter(node => !node.getSourceFile().fileName.endsWith('/scenes/LateRangeScene.ts'));
     expect(integratedFixtureSites).toHaveLength(21);
     expect(lateFixtureSites).toHaveLength(2);
     expect(lateRangeSites).toHaveLength(4);
-    // 77 was the measured inventory immediately before LateRangeScene was
-    // introduced. Keep it as the non-range baseline; a change anywhere else
-    // or in the range scene fails a named assertion rather than silently
-    // updating a single unexplained total.
     expect(nonRangeSites).toHaveLength(78);
+    expect(junctionSites).toHaveLength(1);
+    expect(baselineSites).toHaveLength(82);
+    expect(migratedSites).toHaveLength(83);
     const introSites = migratedSites.filter(node => node.getSourceFile().fileName.endsWith('/ui/runStartIntroView.ts'));
     expect(introSites).toHaveLength(4);
 
