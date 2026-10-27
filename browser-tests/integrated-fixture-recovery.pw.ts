@@ -215,11 +215,22 @@ test(`queued workshop confirmation rechecks live ownership before spending (${ow
     // renderer process can submit the confirmation request.
     await expect.poll(() => page.evaluate(async () =>
       ((await navigator.locks.query()).pending ?? []).filter(lock => lock.name === 'meowcenary:int-fb:v1:writer').length)).toBeGreaterThanOrEqual(1);
+    if (ownership === 'stale') {
+      // Establish the newer durable checkpoint before exercising queued
+      // spending. Browser lock order alone does not prove that another
+      // renderer has observed the new localStorage envelope yet.
+      await releaseFixtureWriter(page);
+      await owner.evaluate(() => navigator.locks.request('meowcenary:int-fb:v1:writer', { mode: 'exclusive' }, async () => undefined));
+      const revision = (await state(owner)).checkpoint!.revision;
+      expect(revision).toBeGreaterThan(before.checkpoint!.revision);
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!).liveMission.checkpointRevision)).toBe(revision);
+      await holdFixtureWriter(page);
+    }
     await pressFixtureKey(page, 'g');
     await expect.poll(async () => (await state(page)).workshopPreview).toBe('build-b3');
     await pressFixtureKey(page, 'Enter');
     await expect.poll(() => page.evaluate(async () =>
-      ((await navigator.locks.query()).pending ?? []).filter(lock => lock.name === 'meowcenary:int-fb:v1:writer').length)).toBeGreaterThanOrEqual(2);
+      ((await navigator.locks.query()).pending ?? []).filter(lock => lock.name === 'meowcenary:int-fb:v1:writer').length)).toBeGreaterThanOrEqual(ownership === 'stale' ? 1 : 2);
     await releaseFixtureWriter(page);
     await page.evaluate(() => navigator.locks.request('meowcenary:int-fb:v1:writer', { mode: 'exclusive' }, async () => undefined));
     const current = await state(owner);
@@ -1096,20 +1107,20 @@ test('active reload retains partial combat and a Hound takeover without reviving
     const value = await state(page);
     return value.checkpoint!.revision > revisionBeforeReject && value.controlledGun !== gunBeforeReject;
   }).toBe(true);
-  // A profile-only discovery refresh may observe a newer durable envelope,
-  // but it must retain this stale tab's old live revision. Its following
-  // combat checkpoint therefore freezes instead of borrowing new counters.
-  // Pause and drain the prior owner before staging the next current tab;
-  // otherwise its already queued checkpoint can legitimately make that tab
-  // stale before the movement setup has even completed.
+  await capture(page, info, 'f01-hound-takeover-reloaded');
+});
+
+test('profile refresh preserves stale live counters and cannot spend workshop resources', async ({ page }, info) => {
+  test.setTimeout(60_000);
+  test.skip(info.project.name !== 'desktop-1280x720', 'Directed desktop profile-refresh ownership regression.');
+  // A profile-only refresh must preserve this page's old live counters.
+  await ready(page);
+  expect(await page.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.prepareF01())).toBe(true);
+  await expect.poll(async () => (await state(page)).combatActive).toBe(true);
   await pauseAndDrainFixtureWriter(page);
   const profileStaleTab = await page.context().newPage();
   await ready(profileStaleTab);
-  // Stage service access through the ordinary movement route while this tab
-  // is current. Its checkpoint can settle, then the owner reloads that
-  // durable state before creating the revision that makes this tab stale.
-  await moveAlong(profileStaleTab, [{ x: 650, y: 220 }, { x: 530, y: 220 }, { x: 350, y: 200 }, { x: 300, y: 80 }, { x: 80, y: 110 }]);
-  await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.pauseSimulation());
+  await pauseAndDrainFixtureWriter(profileStaleTab);
   // Own the shared lock before reloading the successor so both tabs read the
   // same baseline before its first authoritative checkpoint can publish.
   await holdFixtureWriter(profileStaleTab);
@@ -1126,8 +1137,8 @@ test('active reload retains partial combat and a Hound takeover without reviving
   await expect.poll(async () => (await state(page)).checkpoint!.revision).toBeGreaterThan(profileBaseline);
   await pauseAndDrainFixtureWriter(page);
   const profileOwnerRevision = (await state(page)).checkpoint!.revision;
-  // This seam only invokes confirmation; service access was established by
-  // the ordinary route before ownership became stale.
+  // Real activation leaves both actors at safe service. The seam invokes
+  // the ordinary confirmation without changing position or ownership.
   const profileRevision = (await state(profileStaleTab)).workshopRevision;
   expect(await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueWorkshopConflict())).toBe(true);
   expect(await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.queueDiscovery())).toBe(true);
@@ -1145,7 +1156,6 @@ test('active reload retains partial combat and a Hound takeover without reviving
   expect(await profileStaleTab.evaluate(() => JSON.parse(localStorage.getItem('meowcenary:int-fb:v1:profile')!).liveMission.checkpointRevision)).toBe(profileOwnerRevision);
   expect(await profileStaleTab.evaluate(() => (globalThis as Globals).__MEOWCENARY_INT_FB__!.forceSquadDefeat())).toBe(false);
   await profileStaleTab.close();
-  await capture(page, info, 'f01-hound-takeover-reloaded');
 });
 
 test('scene terrain blocks solids, transitions the ramp, and separates bridge combat from the underpass', async ({ page }, info) => {
