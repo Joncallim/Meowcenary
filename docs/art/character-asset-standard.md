@@ -1,5 +1,11 @@
 # Character Asset Standard
 
+> **Historical Epic 13 runtime-format contract.** The 48×48 frame size,
+> right-facing/mirror convention, tags, layers, anchors, paths and export rules
+> below remain technical compatibility requirements for the implemented legacy
+> runtime. They do not select the current six-hero design, approve historical
+> Direction B/Weasel/Raptor/Ram art, or imply production/device acceptance.
+
 This is the exact first-pass standard for character assets. Every character
 follows it so filenames, frame layouts, and animation tags never drift. It is
 the source of truth referenced by the

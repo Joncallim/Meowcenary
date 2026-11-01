@@ -1,16 +1,30 @@
 # Alpha 3 Art Production — V4 Product Delta
 
-**Status:** authoritative V4 override for `alpha-3-art-production-briefs.md` and `alpha-3-current-content-art-matrix.md`.
+**Status:** historical V4/RC1 planning delta. It was an authority for the
+then-current `alpha-3-art-production-briefs.md` and
+`alpha-3-current-content-art-matrix.md`, but it is not the current design
+authority or a production/device acceptance record.
 
 **Execution/resource authority:** `../architecture/alpha-3-final-execution-handoff.md`, `../architecture/content-authoring-templates-v4.md`, and #170.
 
-**How to read this:** the earlier art brief remains useful for unchanged detailed character/enemy/weapon/current-content design directions. This file **supersedes every V4/product/resource/source-policy difference listed below**. Do not implement stale wording from the earlier brief when this delta says otherwise.
+**How to read this:** the earlier art brief remains useful for unchanged
+detailed character/enemy/weapon directions in the historical baseline. At the
+time of the V4 review, this file superseded the V4/product/resource/source-policy
+differences listed below. Do not treat either packet as current design authority
+or implement a stale direction without reconciling it to the current design
+review.
 
-The post-acceptance review deliberately changed the target game after the RC1 art inventory was frozen. Do not commission art for retired plumbing merely because it existed in RC1.
+The post-acceptance review deliberately changed the target game after the RC1
+art inventory was frozen. Do not commission art for retired plumbing merely
+because it existed in RC1. Current design authority is the canonical design
+brief and Figma `tShp811r5SMBLbcNhbGZ4y`, hero frame `66:4`, page `66:2`.
+This document preserves technical constraints and provenance only; its active-
+V4 wording is historical and does not promote the latest six organic redesign
+proposals to final production art.
 
 ---
 
-# 1. Active V4 catalog corrections
+# 1. Historical V4 catalog corrections
 
 ## Retired active achievement: Well Protected
 

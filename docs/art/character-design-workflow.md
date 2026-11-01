@@ -1,5 +1,12 @@
 # Character Design Workflow
 
+> **Historical workflow, retained for technical/art-pipeline reference.** Its
+> 48×48 production contract and validation steps remain useful for legacy
+> runtime compatibility, but its old character examples and agent labels do not
+> establish current visual authority. Independent secondary-agent concept review
+> is permitted; production approval, device acceptance and explicit holds remain
+> separate gates. No owner review is mandatory for every exploratory concept.
+
 This document defines how a Meowcenary character goes from an idea to a
 repo-ready asset. It keeps concepts, naming, frame layouts, and file paths
 consistent across sessions. It builds on the
@@ -24,7 +31,7 @@ Write a short brief before any art. Capture:
 - **Silhouette notes** — the distinct shape that makes them readable in a crowd.
 - **Palette notes** — the limited, high-contrast palette (see the Style Guide).
 
-## 2. Claude/Opus Concept Pass
+## 2. Historical Claude/Opus Concept Pass
 
 - Generate 3–5 distinct character concepts from the brief.
 - Choose one (record why, briefly).
@@ -75,5 +82,7 @@ and CLI commands.
   pipeline, but does not claim final visual quality without exported previews.
 - **Codex/GPT-5.5** — TypeScript integration, validation, asset loading, and
   tests.
-- **AI visual review / Pixelorama** — final art judgment and polish against
-  exported previews at the real game viewport; a human review is optional.
+- **AI visual review / Pixelorama** — exploratory or independent secondary-agent
+  concept review and polish against exported previews at the real game viewport;
+  a human owner review is not required for every concept. Production approval,
+  device acceptance and explicit holds remain separate gates.

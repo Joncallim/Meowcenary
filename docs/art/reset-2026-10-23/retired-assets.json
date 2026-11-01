@@ -1,0 +1,2745 @@
+{
+  "status": "retired-not-replaced",
+  "date": "2026-10-23",
+  "owner": "Janet",
+  "sourceCommit": "b19d25e4fe5ef793a5de06a524a2090e5dcb636a",
+  "scope": "Legacy visual source and runtime payloads, plus superseded concept images. Removed only on a nonshipping reset branch. No history rewrite, live deployment, audio or font removal.",
+  "restoration": "Restore any listed path from sourceCommit with ordinary Git checkout/restore. Blob SHA identifies exact former bytes.",
+  "assets": [
+    {
+      "path": "assets-src/ability-effects/candidates/adrenaline.pxo",
+      "blobSha": "01ef5a4218ba42d1123b1afe594eb4a08547f3c6",
+      "bytes": 19301
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/all-eight-biomes.gif",
+      "blobSha": "c48108fce8783a0cc7181b939fe84b7228ee5842",
+      "bytes": 4090723
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/all-eight-biomes.png",
+      "blobSha": "a1d600aa3f4031569f9e18b68402b34ac61f15a2",
+      "bytes": 235334
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/all-eight-reduced-static.png",
+      "blobSha": "7d907bcfecc98a0664ae988c2ef20c538ee351d0",
+      "bytes": 235630
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/atlas-0.json",
+      "blobSha": "083d47d39545a485cd6b22fcdeaf6ec6a7f0aa21",
+      "bytes": 20484
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/atlas-0.png",
+      "blobSha": "b3fc6d176df1f6efe1d98830d28b47f32239c9d5",
+      "bytes": 40352
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/atlas.json",
+      "blobSha": "4e678a3cab00d9385e8252cc0fab101fea4f0175",
+      "bytes": 21156
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--adrenaline--activation-0.png",
+      "blobSha": "1d0c8bfb17682c635bc17360f8cabbdc56504f43",
+      "bytes": 1603
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--adrenaline--activation-1.png",
+      "blobSha": "b93a0b217a42fb784c72811d179dfbd1ce2665dd",
+      "bytes": 1603
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--adrenaline--activation-2.png",
+      "blobSha": "f71c4308600287711f440f08eebcff40bd34569f",
+      "bytes": 1601
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--adrenaline--activation-3.png",
+      "blobSha": "8cf79480661b3dfec40a0684e8a64c846513ad95",
+      "bytes": 1602
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--adrenaline--sustained-0.png",
+      "blobSha": "1d0c8bfb17682c635bc17360f8cabbdc56504f43",
+      "bytes": 1603
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--adrenaline--sustained-1.png",
+      "blobSha": "b93a0b217a42fb784c72811d179dfbd1ce2665dd",
+      "bytes": 1603
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--adrenaline--sustained-2.png",
+      "blobSha": "f71c4308600287711f440f08eebcff40bd34569f",
+      "bytes": 1601
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--adrenaline--sustained-3.png",
+      "blobSha": "8cf79480661b3dfec40a0684e8a64c846513ad95",
+      "bytes": 1602
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--giga-chomp--activation-0.png",
+      "blobSha": "7d1c715e660fcb0d2326a151b5edece90a652315",
+      "bytes": 1952
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--giga-chomp--activation-1.png",
+      "blobSha": "bed29214d26f2302c522971e42d611d5b7ab0806",
+      "bytes": 2029
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--giga-chomp--activation-2.png",
+      "blobSha": "8d8326b0356973a26246f3bcecbab47156e97351",
+      "bytes": 1924
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--giga-chomp--activation-3.png",
+      "blobSha": "3fa9d496371f8ba026b2a161b2e6f0dfbf100c9a",
+      "bytes": 1882
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--heat-vent--activation-0.png",
+      "blobSha": "dc5b253aa37b3fb95609c43b739c1198ae43552a",
+      "bytes": 2018
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--heat-vent--activation-1.png",
+      "blobSha": "67d1c486a0b085b60bd6ce33e5bb3099b954d78a",
+      "bytes": 2002
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--heat-vent--activation-2.png",
+      "blobSha": "4a32c5be823aa499998cfb690b62fb7e90b20a51",
+      "bytes": 2000
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--heat-vent--activation-3.png",
+      "blobSha": "4ca2c6f452080d2f8b8065eb07a6cf71681b8537",
+      "bytes": 1913
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--overclock--activation-0.png",
+      "blobSha": "b5e0596a15df718eb394c520682f3dba4309bffc",
+      "bytes": 1848
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--overclock--activation-1.png",
+      "blobSha": "bb36c5e0b4ef8228c26f8d3d8812d888e0bef0df",
+      "bytes": 1834
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--overclock--activation-2.png",
+      "blobSha": "d43739b8799c750b5477e89990e8e47b32932447",
+      "bytes": 1816
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--overclock--activation-3.png",
+      "blobSha": "ef34249f03de747e478e9ef712c931202d7f4fd8",
+      "bytes": 1841
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--overclock--sustained-0.png",
+      "blobSha": "b5e0596a15df718eb394c520682f3dba4309bffc",
+      "bytes": 1848
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--overclock--sustained-1.png",
+      "blobSha": "bb36c5e0b4ef8228c26f8d3d8812d888e0bef0df",
+      "bytes": 1834
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--overclock--sustained-2.png",
+      "blobSha": "d43739b8799c750b5477e89990e8e47b32932447",
+      "bytes": 1816
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--overclock--sustained-3.png",
+      "blobSha": "ef34249f03de747e478e9ef712c931202d7f4fd8",
+      "bytes": 1841
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--precision-mark--activation-0.png",
+      "blobSha": "33e498ab8e20907b4ea82c35d83bb39c4a215078",
+      "bytes": 1482
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--precision-mark--activation-1.png",
+      "blobSha": "8a162c109693cba6396dc81988bb987cae1e350d",
+      "bytes": 1468
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--precision-mark--activation-2.png",
+      "blobSha": "3047fbdec93c76a7465ffbe6f60343c352a614de",
+      "bytes": 1469
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--precision-mark--activation-3.png",
+      "blobSha": "92241d74e021544ddfe1c9b1f02aefc191e35781",
+      "bytes": 1467
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--precision-mark--sustained-0.png",
+      "blobSha": "33e498ab8e20907b4ea82c35d83bb39c4a215078",
+      "bytes": 1482
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--precision-mark--sustained-1.png",
+      "blobSha": "8a162c109693cba6396dc81988bb987cae1e350d",
+      "bytes": 1468
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--precision-mark--sustained-2.png",
+      "blobSha": "3047fbdec93c76a7465ffbe6f60343c352a614de",
+      "bytes": 1469
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--precision-mark--sustained-3.png",
+      "blobSha": "92241d74e021544ddfe1c9b1f02aefc191e35781",
+      "bytes": 1467
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--scavenge-pulse--activation-0.png",
+      "blobSha": "8b0002a1f58a963b52e4627a41f14c81ff8a6e6b",
+      "bytes": 1800
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--scavenge-pulse--activation-1.png",
+      "blobSha": "1e05fda31bd26ae6fa2e53462432ca9aac496933",
+      "bytes": 1850
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--scavenge-pulse--activation-2.png",
+      "blobSha": "9e2547e081c8d5d77297eaf753769fb6bf339e79",
+      "bytes": 1883
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--scavenge-pulse--activation-3.png",
+      "blobSha": "461df2f8c4c64c0bf23fa35e2f4fde300cf2e930",
+      "bytes": 1800
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--scrap-burst--activation-0.png",
+      "blobSha": "5c1148e9b3e7ace41f300c8674afc534501c24de",
+      "bytes": 2279
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--scrap-burst--activation-1.png",
+      "blobSha": "b86031233986d472950914dbab7c93853beabb06",
+      "bytes": 2270
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--scrap-burst--activation-2.png",
+      "blobSha": "fd4225d36c9290c10daec801f4b1695e0e366956",
+      "bytes": 2210
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--scrap-burst--activation-3.png",
+      "blobSha": "1064508b3f6f8220dead683ada6c546599eccf30",
+      "bytes": 2060
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--shield-flicker--activation-0.png",
+      "blobSha": "040cbeb8d55d1c18da7fb281bec922c3c50e844b",
+      "bytes": 2191
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--shield-flicker--activation-1.png",
+      "blobSha": "91e722728cd64379c19e3dc14de35ca6b5a6f074",
+      "bytes": 2192
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--shield-flicker--activation-2.png",
+      "blobSha": "6e9d492d8d26e640a9bc9145c2e2f74b72e1d9c3",
+      "bytes": 2183
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--shield-flicker--activation-3.png",
+      "blobSha": "a62c44538081fad4685b64300528c29bf1da7466",
+      "bytes": 2193
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--shield-flicker--sustained-0.png",
+      "blobSha": "040cbeb8d55d1c18da7fb281bec922c3c50e844b",
+      "bytes": 2191
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--shield-flicker--sustained-1.png",
+      "blobSha": "91e722728cd64379c19e3dc14de35ca6b5a6f074",
+      "bytes": 2192
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--shield-flicker--sustained-2.png",
+      "blobSha": "6e9d492d8d26e640a9bc9145c2e2f74b72e1d9c3",
+      "bytes": 2183
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/frames/effect--shield-flicker--sustained-3.png",
+      "blobSha": "a62c44538081fad4685b64300528c29bf1da7466",
+      "bytes": 2193
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/giga-chomp.pxo",
+      "blobSha": "fb09f7d555a338478b0fc2a7d114179ec1a2a34e",
+      "bytes": 12457
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/heat-vent.pxo",
+      "blobSha": "1bb46464908098c640155e9611519a3aa45398d1",
+      "bytes": 11643
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/native-contact.png",
+      "blobSha": "87a3e39d8df255c8fa3e9230c81f04a9f96fd8ee",
+      "bytes": 82420
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/overclock.pxo",
+      "blobSha": "1f68734091e9a18d06841f5e53b8808cdce71311",
+      "bytes": 21133
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/precision-mark.pxo",
+      "blobSha": "f47ef2450cad400e5708d33543b0cc8a90295650",
+      "bytes": 18224
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/provenance.json",
+      "blobSha": "a1c91e90c53a9e04f74b29297fee19589a347c60",
+      "bytes": 14100
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/recipes.json",
+      "blobSha": "8a1c3e4403e57a4317cd13ac1f21b55013687584",
+      "bytes": 4666
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/scavenge-pulse.pxo",
+      "blobSha": "7376225077af1f2d14be9cc34d16d09ec65c3b84",
+      "bytes": 11023
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/scrap-burst.pxo",
+      "blobSha": "167c6a5d0b11eeb9c06496fd2b229bd9be2c2790",
+      "bytes": 12850
+    },
+    {
+      "path": "assets-src/ability-effects/candidates/shield-flicker.pxo",
+      "blobSha": "be5a8a9a66408c4ac4a95d6c541391833e13472a",
+      "bytes": 25436
+    },
+    {
+      "path": "assets-src/ability-effects/source.json",
+      "blobSha": "31e7ba1fd171fb5bbb3d9346000c20f35d330462",
+      "bytes": 1217258
+    },
+    {
+      "path": "assets-src/achievements/concepts/README.md",
+      "blobSha": "4eca4a29fd0b3d2e7de6fdb191c88c2755b98916",
+      "bytes": 1694
+    },
+    {
+      "path": "assets-src/achievements/concepts/direction-a-rejected.png",
+      "blobSha": "2bd744343705a095fdbd25b6f2a9f5d58afb725e",
+      "bytes": 2337446
+    },
+    {
+      "path": "assets-src/achievements/concepts/direction-b-selected.png",
+      "blobSha": "a2c3c18f421997332f0f664283e2370dc9785108",
+      "bytes": 1752566
+    },
+    {
+      "path": "assets-src/achievements/source/achievement-icons-atlas.pxo",
+      "blobSha": "8f3ae2305b46225a06e9be1b3f00543e5e54cbfb",
+      "bytes": 699156
+    },
+    {
+      "path": "assets-src/characters/alpha-3-roster-concepts/README.md",
+      "blobSha": "5cc0cb0c1d4d257b39c935ac5f452d7d73eef782",
+      "bytes": 5975
+    },
+    {
+      "path": "assets-src/characters/alpha-3-roster-concepts/direction-a-rejected.png",
+      "blobSha": "07f0308325becad59ecdbc2f184194b4649190ae",
+      "bytes": 1914245
+    },
+    {
+      "path": "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png",
+      "blobSha": "d0492215d8c33acf5269ccf175d84d0cc4a7d391",
+      "bytes": 1238499
+    },
+    {
+      "path": "assets-src/characters/bolt-hound/source/bolt-hound-native-raster.lua",
+      "blobSha": "3b327ecf630331802081385e9d9f48e929e3f859",
+      "bytes": 42898
+    },
+    {
+      "path": "assets-src/characters/bolt-hound/source/bolt-hound.pxo",
+      "blobSha": "6ca297b7f34425fb39ba312db3abb152672bda6d",
+      "bytes": 24339
+    },
+    {
+      "path": "assets-src/characters/brass-boar/source/brass-boar-native-raster.lua",
+      "blobSha": "de1e50655df2d7851a384fcd2a54dded7c0b387d",
+      "bytes": 50327
+    },
+    {
+      "path": "assets-src/characters/brass-boar/source/brass-boar.pxo",
+      "blobSha": "4fceae7aa9a78215940dad9159da80b7bd60eaa1",
+      "bytes": 25291
+    },
+    {
+      "path": "assets-src/characters/ember-cougar/source/ember-cougar-native-raster.lua",
+      "blobSha": "a0066290d965f3a0c1721c63f3a9da47bf233f64",
+      "bytes": 48672
+    },
+    {
+      "path": "assets-src/characters/ember-cougar/source/ember-cougar.pxo",
+      "blobSha": "78862b992a4956280db35a0270aa89c220691f51",
+      "bytes": 24286
+    },
+    {
+      "path": "assets-src/characters/identity/concepts/README.md",
+      "blobSha": "7a349127babd942c288ba7e6303f9c9de7f4cbec",
+      "bytes": 6226
+    },
+    {
+      "path": "assets-src/characters/identity/concepts/ability-icons-v2-selected.png",
+      "blobSha": "6eedc847a00c2fb15345b910c05a98186694a7c6",
+      "bytes": 1644426
+    },
+    {
+      "path": "assets-src/characters/identity/concepts/ability-passive-icons-selected.png",
+      "blobSha": "3e833780dafa8f0c5c82557afc1bb9add79fbe67",
+      "bytes": 3101244
+    },
+    {
+      "path": "assets-src/characters/identity/concepts/direction-a-rejected.png",
+      "blobSha": "eb27e99978d45096456682b1b00af45edc8a5f66",
+      "bytes": 3036185
+    },
+    {
+      "path": "assets-src/characters/identity/concepts/direction-b-selected.png",
+      "blobSha": "2203a6e90f31e416404525517f6bc01837a42c42",
+      "bytes": 1968963
+    },
+    {
+      "path": "assets-src/characters/identity/source/mercenary-identity-icons-atlas.pxo",
+      "blobSha": "f3f00f8c5055d7e13f46072284b3eb22bfbc5608",
+      "bytes": 267824
+    },
+    {
+      "path": "assets-src/characters/identity/source/mercenary-portraits-atlas.pxo",
+      "blobSha": "140f12ef2b2ba710f1549d54a9180e7841b32823",
+      "bytes": 376286
+    },
+    {
+      "path": "assets-src/characters/piston-ram/source/piston-ram-native-raster.lua",
+      "blobSha": "02c75362172e23b843268a825796f68b0b7b7148",
+      "bytes": 85401
+    },
+    {
+      "path": "assets-src/characters/piston-ram/source/piston-ram.pxo",
+      "blobSha": "f94ad484f0ad3d1c8bcda3294435496292033d47",
+      "bytes": 26679
+    },
+    {
+      "path": "assets-src/characters/rattle-raptor/source/rattle-raptor-native-raster.lua",
+      "blobSha": "06b5936825dd2dde8f205a2550f0cc5997e16be1",
+      "bytes": 48210
+    },
+    {
+      "path": "assets-src/characters/rattle-raptor/source/rattle-raptor.pxo",
+      "blobSha": "4e94459df93b80903ff9a92482ffad7af592829a",
+      "bytes": 25239
+    },
+    {
+      "path": "assets-src/characters/scrap-tabby/source/scrap-tabby-native-raster.lua",
+      "blobSha": "fb6308d651e00863d1577efc1052e6c42f8ce083",
+      "bytes": 49619
+    },
+    {
+      "path": "assets-src/characters/scrap-tabby/source/scrap-tabby.pxo",
+      "blobSha": "23e5b9f55221d0285d335ee1ce1890b26f8ee1fa",
+      "bytes": 24667
+    },
+    {
+      "path": "assets-src/characters/scrap-weasel/source/scrap-weasel-native-raster.lua",
+      "blobSha": "9b6db9b854211711412344e702f82e18683331c7",
+      "bytes": 47343
+    },
+    {
+      "path": "assets-src/characters/scrap-weasel/source/scrap-weasel.pxo",
+      "blobSha": "3a33b7be76f4d57bebfcfc3ea1c0648bcd266787",
+      "bytes": 24728
+    },
+    {
+      "path": "assets-src/characters/volt-lynx/concepts/README.md",
+      "blobSha": "90f2c0b9d3a79ca12d77ec053c0763587431885a",
+      "bytes": 2572
+    },
+    {
+      "path": "assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png",
+      "blobSha": "7d1d64df20e4e12feef99e4cb1b616927b6329d9",
+      "bytes": 642463
+    },
+    {
+      "path": "assets-src/characters/volt-lynx/concepts/volt-lynx-direction-b-rejected.png",
+      "blobSha": "32fa2c447c73dc170509e05793f191a4f5ce9abf",
+      "bytes": 1387610
+    },
+    {
+      "path": "assets-src/characters/volt-lynx/concepts/volt-lynx-direction-c-rejected.png",
+      "blobSha": "eda08790cdc7ece301d3441d6522676be4625401",
+      "bytes": 1433772
+    },
+    {
+      "path": "assets-src/characters/volt-lynx/source/volt-lynx-native-raster.lua",
+      "blobSha": "1b044c31794f5e6bc037af13fb4ee3fb8ac95d42",
+      "bytes": 60728
+    },
+    {
+      "path": "assets-src/characters/volt-lynx/source/volt-lynx.pxo",
+      "blobSha": "d4a9a5c5b5e0473dac2be3146a992532dbb7ad5b",
+      "bytes": 26068
+    },
+    {
+      "path": "assets-src/enemies/alpha-3-production-concepts/README.md",
+      "blobSha": "6f5748f78c1dc50ad1a090732e07c480fbe96b78",
+      "bytes": 8608
+    },
+    {
+      "path": "assets-src/enemies/alpha-3-production-concepts/direction-a-rejected.png",
+      "blobSha": "c7358deb120366b7d938497500a3b58909e6bcdf",
+      "bytes": 1309871
+    },
+    {
+      "path": "assets-src/enemies/alpha-3-production-concepts/direction-b-selected.png",
+      "blobSha": "f7fbb0fca8834cf582aec94d46bdcae61c27816b",
+      "bytes": 1083495
+    },
+    {
+      "path": "assets-src/enemies/bastion-beetle/source/bastion-beetle-imagegen.png",
+      "blobSha": "04bc218944020690b8cd9754f6e2fab5d2d482c9",
+      "bytes": 2083093
+    },
+    {
+      "path": "assets-src/enemies/bastion-beetle/source/bastion-beetle-native-raster.lua",
+      "blobSha": "5f034ebb178fee964d6499d2dea0276ae196d506",
+      "bytes": 31190
+    },
+    {
+      "path": "assets-src/enemies/bastion-beetle/source/bastion-beetle-pixel-v3.png",
+      "blobSha": "2064e34d44afbc60437af6ad797389046181d7a7",
+      "bytes": 1637013
+    },
+    {
+      "path": "assets-src/enemies/bastion-beetle/source/bastion-beetle.pxo",
+      "blobSha": "b992a4e7218bce5690f1288be748ed78adbdbff5",
+      "bytes": 65788
+    },
+    {
+      "path": "assets-src/enemies/boss-crusher/source/boss-crusher-imagegen-v2.png",
+      "blobSha": "326718722adfbc8f335908b6ec5a3e78ad6e1576",
+      "bytes": 2205247
+    },
+    {
+      "path": "assets-src/enemies/boss-crusher/source/boss-crusher-native-raster.lua",
+      "blobSha": "a990e296cf5191de7742fbcd0c35ec617f3698d7",
+      "bytes": 39075
+    },
+    {
+      "path": "assets-src/enemies/boss-crusher/source/boss-crusher-pixel-v3.png",
+      "blobSha": "05553689e455048b406c76a91e7f34f742783ef5",
+      "bytes": 1754274
+    },
+    {
+      "path": "assets-src/enemies/boss-crusher/source/boss-crusher.pxo",
+      "blobSha": "8dd54ec258e2dd2964c4c94b5431d9b6ef54f4d2",
+      "bytes": 112033
+    },
+    {
+      "path": "assets-src/enemies/boss-forge/source/boss-forge-imagegen.png",
+      "blobSha": "68581c582fff91df6d2afbc44abb1aab46ed7e6e",
+      "bytes": 2176452
+    },
+    {
+      "path": "assets-src/enemies/boss-forge/source/boss-forge-native-raster.lua",
+      "blobSha": "e9e0399b35452f46c39afc3aacf5941587211932",
+      "bytes": 83333
+    },
+    {
+      "path": "assets-src/enemies/boss-forge/source/boss-forge-pixel-v3.png",
+      "blobSha": "e740862928c387716ac27834832d44a38f8efbdb",
+      "bytes": 1875046
+    },
+    {
+      "path": "assets-src/enemies/boss-forge/source/boss-forge.pxo",
+      "blobSha": "4a6069756ede5dc895a2d0db3468142cfcaea2e8",
+      "bytes": 115172
+    },
+    {
+      "path": "assets-src/enemies/dust-mite/source/dust-mite-imagegen-v2.png",
+      "blobSha": "0f080d86ae7565373ac3f39033a94c8fb528908c",
+      "bytes": 1791247
+    },
+    {
+      "path": "assets-src/enemies/dust-mite/source/dust-mite-native-raster.lua",
+      "blobSha": "7fd1447dcac6e673bbf02d1c781596debcc12c24",
+      "bytes": 37438
+    },
+    {
+      "path": "assets-src/enemies/dust-mite/source/dust-mite-pixel-v3.png",
+      "blobSha": "18d2e5ba6a00ecd96c5a56b329a5a0d56bef33dc",
+      "bytes": 1682853
+    },
+    {
+      "path": "assets-src/enemies/dust-mite/source/dust-mite.pxo",
+      "blobSha": "62db66884514c5b36b9f4304430605ca64d5ffad",
+      "bytes": 60386
+    },
+    {
+      "path": "assets-src/enemies/junk-nester/source/junk-nester-imagegen.png",
+      "blobSha": "cfd1c0e67486829361667d88c7ff9de48f15e893",
+      "bytes": 1816302
+    },
+    {
+      "path": "assets-src/enemies/junk-nester/source/junk-nester-native-raster.lua",
+      "blobSha": "933de22609686c11915a1d83637b2fd1d3943fba",
+      "bytes": 31720
+    },
+    {
+      "path": "assets-src/enemies/junk-nester/source/junk-nester-pixel-v3.png",
+      "blobSha": "2ffbf1ff5cbbc26f60584e647c1c44cd90085863",
+      "bytes": 1619255
+    },
+    {
+      "path": "assets-src/enemies/junk-nester/source/junk-nester.pxo",
+      "blobSha": "5af76349ef1d2c5d20f0cfb6e17c1b8512d65327",
+      "bytes": 63622
+    },
+    {
+      "path": "assets-src/enemies/junk-rusher/source/junk-rusher-imagegen-v2.png",
+      "blobSha": "2fd660b6c31bb68558b63037e8e6855ef8664aa2",
+      "bytes": 1475742
+    },
+    {
+      "path": "assets-src/enemies/junk-rusher/source/junk-rusher-native-raster.lua",
+      "blobSha": "e217f8a8d4a81fa793d528c237749db5dacf6cae",
+      "bytes": 36659
+    },
+    {
+      "path": "assets-src/enemies/junk-rusher/source/junk-rusher-pixel-v3.png",
+      "blobSha": "0b264c0e7827d040246e866bdffce76e53e416ff",
+      "bytes": 1196364
+    },
+    {
+      "path": "assets-src/enemies/junk-rusher/source/junk-rusher.pxo",
+      "blobSha": "3029650390d8ad292f2ffe36dc3e37570f10aaa8",
+      "bytes": 43071
+    },
+    {
+      "path": "assets-src/enemies/scrap-skitter/source/scrap-skitter-imagegen.png",
+      "blobSha": "a44e56181a9d63bf50677105701a7d2145913886",
+      "bytes": 1481139
+    },
+    {
+      "path": "assets-src/enemies/scrap-skitter/source/scrap-skitter-native-raster.lua",
+      "blobSha": "46fd2e9089c5cdd9e05c8a11a8e1153eed32538b",
+      "bytes": 23330
+    },
+    {
+      "path": "assets-src/enemies/scrap-skitter/source/scrap-skitter-pixel-v3.png",
+      "blobSha": "4044ca81f6534b868f28511fb0810d449c761329",
+      "bytes": 1324609
+    },
+    {
+      "path": "assets-src/enemies/scrap-skitter/source/scrap-skitter.pxo",
+      "blobSha": "e3b22919a9e104178ec730e410e25a701b32a3ff",
+      "bytes": 49518
+    },
+    {
+      "path": "assets-src/enemies/scrap-sniper/source/scrap-sniper-imagegen-v2.png",
+      "blobSha": "ec316f6d3e8be97cfe912e822d1df020872a5ce5",
+      "bytes": 1316111
+    },
+    {
+      "path": "assets-src/enemies/scrap-sniper/source/scrap-sniper-native-raster.lua",
+      "blobSha": "f93f53e5a4f86443650e3a9a07d6854b2f5cce01",
+      "bytes": 35803
+    },
+    {
+      "path": "assets-src/enemies/scrap-sniper/source/scrap-sniper-pixel-v3.png",
+      "blobSha": "7d4f9fd7ef0b20a84870933783ffcd5eba5dda20",
+      "bytes": 1359340
+    },
+    {
+      "path": "assets-src/enemies/scrap-sniper/source/scrap-sniper.pxo",
+      "blobSha": "d7b6805385e8ea17ef123181f17d617b2d383acb",
+      "bytes": 48992
+    },
+    {
+      "path": "assets-src/enemies/shard-bot/source/shard-bot-imagegen.png",
+      "blobSha": "c12722c49af81d1a3584fc2b383a64b65c32b267",
+      "bytes": 1701982
+    },
+    {
+      "path": "assets-src/enemies/shard-bot/source/shard-bot-native-raster.lua",
+      "blobSha": "f720ceb117fb2794576e96c079acfbd775cbbbb5",
+      "bytes": 33248
+    },
+    {
+      "path": "assets-src/enemies/shard-bot/source/shard-bot-pixel-v3.png",
+      "blobSha": "dfe8f922a96e83ddeef509572eb3a4f4599ffb12",
+      "bytes": 1507171
+    },
+    {
+      "path": "assets-src/enemies/shard-bot/source/shard-bot.pxo",
+      "blobSha": "a501f47c88678f85d67f0d1c4b7778031e05f6fc",
+      "bytes": 53937
+    },
+    {
+      "path": "assets-src/enemies/source/enemy-portraits-atlas.pxo",
+      "blobSha": "24cc68ca541d45cc61720b814dfb1fa2b089e65e",
+      "bytes": 844680
+    },
+    {
+      "path": "assets-src/enemies/trash-brute/source/trash-brute-imagegen-v2.png",
+      "blobSha": "84c4a1b0b2b5e4ebc6c7aec2cab8f970d9eb22ac",
+      "bytes": 2265480
+    },
+    {
+      "path": "assets-src/enemies/trash-brute/source/trash-brute-native-raster.lua",
+      "blobSha": "f7bf0199d2567d69ea5cc11376b3128280433f50",
+      "bytes": 48837
+    },
+    {
+      "path": "assets-src/enemies/trash-brute/source/trash-brute-pixel-v3.png",
+      "blobSha": "66ddcaa78679bd0a232f8358bc41f61521e6ad5d",
+      "bytes": 1844456
+    },
+    {
+      "path": "assets-src/enemies/trash-brute/source/trash-brute.pxo",
+      "blobSha": "843e2a4617577c5c648d14c816b51f15cf2a0b51",
+      "bytes": 73263
+    },
+    {
+      "path": "assets-src/equipment/commando/concepts/README.md",
+      "blobSha": "3ec2c96d8f454c72661ae80b4105a427ec35f0aa",
+      "bytes": 2677
+    },
+    {
+      "path": "assets-src/equipment/commando/concepts/commando-direction-a-selected.png",
+      "blobSha": "0490b4a0740bc05242fc25747b15b85cb8d0738f",
+      "bytes": 813625
+    },
+    {
+      "path": "assets-src/equipment/commando/concepts/commando-direction-b-rejected.png",
+      "blobSha": "070adfd1793dde27495cf679d9f9341b056a82a8",
+      "bytes": 682088
+    },
+    {
+      "path": "assets-src/equipment/commando/concepts/commando-direction-c-rejected.png",
+      "blobSha": "a26b6dfd09eeb7afc384ec269bff1a0c506ad6d1",
+      "bytes": 596460
+    },
+    {
+      "path": "assets-src/equipment/commando/source/commando-equipment-atlas.pxo",
+      "blobSha": "248ec24998b0070667d96fe22d0f407d3c9941d9",
+      "bytes": 202801
+    },
+    {
+      "path": "assets-src/equipment/sets/concepts/README.md",
+      "blobSha": "06eb792dffae51815b7051782c0977226a1cf0b3",
+      "bytes": 3021
+    },
+    {
+      "path": "assets-src/equipment/sets/concepts/equipment-families-direction-a-rejected.png",
+      "blobSha": "4195bf9305bbb27fd33677857b9c2fcc82111a93",
+      "bytes": 2524424
+    },
+    {
+      "path": "assets-src/equipment/sets/concepts/equipment-families-direction-b-selected.png",
+      "blobSha": "8c767294750eeb211f6cf174cceb553b77aaa84e",
+      "bytes": 1940969
+    },
+    {
+      "path": "assets-src/equipment/sets/source/equipment-sets-atlas.pxo",
+      "blobSha": "2e48faecb744312fe9449df3965b21a0c3fce3d0",
+      "bytes": 1435706
+    },
+    {
+      "path": "assets-src/equipment/tiers/candidates/README.md",
+      "blobSha": "7cec375c2dcfaec50cf0a197a0945dc249d60835",
+      "bytes": 4480
+    },
+    {
+      "path": "assets-src/equipment/tiers/candidates/commando-tiers-v1.png",
+      "blobSha": "93702aabb97bd8d10e9b43f9bcbc0bac2cee7c27",
+      "bytes": 1472156
+    },
+    {
+      "path": "assets-src/equipment/tiers/candidates/demolition-tiers-v1.png",
+      "blobSha": "3985cbb301e5b5301a3b729db4bd42d9c6aca495",
+      "bytes": 1480290
+    },
+    {
+      "path": "assets-src/equipment/tiers/candidates/juggernaut-tiers-v1.png",
+      "blobSha": "c96c3bc5b96960e12e5110886f72d611f3aaaa6c",
+      "bytes": 1491157
+    },
+    {
+      "path": "assets-src/equipment/tiers/candidates/medic-tiers-v1.png",
+      "blobSha": "c017d59b8a199320b450d9a0dd59358d00a52830",
+      "bytes": 1705198
+    },
+    {
+      "path": "assets-src/equipment/tiers/candidates/prompts.json",
+      "blobSha": "4ed2263c7a3624d06f8c548bc47d573c0ac7005b",
+      "bytes": 13077
+    },
+    {
+      "path": "assets-src/equipment/tiers/candidates/pyro-tiers-v1.png",
+      "blobSha": "f8353d638595594134e66d0b1a0a150850d61816",
+      "bytes": 1679535
+    },
+    {
+      "path": "assets-src/equipment/tiers/candidates/recon-tiers-v1.png",
+      "blobSha": "fc07b294888a5b7c9ff054c25bc5d2befa1c5580",
+      "bytes": 1507105
+    },
+    {
+      "path": "assets-src/equipment/tiers/candidates/scavenger-tiers-v1.png",
+      "blobSha": "e62d78bb00cd61372b3bc2229b04566290eee07f",
+      "bytes": 1594988
+    },
+    {
+      "path": "assets-src/equipment/tiers/candidates/technician-tiers-v1.png",
+      "blobSha": "0789f93ab9ef08f6cae29b539833facffb6540d4",
+      "bytes": 1489022
+    },
+    {
+      "path": "assets-src/equipment/tiers/evidence/commando.png",
+      "blobSha": "8500b9bee6abe6587aeb1c4273d01a9c9b140fde",
+      "bytes": 92531
+    },
+    {
+      "path": "assets-src/equipment/tiers/evidence/demolition.png",
+      "blobSha": "64cd60031c9ad3cf0ad3a91c5e1988e77669a398",
+      "bytes": 81470
+    },
+    {
+      "path": "assets-src/equipment/tiers/evidence/juggernaut.png",
+      "blobSha": "4d7105b1bd870c75f75e9d3844599c3733263123",
+      "bytes": 86294
+    },
+    {
+      "path": "assets-src/equipment/tiers/evidence/manifest.json",
+      "blobSha": "39f84eaff7cd44c1b1cfcb48faffb41528cfb1dd",
+      "bytes": 31724
+    },
+    {
+      "path": "assets-src/equipment/tiers/evidence/medic.png",
+      "blobSha": "a322da3b2768a4e221037f3516df7ca7709dc54a",
+      "bytes": 89404
+    },
+    {
+      "path": "assets-src/equipment/tiers/evidence/pyro.png",
+      "blobSha": "a7445d0ffce01f335318078736028b71fe01c438",
+      "bytes": 98797
+    },
+    {
+      "path": "assets-src/equipment/tiers/evidence/recon.png",
+      "blobSha": "b9c651296af2d7b2af2e73efdefe22e267c74a33",
+      "bytes": 93555
+    },
+    {
+      "path": "assets-src/equipment/tiers/evidence/scavenger.png",
+      "blobSha": "4df18b1e1bc437fed742803978eb1d8f379768a4",
+      "bytes": 93750
+    },
+    {
+      "path": "assets-src/equipment/tiers/evidence/technician.png",
+      "blobSha": "cad9a12cd6c267587a395b7c4c38f89391051b6d",
+      "bytes": 82743
+    },
+    {
+      "path": "assets-src/equipment/tiers/masters.json",
+      "blobSha": "5b52b52676c7b4e4a073a21122d99dfa020170f6",
+      "bytes": 20607
+    },
+    {
+      "path": "assets-src/gunsmith/icons/concepts/README.md",
+      "blobSha": "021a23f665ad278cee4180939f45e239166ed7e3",
+      "bytes": 2552
+    },
+    {
+      "path": "assets-src/gunsmith/icons/concepts/gunsmith-icons-direction-a-rejected.png",
+      "blobSha": "bc48f93b8f3c3f6cd012d5fe7b451c5d330f2000",
+      "bytes": 1653499
+    },
+    {
+      "path": "assets-src/gunsmith/icons/concepts/gunsmith-icons-direction-b-selected.png",
+      "blobSha": "6ac1808693214e2f37bd41675163e58b00461116",
+      "bytes": 1673845
+    },
+    {
+      "path": "assets-src/gunsmith/icons/concepts/gunsmith-icons-direction-c-rejected.png",
+      "blobSha": "f1aa86dc741e11c550ab17d76ca3bfaaab75d85d",
+      "bytes": 1728754
+    },
+    {
+      "path": "assets-src/gunsmith/icons/source/gunsmith-icons-atlas.pxo",
+      "blobSha": "8942e8c332cf99e5561c5a9c21d466cd44413e9c",
+      "bytes": 247681
+    },
+    {
+      "path": "assets-src/gunsmith/previews/concepts/README.md",
+      "blobSha": "9e2bc1caa9005ca2c3d8fb78eb4dbd221ff3d251",
+      "bytes": 1582
+    },
+    {
+      "path": "assets-src/gunsmith/previews/concepts/assembled-weapons-direction-a-selected.png",
+      "blobSha": "3ad2b0094f001be558c4775d8f2d01ede0156d55",
+      "bytes": 1707394
+    },
+    {
+      "path": "assets-src/gunsmith/previews/concepts/assembled-weapons-direction-b-rejected.png",
+      "blobSha": "40fdd695d27892540bb299b4bbc63000bf4d4cec",
+      "bytes": 787876
+    },
+    {
+      "path": "assets-src/gunsmith/previews/source/gun-build-preview-atlas.pxo",
+      "blobSha": "22436852368967bb13b05b9d57059dc08bea2cdc",
+      "bytes": 23961
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/README.md",
+      "blobSha": "ede10f06fd927b6c6fc0eed3aee72ea1683d2969",
+      "bytes": 4466
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/archive/receiver-board-v0-clipped-rejected.png",
+      "blobSha": "d37c4aa200c2eb19d2d9c2f48fd0098acba5767c",
+      "bytes": 1458437
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/candidates/barrel-board-v1.png",
+      "blobSha": "498569e6194feb9531c234b61ec3abd3ffb77185",
+      "bytes": 900492
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/candidates/chassis-board-v1.png",
+      "blobSha": "933ae7f271763c8c016c76efa545fd76c3d63cb0",
+      "bytes": 490460
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/candidates/optic-trigger-board-v1.png",
+      "blobSha": "e02026edf72c1e8985729c79a3dd4c9240f6b452",
+      "bytes": 965953
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/candidates/piercing-grenade-board-v1.png",
+      "blobSha": "b3fab524ab58dd901b71d1edbc169be2e94a9565",
+      "bytes": 923261
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/candidates/receiver-board-v1.png",
+      "blobSha": "8b78d5a10febbc2353058bf3e600537de8ec2550",
+      "bytes": 1154723
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/candidates/stock-magazine-board-v1.png",
+      "blobSha": "4c332ea1f8d6504efb9e0d527fe2bc7a0ec47a4e",
+      "bytes": 851875
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/evidence/assemblies-actual-scale-color-gray.png",
+      "blobSha": "a457661c3e91025b25bf4cfd45833f186a1242e5",
+      "bytes": 906297
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/evidence/icons-actual-scale-color-gray.png",
+      "blobSha": "a0b4cfc332cd2b1918ad9f84595b8e0b615e1ebc",
+      "bytes": 167322
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/evidence/icons-inspection-3x.png",
+      "blobSha": "e16b08bbd68c0c93ecf1ceb788f84640f41f0b7a",
+      "bytes": 236511
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/masters.json",
+      "blobSha": "673313771bed7525c6d2fe6b8a75e592a834bf24",
+      "bytes": 13895
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/prompts.json",
+      "blobSha": "40c207a535789aa57dd18543f1339df689068dd0",
+      "bytes": 8735
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/source/barrel-board.pxo",
+      "blobSha": "72b88e59b3bf346a07f7cd2c4b85204a30876c90",
+      "bytes": 1277818
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/source/chassis-board.pxo",
+      "blobSha": "fa5d051bc1b0cee1759b5dec2e50d976d75b4cfa",
+      "bytes": 618906
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/source/gunsmith-tier-assembly-atlas.pxo",
+      "blobSha": "bcd82306bec8a8d8e4582ead83eb6940ccb31c1c",
+      "bytes": 486337
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/source/gunsmith-tier-icons-atlas.pxo",
+      "blobSha": "707ce92fcf00f66a1c725f5eab4da7cc2ab5099b",
+      "bytes": 587528
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/source/optic-trigger-board.pxo",
+      "blobSha": "7d53dde01c05b69b777271c26634bd0b23e734eb",
+      "bytes": 1309009
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/source/piercing-grenade-board.pxo",
+      "blobSha": "a8d9cbf3e2fdfcf7c93debc9c728377ee497a8d2",
+      "bytes": 1225659
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/source/receiver-board.pxo",
+      "blobSha": "1b2f0a07e7807eb8539218bd9b466c697de72436",
+      "bytes": 1567724
+    },
+    {
+      "path": "assets-src/gunsmith/tiers/source/stock-magazine-board.pxo",
+      "blobSha": "bc2da4b0a28d834725d124a07f1fd30552afbe99",
+      "bytes": 1122914
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-pistol-t1/source/weapon-held-pistol-t1.pxo",
+      "blobSha": "502eb5f51e1c26a2e887e20cc6afcae910c9a777",
+      "bytes": 7794
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-pistol-t2/source/weapon-held-pistol-t2.pxo",
+      "blobSha": "57a069318000758e2f29933ba411672f98bed08f",
+      "bytes": 10978
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-pistol-t3/source/weapon-held-pistol-t3.pxo",
+      "blobSha": "b41c89d56544e8dbb552c2afb789d0ee3496746a",
+      "bytes": 11953
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-shotgun-t1/source/weapon-held-shotgun-t1.pxo",
+      "blobSha": "79e4ee73be6aa2179aa3fed662638934f5567b07",
+      "bytes": 7172
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-shotgun-t2/source/weapon-held-shotgun-t2.pxo",
+      "blobSha": "2a8f054c1f4047e295c74ef0fb30691e83471ea6",
+      "bytes": 7689
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-shotgun-t3/source/weapon-held-shotgun-t3.pxo",
+      "blobSha": "d583811b11010d36d7b48632f10bddbcf8308142",
+      "bytes": 10065
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-smg-t1/source/weapon-held-smg-t1.pxo",
+      "blobSha": "fb30a34319408a7c86a41f8b9fea7d4149120e3f",
+      "bytes": 7602
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-smg-t2/source/weapon-held-smg-t2.pxo",
+      "blobSha": "15b180be78746b0530fa4240839e79c03d975bea",
+      "bytes": 10309
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-smg-t3/source/weapon-held-smg-t3.pxo",
+      "blobSha": "9e9898d3560f93ed7cc695dea0c93967ba7f0aac",
+      "bytes": 12382
+    },
+    {
+      "path": "assets-src/pickups/drop-chest/source/drop-chest.pxo",
+      "blobSha": "7f0434c3325067a82ce390543b87eddc0b8c7f12",
+      "bytes": 2650
+    },
+    {
+      "path": "assets-src/pickups/drop-scrap/source/drop-scrap.pxo",
+      "blobSha": "02410f84351fc967e95e44c2b1c5e9bc496be2f5",
+      "bytes": 2704
+    },
+    {
+      "path": "assets-src/pickups/drop-weapon/source/drop-weapon.pxo",
+      "blobSha": "c2c973f54972e6130d290b25bfdb297178f8c218",
+      "bytes": 2710
+    },
+    {
+      "path": "assets-src/pickups/xp-mote/source/xp-mote.pxo",
+      "blobSha": "ced5947782e47f0f4c4ab70e625f115ee3baf41c",
+      "bytes": 2779
+    },
+    {
+      "path": "assets-src/projectiles/projectile-pistol/source/projectile-pistol.pxo",
+      "blobSha": "ddd1c9657546b7c39e3b067fc47453c78cdcb3da",
+      "bytes": 1706
+    },
+    {
+      "path": "assets-src/projectiles/projectile-shotgun/source/projectile-shotgun.pxo",
+      "blobSha": "b70296c5b16671bee35fb978aa6e17b48fd1c316",
+      "bytes": 1726
+    },
+    {
+      "path": "assets-src/projectiles/projectile-smg/source/projectile-smg.pxo",
+      "blobSha": "08143ba0952276562d6bb8bf4be41e35ee95d995",
+      "bytes": 1670
+    },
+    {
+      "path": "assets-src/projectiles/scrap-shot/source/scrap-shot.pxo",
+      "blobSha": "b2fbaca204acc509822cf6db39faea9c663a74db",
+      "bytes": 1763
+    },
+    {
+      "path": "assets-src/ui/README.md",
+      "blobSha": "2551c079f054d90df43f02006f747a38f5f632c9",
+      "bytes": 4326
+    },
+    {
+      "path": "assets-src/ui/backdrops/source/menu-forge.pxo",
+      "blobSha": "b57f09642ca4d773de4a3250a984ce32236b3721",
+      "bytes": 1055623
+    },
+    {
+      "path": "assets-src/ui/backdrops/source/menu-junkyard.pxo",
+      "blobSha": "915bbc185cdd4da82636b44c9829ac500c4e055f",
+      "bytes": 1011897
+    },
+    {
+      "path": "assets-src/ui/brand/README.md",
+      "blobSha": "a96b2e08286f1f1d0855d303980d855684a41226",
+      "bytes": 1089
+    },
+    {
+      "path": "assets-src/ui/brand/source/meowcenary-emblem.pxo",
+      "blobSha": "9c79bb8322bce25531d1584c76ab11fd92c945ae",
+      "bytes": 25325
+    },
+    {
+      "path": "assets-src/ui/brand/source/meowcenary-monochrome.pxo",
+      "blobSha": "f9c2903fd3dd604c3b7d2bfa576dd7ac3045af25",
+      "bytes": 44362
+    },
+    {
+      "path": "assets-src/ui/brand/source/meowcenary-primary-logo-clean-master-reference.png",
+      "blobSha": "3b5b3dbc4827188e503930718a66d2e990d26fa6",
+      "bytes": 41235
+    },
+    {
+      "path": "assets-src/ui/brand/source/meowcenary-primary-logo-clean-master.png",
+      "blobSha": "436be9c8e32d7df551743a5677d0beed472fa325",
+      "bytes": 58981
+    },
+    {
+      "path": "assets-src/ui/brand/source/meowcenary-primary-logo-clean-master.svg",
+      "blobSha": "cc18e24f38ca5aa901800973df6305b9c0fdc6f2",
+      "bytes": 6401
+    },
+    {
+      "path": "assets-src/ui/brand/source/meowcenary-primary-logo.pxo",
+      "blobSha": "e916010b1b9b0ebcfa11b00b64f345d51ea4b1ab",
+      "bytes": 50620
+    },
+    {
+      "path": "assets-src/ui/brand/source/meowcenary-title-lockup.pxo",
+      "blobSha": "12f8b6134e5b758aff3f794cdb2cf28f69d5af18",
+      "bytes": 20905
+    },
+    {
+      "path": "assets-src/ui/concepts/contract-icons-selected.png",
+      "blobSha": "17aa4922e0bd4d2ff832fe43060686b447954d79",
+      "bytes": 3107561
+    },
+    {
+      "path": "assets-src/ui/concepts/menu-backdrop-forge-selected.png",
+      "blobSha": "8b0eaa77a8cd67420281071d97a518cba2355096",
+      "bytes": 2643849
+    },
+    {
+      "path": "assets-src/ui/concepts/menu-backdrop-junkyard-selected.png",
+      "blobSha": "4adc532b4ff7ce125aa61c064072e2711699de6f",
+      "bytes": 2323040
+    },
+    {
+      "path": "assets-src/ui/concepts/navigation-change-contract-selected.png",
+      "blobSha": "e850d0da14838a263a3d49fe39ba8136b5148c8a",
+      "bytes": 1547812
+    },
+    {
+      "path": "assets-src/ui/concepts/navigation-primary-selected.png",
+      "blobSha": "ed9334a6644efde74318daafecdfdd459cde1020",
+      "bytes": 2361109
+    },
+    {
+      "path": "assets-src/ui/concepts/navigation-secondary-selected.png",
+      "blobSha": "d33c7f8475c5fab6a818626cf8ef1342abe78511",
+      "bytes": 1985440
+    },
+    {
+      "path": "assets-src/ui/concepts/settings-icons-selected.png",
+      "blobSha": "7dd21cd82c6c19f4aff0d12b3164f443b9e88576",
+      "bytes": 2811366
+    },
+    {
+      "path": "assets-src/ui/figma/README.md",
+      "blobSha": "9e16d785f042c3d9e023ae8387ceeaa072217024",
+      "bytes": 2678
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgDispatchBoltL94.svg",
+      "blobSha": "f722c3d60054323c90338819012bf60853250b57",
+      "bytes": 243
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgDispatchBoltL94Pin.svg",
+      "blobSha": "2562e80a3a7381e803d360bf6485db055029cbc0",
+      "bytes": 261
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgHeroContractFace.svg",
+      "blobSha": "5efe7a1ca7e0b9fea2cb84f93cb8d9d776d56138",
+      "bytes": 293
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgHeroContractOuter.svg",
+      "blobSha": "953a964742d342086f2598829dd603f47819d5a6",
+      "bytes": 296
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgHeroContractShadow.svg",
+      "blobSha": "feaaa1ac3317b1d34e6f8bb4fe8533a6d82703d1",
+      "bytes": 297
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgHeroPlayArrow.svg",
+      "blobSha": "7b8bd2cd42cac291077cb4d431f5dac3fca027c0",
+      "bytes": 271
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgHeroPlayFace.svg",
+      "blobSha": "a794ccaf83550676bb4aa84574cdd57ba0fb6738",
+      "bytes": 287
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgHeroPlayShadow.svg",
+      "blobSha": "7dd3d369509f40acb7028dcc6756c881fde5e023",
+      "bytes": 289
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgHomeBrand.svg",
+      "blobSha": "b96074649a5dd353b1a8114866366e2c00ec5623",
+      "bytes": 9260
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgHomeMod0Face.svg",
+      "blobSha": "17f601a44afe8e21a96a300d5b217e8a98ddf8d7",
+      "bytes": 286
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgHomeMod0Outer.svg",
+      "blobSha": "848684f4c15b3992011aa878b62b973dd243af9f",
+      "bytes": 289
+    },
+    {
+      "path": "assets-src/ui/figma/originals/imgHomeMod0Shadow.svg",
+      "blobSha": "77ad993787bfcc90e8d1491f71cb39af03a13e75",
+      "bytes": 290
+    },
+    {
+      "path": "assets-src/ui/figma/source/figma-menu-chrome.pxo",
+      "blobSha": "59b866dbb35552438b385fed3a38f87df55e81d0",
+      "bytes": 14553
+    },
+    {
+      "path": "assets-src/ui/figma/sources.json",
+      "blobSha": "a82ea57aa42b2b631952b469f634ceef8758baa9",
+      "bytes": 7743
+    },
+    {
+      "path": "assets-src/ui/source/brand-art.json",
+      "blobSha": "22471c3d115314c97ab0ea9db43f8ecbfa359d9d",
+      "bytes": 654
+    },
+    {
+      "path": "assets-src/ui/source/brand-art.pxo",
+      "blobSha": "85cfba669d96e3a4f41fe2db0924fb8fdbb57313",
+      "bytes": 7160
+    },
+    {
+      "path": "assets-src/ui/source/menu-semantic-icons-atlas.pxo",
+      "blobSha": "8ce1e8663da14bcc2f0c96fea077b70c366487b6",
+      "bytes": 302742
+    },
+    {
+      "path": "assets-src/ui/source/navigation-icons-atlas.pxo",
+      "blobSha": "9c26c08871a94321cc13956f9b0bca6be924220a",
+      "bytes": 767466
+    },
+    {
+      "path": "assets-src/ui/source/ui-atlas.json",
+      "blobSha": "47c4de07e4874e7e961eb1a04966f7d6a57fb31f",
+      "bytes": 1906
+    },
+    {
+      "path": "assets-src/ui/source/ui-atlas.pxo",
+      "blobSha": "abd1d6327c8a964d05fb2e4bcca7fc6585f47225",
+      "bytes": 9040
+    },
+    {
+      "path": "assets-src/upgrade-icons/candidate-manifest.json",
+      "blobSha": "7201cb0e9f35be8df0d0a6ad6c9b19df9ea12cc8",
+      "bytes": 5210
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-extra-scrap/source/candidate-48.png",
+      "blobSha": "f50a3c33f631803f4bd430cf55d739037a45cac8",
+      "bytes": 3719
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-extra-scrap/source/upgrade-icon-extra-scrap.pxo",
+      "blobSha": "5c56488a3e974a2168e9b126b62a982afd96326f",
+      "bytes": 4761
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-fast-learner/source/candidate-48.png",
+      "blobSha": "392a15e4b745e47703e3b65b5a9ac420c2d49c5b",
+      "bytes": 4337
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-fast-learner/source/upgrade-icon-fast-learner.pxo",
+      "blobSha": "742a0cfcff153fb6bda03fb67e8d91b8e4c3ef24",
+      "bytes": 5433
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-glass-cannon/source/candidate-48.png",
+      "blobSha": "a482271780a139d275bb02638962f7e483267421",
+      "bytes": 3780
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-glass-cannon/source/upgrade-icon-glass-cannon.pxo",
+      "blobSha": "b17ef76d919ab78ae6d650495f47440cbc84ee29",
+      "bytes": 4860
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-heavy-rounds/source/candidate-48.png",
+      "blobSha": "cbe0ef682f1e4e6b2fe4073e90b08c5ec1df5ea2",
+      "bytes": 3835
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-heavy-rounds/source/upgrade-icon-heavy-rounds.pxo",
+      "blobSha": "41d02078b1edfa6fe5180b11893b1fff8a187709",
+      "bytes": 4819
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-hot-barrel/source/candidate-48.png",
+      "blobSha": "dcb56107bb0d2378115188ea0779f3cd4070770e",
+      "bytes": 3088
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-hot-barrel/source/upgrade-icon-hot-barrel.pxo",
+      "blobSha": "c53b3ef6023fbd1432e1803211c4a6967efe9fb7",
+      "bytes": 4256
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-long-barrel/source/candidate-48.png",
+      "blobSha": "3f1edd61594bbd9846c80711702ddbe4b18c307e",
+      "bytes": 2006
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-long-barrel/source/upgrade-icon-long-barrel.pxo",
+      "blobSha": "f6b68b236134a78c9157c15d3d859503ead80f3d",
+      "bytes": 3138
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-pistol-deadeye/source/candidate-48.png",
+      "blobSha": "bf3e50ec05ea0ede19105ba9b6a43e393ae27d27",
+      "bytes": 2986
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-pistol-deadeye/source/upgrade-icon-pistol-deadeye.pxo",
+      "blobSha": "9686afca5bf22261f80385a287edd099abc7f911",
+      "bytes": 4049
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-pistol-needle-rounds/source/candidate-48.png",
+      "blobSha": "c6f2ab578540e9f96336b8c96598ca095ce4bd56",
+      "bytes": 3363
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-pistol-needle-rounds/source/upgrade-icon-pistol-needle-rounds.pxo",
+      "blobSha": "d6d6dafa1e125cbd26b5f768a41ee9b7a3870b25",
+      "bytes": 4360
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-punch-through/source/candidate-48.png",
+      "blobSha": "7aee67f5d471f6a482ce9c86c66d7b3f5a2f5abc",
+      "bytes": 3619
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-punch-through/source/upgrade-icon-punch-through.pxo",
+      "blobSha": "0c04d8ea7663b1da913c0810854e47eecae7fbb3",
+      "bytes": 4668
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-quick-paws/source/candidate-48.png",
+      "blobSha": "01cd7d2c3e89377ffc45a19f20e30eb8e87807e0",
+      "bytes": 3059
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-quick-paws/source/upgrade-icon-quick-paws.pxo",
+      "blobSha": "27b98f88c8e42e8a80f9b8ef7d5d14c10e22629b",
+      "bytes": 4078
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-reinforced-coat/source/candidate-48.png",
+      "blobSha": "aa22c2b6d0d0f90076c168ec83d1de6da13a0ee2",
+      "bytes": 3448
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-reinforced-coat/source/upgrade-icon-reinforced-coat.pxo",
+      "blobSha": "d6f3699fcbb485b23dc45c6e5938389a779b3e54",
+      "bytes": 4540
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-run-and-gun/source/candidate-48.png",
+      "blobSha": "fa32350eb6e12856043e1c2bade17b1bfba76c48",
+      "bytes": 2894
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-run-and-gun/source/upgrade-icon-run-and-gun.pxo",
+      "blobSha": "4649254ef17dff930d1b2737f7cfa78c194e5a6b",
+      "bytes": 3970
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-scrap-magnet/source/candidate-48.png",
+      "blobSha": "551df03846aa22813a3d5d504df70f47909b625a",
+      "bytes": 3387
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-scrap-magnet/source/upgrade-icon-scrap-magnet.pxo",
+      "blobSha": "92ba64a244458c2dd0f0ae405b2504908e2a2185",
+      "bytes": 4418
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-shotgun-breacher/source/candidate-48.png",
+      "blobSha": "69e71141976cef6de4f3f2fd1449113b90ba4ce3",
+      "bytes": 4310
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-shotgun-breacher/source/upgrade-icon-shotgun-breacher.pxo",
+      "blobSha": "285b1a7d1ce9ff5d4a614a9734aa4b3d30e360ed",
+      "bytes": 5326
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-shotgun-buckshot/source/candidate-48.png",
+      "blobSha": "9f10b40aa12453507c61e86a13952a32b4617b7b",
+      "bytes": 3036
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-shotgun-buckshot/source/upgrade-icon-shotgun-buckshot.pxo",
+      "blobSha": "d4939ecb9f935712ad75349275e2cff757be1318",
+      "bytes": 4072
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-smg-overclock/source/candidate-48.png",
+      "blobSha": "841c94ea2416bbee1b8455ef3898f4eb3e4e3c21",
+      "bytes": 3750
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-smg-overclock/source/upgrade-icon-smg-overclock.pxo",
+      "blobSha": "62240794deebe42736bf4043d6f9bc80a18c163e",
+      "bytes": 4728
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-smg-spray/source/candidate-48.png",
+      "blobSha": "ba430376024dd475c95143c170a510658b51d2a7",
+      "bytes": 3262
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-smg-spray/source/upgrade-icon-smg-spray.pxo",
+      "blobSha": "abfbccdddddbf32336e66149ecc402ca35c503d1",
+      "bytes": 4274
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-split-shot/source/candidate-48.png",
+      "blobSha": "2e4d13e4ee5c80cb0a34e64556a6c79817d5404f",
+      "bytes": 3044
+    },
+    {
+      "path": "assets-src/upgrade-icons/upgrade-icon-split-shot/source/upgrade-icon-split-shot.pxo",
+      "blobSha": "14c71461164ff86a601446c29585a7bb28c40efb",
+      "bytes": 4084
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-pistol-t1/source/weapon-icon-pistol-t1.pxo",
+      "blobSha": "17ec781222aee70ec11b40978aa5d4b1d36c8272",
+      "bytes": 7793
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-pistol-t2/source/weapon-icon-pistol-t2.pxo",
+      "blobSha": "c36106380f3c13e5c67cc53ba5fa0d1c1e0f2c49",
+      "bytes": 10977
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-pistol-t3/source/weapon-icon-pistol-t3.pxo",
+      "blobSha": "7e513daebeec33c8268c5f1e3dea667cde76159a",
+      "bytes": 11952
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-shotgun-t1/source/weapon-icon-shotgun-t1.pxo",
+      "blobSha": "47f1adc6d72d14b01379842916bd6fa33e83673c",
+      "bytes": 7171
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-shotgun-t2/source/weapon-icon-shotgun-t2.pxo",
+      "blobSha": "fdd8c8702325b07b4eb12db11f17c176a392d1ed",
+      "bytes": 7688
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-shotgun-t3/source/weapon-icon-shotgun-t3.pxo",
+      "blobSha": "706d98269f487fc4ef1ce37eb72a9a8e8c6b9a16",
+      "bytes": 10064
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-smg-t1/source/weapon-icon-smg-t1.pxo",
+      "blobSha": "e4c42a351b2c524232371f407447231829ad9814",
+      "bytes": 7602
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-smg-t2/source/weapon-icon-smg-t2.pxo",
+      "blobSha": "f420acd6f844f1f7c314eb186d1fd5b1dd23788e",
+      "bytes": 10308
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-smg-t3/source/weapon-icon-smg-t3.pxo",
+      "blobSha": "d882cdc223958e43029934dd3d73fb462c80e15d",
+      "bytes": 12381
+    },
+    {
+      "path": "assets-src/weapons/tiers/README.md",
+      "blobSha": "bc3c78a295712f2642ac8b21b5f13a9abcabce01",
+      "bytes": 3712
+    },
+    {
+      "path": "assets-src/weapons/tiers/candidates/pistol-tiers-v1.png",
+      "blobSha": "21a679b425b61fd9494319e61db2d172ad1efe73",
+      "bytes": 704576
+    },
+    {
+      "path": "assets-src/weapons/tiers/candidates/shotgun-tiers-v1.png",
+      "blobSha": "1f3556d8f9b8ba298357f9b2a269d464cd662959",
+      "bytes": 640130
+    },
+    {
+      "path": "assets-src/weapons/tiers/candidates/smg-tiers-v1.png",
+      "blobSha": "e2e3945e4d8b46967b0c11876fc03aa546026c58",
+      "bytes": 813534
+    },
+    {
+      "path": "assets-src/weapons/tiers/evidence/actual-scale-color-gray-4x.png",
+      "blobSha": "4e11d69aa57b276f78d19eff7962980bbf3560dd",
+      "bytes": 75680
+    },
+    {
+      "path": "assets-src/weapons/tiers/evidence/actual-scale-color-gray.png",
+      "blobSha": "a1d9ad77d41282b394aa655e99c0f4d2032b22fa",
+      "bytes": 41709
+    },
+    {
+      "path": "assets-src/weapons/tiers/masters.json",
+      "blobSha": "89693fa22a4a3fc3bd1bacdf04fdf7525482c71e",
+      "bytes": 10844
+    },
+    {
+      "path": "assets-src/weapons/tiers/prompts.json",
+      "blobSha": "27dbe6996232823cbdf127d68be6dbc4f20bd65d",
+      "bytes": 6420
+    },
+    {
+      "path": "assets-src/world/forge/concepts/README.md",
+      "blobSha": "fe5786a64b0e5902f7487dc9494326057ed82b3a",
+      "bytes": 2164
+    },
+    {
+      "path": "assets-src/world/forge/concepts/forge-foundry-direction-a-selected.png",
+      "blobSha": "763898543169e7e8e6cb8b3f5b23293b25c89dd4",
+      "bytes": 853984
+    },
+    {
+      "path": "assets-src/world/forge/concepts/forge-foundry-direction-b-rejected.png",
+      "blobSha": "3737a3e0732cdffda7b31ecbb1d38fb2928a5aff",
+      "bytes": 2234071
+    },
+    {
+      "path": "assets-src/world/forge/source/forge-world-atlas.pxo",
+      "blobSha": "1320bb9df58294707d2b9df3ce3db06e0ea07a1e",
+      "bytes": 4166
+    },
+    {
+      "path": "assets-src/world/junkyard-boundary-corner/source/junkyard-boundary-corner.pxo",
+      "blobSha": "071cbc881cf0d9402e2e93e6e4583048b5118a18",
+      "bytes": 7734
+    },
+    {
+      "path": "assets-src/world/junkyard-boundary-gate/source/junkyard-boundary-gate.pxo",
+      "blobSha": "11f5a605e3b189b1f27cbca6677e5e76a499ce16",
+      "bytes": 7819
+    },
+    {
+      "path": "assets-src/world/junkyard-boundary-patch/source/junkyard-boundary-patch.pxo",
+      "blobSha": "09ecece4c35aa1d915d1c99df3544e4cb254ade8",
+      "bytes": 7786
+    },
+    {
+      "path": "assets-src/world/junkyard-boundary-straight/source/junkyard-boundary-straight.pxo",
+      "blobSha": "08d3e826c02cef45476cdc46ebad797538a2ab6a",
+      "bytes": 7058
+    },
+    {
+      "path": "assets-src/world/junkyard-floor-base/source/junkyard-floor-base.pxo",
+      "blobSha": "4e88b0752b3197091193835a157313b8b24c5a2b",
+      "bytes": 3376
+    },
+    {
+      "path": "assets-src/world/junkyard-floor-patch-a/source/junkyard-floor-patch-a.pxo",
+      "blobSha": "85deabaf01049dfa77c4429c81cbe4127b581616",
+      "bytes": 3296
+    },
+    {
+      "path": "assets-src/world/junkyard-floor-patch-b/source/junkyard-floor-patch-b.pxo",
+      "blobSha": "683abc0da6eec7d5d9704674aaf193151f5ac964",
+      "bytes": 3773
+    },
+    {
+      "path": "assets-src/world/junkyard/concepts/README.md",
+      "blobSha": "339bc4a2287d8245d459ef9859e945b335cea21f",
+      "bytes": 1100
+    },
+    {
+      "path": "assets-src/world/junkyard/concepts/junkyard-world-kit-selected.png",
+      "blobSha": "6270172da70e742bc6cb715d056c40aa28f14a58",
+      "bytes": 2326986
+    },
+    {
+      "path": "assets-src/world/landmark-barrel-power-stack/source/landmark-barrel-power-stack.pxo",
+      "blobSha": "afc92002a326e87ceb4e13b176e7885c108e7de4",
+      "bytes": 29122
+    },
+    {
+      "path": "assets-src/world/landmark-hanging-press/source/landmark-hanging-press.pxo",
+      "blobSha": "5c2266c501f91f0649d8427f659a1ac676653307",
+      "bytes": 25079
+    },
+    {
+      "path": "assets-src/world/prop-crate/source/prop-crate.pxo",
+      "blobSha": "4d66cde24f3742fc9a3f3cecb6992119c5f52d49",
+      "bytes": 12331
+    },
+    {
+      "path": "assets-src/world/prop-engine-block/source/prop-engine-block.pxo",
+      "blobSha": "baf582bcbf229cfa116b10c39fcbbf81b0578ad8",
+      "bytes": 14418
+    },
+    {
+      "path": "assets-src/world/prop-oil-stain/source/prop-oil-stain.pxo",
+      "blobSha": "0430093e23b5dae636acca10e1af8e6eeb5729e6",
+      "bytes": 11269
+    },
+    {
+      "path": "assets-src/world/prop-scrap-heap/source/prop-scrap-heap.pxo",
+      "blobSha": "fe6d88037db6f848d64093f63963da4fc4019b2b",
+      "bytes": 18242
+    },
+    {
+      "path": "assets-src/world/prop-tyre-pile/source/prop-tyre-pile.pxo",
+      "blobSha": "ee3f81dbba5a15e43b074f2930adf6705a553a64",
+      "bytes": 13116
+    },
+    {
+      "path": "assets-src/world/prop-warning-sign/source/prop-warning-sign.pxo",
+      "blobSha": "64c42c612f3dcd933347311352e2615a06284a00",
+      "bytes": 14141
+    },
+    {
+      "path": "docs/art/concepts/epic-13/bolt-hound-concept.png",
+      "blobSha": "985dc215265afab91b38698adcbd5214113f6e1d",
+      "bytes": 1526385
+    },
+    {
+      "path": "docs/art/concepts/epic-13/dust-mite-concept.png",
+      "blobSha": "1aed01630df3a310e25e5f06760fb548caa4e45f",
+      "bytes": 1434023
+    },
+    {
+      "path": "docs/art/concepts/epic-13/final-actor-direction.png",
+      "blobSha": "9b4b07534ac4194baa9d82d6a0c2e831b0392116",
+      "bytes": 2258646
+    },
+    {
+      "path": "docs/art/concepts/epic-13/final-prop-direction.png",
+      "blobSha": "b1f5281cc51478626d014ae04f23d9ab070a8485",
+      "bytes": 1122737
+    },
+    {
+      "path": "docs/art/concepts/epic-13/junk-rusher-concept.png",
+      "blobSha": "88dec0c207e6935279127f155f79d8a482a57e7a",
+      "bytes": 1663909
+    },
+    {
+      "path": "docs/art/concepts/epic-13/scrap-shot-concept.png",
+      "blobSha": "fe4f477e3f70833365e67e483299647d1709f947",
+      "bytes": 968720
+    },
+    {
+      "path": "docs/art/concepts/epic-13/scrap-tabby-concept.png",
+      "blobSha": "069e0bda4a98b2cbf08d9e628a38ce9febcd9ee6",
+      "bytes": 1550191
+    },
+    {
+      "path": "docs/art/concepts/epic-13/trash-brute-concept.png",
+      "blobSha": "15256cc67f413c5034fc2a6d0793391eff937141",
+      "bytes": 1531169
+    },
+    {
+      "path": "docs/art/concepts/epic-13/xp-mote-concept.png",
+      "blobSha": "8100724c84d0a9d48c2aefa935efbc1eb7425707",
+      "bytes": 972060
+    },
+    {
+      "path": "docs/art/concepts/epic-16/visual-identity-production-board.png",
+      "blobSha": "51128a5ab9cd6df984a70277b97a7cd8b7c04663",
+      "bytes": 2244312
+    },
+    {
+      "path": "docs/art/design-handoff-2026-10-09/art/composition-study-v2.png",
+      "blobSha": "74ecdafd5aef857a0dadf1d5230bc60ad775e622",
+      "bytes": 1757335
+    },
+    {
+      "path": "docs/art/design-handoff-2026-10-09/art/hound-direction-study-v2.png",
+      "blobSha": "057b9c48436c9b9560a6615b9a9f6261686efee3",
+      "bytes": 1921071
+    },
+    {
+      "path": "docs/art/design-handoff-2026-10-09/art/pickup-family-exploration.png",
+      "blobSha": "eac333a558f7e47fe39bf9ec3e5c9931d41a765b",
+      "bytes": 787359
+    },
+    {
+      "path": "docs/art/design-handoff-2026-10-09/art/tabby-direction-study-v1.png",
+      "blobSha": "121979611d2adf5797845a65059d6b008e97f7c0",
+      "bytes": 1093782
+    },
+    {
+      "path": "public/assets/achievements/achievement-icons-atlas.json",
+      "blobSha": "8721a7ceb1f15508e5fc40e6a03211991791c96d",
+      "bytes": 1691
+    },
+    {
+      "path": "public/assets/achievements/achievement-icons-atlas.png",
+      "blobSha": "2d4464abeaa793cac3a48ed607a89ba6078199e6",
+      "bytes": 556790
+    },
+    {
+      "path": "public/assets/characters/bolt-hound/bolt-hound.json",
+      "blobSha": "21e9847381663020e5ad320d6315280a7f59e03d",
+      "bytes": 10215
+    },
+    {
+      "path": "public/assets/characters/bolt-hound/bolt-hound.png",
+      "blobSha": "b0aa33732db40f4c2871827b0a6e4301086bc80e",
+      "bytes": 3038
+    },
+    {
+      "path": "public/assets/characters/brass-boar/brass-boar.json",
+      "blobSha": "7158bb5b20466680fc389926a3677c8d8ec31311",
+      "bytes": 18213
+    },
+    {
+      "path": "public/assets/characters/brass-boar/brass-boar.png",
+      "blobSha": "e5bb42684e923c2154e2d3f974d93898ad94ff34",
+      "bytes": 3441
+    },
+    {
+      "path": "public/assets/characters/ember-cougar/ember-cougar.json",
+      "blobSha": "10abfb29d0fbdcfa4f1ac236af9e9a69bd8bcad7",
+      "bytes": 18215
+    },
+    {
+      "path": "public/assets/characters/ember-cougar/ember-cougar.png",
+      "blobSha": "3f0875003f44b72f165c9922879d1683bef815a2",
+      "bytes": 3884
+    },
+    {
+      "path": "public/assets/characters/identity/mercenary-identity-icons-atlas.json",
+      "blobSha": "d7bc635f77656e33bcaa0c2563d65a587e8d7318",
+      "bytes": 2276
+    },
+    {
+      "path": "public/assets/characters/identity/mercenary-identity-icons-atlas.png",
+      "blobSha": "cec4a0b28aac92b6a11a9966f399ab997e3c13c7",
+      "bytes": 224423
+    },
+    {
+      "path": "public/assets/characters/identity/mercenary-portraits-atlas.json",
+      "blobSha": "9f7c8c223263e4c4bb2bf23f8650ad33644a4f41",
+      "bytes": 1264
+    },
+    {
+      "path": "public/assets/characters/identity/mercenary-portraits-atlas.png",
+      "blobSha": "030722f4f93de8030eba7a47ad89e2d0e85ffceb",
+      "bytes": 321989
+    },
+    {
+      "path": "public/assets/characters/piston-ram/piston-ram.json",
+      "blobSha": "1803340e0a3f46f9b1ed8ff1360c96c509723746",
+      "bytes": 18213
+    },
+    {
+      "path": "public/assets/characters/piston-ram/piston-ram.png",
+      "blobSha": "cdbfaa7bbb80aca76f6a7e84a66412a655a8281c",
+      "bytes": 4156
+    },
+    {
+      "path": "public/assets/characters/rattle-raptor/rattle-raptor.json",
+      "blobSha": "931fdb3b8fae78201098dca3d426a2c39f2162e1",
+      "bytes": 18216
+    },
+    {
+      "path": "public/assets/characters/rattle-raptor/rattle-raptor.png",
+      "blobSha": "635f0b6a85dba241cd9c79e4d2308384912bc909",
+      "bytes": 3500
+    },
+    {
+      "path": "public/assets/characters/scrap-tabby/scrap-tabby.json",
+      "blobSha": "4f94c3dbb66deb81c42e8f5bb7b429e56e8656d3",
+      "bytes": 10216
+    },
+    {
+      "path": "public/assets/characters/scrap-tabby/scrap-tabby.png",
+      "blobSha": "c5aab899516ccc8f0b1d84022d5da1a399b4e6cd",
+      "bytes": 3098
+    },
+    {
+      "path": "public/assets/characters/scrap-weasel/scrap-weasel.json",
+      "blobSha": "f6e948da7b29ccda981d7a8b797b3d3f4f611b9c",
+      "bytes": 18215
+    },
+    {
+      "path": "public/assets/characters/scrap-weasel/scrap-weasel.png",
+      "blobSha": "7470494bf1af18ef99d0d7dd125f1e7c6c602fa7",
+      "bytes": 3643
+    },
+    {
+      "path": "public/assets/characters/volt-lynx/volt-lynx.json",
+      "blobSha": "492d57c3093befcb812a09d0449300b1687e28c6",
+      "bytes": 18212
+    },
+    {
+      "path": "public/assets/characters/volt-lynx/volt-lynx.png",
+      "blobSha": "4df4ec9de79dd3f11de89e9ca0ab9a168c36574b",
+      "bytes": 4790
+    },
+    {
+      "path": "public/assets/enemies/bastion-beetle/bastion-beetle.json",
+      "blobSha": "29a6b92ae65327cff0180e15303388699a47af2a",
+      "bytes": 4078
+    },
+    {
+      "path": "public/assets/enemies/bastion-beetle/bastion-beetle.png",
+      "blobSha": "625b6b8c96853f46ceef046d6bec04260655e433",
+      "bytes": 59722
+    },
+    {
+      "path": "public/assets/enemies/boss-crusher/boss-crusher.json",
+      "blobSha": "93d92289786d5e8d88b160a6a563d902b1b22d71",
+      "bytes": 4076
+    },
+    {
+      "path": "public/assets/enemies/boss-crusher/boss-crusher.png",
+      "blobSha": "b42fdd2afd1cc93f4bfbf1ae1bc3fff07c5e2879",
+      "bytes": 105251
+    },
+    {
+      "path": "public/assets/enemies/boss-forge/boss-forge.json",
+      "blobSha": "93b54bcf4400401dae3b6b3323633da0e516fb46",
+      "bytes": 4074
+    },
+    {
+      "path": "public/assets/enemies/boss-forge/boss-forge.png",
+      "blobSha": "1be1c6991eb3e5f48dd232f96910154ee98afed8",
+      "bytes": 111138
+    },
+    {
+      "path": "public/assets/enemies/dust-mite/dust-mite.json",
+      "blobSha": "2441f499f4bbc2addf12d1959044cecf30c1e40b",
+      "bytes": 4073
+    },
+    {
+      "path": "public/assets/enemies/dust-mite/dust-mite.png",
+      "blobSha": "2ba286c61f9050bfe86d1ec37829f9c8c15aec67",
+      "bytes": 57312
+    },
+    {
+      "path": "public/assets/enemies/enemy-portraits-atlas.json",
+      "blobSha": "04c91883c21dbe32540a3101261bf5e1c0a8a6c2",
+      "bytes": 3690
+    },
+    {
+      "path": "public/assets/enemies/enemy-portraits-atlas.png",
+      "blobSha": "3c5ee8df09cc65abc1baca2a0752b256b0975672",
+      "bytes": 608822
+    },
+    {
+      "path": "public/assets/enemies/junk-nester/junk-nester.json",
+      "blobSha": "04e4c54d48edd428a5b8dc9084c5e46f5190033d",
+      "bytes": 4075
+    },
+    {
+      "path": "public/assets/enemies/junk-nester/junk-nester.png",
+      "blobSha": "c6520f755775bcc4b2ac633eb7d518af90d05a1d",
+      "bytes": 58454
+    },
+    {
+      "path": "public/assets/enemies/junk-rusher/junk-rusher.json",
+      "blobSha": "90c48419c108a00f83389d6bf9267028cec852c8",
+      "bytes": 4075
+    },
+    {
+      "path": "public/assets/enemies/junk-rusher/junk-rusher.png",
+      "blobSha": "eb259a75baab5d7878330697bd7afb1524fa0d8e",
+      "bytes": 40422
+    },
+    {
+      "path": "public/assets/enemies/scrap-skitter/scrap-skitter.json",
+      "blobSha": "175eaa01f5b47dcf7ecd7e77b1206cd64cb590b9",
+      "bytes": 4077
+    },
+    {
+      "path": "public/assets/enemies/scrap-skitter/scrap-skitter.png",
+      "blobSha": "5946874835e17bef6a2d64eaa851f166b51feeed",
+      "bytes": 47144
+    },
+    {
+      "path": "public/assets/enemies/scrap-sniper/scrap-sniper.json",
+      "blobSha": "9ebf45486f4b21c7f0f9b3399b2c457db94eff37",
+      "bytes": 4076
+    },
+    {
+      "path": "public/assets/enemies/scrap-sniper/scrap-sniper.png",
+      "blobSha": "5612b3261839b83c86c036a6f5c503af8afdc2aa",
+      "bytes": 46984
+    },
+    {
+      "path": "public/assets/enemies/shard-bot/shard-bot.json",
+      "blobSha": "ed75f630a5bfe526994f5335c4c130b6671c513e",
+      "bytes": 4073
+    },
+    {
+      "path": "public/assets/enemies/shard-bot/shard-bot.png",
+      "blobSha": "297ee14ea3ae03e95ffff8e85707b1eb19b3d3fe",
+      "bytes": 51291
+    },
+    {
+      "path": "public/assets/enemies/trash-brute/trash-brute.json",
+      "blobSha": "70c9264cd1d1627cd23f749217e8c1769395b5ea",
+      "bytes": 4075
+    },
+    {
+      "path": "public/assets/enemies/trash-brute/trash-brute.png",
+      "blobSha": "2c18837a82dd71fb68702fff60e434647195855c",
+      "bytes": 66731
+    },
+    {
+      "path": "public/assets/equipment/commando/commando-equipment-atlas.json",
+      "blobSha": "55eb320be3cdc668ec395bb4a3329233b8a70ef0",
+      "bytes": 2531
+    },
+    {
+      "path": "public/assets/equipment/commando/commando-equipment-atlas.png",
+      "blobSha": "68d0a84f7acd33e6cdc4f3e2b533e2be14faefaf",
+      "bytes": 186629
+    },
+    {
+      "path": "public/assets/equipment/sets/equipment-sets-atlas.json",
+      "blobSha": "9ac715218a33a7fb3e2613ba0aac42b83780878f",
+      "bytes": 17034
+    },
+    {
+      "path": "public/assets/equipment/sets/equipment-sets-atlas.png",
+      "blobSha": "9adae87e0fa4c556a99dbaf8acce2dd26e83a97f",
+      "bytes": 1312562
+    },
+    {
+      "path": "public/assets/gunsmith/icons/gunsmith-icons-atlas.json",
+      "blobSha": "673ee3fa20563cf4dae13009dedbc2eb81fa73ce",
+      "bytes": 3210
+    },
+    {
+      "path": "public/assets/gunsmith/icons/gunsmith-icons-atlas.png",
+      "blobSha": "5368c73a6d99399382d7e606081afb470f843aaf",
+      "bytes": 207171
+    },
+    {
+      "path": "public/assets/gunsmith/previews/gun-build-preview-atlas.json",
+      "blobSha": "c845130bade16db64fbab47898516b02341ebc82",
+      "bytes": 1906
+    },
+    {
+      "path": "public/assets/gunsmith/previews/gun-build-preview-atlas.png",
+      "blobSha": "769fe68a786300d41c2278bd9d2eba9cc52611c0",
+      "bytes": 23474
+    },
+    {
+      "path": "public/assets/gunsmith/tiers/gunsmith-tier-assembly-atlas.json",
+      "blobSha": "df3dce08051ed39e0c9aea175b210da753a91750",
+      "bytes": 19425
+    },
+    {
+      "path": "public/assets/gunsmith/tiers/gunsmith-tier-assembly-atlas.png",
+      "blobSha": "9a2e872a274d2bcd8f08f82a33c89d280769c59b",
+      "bytes": 440272
+    },
+    {
+      "path": "public/assets/gunsmith/tiers/gunsmith-tier-icons-atlas.json",
+      "blobSha": "761d19188adb2d1751e28dd305e15fb379b025c5",
+      "bytes": 19173
+    },
+    {
+      "path": "public/assets/gunsmith/tiers/gunsmith-tier-icons-atlas.png",
+      "blobSha": "0e4f4c25166bfe5217566c6772fcf426a4ac32ec",
+      "bytes": 524280
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-pistol-t1/weapon-held-pistol-t1.json",
+      "blobSha": "a5da5e18717592a7e37963ca6193427ff0b0fdae",
+      "bytes": 553
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-pistol-t1/weapon-held-pistol-t1.png",
+      "blobSha": "216f8a03e11e93fc6b3c1d1180d9457abd150bfa",
+      "bytes": 6790
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-pistol-t2/weapon-held-pistol-t2.json",
+      "blobSha": "1ddbd0e2c555fbf45bd9ad1755844a61179a3f84",
+      "bytes": 553
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-pistol-t2/weapon-held-pistol-t2.png",
+      "blobSha": "7fe778f5f4309e796d7ec2ab677ba7449c8237d6",
+      "bytes": 9829
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-pistol-t3/weapon-held-pistol-t3.json",
+      "blobSha": "3b9341cec231bd20fa6240a7996e2174ea04b466",
+      "bytes": 553
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-pistol-t3/weapon-held-pistol-t3.png",
+      "blobSha": "0ef67bfa64d80cfec4a89eabdcf4a66b0b2bef54",
+      "bytes": 10842
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-shotgun-t1/weapon-held-shotgun-t1.json",
+      "blobSha": "32ec27ff699bf848bfc8655db35e123bd49f5989",
+      "bytes": 554
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-shotgun-t1/weapon-held-shotgun-t1.png",
+      "blobSha": "a3816e637c01ed744e07f9e2fc7518e89930de80",
+      "bytes": 6283
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-shotgun-t2/weapon-held-shotgun-t2.json",
+      "blobSha": "339ad6efae3b0ac4c9ef1f173893f21998ea6a72",
+      "bytes": 554
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-shotgun-t2/weapon-held-shotgun-t2.png",
+      "blobSha": "66e81db132eb1c387b9807bfa6c9ca4dd24e325f",
+      "bytes": 6808
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-shotgun-t3/weapon-held-shotgun-t3.json",
+      "blobSha": "1e70c71231cc9def95b2002840dfb1419a2aa6e0",
+      "bytes": 554
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-shotgun-t3/weapon-held-shotgun-t3.png",
+      "blobSha": "f132d5e8726e66f364761356e9d1fa5d4a21e155",
+      "bytes": 8890
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-smg-t1/weapon-held-smg-t1.json",
+      "blobSha": "4e450f1f25dcc8c0ef8a7cce519da62b8b35d284",
+      "bytes": 550
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-smg-t1/weapon-held-smg-t1.png",
+      "blobSha": "1041ed1a06937d8c419123bd5abf52d89743960e",
+      "bytes": 6772
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-smg-t2/weapon-held-smg-t2.json",
+      "blobSha": "c1c3602ffa66930297169b7b393defc89fe7549d",
+      "bytes": 550
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-smg-t2/weapon-held-smg-t2.png",
+      "blobSha": "ebe2c3108fd15c0007467002a569f6d1d345f342",
+      "bytes": 9287
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-smg-t3/weapon-held-smg-t3.json",
+      "blobSha": "89bc4dace71b49cd39cd10108aa21b62c6def0b5",
+      "bytes": 550
+    },
+    {
+      "path": "public/assets/held-weapons/weapon-held-smg-t3/weapon-held-smg-t3.png",
+      "blobSha": "5a5a1e470ba8f4786109ea5c0bbb4260c14967c3",
+      "bytes": 10974
+    },
+    {
+      "path": "public/assets/pickups/drop-chest/drop-chest.json",
+      "blobSha": "30ff3168a09c5c803ea1fe5b3bf586505e144fef",
+      "bytes": 1980
+    },
+    {
+      "path": "public/assets/pickups/drop-chest/drop-chest.png",
+      "blobSha": "50550b7130abfbcf1d5001904ce8e580562d623f",
+      "bytes": 259
+    },
+    {
+      "path": "public/assets/pickups/drop-scrap/drop-scrap.json",
+      "blobSha": "7c54ce22b081ca09cb904a7a2c891ef68e1bc494",
+      "bytes": 1980
+    },
+    {
+      "path": "public/assets/pickups/drop-scrap/drop-scrap.png",
+      "blobSha": "2505480cb23e5617a8378e0037b610a845e51e25",
+      "bytes": 304
+    },
+    {
+      "path": "public/assets/pickups/drop-weapon/drop-weapon.json",
+      "blobSha": "add30bfdf51c8492a23adb1f542f3ea059d73c74",
+      "bytes": 1981
+    },
+    {
+      "path": "public/assets/pickups/drop-weapon/drop-weapon.png",
+      "blobSha": "4da17e142affd4ba7d82610268fa4ffd9b19e3d5",
+      "bytes": 290
+    },
+    {
+      "path": "public/assets/pickups/xp-mote/xp-mote.json",
+      "blobSha": "00838209be0dd654fd2e1ff49ebe372e4984530b",
+      "bytes": 1977
+    },
+    {
+      "path": "public/assets/pickups/xp-mote/xp-mote.png",
+      "blobSha": "f340d858245c8f2d7618b7c3da6fb83f6a04a75c",
+      "bytes": 435
+    },
+    {
+      "path": "public/assets/projectiles/projectile-pistol/projectile-pistol.json",
+      "blobSha": "72164a7b94cf6675fdfac5a0b9abe4058690dd5b",
+      "bytes": 1614
+    },
+    {
+      "path": "public/assets/projectiles/projectile-pistol/projectile-pistol.png",
+      "blobSha": "2ee66a07e973b2069cf68ee4a6b92e630af3bc1d",
+      "bytes": 205
+    },
+    {
+      "path": "public/assets/projectiles/projectile-shotgun/projectile-shotgun.json",
+      "blobSha": "b69214f6aed89e86a114ec9edf6ae575eba7d69f",
+      "bytes": 1615
+    },
+    {
+      "path": "public/assets/projectiles/projectile-shotgun/projectile-shotgun.png",
+      "blobSha": "92f81e40d893f4c3de22cc8fd5428b23136783af",
+      "bytes": 221
+    },
+    {
+      "path": "public/assets/projectiles/projectile-smg/projectile-smg.json",
+      "blobSha": "315fd9cf56529aa907b7f164aa47dad46bd7ab43",
+      "bytes": 1611
+    },
+    {
+      "path": "public/assets/projectiles/projectile-smg/projectile-smg.png",
+      "blobSha": "e69d0344eb151531a878a37cddd1913f66c210e8",
+      "bytes": 198
+    },
+    {
+      "path": "public/assets/projectiles/scrap-shot/scrap-shot.json",
+      "blobSha": "c6bb1775af6344b0e0ada79c7c7f0216eea7ebf6",
+      "bytes": 1607
+    },
+    {
+      "path": "public/assets/projectiles/scrap-shot/scrap-shot.png",
+      "blobSha": "485574482d70c91d92bbac0342e4c44d92c387ca",
+      "bytes": 308
+    },
+    {
+      "path": "public/assets/ui/backdrops/menu-forge.json",
+      "blobSha": "136930af5bd71bb9621599f82d89d54349b52d5a",
+      "bytes": 783
+    },
+    {
+      "path": "public/assets/ui/backdrops/menu-forge.png",
+      "blobSha": "d4944e1f9cde843f89cf1df4651092a5aa92693f",
+      "bytes": 726967
+    },
+    {
+      "path": "public/assets/ui/backdrops/menu-junkyard.json",
+      "blobSha": "1e4b494371b3007b133c9807b83876ecabf62a53",
+      "bytes": 786
+    },
+    {
+      "path": "public/assets/ui/backdrops/menu-junkyard.png",
+      "blobSha": "33a9cb9e59943cbb3564a5f11a2fe1d22380041a",
+      "bytes": 665597
+    },
+    {
+      "path": "public/assets/ui/brand-art.json",
+      "blobSha": "891c8db322e73ca5d8929b9d6ea0a3455096baef",
+      "bytes": 463
+    },
+    {
+      "path": "public/assets/ui/brand-art.png",
+      "blobSha": "5d9b11267d5e862169aaba1ca785f71757fa7a82",
+      "bytes": 6344
+    },
+    {
+      "path": "public/assets/ui/brand/meowcenary-browser-icon.png",
+      "blobSha": "f28ceb0556c25f9bcd01b0a3d1e4b8c0cd3114c9",
+      "bytes": 14852
+    },
+    {
+      "path": "public/assets/ui/brand/meowcenary-emblem.json",
+      "blobSha": "0b4e15b47eadc2f4241e8e9582f71314070d9e35",
+      "bytes": 342
+    },
+    {
+      "path": "public/assets/ui/brand/meowcenary-emblem.png",
+      "blobSha": "6c5cf84637852cd5feae7746dd0f8efdb3fd5b16",
+      "bytes": 31145
+    },
+    {
+      "path": "public/assets/ui/brand/meowcenary-monochrome.json",
+      "blobSha": "f55241e1553ab12509e7ebdb183eb3dbd199dfb0",
+      "bytes": 346
+    },
+    {
+      "path": "public/assets/ui/brand/meowcenary-monochrome.png",
+      "blobSha": "1c4bfc3f1643d9d99b13ad793f709767595345c2",
+      "bytes": 41146
+    },
+    {
+      "path": "public/assets/ui/brand/meowcenary-primary-logo.json",
+      "blobSha": "46abd8c16df127a2969612f64b745030240102bc",
+      "bytes": 348
+    },
+    {
+      "path": "public/assets/ui/brand/meowcenary-primary-logo.png",
+      "blobSha": "ac3225524eb4ab56ad5ae3a3eb0f6bba4c176e7d",
+      "bytes": 56199
+    },
+    {
+      "path": "public/assets/ui/brand/meowcenary-title-lockup.json",
+      "blobSha": "0754b5d28516e4a467140e720bf88b6e05653c26",
+      "bytes": 348
+    },
+    {
+      "path": "public/assets/ui/brand/meowcenary-title-lockup.png",
+      "blobSha": "c34c4c8bcca4bd9f9e45dff76a0a39c989004b1f",
+      "bytes": 19943
+    },
+    {
+      "path": "public/assets/ui/figma/figma-menu-chrome.json",
+      "blobSha": "a41f24a091a06ee259670a620cf71b293eb1a36f",
+      "bytes": 917
+    },
+    {
+      "path": "public/assets/ui/figma/figma-menu-chrome.png",
+      "blobSha": "dae3b8bae522f76f6d9e3bd653ff7c841f4be1de",
+      "bytes": 15389
+    },
+    {
+      "path": "public/assets/ui/menu-semantic-icons-atlas.json",
+      "blobSha": "26c526473ce38e4627d96d56adcf028de479ef90",
+      "bytes": 1570
+    },
+    {
+      "path": "public/assets/ui/menu-semantic-icons-atlas.png",
+      "blobSha": "57f4e5c6b1464195dc9b8bbceea3966755bc67fe",
+      "bytes": 262007
+    },
+    {
+      "path": "public/assets/ui/navigation-icons-atlas.json",
+      "blobSha": "ffee6aa90eb8fd5d753428686daeb198e257efb1",
+      "bytes": 1563
+    },
+    {
+      "path": "public/assets/ui/navigation-icons-atlas.png",
+      "blobSha": "9ba14effebb90822af48996f8d84dab07a9cb201",
+      "bytes": 618919
+    },
+    {
+      "path": "public/assets/ui/ui-atlas.json",
+      "blobSha": "4939a33739cbf35d5aad9f3ee6fbe69aab8c0222",
+      "bytes": 8917
+    },
+    {
+      "path": "public/assets/ui/ui-atlas.png",
+      "blobSha": "5ee87d68f6f08349b6c5564a3afd3be503135281",
+      "bytes": 8249
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-extra-scrap/upgrade-icon-extra-scrap.json",
+      "blobSha": "a22e7e0885aa01fddfacc50141fa406020feaba9",
+      "bytes": 1386
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-extra-scrap/upgrade-icon-extra-scrap.png",
+      "blobSha": "f50a3c33f631803f4bd430cf55d739037a45cac8",
+      "bytes": 3719
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-fast-learner/upgrade-icon-fast-learner.json",
+      "blobSha": "1fa4c6a3f301c23acd7adca2898421a873897321",
+      "bytes": 1387
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-fast-learner/upgrade-icon-fast-learner.png",
+      "blobSha": "392a15e4b745e47703e3b65b5a9ac420c2d49c5b",
+      "bytes": 4337
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-glass-cannon/upgrade-icon-glass-cannon.json",
+      "blobSha": "e934221c6234b11bf9bc0ed9b7f60bf9df405213",
+      "bytes": 1387
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-glass-cannon/upgrade-icon-glass-cannon.png",
+      "blobSha": "a482271780a139d275bb02638962f7e483267421",
+      "bytes": 3780
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-heavy-rounds/upgrade-icon-heavy-rounds.json",
+      "blobSha": "aaed57cad98c9409ec189090bd699988280c3e8b",
+      "bytes": 1387
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-heavy-rounds/upgrade-icon-heavy-rounds.png",
+      "blobSha": "cbe0ef682f1e4e6b2fe4073e90b08c5ec1df5ea2",
+      "bytes": 3835
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-hot-barrel/upgrade-icon-hot-barrel.json",
+      "blobSha": "e949a1f1bc0976abc795a84eaf7cbe1d6c2156a2",
+      "bytes": 1385
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-hot-barrel/upgrade-icon-hot-barrel.png",
+      "blobSha": "dcb56107bb0d2378115188ea0779f3cd4070770e",
+      "bytes": 3088
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-long-barrel/upgrade-icon-long-barrel.json",
+      "blobSha": "08199509dbb30c59c62e868bf15434c257642f6c",
+      "bytes": 1386
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-long-barrel/upgrade-icon-long-barrel.png",
+      "blobSha": "3f1edd61594bbd9846c80711702ddbe4b18c307e",
+      "bytes": 2006
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-pistol-deadeye/upgrade-icon-pistol-deadeye.json",
+      "blobSha": "61141d32948cad1314e7c126b67877a1574927b0",
+      "bytes": 1389
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-pistol-deadeye/upgrade-icon-pistol-deadeye.png",
+      "blobSha": "bf3e50ec05ea0ede19105ba9b6a43e393ae27d27",
+      "bytes": 2986
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-pistol-needle-rounds/upgrade-icon-pistol-needle-rounds.json",
+      "blobSha": "711f52da624b1e0e40ef52fa98056883afb1414d",
+      "bytes": 1395
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-pistol-needle-rounds/upgrade-icon-pistol-needle-rounds.png",
+      "blobSha": "c6f2ab578540e9f96336b8c96598ca095ce4bd56",
+      "bytes": 3363
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-punch-through/upgrade-icon-punch-through.json",
+      "blobSha": "3cfc6fdc2922b92c9f5059b608ab9f2270f55ba3",
+      "bytes": 1388
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-punch-through/upgrade-icon-punch-through.png",
+      "blobSha": "7aee67f5d471f6a482ce9c86c66d7b3f5a2f5abc",
+      "bytes": 3619
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-quick-paws/upgrade-icon-quick-paws.json",
+      "blobSha": "432d8ff8be66c93d10ff5c8723c409fbfd8e08b6",
+      "bytes": 1385
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-quick-paws/upgrade-icon-quick-paws.png",
+      "blobSha": "01cd7d2c3e89377ffc45a19f20e30eb8e87807e0",
+      "bytes": 3059
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-reinforced-coat/upgrade-icon-reinforced-coat.json",
+      "blobSha": "8ecc84948867f77989251fb80b473d16cf6ebb67",
+      "bytes": 1390
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-reinforced-coat/upgrade-icon-reinforced-coat.png",
+      "blobSha": "aa22c2b6d0d0f90076c168ec83d1de6da13a0ee2",
+      "bytes": 3448
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-run-and-gun/upgrade-icon-run-and-gun.json",
+      "blobSha": "0671c047a2d68fe063fc6ee5c48ca71f20736e43",
+      "bytes": 1386
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-run-and-gun/upgrade-icon-run-and-gun.png",
+      "blobSha": "fa32350eb6e12856043e1c2bade17b1bfba76c48",
+      "bytes": 2894
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-scrap-magnet/upgrade-icon-scrap-magnet.json",
+      "blobSha": "8ccf342e76bf6be50780ac7ac28e603ec82039a2",
+      "bytes": 1387
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-scrap-magnet/upgrade-icon-scrap-magnet.png",
+      "blobSha": "551df03846aa22813a3d5d504df70f47909b625a",
+      "bytes": 3387
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-shotgun-breacher/upgrade-icon-shotgun-breacher.json",
+      "blobSha": "5a05c523d0d11ee28fa7c4857ceb81ab9d0f2d15",
+      "bytes": 1391
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-shotgun-breacher/upgrade-icon-shotgun-breacher.png",
+      "blobSha": "69e71141976cef6de4f3f2fd1449113b90ba4ce3",
+      "bytes": 4310
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-shotgun-buckshot/upgrade-icon-shotgun-buckshot.json",
+      "blobSha": "83d3d8120f2c0a83222f6b4b0f7c81a1a8bf122d",
+      "bytes": 1391
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-shotgun-buckshot/upgrade-icon-shotgun-buckshot.png",
+      "blobSha": "9f10b40aa12453507c61e86a13952a32b4617b7b",
+      "bytes": 3036
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-smg-overclock/upgrade-icon-smg-overclock.json",
+      "blobSha": "d57ccc5bc9d4df905ecd12e331132dfb09b96bf2",
+      "bytes": 1388
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-smg-overclock/upgrade-icon-smg-overclock.png",
+      "blobSha": "841c94ea2416bbee1b8455ef3898f4eb3e4e3c21",
+      "bytes": 3750
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-smg-spray/upgrade-icon-smg-spray.json",
+      "blobSha": "a7dbe7a19f4c35eb7442609779781a0f8eb222dd",
+      "bytes": 1384
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-smg-spray/upgrade-icon-smg-spray.png",
+      "blobSha": "ba430376024dd475c95143c170a510658b51d2a7",
+      "bytes": 3262
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-split-shot/upgrade-icon-split-shot.json",
+      "blobSha": "917c14444c8584c11b0fe79ac79ec6bf21d5dba1",
+      "bytes": 1385
+    },
+    {
+      "path": "public/assets/upgrade-icons/upgrade-icon-split-shot/upgrade-icon-split-shot.png",
+      "blobSha": "2e4d13e4ee5c80cb0a34e64556a6c79817d5404f",
+      "bytes": 3044
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-pistol-t1/weapon-icon-pistol-t1.json",
+      "blobSha": "27cd3658a2b8db3c8729f7f4742a95491d2aa6df",
+      "bytes": 553
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-pistol-t1/weapon-icon-pistol-t1.png",
+      "blobSha": "216f8a03e11e93fc6b3c1d1180d9457abd150bfa",
+      "bytes": 6790
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-pistol-t2/weapon-icon-pistol-t2.json",
+      "blobSha": "69164ceeef26371529f3465d496052e23de06321",
+      "bytes": 553
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-pistol-t2/weapon-icon-pistol-t2.png",
+      "blobSha": "7fe778f5f4309e796d7ec2ab677ba7449c8237d6",
+      "bytes": 9829
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-pistol-t3/weapon-icon-pistol-t3.json",
+      "blobSha": "a744831c3901facca43f1179fb139e7e902a1b91",
+      "bytes": 553
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-pistol-t3/weapon-icon-pistol-t3.png",
+      "blobSha": "0ef67bfa64d80cfec4a89eabdcf4a66b0b2bef54",
+      "bytes": 10842
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-shotgun-t1/weapon-icon-shotgun-t1.json",
+      "blobSha": "48819bdbcd6d9c1d72d8be746261573b4cdb3927",
+      "bytes": 554
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-shotgun-t1/weapon-icon-shotgun-t1.png",
+      "blobSha": "a3816e637c01ed744e07f9e2fc7518e89930de80",
+      "bytes": 6283
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-shotgun-t2/weapon-icon-shotgun-t2.json",
+      "blobSha": "523a767a9865bdda7a15a6fad69f14be1a8e6606",
+      "bytes": 554
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-shotgun-t2/weapon-icon-shotgun-t2.png",
+      "blobSha": "66e81db132eb1c387b9807bfa6c9ca4dd24e325f",
+      "bytes": 6808
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-shotgun-t3/weapon-icon-shotgun-t3.json",
+      "blobSha": "9d2ed1af16bbf1dab3a481b0aba5212d84a72b81",
+      "bytes": 554
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-shotgun-t3/weapon-icon-shotgun-t3.png",
+      "blobSha": "f132d5e8726e66f364761356e9d1fa5d4a21e155",
+      "bytes": 8890
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-smg-t1/weapon-icon-smg-t1.json",
+      "blobSha": "174704a1230c9fb1cbf94dda99571aa4a8d8fdef",
+      "bytes": 550
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-smg-t1/weapon-icon-smg-t1.png",
+      "blobSha": "1041ed1a06937d8c419123bd5abf52d89743960e",
+      "bytes": 6772
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-smg-t2/weapon-icon-smg-t2.json",
+      "blobSha": "f0ab71b067b1a47122a400680411803af0f19bf0",
+      "bytes": 550
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-smg-t2/weapon-icon-smg-t2.png",
+      "blobSha": "ebe2c3108fd15c0007467002a569f6d1d345f342",
+      "bytes": 9287
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-smg-t3/weapon-icon-smg-t3.json",
+      "blobSha": "14895edc08e9b214d3b5fc4b5e83fc3575144ee9",
+      "bytes": 550
+    },
+    {
+      "path": "public/assets/weapon-icons/weapon-icon-smg-t3/weapon-icon-smg-t3.png",
+      "blobSha": "5a5a1e470ba8f4786109ea5c0bbb4260c14967c3",
+      "bytes": 10974
+    },
+    {
+      "path": "public/assets/world/forge/forge-world-atlas.json",
+      "blobSha": "e03faee4b06e6b12ce06743e39d1ff0e0d647c38",
+      "bytes": 3081
+    },
+    {
+      "path": "public/assets/world/forge/forge-world-atlas.png",
+      "blobSha": "2e99ee41876284ce4821a8f74179bf4e6001ebfa",
+      "bytes": 2862
+    },
+    {
+      "path": "public/assets/world/junkyard-boundary-corner/junkyard-boundary-corner.json",
+      "blobSha": "18edcf9383c9137353a94a747c1715e1284f2c55",
+      "bytes": 574
+    },
+    {
+      "path": "public/assets/world/junkyard-boundary-corner/junkyard-boundary-corner.png",
+      "blobSha": "06ddc423ccf109d4fc5458186601d1d1e2168a61",
+      "bytes": 7049
+    },
+    {
+      "path": "public/assets/world/junkyard-boundary-gate/junkyard-boundary-gate.json",
+      "blobSha": "89da16e6443a7148b8d812f45ab4687a0dbbf88f",
+      "bytes": 572
+    },
+    {
+      "path": "public/assets/world/junkyard-boundary-gate/junkyard-boundary-gate.png",
+      "blobSha": "0ce1f5aac41375d856fd1bcf43bf23296ce05cf2",
+      "bytes": 6556
+    },
+    {
+      "path": "public/assets/world/junkyard-boundary-patch/junkyard-boundary-patch.json",
+      "blobSha": "0e2a9e6708670ce3cb00a067df64fef61347c872",
+      "bytes": 573
+    },
+    {
+      "path": "public/assets/world/junkyard-boundary-patch/junkyard-boundary-patch.png",
+      "blobSha": "9b29011f4e0b5f0bd15fb87a53cf8228c5f39b81",
+      "bytes": 6447
+    },
+    {
+      "path": "public/assets/world/junkyard-boundary-straight/junkyard-boundary-straight.json",
+      "blobSha": "0661f8e7ce86d67f7839839dc09bcca5f7a9bebc",
+      "bytes": 576
+    },
+    {
+      "path": "public/assets/world/junkyard-boundary-straight/junkyard-boundary-straight.png",
+      "blobSha": "f604501583f2398e7cb3a4b2615512554d930338",
+      "bytes": 6127
+    },
+    {
+      "path": "public/assets/world/junkyard-floor-base/junkyard-floor-base.json",
+      "blobSha": "f9c36b3e63a0b16af1adfe9b207a6e56c3c1bb48",
+      "bytes": 569
+    },
+    {
+      "path": "public/assets/world/junkyard-floor-base/junkyard-floor-base.png",
+      "blobSha": "5620a71b7379909592338e1958455cda3fa80339",
+      "bytes": 2373
+    },
+    {
+      "path": "public/assets/world/junkyard-floor-patch-a/junkyard-floor-patch-a.json",
+      "blobSha": "38349bfd4dba98f951deee71758dae15ab56e51a",
+      "bytes": 572
+    },
+    {
+      "path": "public/assets/world/junkyard-floor-patch-a/junkyard-floor-patch-a.png",
+      "blobSha": "b531c5773ccc157a9549d62b85b981f9addd85e1",
+      "bytes": 2159
+    },
+    {
+      "path": "public/assets/world/junkyard-floor-patch-b/junkyard-floor-patch-b.json",
+      "blobSha": "39fb8d66a827c7f7e448c4dbe4b6d522540562be",
+      "bytes": 572
+    },
+    {
+      "path": "public/assets/world/junkyard-floor-patch-b/junkyard-floor-patch-b.png",
+      "blobSha": "42b77d4921de5f347fdafb05f60492d8d9aa8dcc",
+      "bytes": 3028
+    },
+    {
+      "path": "public/assets/world/landmark-barrel-power-stack/landmark-barrel-power-stack.json",
+      "blobSha": "7caee8d38414fcc46b196d409d044ac7ade7dbd0",
+      "bytes": 579
+    },
+    {
+      "path": "public/assets/world/landmark-barrel-power-stack/landmark-barrel-power-stack.png",
+      "blobSha": "3fe3a6a9841689792eceb0d0228b99df06b879e3",
+      "bytes": 25720
+    },
+    {
+      "path": "public/assets/world/landmark-hanging-press/landmark-hanging-press.json",
+      "blobSha": "5dfc9d703f2b07a88148890efaf35a1737a7f265",
+      "bytes": 574
+    },
+    {
+      "path": "public/assets/world/landmark-hanging-press/landmark-hanging-press.png",
+      "blobSha": "af79972ca18841f2670bccfb5f4745765071da85",
+      "bytes": 22041
+    },
+    {
+      "path": "public/assets/world/prop-crate/prop-crate.json",
+      "blobSha": "f7a0f403c43819d9057c047bc04f18ea6bab15db",
+      "bytes": 560
+    },
+    {
+      "path": "public/assets/world/prop-crate/prop-crate.png",
+      "blobSha": "59edc562f98f0e39b60cb643abdd193233d88c05",
+      "bytes": 10502
+    },
+    {
+      "path": "public/assets/world/prop-engine-block/prop-engine-block.json",
+      "blobSha": "7fc85c2074023ca94c4f35cde32cdf2192d96b61",
+      "bytes": 567
+    },
+    {
+      "path": "public/assets/world/prop-engine-block/prop-engine-block.png",
+      "blobSha": "edcda7f115e0cbca2534a98717412cd8388c36f0",
+      "bytes": 13681
+    },
+    {
+      "path": "public/assets/world/prop-oil-stain/prop-oil-stain.json",
+      "blobSha": "a1ac73e55b6ebd57120051ce25fc3a181d4e29a1",
+      "bytes": 564
+    },
+    {
+      "path": "public/assets/world/prop-oil-stain/prop-oil-stain.png",
+      "blobSha": "141f38d5a02e2721f0a2e025ae03b650371e9dc0",
+      "bytes": 10336
+    },
+    {
+      "path": "public/assets/world/prop-scrap-heap/prop-scrap-heap.json",
+      "blobSha": "868fe6074fb2cafdaed733fd10b6cb313aca365b",
+      "bytes": 565
+    },
+    {
+      "path": "public/assets/world/prop-scrap-heap/prop-scrap-heap.png",
+      "blobSha": "7515c845c8840ca5592631d74accaf5e5f7bc8fe",
+      "bytes": 17353
+    },
+    {
+      "path": "public/assets/world/prop-tyre-pile/prop-tyre-pile.json",
+      "blobSha": "0de4600e9626de9437c23d4de401e698d38daa2d",
+      "bytes": 564
+    },
+    {
+      "path": "public/assets/world/prop-tyre-pile/prop-tyre-pile.png",
+      "blobSha": "e3c3555b47279f6888cb1bddb2ff2577dfabdd72",
+      "bytes": 12136
+    },
+    {
+      "path": "public/assets/world/prop-warning-sign/prop-warning-sign.json",
+      "blobSha": "d3392b0924cfc6f07f83524de6ddd3ae100050b7",
+      "bytes": 567
+    },
+    {
+      "path": "public/assets/world/prop-warning-sign/prop-warning-sign.png",
+      "blobSha": "abe3fea533b15bf29ef0463e5232a39e086d841b",
+      "bytes": 13050
+    }
+  ]
+}

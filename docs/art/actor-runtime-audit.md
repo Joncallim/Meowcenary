@@ -1,5 +1,14 @@
 # Alpha 3 actor runtime audit
 
+> **Historical implemented-runtime baseline.** This audit preserves the old
+> eight-character cast, ten enemy roles, native 48×48/64×64 contracts, source
+> hashes and diagnostic evidence. It is not current roster or art authority.
+> Current design review is the canonical design brief plus Figma
+> `tShp811r5SMBLbcNhbGZ4y`, hero frame `66:4`, page `66:2`: six approved heroes
+> including Sable Skink, with 30 enemy roles and six regions still design scope.
+> The 24 machine concepts are approved concept direction; the latest six organic
+> redesign proposals are not final production art.
+
 This audit records the actor remediation baseline for issue #191. The source
 contract is 48×48 with 16 clips for mercenaries and ordinary enemies, and 64×64
 with 16 clips for bosses. Runtime display sizes remain data-owned.
@@ -20,10 +29,10 @@ enlarging tiny gameplay frames in menus while keeping actor frame geometry,
 anchors, collision, and logical display sizes unchanged.
 
 The table records source/export conformance, not product-owner visual approval.
-Mercenary runtime sheets remain **CANDIDATE**. The canonical roster direction
-is Figma `LHpXaKqFKksfF2uismDws5` nodes `91:2` / `92:2`, and Volt Lynx is
-`113:2`; native pixel masters and screenshot baselines cannot supersede those
-references. See the dated [crop repair](../implementation/mercenary-sprite-crop-2026-10-08.md)
+Mercenary runtime sheets remain **CANDIDATE**. The former roster direction was
+Figma `LHpXaKqFKksfF2uismDws5` nodes `91:2` / `92:2`, with Volt Lynx at
+`113:2`; those references are historical and native pixel masters and screenshot
+baselines cannot supersede the current design review. See the dated [crop repair](../implementation/mercenary-sprite-crop-2026-10-08.md)
 for the next evidence-led correction.
 
 The visual review target is the canonical 390×844 viewport at actual logical

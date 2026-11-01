@@ -1,5 +1,10 @@
 # Epic 16 Concept Generation Record
 
+> **ARCHIVE — PROVENANCE ONLY.** This prompt record describes the historical
+> Junkyard/Golden Run implementation baseline. It is not current visual
+> authority, does not define the six proposed regions or 30 proposed enemy
+> roles, and does not approve generated pixels for production or devices.
+
 The visual identity production board in this directory was generated with
 Codex's built-in image generation tool. It is an art-direction reference only:
 it is not a runtime sprite, a Pixelorama source, a sprite sheet, or a tracing
@@ -58,8 +63,8 @@ at Meowcenary's 390x844 phone canvas over decorative detail.
 
 ## Selection record
 
-The selected board is
-[`visual-identity-production-board.png`](visual-identity-production-board.png).
+The historical selected board was retired by PR263; its exact former blob is
+recoverable from `docs/art/reset-2026-10-23/retired-assets.json`.
 It was selected because it provides one consistent silhouette and palette
 system across all missing Golden Run categories while preserving the existing
 actor direction. In particular:

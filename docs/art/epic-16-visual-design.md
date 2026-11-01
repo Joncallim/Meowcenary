@@ -1,16 +1,21 @@
 # Epic 16 Visual Identity Production Packet
 
-**Status:** selected art direction for Issue #75; production exports are not
-part of this architecture baseline.
+**Status:** historical selected art direction for Issue #75; production exports
+are not part of this architecture baseline and this packet is not current visual
+authority.
 
 This packet translates the Epic 16 concept board into concrete production
 rules. The runtime and data contract lives in
 [`../architecture/epic-16-visual-identity-and-junkyard-world.md`](../architecture/epic-16-visual-identity-and-junkyard-world.md).
 The existing [visual style guide](style-guide.md),
 [originality guardrails](originality.md), and Epic 13 actor packet remain
-authoritative.
+technical references for this legacy packet. Current design authority is the
+canonical design brief and current Figma review. The Junkyard Lot and old
+right-facing 48px/three-family matrix remain implemented-baseline references;
+they do not approve the current six-hero, 30-role or six-region direction.
 
-![Epic 16 visual identity production board](concepts/epic-16/visual-identity-production-board.png)
+> Historical Epic 16 visual identity board retired by PR263; provenance is
+> retained in the recovery manifest and generation record.
 
 The board is a concept reference, not a sprite sheet or source asset. The
 generation record is retained in
@@ -36,7 +41,7 @@ generation record is retained in
 
 | Category | Source frame | Runtime display | Required production set |
 | --- | ---: | ---: | --- |
-| Existing character/enemy actors | 48x48 | 28x28 character; 26x26 enemy | Reuse the five Epic 13 sheets after a phone-scale audit; expose their existing `hurt` and `defeat` frames. |
+| Existing character/enemy actors | 48x48 | 28x28 character; 26x26 enemy | Historical baseline: reuse the five Epic 13 sheets after a phone-scale audit; expose their existing `hurt` and `defeat` frames. |
 | Rack weapon icon | 24x24 | 20x20 | Pistol, SMG, shotgun at T1/T2/T3: nine static frames. |
 | Held weapon | 32x20 | max 24x15 | Pistol, SMG, shotgun at T1/T2/T3: nine stable-anchor static frames. |
 | Projectile | 16x16 | 8x8 pistol/SMG; 10x10 shotgun cluster | One two-frame `fly` sheet per family. |
@@ -105,7 +110,7 @@ The blocked full-rack weapon crate keeps the same art while stationary. Any
 blocked/readiness feedback belongs to runtime presentation and Epic 17, not a
 second pickup sprite.
 
-## 5. Junkyard Lot composition
+## 5. Historical Junkyard Lot composition
 
 The production arena is a navigable lot, not a uniform carpet of detail.
 

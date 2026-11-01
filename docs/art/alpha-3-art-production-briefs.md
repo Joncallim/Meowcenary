@@ -1,14 +1,33 @@
 # Alpha 3 Art Production Briefs
 
-**Status:** reviewed production plan for Issue #167. Planning only; runtime rules remain authoritative.
+**Status:** historical RC1/Alpha 3 production plan for Issue #167. Planning
+only; runtime rules remain authoritative. The exact IDs, counts and family
+descriptions below document the implemented older baseline, not current design
+authority or production approval.
 
 **Baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
 **Authoring contract:** this document is used with `docs/architecture/content-authoring-templates.md` and `docs/architecture/content-authoring-template-coverage.md`. Future content instantiates the same family templates rather than adding one-off art rules.
 
-This packet inventories the player-facing art required by the current Alpha 3 game and freezes implementation-ready briefs for every current logical asset/family. It extends the existing art standards in `docs/art/`; those standards remain authoritative for export, source, originality and validation mechanics.
+This packet inventories the player-facing art required by the historical Alpha 3
+baseline and records implementation-ready briefs for its logical asset/families.
+It extends the existing art standards in `docs/art/`; those standards remain
+authoritative for export, source, originality and validation mechanics.
 
 If a brief and live gameplay/data disagree, the current repository catalog wins. The brief must be corrected; art production must never invent a replacement content item to make the document internally consistent.
+
+## Current authority boundary
+
+This packet is retained for provenance, technical contracts and diagnostic
+evidence. The implemented baseline it describes is the older eight-character
+cast, ten enemy roles and Junkyard/Forge world presentation. Current design
+review is separate: six approved heroes (including Sable Skink, not obsolete
+Viper), 30 proposed enemy roles and six proposed regions. The 24 machine
+concepts are approved concept direction; the latest six organic redesign
+proposals are not final production art. Expanded environment records are
+specifications, not runtime assets. Old Direction B Weasel/Raptor/Ram studies
+and right-facing 48px art remain historical references; preserve their hashes
+and technical format requirements without treating them as current authority.
 
 ---
 
@@ -80,9 +99,9 @@ Concept-board pixels are never copied directly into a runtime sheet. Builder, `.
 
 ---
 
-# 2. Authoritative current inventory
+# 2. Historical implemented inventory
 
-The reviewed `visual-art.json` baseline has **77 current logical runtime bindings**:
+The reviewed `visual-art.json` baseline has **77 implemented legacy logical runtime bindings**:
 
 - 8 character actor sheets;
 - 10 enemy/boss actor sheets;
@@ -99,7 +118,7 @@ Reuse semantic art when the object is genuinely the same. Do not duplicate an XP
 
 ---
 
-# 3. Playable mercenaries — 8 actor sheets + 8 portraits
+# 3. Historical playable mercenaries — 8 actor sheets + 8 portraits
 
 Every character gets one gameplay actor sheet and one select/Compendium-quality portrait. The portrait magnifies the same design; it does not become a parallel costume.
 
@@ -216,7 +235,7 @@ If any pair cannot be named without palette/detail, revise both before productio
 
 ---
 
-# 4. Active ability icons — 8
+# 4. Historical active ability icons — 8
 
 One 24×24 family: dark outline, compact workshop-metal badge backing, one dominant symbol, at most one effect accent. Must survive grayscale.
 
@@ -231,7 +250,7 @@ One 24×24 family: dark outline, compact workshop-metal badge backing, one domin
 
 ---
 
-# 5. Passive icons — 8
+# 5. Historical passive icons — 8
 
 Use a quieter square/hex passive frame than active abilities.
 
@@ -290,7 +309,7 @@ No stars, Roman numerals or recolours as primary tier cues.
 
 ---
 
-# 7. Run upgrade cards — exact current 18 icons
+# 7. Historical run upgrade cards — exact baseline 18 icons
 
 Use 24×24 one-object compositions. No letters/numbers. The list below is keyed to the authoritative `upgrades.json` catalog.
 
@@ -328,7 +347,7 @@ Any pair requiring label text to distinguish fails.
 
 ---
 
-# 8. Gunsmith — exact current 12 parts + 8 slot glyphs + 3 trait emblems
+# 8. Historical Gunsmith baseline — 12 parts + 8 slot glyphs + 3 trait emblems
 
 Current part presentation borrows upgrade icons. Final Gunsmith art uses dedicated physical-component icons keyed to the authoritative `gun-parts.json` stable IDs.
 
@@ -464,7 +483,7 @@ A 4×8 black-silhouette contact sheet must preserve slot columns and set-family 
 
 ---
 
-# 10. Achievements — exact current 10 badges + hidden treatment
+# 10. Historical achievements — baseline 10 badges + hidden treatment
 
 Use one 32×32 junkyard medal/patch frame. The central silhouette is unique; progress/rarity color is secondary. The list is keyed exactly to `achievements.json`.
 
@@ -483,7 +502,7 @@ Use one 32×32 junkyard medal/patch frame. The central silhouette is unique; pro
 
 ---
 
-# 11. Enemies and bosses — 10 actor sheets
+# 11. Historical enemies and bosses — 10 actor sheets
 
 Threat behavior must be readable before fine detail. Ordinary current expanded 313×313 actor exports are replacement targets, not the new source standard.
 
@@ -556,7 +575,7 @@ Review all four together over darkest/busiest arena backgrounds and in grayscale
 
 ---
 
-# 13. World — exact current 15 assets
+# 13. Historical world baseline — 15 assets
 
 World art remains quieter/darker than actors and pickups. Decoration cannot imply collision where none exists.
 
@@ -608,7 +627,7 @@ Locked/cleared/selected states are reusable overlays, not separate paintings.
 
 ---
 
-# 15. Legacy permanent/meta progression — current 4 icons
+# 15. Legacy permanent/meta progression — historical 4 icons
 
 These remain required only while #165 retains the Progression surface.
 
@@ -725,7 +744,10 @@ Runtime overlays resolved key/button labels.
 
 # 20. Compendium art reuse
 
-The Monster Compendium under #168 defaults to the **same approved enemy/boss actor sheets** from §11, rendered at crisp integer scale with real idle animation. It does not create a parallel monster-portrait pipeline by default.
+The Monster Compendium under #168 defaults to the **same historical baseline
+enemy/boss actor sheets** from §11, rendered at crisp integer scale with real
+idle animation. It does not create a parallel monster-portrait pipeline by
+default.
 
 Dedicated monster portraits may be commissioned only if the enlarged production sprite is materially insufficient in the final layout. Any portrait remains keyed to the same enemy ID and uses the full source/builder/validation pipeline.
 
@@ -769,7 +791,7 @@ Editable sources live under `assets-src/`; runtime exports under `public/assets/
 
 # 22. Production order
 
-1. Render every current manifest binding and classify `approved`, `polish`, `placeholder/duplicate`, `missing`.
+1. Render every implemented-baseline manifest binding and classify `approved`, `polish`, `placeholder/duplicate`, `missing`.
 2. Build roster silhouette board: 8 characters + 8 ordinary enemies + 2 bosses at runtime size.
 3. Replace placeholder/duplicate/313px-expanded actors.
 4. Confirm weapons/projectiles/pickups against new actor readability.
@@ -803,7 +825,7 @@ Extend generic validation; do not add one script per content ID. Before #167 clo
 - orphaned final exports/sources;
 - bundle omissions;
 - concept/reference images accidentally wired as runtime assets;
-- exact catalog coverage for the current 18 upgrades, 12 Gunsmith parts, 32 equipment pieces and 10 achievements;
+- exact catalog coverage for the historical baseline 18 upgrades, 12 Gunsmith parts, 32 equipment pieces and 10 achievements;
 - synthetic N+1 presentation references resolving through the same path as current content.
 
 Run the current full validation gate after integration: lint, tests, art validation, content validation and build.
@@ -878,4 +900,8 @@ Resolved at planning level:
 - synthetic N+1 validation is required;
 - equipment-set provider-piece/source-ID debts are recorded as runtime authoring blockers rather than copied into future templates.
 
-**Closure condition:** no art-production implementation should start from an older draft of §§7, 8 or 10. This document is the corrected catalog-aligned authority. Any future content addition must update both its source catalog and the template/coverage gates in the same change.
+**Historical closure condition:** no baseline art-production implementation
+should start from an older draft of §§7, 8 or 10. This document is the
+corrected catalog-aligned record for that baseline, not current design authority.
+Any future content addition must update both its source catalog and the
+template/coverage gates in the same change.
