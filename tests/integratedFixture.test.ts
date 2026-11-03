@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   INTEGRATED_FIXTURE_ENVELOPE,
   INTEGRATED_FIXTURE_JOBS,
+  INTEGRATED_FIXTURE_POINTS,
   INTEGRATED_FIXTURE_SURFACES,
   operationCanSettle,
   isFixtureTerrainPositionWalkable,
   moveFixtureTerrainPosition,
+  nearestFixturePoint,
   fixturePositionsShareLayer,
   selectHumanAutoTarget,
   validateIntegratedFixture,
@@ -33,6 +35,16 @@ import {
 } from '../src/gameplay/integratedFixture';
 
 describe('INT-FB integrated browser-slice fixture', () => {
+  it('selects the nearest same-layer marker within the preserved interaction radius, with stable ties', () => {
+    const service = INTEGRATED_FIXTURE_POINTS.find(point => point.id === 'INT-FB-SERVICE-01')!;
+    const offer = INTEGRATED_FIXTURE_POINTS.find(point => point.id === 'INT-FB-OFFER-01')!;
+    expect(nearestFixturePoint([service, offer], { x: 12.8, z: 8, layer: 'ground' }, 3.8)?.id).toBe(offer.id);
+    expect(nearestFixturePoint([service, offer], { x: 8, z: 8, layer: 'ground' }, 3.8)?.id).toBe(service.id);
+    expect(nearestFixturePoint([service, offer], { x: 10.5, z: 8, layer: 'ground' }, 3.8)?.id).toBe(service.id);
+    expect(nearestFixturePoint([service, offer], { x: 13, z: 8, layer: 'elevated' }, 3.8)).toBeUndefined();
+    expect(nearestFixturePoint([service, offer], { x: 16.8, z: 8, layer: 'ground' }, 3.8)).toBeUndefined();
+    expect(nearestFixturePoint([service, offer], { x: 16.81, z: 8, layer: 'ground' }, 3.8)).toBeUndefined();
+  });
   it('persists a versioned activation replay record while legacy receipts remain recordless', () => {
     const combat = new IntegratedFixtureCombat(createIntegratedFixtureWorkshopProfile()); combat.beginJob('MC-OPT-F01-01');
   const record = { version: 'int-fb-replay-v1' as const, contentId: 'fixture:MC-OPT-F01-01:v1', storyBranch: 'MC-OPT-F01-01', startSnapshot: combat.snapshot('tabby'), loadout: createIntegratedFixtureWorkshopProfile() };
